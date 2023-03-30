@@ -1,0 +1,21 @@
+FROM registry.ci.openshift.org/openshift/release:golang-1.18 as builder
+
+COPY go.mod go.mod
+COPY go.sum go.sum
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOFLAGS="" GO111MODULE=on go build -o /openshift-appliance main.go
+
+FROM quay.io/centos/centos:stream8
+
+# Install and config libguestfs
+RUN dnf -y install libguestfs-tools
+ENV LIBGUESTFS_BACKEND=direct
+
+COPY --from=quay.io/openshift/origin-cli:latest /usr/bin/oc /usr/bin/kubectl /usr/bin/
+COPY --from=builder /openshift-appliance /openshift-appliance
+
+COPY tools/guest-build.sh /usr/bin/
+#CMD ["/usr/bin/guestfish", "-f", "/usr/bin/guest-build.sh"]
+
+CMD ["/openshift-appliance"]
