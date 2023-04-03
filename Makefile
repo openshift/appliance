@@ -8,8 +8,14 @@ COVER_PROFILE := $(or ${COVER_PROFILE},$(REPORTS)/unit_coverage.out)
 
 CONTAINER_COMMAND := $(shell hack/utils.sh get_container_runtime_command)
 
+.PHONY: build
+
 build:
 	$(CONTAINER_COMMAND) build -f Dockerfile.openshift-appliance . -t $(IMAGE)
+
+build-appliance:
+	mkdir -p build
+	cd ./cmd && CGO_ENABLED=0 GOFLAGS="" GO111MODULE=on go build -o ../build/openshift-appliance
 
 build-openshift-ci-test-bin:
 	./hack/setup_env.sh
@@ -41,7 +47,7 @@ format:
 
 run: 
 	$(CONTAINER_COMMAND) run --rm \
-		-v $(PWD)/data:/data:Z \
+		-v $(PWD)/assets:/assets:Z \
 		$(IMAGE)
 
 all: lint test build run

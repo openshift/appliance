@@ -4,7 +4,7 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOFLAGS="" GO111MODULE=on go build -o /openshift-appliance main.go
+RUN cd cmd && CGO_ENABLED=0 GOFLAGS="" GO111MODULE=on go build -o /build/openshift-appliance
 
 FROM quay.io/centos/centos:stream8
 
@@ -13,9 +13,12 @@ RUN dnf -y install libguestfs-tools
 ENV LIBGUESTFS_BACKEND=direct
 
 COPY --from=quay.io/openshift/origin-cli:latest /usr/bin/oc /usr/bin/kubectl /usr/bin/
-COPY --from=builder /openshift-appliance /openshift-appliance
+COPY --from=builder /build/openshift-appliance /openshift-appliance
+
+ARG ASSETS_DIR=/assets
+RUN mkdir $ASSETS_DIR && chmod 775 $ASSETS_DIR
+VOLUME $ASSETS_DIR
+ENV ASSETS_DIR=$ASSETS_DIR
 
 COPY tools/guest-build.sh /usr/bin/
-#CMD ["/usr/bin/guestfish", "-f", "/usr/bin/guest-build.sh"]
-
 CMD ["/openshift-appliance"]
