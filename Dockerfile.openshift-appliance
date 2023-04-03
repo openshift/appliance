@@ -21,4 +21,5 @@ VOLUME $ASSETS_DIR
 ENV ASSETS_DIR=$ASSETS_DIR
 
 COPY tools/guest-build.sh /usr/bin/
-CMD ["/openshift-appliance"]
+
+ENTRYPOINT ["/openshift-appliance"]
