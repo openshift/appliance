@@ -20,6 +20,4 @@ RUN mkdir $ASSETS_DIR && chmod 775 $ASSETS_DIR
 VOLUME $ASSETS_DIR
 ENV ASSETS_DIR=$ASSETS_DIR
 
-COPY tools/guest-build.sh /usr/bin/
-
 ENTRYPOINT ["/openshift-appliance"]

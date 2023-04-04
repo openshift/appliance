@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
@@ -28,12 +29,18 @@ func (i *BaseISO) Name() string {
 
 // Dependencies returns dependencies used by the asset.
 func (i *BaseISO) Dependencies() []asset.Asset {
-	return []asset.Asset{}
+	return []asset.Asset{
+		&config.ApplianceConfig{},
+	}
 }
 
 // Generate the baseIso
 func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	logrus.Info("Downloading CoreOS ISO...")
+
+	configAsset := &config.ApplianceConfig{}
+	dependencies.Get(configAsset)
+	logrus.Debug("Release image: ", configAsset.Config.OcpReleaseImage)
 
 	return nil
 }
