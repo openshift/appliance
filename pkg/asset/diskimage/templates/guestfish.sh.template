@@ -1,0 +1,32 @@
+#!/usr/bin/guestfish -f
+
+sparse {{.ApplianceFileName}} {{.DiskSize}}G
+add-ro {{.CoreOSImage}}
+add-ro agent.recovery.iso
+run
+
+# Copy CoreOS to appliance diskimage
+copy-device-to-device /dev/sdb /dev/sda
+
+# Delete root (partition is redundant as we boot from recovery)
+part-del /dev/sda 4
+
+# Move backup GPT data structures to the end of the disk
+part-expand-gpt /dev/sda
+
+# Create recovery partition
+part-add /dev/sda p {{.StartSector}} {{.EndSector}}
+
+# Copy agent recovery ISO to recovery partition
+copy-device-to-device /dev/sdc /dev/sda4
+
+# Set partition label
+part-set-name /dev/sda 4 {{.RecoveryPartitionName}}
+
+# Set partition as Linux reserved partition
+part-set-gpt-type /dev/sda 4 {{.ReservedPartitionGUID}}
+
+# Handle GRUB
+mount /dev/sda3 /
+copy-in user.cfg /grub2
+rm-f /boot/loader/entries/ostree-1-fedora-coreos.conf
