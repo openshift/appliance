@@ -1,3 +1,5 @@
 /vendor
 /reports
 /.idea
+/build
+/assets
