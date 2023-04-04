@@ -8,9 +8,6 @@ import (
 
 // ApplianceDiskImage is an asset that generates the OpenShift-based appliance.
 type ApplianceDiskImage struct {
-	releaseImageUrl string
-	sizeInGiB       int
-
 	File *asset.File
 }
 

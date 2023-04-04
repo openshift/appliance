@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/asset/diskimage"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
@@ -15,6 +16,7 @@ func NewBuildCmd() *cobra.Command {
 		Use:   "build",
 		Short: "build an OpenShift-based appliance disk image",
 		Run: runTargetCmd([]asset.WritableAsset{
+			&config.ApplianceConfig{},
 			&diskimage.ApplianceDiskImage{},
 		}...),
 		PostRun: func(cmd *cobra.Command, args []string) {

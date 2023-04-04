@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 var (
@@ -28,6 +28,7 @@ func applianceMain() {
 	for _, subCmd := range []*cobra.Command{
 		NewBuildCmd(),
 		NewCleanCmd(),
+		NewCreateConfigCmd(),
 	} {
 		rootCmd.AddCommand(subCmd)
 	}
@@ -66,7 +67,7 @@ func runRootCmd(cmd *cobra.Command, args []string) {
 		// In this case, the output is io.Discard, which is not a terminal.
 		// Overriding it here allows the same check to be done, but against the
 		// hook's output instead of the logger's output.
-		ForceColors:            terminal.IsTerminal(int(os.Stderr.Fd())),
+		ForceColors:            term.IsTerminal(int(os.Stderr.Fd())),
 		DisableTimestamp:       true,
 		DisableLevelTruncation: true,
 		DisableQuote:           true,

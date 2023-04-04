@@ -1,0 +1,11 @@
+registry: quay.io
+build-container-image: openshift-appliance-build
+
+containers:
+  image-service-build: Dockerfile.openshift-appliance-build
+volumes:
+  - $HOME/.cache/go-build:/go/pkg/mod
+  - $HOME/.cache/golangci-lint:$HOME/.cache/golangci-lint
+env:
+  IMAGE: $IMAGE
+  GOCACHE: "/go/pkg/mod"
