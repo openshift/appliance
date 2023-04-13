@@ -1,8 +1,9 @@
 package main
 
 import (
+	"github.com/danielerez/openshift-appliance/pkg/asset/appliance"
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
-	"github.com/danielerez/openshift-appliance/pkg/asset/diskimage"
+	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
 	"github.com/openshift/installer/pkg/metrics/timer"
@@ -13,73 +14,44 @@ import (
 
 func NewBuildCmd() *cobra.Command {
 	agentCmd := &cobra.Command{
-		Use:   "build",
-		Short: "build an OpenShift-based appliance disk image",
-		Run: runTargetCmd([]asset.WritableAsset{
-			&config.ApplianceConfig{},
-			&diskimage.ApplianceDiskImage{},
-		}...),
-		PostRun: func(cmd *cobra.Command, args []string) {
-			deleteStateFile(rootOpts.dir)
-		},
+		Use:    "build",
+		Short:  "build an OpenShift-based appliance disk image",
+		PreRun: preRun,
+		Run:    run,
 	}
 
 	return agentCmd
 }
 
-func runTargetCmd(targets ...asset.WritableAsset) func(cmd *cobra.Command, args []string) {
-	runner := func(directory string) error {
-		assetStore, err := assetstore.NewStore(directory)
-		if err != nil {
-			return errors.Wrap(err, "failed to create asset store")
-		}
+func run(cmd *cobra.Command, args []string) {
+	timer.StartTimer(timer.TotalTimeElapsed)
 
-		for _, a := range targets {
-			err := assetStore.Fetch(a, targets...)
-			if err != nil {
-				err = errors.Wrapf(err, "failed to fetch %s", a.Name())
-			}
+	cleanup := setupFileHook(rootOpts.dir)
+	defer cleanup()
 
-			err2 := asFileWriter(a).PersistToFile(directory)
-			if err2 != nil {
-				err2 = errors.Wrapf(err2, "failed to write asset (%s) to disk", a.Name())
-				if err != nil {
-					logrus.Error(err2)
-					return err
-				}
-				return err2
-			}
-
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+	// Generate ApplianceDiskImage asset (including all of its dependencies)
+	applianceDiskImage := appliance.ApplianceDiskImage{}
+	if err := getAssetStore().Fetch(&applianceDiskImage); err != nil {
+		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", applianceDiskImage.Name()))
 	}
 
-	return func(cmd *cobra.Command, args []string) {
-		timer.StartTimer(timer.TotalTimeElapsed)
+	timer.StopTimer(timer.TotalTimeElapsed)
+	timer.LogSummary()
 
-		cleanup := setupFileHook(rootOpts.dir)
-		defer cleanup()
+	logrus.Infof("Appliance successfully created at assets directory: %s", templates.ApplianceFileName)
+}
 
-		err := runner(rootOpts.dir)
-		if err != nil {
-			logrus.Fatal(err)
-		}
-
-		//logrus.Infof(logging.LogCreatedFiles(cmd.Name(), rootOpts.dir, targets))
-
-		timer.StopTimer(timer.TotalTimeElapsed)
-		timer.LogSummary()
+func preRun(cmd *cobra.Command, args []string) {
+	// Generate EnvConfig asset
+	if err := getAssetStore().Fetch(&config.EnvConfig{AssetsDir: rootOpts.dir}); err != nil {
+		logrus.Fatal(err)
 	}
 }
 
-func asFileWriter(a asset.WritableAsset) asset.FileWriter {
-	switch v := a.(type) {
-	case asset.FileWriter:
-		return v
-	default:
-		return asset.NewDefaultFileWriter(a)
+func getAssetStore() asset.Store {
+	assetStore, err := assetstore.NewStore(rootOpts.dir)
+	if err != nil {
+		logrus.Fatal(errors.Wrap(err, "failed to create asset store"))
 	}
+	return assetStore
 }
