@@ -1,23 +1,26 @@
+# Build appliance
 FROM registry.ci.openshift.org/openshift/release:golang-1.18 as builder
-
 COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
 COPY . .
 RUN cd cmd && CGO_ENABLED=0 GOFLAGS="" GO111MODULE=on go build -o /build/openshift-appliance
 
+# Create final image
 FROM quay.io/centos/centos:stream8
 
-# Install and config libguestfs
-RUN dnf -y install libguestfs-tools
-ENV LIBGUESTFS_BACKEND=direct
-
-COPY --from=quay.io/openshift/origin-cli:latest /usr/bin/oc /usr/bin/kubectl /usr/bin/
-COPY --from=builder /build/openshift-appliance /openshift-appliance
-
+# Create/Mount assets 
 ARG ASSETS_DIR=/assets
 RUN mkdir $ASSETS_DIR && chmod 775 $ASSETS_DIR
 VOLUME $ASSETS_DIR
 ENV ASSETS_DIR=$ASSETS_DIR
 
-ENTRYPOINT ["/openshift-appliance"]
+# Install and config libguestfs
+RUN dnf -y install libguestfs-tools coreos-installer && dnf clean all
+ENV LIBGUESTFS_BACKEND=direct
+
+# Copy binaries
+COPY --from=quay.io/openshift/origin-cli:latest /usr/bin/oc /usr/bin/kubectl /usr/bin/
+COPY --from=builder /build/openshift-appliance /openshift-appliance
+
+ENTRYPOINT ["/openshift-appliance", "--dir", "assets"]

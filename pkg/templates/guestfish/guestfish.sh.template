@@ -1,8 +1,8 @@
 #!/usr/bin/guestfish -f
 
-sparse {{.ApplianceFileName}} {{.DiskSize}}G
+sparse {{.ApplianceFile}} {{.DiskSize}}G
 add-ro {{.CoreOSImage}}
-add-ro agent.recovery.iso
+add-ro {{.RecoveryIsoFile}}
 run
 
 # Copy CoreOS to appliance diskimage
@@ -28,5 +28,5 @@ part-set-gpt-type /dev/sda 4 {{.ReservedPartitionGUID}}
 
 # Handle GRUB
 mount /dev/sda3 /
-copy-in user.cfg /grub2
+copy-in {{.CfgFile}} /grub2
 rm-f /boot/loader/entries/ostree-1-fedora-coreos.conf

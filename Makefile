@@ -1,5 +1,7 @@
 IMAGE := $(or ${IMAGE}, quay.io/derez/openshift-appliance:latest)
 PWD = $(shell pwd)
+LOG_LEVEL := $(or ${LOG_LEVEL}, info)
+CMD := $(or ${CMD}, build)
 
 CI ?= false
 ROOT_DIR = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
@@ -48,7 +50,8 @@ format:
 run: 
 	$(CONTAINER_COMMAND) run --rm \
 		-v $(PWD)/assets:/assets:Z \
-		$(IMAGE)
+		--privileged \
+		$(IMAGE) $(CMD) --log-level $(LOG_LEVEL)
 
 all: lint test build run
 

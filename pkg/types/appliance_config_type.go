@@ -11,7 +11,7 @@ type ApplianceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	OcpReleaseImage string
-	DiskSizeGB      int
-	PullSecret      string
+	OcpReleaseImage string `json:"ocpReleaseImage"`
+	DiskSizeGB      int    `json:"diskSizeGB"`
+	PullSecret      string `json:"pullSecret"`
 }
