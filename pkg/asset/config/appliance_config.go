@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	applianceConfigFilename = "appliance-config.yaml"
+	ApplianceConfigFilename = "appliance-config.yaml"
 )
 
 // ApplianceConfig reads the appliance-config.yaml file.
@@ -63,7 +63,7 @@ func (a *ApplianceConfig) PersistToFile(directory string) error {
 		return nil
 	}
 
-	templatePath := filepath.Join(directory, applianceConfigFilename)
+	templatePath := filepath.Join(directory, ApplianceConfigFilename)
 	templateByte := []byte(a.Template)
 	err := os.WriteFile(templatePath, templateByte, 0644)
 	if err != nil {
@@ -83,17 +83,17 @@ func (a *ApplianceConfig) Files() []*asset.File {
 
 // Load returns agent config asset from the disk.
 func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
-	file, err := f.FetchByName(applianceConfigFilename)
+	file, err := f.FetchByName(ApplianceConfigFilename)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, errors.Wrap(err, fmt.Sprintf("failed to load %s file", applianceConfigFilename))
+		return false, errors.Wrap(err, fmt.Sprintf("failed to load %s file", ApplianceConfigFilename))
 	}
 
 	config := &types.ApplianceConfig{}
 	if err := yaml.UnmarshalStrict(file.Data, config); err != nil {
-		return false, errors.Wrapf(err, "failed to unmarshal %s", applianceConfigFilename)
+		return false, errors.Wrapf(err, "failed to unmarshal %s", ApplianceConfigFilename)
 	}
 
 	a.File, a.Config = file, config
