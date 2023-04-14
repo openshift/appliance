@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/danielerez/openshift-appliance/pkg/asset/appliance"
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
@@ -26,7 +27,7 @@ func NewBuildCmd() *cobra.Command {
 func run(cmd *cobra.Command, args []string) {
 	timer.StartTimer(timer.TotalTimeElapsed)
 
-	cleanup := setupFileHook(rootOpts.dir)
+	cleanup := log.SetupFileHook(rootOpts.dir)
 	defer cleanup()
 
 	// Generate ApplianceDiskImage asset (including all of its dependencies)

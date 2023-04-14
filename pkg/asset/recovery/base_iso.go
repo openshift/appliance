@@ -6,6 +6,7 @@ import (
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/coreos"
 	"github.com/danielerez/openshift-appliance/pkg/executer"
+	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/release"
 
 	"github.com/sirupsen/logrus"
@@ -36,8 +37,6 @@ func (i *BaseISO) Dependencies() []asset.Asset {
 
 // Generate the base ISO.
 func (i *BaseISO) Generate(dependencies asset.Parents) error {
-	logrus.Info("Downloading CoreOS ISO...")
-
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
@@ -56,6 +55,8 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	}
 
 	// Download base CoreOS ISO according to specified release image
+	stop := log.Spinner("Downloading CoreOS ISO...", "Successfully downloaded CoreOS ISO")
+	defer stop()
 	fileName, err := c.DownloadISO(
 		applianceConfig.Config.OcpReleaseImage,
 		applianceConfig.Config.PullSecret)

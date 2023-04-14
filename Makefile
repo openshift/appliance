@@ -48,7 +48,7 @@ format:
 	@goimports -w -l main.go internal pkg || /bin/true
 
 run: 
-	$(CONTAINER_COMMAND) run --rm \
+	$(CONTAINER_COMMAND) run --rm -it \
 		-v $(PWD)/assets:/assets:Z \
 		--privileged \
 		$(IMAGE) $(CMD) --log-level $(LOG_LEVEL)

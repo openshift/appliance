@@ -6,6 +6,7 @@ import (
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/coreos"
 	"github.com/danielerez/openshift-appliance/pkg/executer"
+	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/release"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
@@ -47,7 +48,8 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	}
 
 	// Download using coreos-installer
-	logrus.Info("Downloading appliance base disk image...")
+	stop := log.Spinner("Downloading appliance base disk image...", "Successfully downloaded appliance base disk image")
+	defer stop()
 	fileName, err := c.DownloadDiskImage(cpuArch)
 	if err != nil {
 		return err

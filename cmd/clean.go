@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -19,7 +20,7 @@ func NewCleanCmd() *cobra.Command {
 		Short: "clean assets directory (exclude builder cache)",
 		Long:  "",
 		Run: func(_ *cobra.Command, _ []string) {
-			cleanup := setupFileHook(rootOpts.dir)
+			cleanup := log.SetupFileHook(rootOpts.dir)
 			defer cleanup()
 
 			// Remove state file

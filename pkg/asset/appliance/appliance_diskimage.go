@@ -6,6 +6,7 @@ import (
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/asset/recovery"
 	"github.com/danielerez/openshift-appliance/pkg/executer"
+	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pkg/errors"
@@ -31,7 +32,8 @@ func (a *ApplianceDiskImage) Dependencies() []asset.Asset {
 
 // Generate the appliance disk.
 func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
-	logrus.Info("Generating appliance disk image...")
+	stop := log.Spinner("Generating appliance disk image...", "Successfully generated appliance disk image")
+	defer stop()
 
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}

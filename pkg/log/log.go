@@ -1,13 +1,17 @@
-package main
+package log
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/term"
 )
 
 type fileHook struct {
@@ -18,7 +22,7 @@ type fileHook struct {
 	truncateAtNewLine bool
 }
 
-func newFileHook(file io.Writer, level logrus.Level, formatter logrus.Formatter) *fileHook {
+func NewFileHook(file io.Writer, level logrus.Level, formatter logrus.Formatter) *fileHook {
 	return &fileHook{
 		file:      file,
 		formatter: formatter,
@@ -26,8 +30,8 @@ func newFileHook(file io.Writer, level logrus.Level, formatter logrus.Formatter)
 	}
 }
 
-func newFileHookWithNewlineTruncate(file io.Writer, level logrus.Level, formatter logrus.Formatter) *fileHook {
-	f := newFileHook(file, level, formatter)
+func NewFileHookWithNewlineTruncate(file io.Writer, level logrus.Level, formatter logrus.Formatter) *fileHook {
+	f := NewFileHook(file, level, formatter)
 	f.truncateAtNewLine = true
 	return f
 }
@@ -71,7 +75,7 @@ func (h *fileHook) Fire(entry *logrus.Entry) error {
 	return nil
 }
 
-func setupFileHook(baseDir string) func() {
+func SetupFileHook(baseDir string) func() {
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		logrus.Fatal(errors.Wrap(err, "failed to create base directory for logs"))
 	}
@@ -85,7 +89,7 @@ func setupFileHook(baseDir string) func() {
 	for k, v := range logrus.StandardLogger().Hooks {
 		originalHooks[k] = v
 	}
-	logrus.AddHook(newFileHook(logfile, logrus.TraceLevel, &logrus.TextFormatter{
+	logrus.AddHook(NewFileHook(logfile, logrus.TraceLevel, &logrus.TextFormatter{
 		DisableColors:          true,
 		DisableTimestamp:       false,
 		FullTimestamp:          true,
@@ -95,5 +99,42 @@ func setupFileHook(baseDir string) func() {
 	return func() {
 		logfile.Close()
 		logrus.StandardLogger().ReplaceHooks(originalHooks)
+	}
+}
+
+func SetupOutputHook(logLevel string) {
+	logrus.SetOutput(io.Discard)
+	logrus.SetLevel(logrus.TraceLevel)
+
+	level, err := logrus.ParseLevel(logLevel)
+	if err != nil {
+		level = logrus.InfoLevel
+	}
+
+	logrus.AddHook(NewFileHookWithNewlineTruncate(os.Stderr, level, &logrus.TextFormatter{
+		// Setting ForceColors is necessary because logrus.TextFormatter determines
+		// whether or not to enable colors by looking at the output of the logger.
+		// In this case, the output is io.Discard, which is not a terminal.
+		// Overriding it here allows the same check to be done, but against the
+		// hook's output instead of the logger's output.
+		ForceColors:            term.IsTerminal(int(os.Stderr.Fd())),
+		DisableTimestamp:       true,
+		DisableLevelTruncation: true,
+		DisableQuote:           true,
+	}))
+}
+
+func Spinner(message, completeMessage string) func() {
+	// Create and start spinner with message
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
+	s.Suffix = fmt.Sprintf(" %s", message)
+	if err := s.Color("blue"); err != nil {
+		logrus.Fatalln(err)
+	}
+	s.Start()
+
+	return func() {
+		s.Stop()
+		logrus.Info(completeMessage)
 	}
 }

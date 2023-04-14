@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/openshift/installer/pkg/asset"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -33,7 +33,8 @@ func (a *RecoveryISO) Dependencies() []asset.Asset {
 
 // Generate the recovery ISO.
 func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
-	logrus.Info("Generating recovery ISO...")
+	stop := log.Spinner("Generating recovery ISO...", "Successfully generated recovery ISO")
+	defer stop()
 
 	envConfig := &config.EnvConfig{}
 	baseISO := &BaseISO{}

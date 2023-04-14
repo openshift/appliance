@@ -1,14 +1,12 @@
 package main
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/pkg/errors"
+	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 var (
@@ -53,27 +51,5 @@ func newRootCmd() *cobra.Command {
 }
 
 func runRootCmd(cmd *cobra.Command, args []string) {
-	logrus.SetOutput(io.Discard)
-	logrus.SetLevel(logrus.TraceLevel)
-
-	level, err := logrus.ParseLevel(rootOpts.logLevel)
-	if err != nil {
-		level = logrus.InfoLevel
-	}
-
-	logrus.AddHook(newFileHookWithNewlineTruncate(os.Stderr, level, &logrus.TextFormatter{
-		// Setting ForceColors is necessary because logrus.TextFormatter determines
-		// whether or not to enable colors by looking at the output of the logger.
-		// In this case, the output is io.Discard, which is not a terminal.
-		// Overriding it here allows the same check to be done, but against the
-		// hook's output instead of the logger's output.
-		ForceColors:            term.IsTerminal(int(os.Stderr.Fd())),
-		DisableTimestamp:       true,
-		DisableLevelTruncation: true,
-		DisableQuote:           true,
-	}))
-
-	if err != nil {
-		logrus.Fatal(errors.Wrap(err, "invalid log-level"))
-	}
+	log.SetupOutputHook(rootOpts.logLevel)
 }
