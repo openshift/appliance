@@ -14,10 +14,18 @@ require (
 )
 
 require (
+	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e // indirect
+	github.com/diskfs/go-diskfs v1.2.1-0.20221201153419-70aa09455238 // indirect
 	github.com/fatih/color v1.12.0 // indirect
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
+	github.com/openshift/assisted-image-service v0.0.0-20230412230917-bcc231592a44 // indirect
+	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
+	github.com/pkg/xattr v0.4.1 // indirect
+	github.com/ulikunitz/xz v0.5.10 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+	gopkg.in/djherbis/times.v1 v1.2.0 // indirect
 )
 
 require (

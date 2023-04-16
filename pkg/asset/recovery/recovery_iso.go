@@ -1,16 +1,20 @@
 package recovery
 
 import (
+	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/log"
+	"github.com/openshift/assisted-image-service/pkg/isoeditor"
 	"github.com/openshift/installer/pkg/asset"
 )
 
 const (
-	recoveryIsoFilename = "recovery.iso"
+	coreosIsoFileName   = "coreos-x86_64.iso"
+	recoveryIsoFileName = "recovery.iso"
+	recoveryIsoDirName  = "recovery_iso"
 )
 
 // RecoveryISO is an asset that generates the bootable ISO copied
@@ -39,21 +43,36 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	baseISO := &BaseISO{}
 	dependencies.Get(envConfig, baseISO)
+	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
+	recoveryIsoDirPath := filepath.Join(envConfig.CacheDir, recoveryIsoDirName)
 
-	isoPath := filepath.Join(envConfig.CacheDir, recoveryIsoFilename)
-	a.File = &asset.File{Filename: isoPath}
-	a.LiveISOVersion = baseISO.LiveISOVersion
-
-	f, err := os.Stat(isoPath)
-	if err != nil {
+	if err := os.MkdirAll(recoveryIsoDirPath, os.ModePerm); err != nil {
+		logrus.Errorf("Failed to create dir: %s", recoveryIsoDirPath)
 		return err
 	}
-	a.Size = f.Size()
+
+	if err := isoeditor.Extract(coreosIsoPath, recoveryIsoDirPath); err != nil {
+		logrus.Errorf("Failed to extract image: %s", err.Error())
+		return err
+	}
 
 	return nil
 
+	//TODO: include in MGMT-14278
+	//recoveryIsoPath := filepath.Join(envConfig.CacheDir, recoveryIsoFileName)
+	//a.File = &asset.File{Filename: recoveryIsoPath}
+	//a.LiveISOVersion = baseISO.LiveISOVersion
+	//
+	//f, err := os.Stat(recoveryIsoPath)
+	//if err != nil {
+	//	return err
+	//}
+	//a.Size = f.Size()
+
+
+
 	// TODO
-	// 1. Extract base ISO
+	// 1. Extract base ISO - Done
 	// 2. Mirror release payload
 	// 3. Create recovery ISO using 'isoeditor.Create' (includes extracted base ISO + release payload)
 	// 4. Generate custom ignition:
