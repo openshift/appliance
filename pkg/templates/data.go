@@ -36,3 +36,11 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryPartitionSize int64, baseI
 		CfgFile:               cfgFile,
 	}
 }
+
+func GetBootstrapIgnitionTemplateData(registryDataPath string) interface{} {
+	return struct {
+		RegistryDataPath string
+	}{
+		RegistryDataPath: registryDataPath,
+	}
+}

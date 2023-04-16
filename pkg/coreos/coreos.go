@@ -2,6 +2,7 @@ package coreos
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -13,7 +14,7 @@ import (
 
 const (
 	templateDownloadDiskImage = "coreos-installer download -s stable -p qemu -f qcow2.xz --architecture %s --decompress -C %s"
-	templateShowISOKargs      = "coreos-installer iso kargs show %s"
+	templateEmbedIgnition     = "coreos-installer iso ignition embed -f --ignition-file %s %s"
 	machineOsImageName        = "machine-os-images"
 	coreOsFileName            = "coreos/coreos-%s.iso"
 )
@@ -21,6 +22,7 @@ const (
 type CoreOS interface {
 	DownloadDiskImage() (string, error)
 	DownloadISO(releaseImage, pullSecret string) (string, error)
+	EmbedIgnition(ignition []byte, isoPath string) error
 }
 
 type coreos struct {
@@ -54,10 +56,34 @@ func (c *coreos) DownloadISO(releaseImage, pullSecret string) (string, error) {
 	return r.ExtractFile(machineOsImageName, fileName)
 }
 
+func (c *coreos) EmbedIgnition(ignition []byte, isoPath string) error {
+	// Write ignition to a temporary file
+	ignitionFile, err := os.CreateTemp(c.TempDir, "config.ign")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		ignitionFile.Close()
+		os.Remove(ignitionFile.Name())
+	}()
+	_, err = ignitionFile.Write(ignition)
+	if err != nil {
+		logrus.Errorf("Failed to write ignition data into %s: %s", ignitionFile.Name(), err.Error())
+		return err
+	}
+	ignitionFile.Close()
+
+	// Invoke embed ignition command
+	embedCmd := fmt.Sprintf(templateEmbedIgnition, ignitionFile.Name(), isoPath)
+	args := strings.Split(embedCmd, " ")
+	_, err = executer.NewExecuter().Execute(args[0], args[1:]...)
+	return err
+}
+
 func (c *coreos) FindInCache(filePattern string) string {
 	files, err := filepath.Glob(filepath.Join(c.CacheDir, filePattern))
 	if err != nil {
-		logrus.Debugf("Failed searching for file '%s' in dir '%s'", filePattern, c.CacheDir)
+		logrus.Errorf("Failed searching for file '%s' in dir '%s'", filePattern, c.CacheDir)
 		return ""
 	}
 	if len(files) > 0 {
