@@ -4,16 +4,15 @@ import (
 	"github.com/openshift/assisted-service/pkg/conversions"
 )
 
-func GetUserCfgTemplateData(liveISO string) interface{} {
+func GetUserCfgTemplateData() interface{} {
 	return struct {
-		GrubTimeout, GrubDefault                          int
-		GrubMenuEntryName, RecoveryPartitionName, LiveISO string
+		GrubTimeout, GrubDefault                 int
+		GrubMenuEntryName, RecoveryPartitionName string
 	}{
 		GrubTimeout:           GrubTimeout,
 		GrubDefault:           GrubDefault,
 		GrubMenuEntryName:     GrubMenuEntryName,
 		RecoveryPartitionName: RecoveryPartitionName,
-		LiveISO:               liveISO,
 	}
 }
 

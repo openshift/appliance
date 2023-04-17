@@ -6,7 +6,6 @@ const (
 	GrubTimeout         = 10
 	GrubDefault         = 0
 	GrubMenuEntryName   = "Agent-Based Installer"
-	LiveISO             = "rhcos-412.86.202301311551-0"
 
 	// guestfish.sh template
 	GuestfishScriptTemplateFile = "guestfish/guestfish.sh.template"

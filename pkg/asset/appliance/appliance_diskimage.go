@@ -44,7 +44,7 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	// Render user.cfg
 	if err := templates.RenderTemplateFile(
 		templates.UserCfgTemplateFile,
-		templates.GetUserCfgTemplateData(recoveryISO.LiveISOVersion),
+		templates.GetUserCfgTemplateData(),
 		envConfig.TempDir); err != nil {
 		return err
 	}

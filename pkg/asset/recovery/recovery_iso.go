@@ -25,7 +25,6 @@ const (
 type RecoveryISO struct {
 	File           *asset.File
 	Size           int64
-	LiveISOVersion string
 }
 
 var _ asset.Asset = (*RecoveryISO)(nil)
@@ -87,7 +86,6 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	//TODO: include in MGMT-14278
 	//recoveryIsoPath := filepath.Join(envConfig.CacheDir, recoveryIsoFileName)
 	//a.File = &asset.File{Filename: recoveryIsoPath}
-	//a.LiveISOVersion = baseISO.LiveISOVersion
 	//
 	//f, err := os.Stat(recoveryIsoPath)
 	//if err != nil {

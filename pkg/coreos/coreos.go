@@ -21,7 +21,6 @@ const (
 type CoreOS interface {
 	DownloadDiskImage() (string, error)
 	DownloadISO(releaseImage, pullSecret string) (string, error)
-	GetLiveISOVersion(filePath string) string
 }
 
 type coreos struct {
@@ -53,17 +52,6 @@ func (c *coreos) DownloadISO(releaseImage, pullSecret string) (string, error) {
 	}
 	fileName := fmt.Sprintf(coreOsFileName, cpuArch)
 	return r.ExtractFile(machineOsImageName, fileName)
-}
-
-func (c *coreos) GetLiveISOVersion(filePath string) (string, error) {
-	downloadCmd := fmt.Sprintf(templateShowISOKargs, filePath)
-	args := strings.Split(downloadCmd, " ")
-	kargs, err := executer.NewExecuter().Execute(args[0], args[1:]...)
-	if err != nil {
-		return "", err
-	}
-	liveISO := strings.Split(strings.Split(kargs, " ")[0], "=")[1]
-	return liveISO, nil
 }
 
 func (c *coreos) FindInCache(filePattern string) string {

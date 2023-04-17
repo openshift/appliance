@@ -15,7 +15,6 @@ import (
 // BaseISO generates the base ISO file for the image (CoreOS LiveCD)
 type BaseISO struct {
 	File           *asset.File
-	LiveISOVersion string
 }
 
 var _ asset.Asset = (*BaseISO)(nil)
@@ -62,12 +61,6 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
-	// Get and store LiveISO version of the ISO
-	liveISO, err := c.GetLiveISOVersion(fileName)
-	if err != nil {
-		return err
-	}
-	i.LiveISOVersion = liveISO
 	i.File = &asset.File{Filename: fileName}
 
 	return nil
