@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/executer"
 	"github.com/danielerez/openshift-appliance/pkg/release"
 	"github.com/sirupsen/logrus"
@@ -24,12 +25,16 @@ type CoreOS interface {
 }
 
 type coreos struct {
-	CacheDir string
+	CacheDir  string
+	AssetsDir string
+	TempDir   string
 }
 
-func NewCoreOS(cacheDir string) *coreos {
+func NewCoreOS(envConfig *config.EnvConfig) *coreos {
 	return &coreos{
-		CacheDir: cacheDir,
+		CacheDir:  envConfig.CacheDir,
+		AssetsDir: envConfig.AssetsDir,
+		TempDir:   envConfig.TempDir,
 	}
 }
 
@@ -40,7 +45,8 @@ func (c *coreos) DownloadDiskImage(cpuArch string) (string, error) {
 }
 
 func (c *coreos) DownloadISO(releaseImage, pullSecret string) (string, error) {
-	r := release.NewRelease(executer.NewExecuter(), releaseImage, pullSecret, c.CacheDir)
+	envConfig := &config.EnvConfig{CacheDir: c.CacheDir, AssetsDir: c.AssetsDir, TempDir: c.TempDir}
+	r := release.NewRelease(executer.NewExecuter(), releaseImage, pullSecret, envConfig)
 	cpuArch, err := r.GetReleaseArchitecture()
 	if err != nil {
 		return "", err

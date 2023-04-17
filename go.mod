@@ -3,6 +3,7 @@ module github.com/danielerez/openshift-appliance
 go 1.18
 
 require (
+	github.com/openshift/assisted-image-service v0.0.0-20230412230917-bcc231592a44
 	github.com/openshift/assisted-service v1.0.10-0.20220223093655-7ada9949bf1d
 	github.com/openshift/installer v0.9.0-master.0.20220831144017-e4fba40d73bb
 	github.com/pkg/errors v0.9.1
@@ -20,7 +21,6 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
-	github.com/openshift/assisted-image-service v0.0.0-20230412230917-bcc231592a44 // indirect
 	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
 	github.com/pkg/xattr v0.4.1 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect

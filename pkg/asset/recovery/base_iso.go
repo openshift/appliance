@@ -8,13 +8,11 @@ import (
 	"github.com/danielerez/openshift-appliance/pkg/executer"
 	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/release"
-
-	"github.com/sirupsen/logrus"
-
 	"github.com/openshift/installer/pkg/asset"
+	"github.com/sirupsen/logrus"
 )
 
-// BaseIso generates the base ISO file for the image (CoreOS LiveCD)
+// BaseISO generates the base ISO file for the image (CoreOS LiveCD)
 type BaseISO struct {
 	File           *asset.File
 	LiveISOVersion string
@@ -41,8 +39,8 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
 
-	c := coreos.NewCoreOS(envConfig.CacheDir)
-	cpuArch, err := i.getCpuArch(applianceConfig, envConfig.CacheDir)
+	c := coreos.NewCoreOS(envConfig)
+	cpuArch, err := i.getCpuArch(applianceConfig, envConfig)
 	if err != nil {
 		return err
 	}
@@ -75,9 +73,9 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	return nil
 }
 
-func (i *BaseISO) getCpuArch(applianceConfig *config.ApplianceConfig, cacheDir string) (string, error) {
+func (i *BaseISO) getCpuArch(applianceConfig *config.ApplianceConfig, envConfig *config.EnvConfig) (string, error) {
 	releaseImage := applianceConfig.Config.OcpReleaseImage
 	pullSecret := applianceConfig.Config.PullSecret
-	r := release.NewRelease(executer.NewExecuter(), releaseImage, pullSecret, cacheDir)
+	r := release.NewRelease(executer.NewExecuter(), releaseImage, pullSecret, envConfig)
 	return r.GetReleaseArchitecture()
 }

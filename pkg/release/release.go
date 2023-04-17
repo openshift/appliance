@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+
 	"github.com/buger/jsonparser"
 	"github.com/danielerez/openshift-appliance/pkg/executer"
 	"github.com/pkg/errors"
@@ -32,27 +34,36 @@ const (
 type Release interface {
 	ExtractFile(image string, filename string) (string, error)
 	GetReleaseArchitecture() (string, error)
+	MirrorRelease(ocpReleaseImage string) error
 }
 
 type release struct {
-	executer                           executer.Executer
-	releaseImage, pullSecret, cacheDir string
+	executer     executer.Executer
+	releaseImage string
+	pullSecret   string
+	cacheDir     string
+	assetsDir    string
+	tempDir      string
 }
 
 // NewRelease is used to set up the executor to run oc commands
-func NewRelease(executer executer.Executer, releaseImage, pullSecret, cacheDir string) Release {
+func NewRelease(executer executer.Executer, releaseImage, pullSecret string, envConfig *config.EnvConfig) Release {
 	return &release{
 		executer:     executer,
 		releaseImage: releaseImage,
 		pullSecret:   pullSecret,
-		cacheDir:     cacheDir,
+		cacheDir:     envConfig.CacheDir,
+		assetsDir:    envConfig.AssetsDir,
+		tempDir:      envConfig.TempDir,
 	}
 }
 
 const (
-	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
-	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
-	templateImageInfo    = "oc image info --output json %s"
+	templateGetImage      = "oc adm release info --image-for=%s --insecure=%t %s"
+	templateImageExtract  = "oc image extract --path %s:%s --confirm %s"
+	templateImageInfo     = "oc image info --output json %s"
+	ocAdmMirrorCmd        = "oc adm release mirror --from=%s --to-dir %s"
+	mirroredImagesDirName = "oc-mirror"
 )
 
 // ExtractFile extracts the specified file from the given image name, and store it in the cache dir.
@@ -116,21 +127,24 @@ func (r *release) extractFileFromImage(image, file, cacheDir string) (string, er
 }
 
 func (r *release) execute(executer executer.Executer, pullSecret, command string) (string, error) {
-	ps, err := executer.TempFile("", "registry-config")
+	ps, err := executer.TempFile(r.tempDir, "registry-config")
 	if err != nil {
 		return "", err
 	}
+	logrus.Debugf("Created a temporary file: %s", ps.Name())
 	defer func() {
 		ps.Close()
 		os.Remove(ps.Name())
 	}()
 	_, err = ps.Write([]byte(pullSecret))
 	if err != nil {
+		logrus.Errorf("Failed to write pull-secret data into %s: %s", ps.Name(), err.Error())
 		return "", err
 	}
 	// flush the buffer to ensure the file can be read
 	ps.Close()
 	executeCommand := command[:] + " --registry-config=" + ps.Name()
+	logrus.Debugf("Executing mirror command: %s", executeCommand)
 	args := strings.Split(executeCommand, " ")
 
 	stdout, err := executer.Execute(args[0], args[1:]...)
@@ -139,6 +153,23 @@ func (r *release) execute(executer executer.Executer, pullSecret, command string
 	}
 
 	return "", errors.Wrapf(err, "Failed to execute cmd (%s): %s", executeCommand, err)
+}
+
+func (r *release) MirrorRelease(ocpReleaseImage string) error {
+	mirroredImagesPath := filepath.Join(r.assetsDir, mirroredImagesDirName)
+	cmd := fmt.Sprintf(ocAdmMirrorCmd, ocpReleaseImage, mirroredImagesPath)
+
+	if err := os.MkdirAll(mirroredImagesPath, os.ModePerm); err != nil {
+		logrus.Errorf("Failed to create dir: %s: %s", mirroredImagesPath, err.Error())
+		return err
+	}
+
+	_, err := r.execute(r.executer, r.pullSecret, cmd)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *release) normalizeCPUArchitecture(arch string) string {
