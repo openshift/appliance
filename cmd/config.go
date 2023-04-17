@@ -9,10 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewCreateConfigCmd() *cobra.Command {
+func NewGenerateConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create-config",
-		Short: "Generates a template of the appliance config manifest",
+		Use:   "generate-config",
+		Short: "generate a template of the appliance config manifest",
 		Args:  cobra.ExactArgs(0),
 		PreRun: func(cmd *cobra.Command, args []string) {
 			configFilePath := filepath.Join(rootOpts.dir, config.ApplianceConfigFilename)

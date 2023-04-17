@@ -26,7 +26,7 @@ func applianceMain() {
 	for _, subCmd := range []*cobra.Command{
 		NewBuildCmd(),
 		NewCleanCmd(),
-		NewCreateConfigCmd(),
+		NewGenerateConfigCmd(),
 	} {
 		rootCmd.AddCommand(subCmd)
 	}
