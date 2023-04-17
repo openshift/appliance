@@ -44,7 +44,7 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	baseISO := &BaseISO{}
 	dependencies.Get(envConfig, baseISO)
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
-	recoveryIsoDirPath := filepath.Join(envConfig.CacheDir, recoveryIsoDirName)
+	recoveryIsoDirPath := filepath.Join(envConfig.TempDir, recoveryIsoDirName)
 
 	if err := os.MkdirAll(recoveryIsoDirPath, os.ModePerm); err != nil {
 		logrus.Errorf("Failed to create dir: %s", recoveryIsoDirPath)
