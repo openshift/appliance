@@ -33,8 +33,8 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
 
-	c := coreos.NewCoreOS(envConfig.CacheDir)
-	cpuArch, err := a.getCpuArch(applianceConfig, envConfig.CacheDir)
+	c := coreos.NewCoreOS(envConfig)
+	cpuArch, err := a.getCpuArch(applianceConfig, envConfig)
 	if err != nil {
 		return err
 	}
@@ -65,9 +65,9 @@ func (a *BaseDiskImage) Name() string {
 	return "Base disk image (CoreOS)"
 }
 
-func (a *BaseDiskImage) getCpuArch(applianceConfig *config.ApplianceConfig, cacheDir string) (string, error) {
+func (a *BaseDiskImage) getCpuArch(applianceConfig *config.ApplianceConfig, envConfig *config.EnvConfig) (string, error) {
 	releaseImage := applianceConfig.Config.OcpReleaseImage
 	pullSecret := applianceConfig.Config.PullSecret
-	r := release.NewRelease(executer.NewExecuter(), releaseImage, pullSecret, cacheDir)
+	r := release.NewRelease(executer.NewExecuter(), releaseImage, pullSecret, envConfig)
 	return r.GetReleaseArchitecture()
 }
