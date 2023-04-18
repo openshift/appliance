@@ -14,7 +14,7 @@ Build and run: binary or docker image
 #### Commands
 * build
 * clean
-* create-config
+* generate-config
 
 #### Flags
 * --dir
@@ -27,7 +27,7 @@ Build and run: binary or docker image
 export IMAGE=<image_url>
 export ASSETS=<assets_dir>
 export LOG_LEVEL=info/debug/error
-export CMD=build/clean/create-config
+export CMD=build/clean/generate-config
 ```
 
 #### Build and Run
