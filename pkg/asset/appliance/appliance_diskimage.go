@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/asset/data"
 	"github.com/danielerez/openshift-appliance/pkg/asset/recovery"
 	"github.com/danielerez/openshift-appliance/pkg/executer"
 	"github.com/danielerez/openshift-appliance/pkg/log"
@@ -26,6 +27,7 @@ func (a *ApplianceDiskImage) Dependencies() []asset.Asset {
 		&config.EnvConfig{},
 		&config.ApplianceConfig{},
 		&recovery.RecoveryISO{},
+		&data.DataISO{},
 		&BaseDiskImage{},
 	}
 }
@@ -38,8 +40,9 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	recoveryISO := &recovery.RecoveryISO{}
+	dataISO := &data.DataISO{}
 	baseDiskImage := &BaseDiskImage{}
-	dependencies.Get(envConfig, applianceConfig, recoveryISO, baseDiskImage)
+	dependencies.Get(envConfig, applianceConfig, recoveryISO, dataISO, baseDiskImage)
 
 	// Render user.cfg
 	if err := templates.RenderTemplateFile(
@@ -52,13 +55,15 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	// Render guestfish.sh
 	diskSize := int64(applianceConfig.Config.DiskSizeGB)
 	recoveryPartitionSize := recoveryISO.Size
+	dataPartitionSize := dataISO.Size
 	baseImageFile := baseDiskImage.File.Filename
 	applianceImageFile := filepath.Join(envConfig.AssetsDir, templates.ApplianceFileName)
 	recoveryIsoFile := filepath.Join(envConfig.CacheDir, templates.RecoveryIsoFileName)
+	dataIsoFile := filepath.Join(envConfig.CacheDir, templates.DataIsoFileName)
 	cfgFile := templates.GetFilePathByTemplate(templates.UserCfgTemplateFile, envConfig.TempDir)
 	gfTemplateData := templates.GetGuestfishScriptTemplateData(
-		diskSize, recoveryPartitionSize, baseImageFile,
-		applianceImageFile, recoveryIsoFile, cfgFile)
+		diskSize, recoveryPartitionSize, dataPartitionSize, baseImageFile,
+		applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile)
 	if err := templates.RenderTemplateFile(
 		templates.GuestfishScriptTemplateFile,
 		gfTemplateData,

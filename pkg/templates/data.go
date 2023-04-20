@@ -16,22 +16,29 @@ func GetUserCfgTemplateData() interface{} {
 	}
 }
 
-func GetGuestfishScriptTemplateData(diskSize, recoveryPartitionSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, cfgFile string) interface{} {
+func GetGuestfishScriptTemplateData(diskSize, recoveryPartitionSize, dataPartitionSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile string) interface{} {
 	sectorSize := int64(512)
-	recoveryPartitionEndSector := (diskSize*conversions.GibToBytes(1) - conversions.MibToBytes(1)) / sectorSize
+	dataPartitionEndSector := (diskSize*conversions.GibToBytes(1) - conversions.MibToBytes(1)) / sectorSize
+	dataPartitionStartSector := dataPartitionEndSector - (dataPartitionSize / sectorSize)
+
+	recoveryPartitionEndSector := dataPartitionStartSector - 1
 	recoveryPartitionStartSector := recoveryPartitionEndSector - (recoveryPartitionSize / sectorSize)
 
 	return struct {
-		ApplianceFile, RecoveryIsoFile, CoreOSImage, RecoveryPartitionName, ReservedPartitionGUID, CfgFile string
-		DiskSize, StartSector, EndSector                                                                   int64
+		ApplianceFile, RecoveryIsoFile, DataIsoFile, CoreOSImage, RecoveryPartitionName, DataPartitionName, ReservedPartitionGUID, CfgFile string
+		DiskSize, RecoveryStartSector, RecoveryEndSector, DataStartSector, DataEndSector                                                   int64
 	}{
 		ApplianceFile:         applianceImageFile,
 		RecoveryIsoFile:       recoveryIsoFile,
+		DataIsoFile:           dataIsoFile,
 		DiskSize:              diskSize,
 		CoreOSImage:           baseImageFile,
-		StartSector:           recoveryPartitionStartSector,
-		EndSector:             recoveryPartitionEndSector,
+		RecoveryStartSector:   recoveryPartitionStartSector,
+		RecoveryEndSector:     recoveryPartitionEndSector,
+		DataStartSector:       dataPartitionStartSector,
+		DataEndSector:         dataPartitionEndSector,
 		RecoveryPartitionName: RecoveryPartitionName,
+		DataPartitionName:     DataPartitionName,
 		ReservedPartitionGUID: ReservedPartitionGUID,
 		CfgFile:               cfgFile,
 	}
