@@ -19,6 +19,11 @@ ENV ASSETS_DIR=$ASSETS_DIR
 RUN dnf -y install libguestfs-tools coreos-installer && dnf clean all
 ENV LIBGUESTFS_BACKEND=direct
 
+# Download oc-mirror
+RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview/latest/oc-mirror.tar.gz \
+    | tar xvzf - -C /usr/local/bin && \
+    chmod +x /usr/local/bin/oc-mirror
+
 # Copy binaries
 COPY --from=quay.io/openshift/origin-cli:latest /usr/bin/oc /usr/bin/kubectl /usr/bin/
 COPY --from=builder /build/openshift-appliance /openshift-appliance

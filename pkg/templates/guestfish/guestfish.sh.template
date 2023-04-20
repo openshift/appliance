@@ -3,6 +3,7 @@
 sparse {{.ApplianceFile}} {{.DiskSize}}G
 add-ro {{.CoreOSImage}}
 add-ro {{.RecoveryIsoFile}}
+add-ro {{.DataIsoFile}}
 run
 
 # Copy CoreOS to appliance diskimage
@@ -15,16 +16,24 @@ part-del /dev/sda 4
 part-expand-gpt /dev/sda
 
 # Create recovery partition
-part-add /dev/sda p {{.StartSector}} {{.EndSector}}
+part-add /dev/sda p {{.RecoveryStartSector}} {{.RecoveryEndSector}}
+
+# Create data partition
+part-add /dev/sda p {{.DataStartSector}} {{.DataEndSector}}
 
 # Copy agent recovery ISO to recovery partition
 copy-device-to-device /dev/sdc /dev/sda4
 
-# Set partition label
+# Copy data ISO to data partition
+copy-device-to-device /dev/sdd /dev/sda5
+
+# Set partition labels
 part-set-name /dev/sda 4 {{.RecoveryPartitionName}}
+part-set-name /dev/sda 5 {{.DataPartitionName}}
 
 # Set partition as Linux reserved partition
 part-set-gpt-type /dev/sda 4 {{.ReservedPartitionGUID}}
+part-set-gpt-type /dev/sda 5 {{.ReservedPartitionGUID}}
 
 # Handle GRUB
 mount /dev/sda3 /

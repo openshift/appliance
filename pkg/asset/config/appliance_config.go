@@ -48,7 +48,10 @@ func (a *ApplianceConfig) Generate(dependencies asset.Parents) error {
 #
 apiVersion: v1beta1
 kind: ApplianceConfig
-ocpReleaseImage: ocp-release-image-url
+ocpRelease:
+	version: ocp-release-version (x.y.z)
+	channel: stable|candidate|fast|eus [default: stable]
+	cpuArchitecture: cpu-architecture [default: x86_64]
 diskSizeGB: appliance-disk-image-virtual-size
 pullSecret: pull-secret
 `
