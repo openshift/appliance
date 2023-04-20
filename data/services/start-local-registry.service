@@ -1,0 +1,10 @@
+[Unit]
+Description=Local Registry
+Wants=network.target network.service NetworkManager-wait-online.service
+
+[Service]
+ExecStart=/usr/local/bin/start-local-registry.sh
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target
