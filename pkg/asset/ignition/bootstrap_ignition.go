@@ -2,9 +2,11 @@ package ignition
 
 import (
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
+	"github.com/openshift/installer/pkg/asset/password"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,11 +34,18 @@ func (i *BootstrapIgnition) Name() string {
 
 // Dependencies returns dependencies used by the asset.
 func (i *BootstrapIgnition) Dependencies() []asset.Asset {
-	return []asset.Asset{}
+	return []asset.Asset{
+		&config.ApplianceConfig{},
+		&password.KubeadminPassword{},
+	}
 }
 
 // Generate the base ISO.
 func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
+	applianceConfig := &config.ApplianceConfig{}
+	pwd := &password.KubeadminPassword{}
+	dependencies.Get(applianceConfig, pwd)
+
 	i.Config = igntypes.Config{}
 
 	// Add bootstrap services to ignition
@@ -54,6 +63,19 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 			return err
 		}
 	}
+
+	// Add public ssh key
+	pwdHash := string(pwd.PasswordHash)
+	passwdUser := igntypes.PasswdUser{
+		Name:         "core",
+		PasswordHash: &pwdHash,
+	}
+	if applianceConfig.Config.SshKey != nil {
+		passwdUser.SSHAuthorizedKeys = []igntypes.SSHAuthorizedKey{
+			igntypes.SSHAuthorizedKey(*applianceConfig.Config.SshKey),
+		}
+	}
+	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
 
 	logrus.Debug("Successfully generated bootstrap ignition")
 

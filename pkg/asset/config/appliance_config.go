@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/validate"
 
+	"github.com/danielerez/openshift-appliance/pkg/graph"
 	"github.com/danielerez/openshift-appliance/pkg/types"
 )
 
@@ -49,11 +50,24 @@ func (a *ApplianceConfig) Generate(dependencies asset.Parents) error {
 apiVersion: v1beta1
 kind: ApplianceConfig
 ocpRelease:
-	version: ocp-release-version (x.y.z)
-	channel: stable|candidate|fast|eus [default: stable]
-	cpuArchitecture: cpu-architecture [default: x86_64]
-diskSizeGB: appliance-disk-image-virtual-size
+	# OCP release version in major.minor or major.minor.patch format
+	# (in case of major.minor - latest patch version will be used)
+	version: ocp-release-version 
+	# OCP release update channel: stable|fast|eus|candidate
+	# Default: stable
+	# [Optional] 
+	channel: ocp-release-channel
+	# OCP release CPU architecture: amd64/arm64/ppc64le/s390x
+	# Default: amd64
+	# [Optional]
+	cpuArchitecture: cpu-architecture
+# Virtual size of the appliance disk image
+diskSizeGB: disk-size
+# PullSecret required for mirroring the OCP release payload
 pullSecret: pull-secret
+# Public SSH key for accessing the appliance
+# [Optional]
+sshKey: ssh-key
 `
 	a.Template = applianceConfigTemplate
 
@@ -98,6 +112,14 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	if err := yaml.UnmarshalStrict(file.Data, config); err != nil {
 		return false, errors.Wrapf(err, "failed to unmarshal %s", ApplianceConfigFilename)
 	}
+
+	g := graph.NewGraph()
+	releaseImage, releaseVersion, err := g.GetReleaseImage(config.OcpRelease.Version, config.OcpRelease.Channel, config.OcpRelease.CpuArchitecture)
+	if err != nil {
+		return false, err
+	}
+	config.OcpReleaseImage = &releaseImage
+	config.OcpRelease.Version = releaseVersion
 
 	a.File, a.Config = file, config
 	if err = a.finish(); err != nil {

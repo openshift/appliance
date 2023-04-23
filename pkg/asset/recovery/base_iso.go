@@ -5,7 +5,6 @@ import (
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/coreos"
-	"github.com/danielerez/openshift-appliance/pkg/executer"
 	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/release"
 	"github.com/openshift/installer/pkg/asset"
@@ -14,7 +13,7 @@ import (
 
 // BaseISO generates the base ISO file for the image (CoreOS LiveCD)
 type BaseISO struct {
-	File           *asset.File
+	File *asset.File
 }
 
 var _ asset.Asset = (*BaseISO)(nil)
@@ -39,7 +38,8 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	dependencies.Get(envConfig, applianceConfig)
 
 	c := coreos.NewCoreOS(envConfig)
-	cpuArch, err := i.getCpuArch(applianceConfig, envConfig)
+	r := release.NewRelease(*applianceConfig.Config.OcpReleaseImage, applianceConfig.Config.PullSecret, envConfig)
+	cpuArch, err := r.GetReleaseArchitecture()
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	stop := log.Spinner("Downloading CoreOS ISO...", "Successfully downloaded CoreOS ISO")
 	defer stop()
 	fileName, err := c.DownloadISO(
-		applianceConfig.Config.OcpReleaseImage,
+		*applianceConfig.Config.OcpReleaseImage,
 		applianceConfig.Config.PullSecret)
 	if err != nil {
 		return err
@@ -64,11 +64,4 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	i.File = &asset.File{Filename: fileName}
 
 	return nil
-}
-
-func (i *BaseISO) getCpuArch(applianceConfig *config.ApplianceConfig, envConfig *config.EnvConfig) (string, error) {
-	releaseImage := applianceConfig.Config.OcpReleaseImage
-	pullSecret := applianceConfig.Config.PullSecret
-	r := release.NewRelease(executer.NewExecuter(), releaseImage, pullSecret, envConfig)
-	return r.GetReleaseArchitecture()
 }
