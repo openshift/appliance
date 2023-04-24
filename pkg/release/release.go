@@ -34,7 +34,7 @@ const (
 type Release interface {
 	ExtractFile(image string, filename string) (string, error)
 	GetReleaseArchitecture() (string, error)
-	MirrorRelease(ocpReleaseImage string) error
+	MirrorRelease(ocpReleaseImage *string) error
 }
 
 type release struct {
@@ -47,9 +47,9 @@ type release struct {
 }
 
 // NewRelease is used to set up the executor to run oc commands
-func NewRelease(executer executer.Executer, releaseImage, pullSecret string, envConfig *config.EnvConfig) Release {
+func NewRelease(releaseImage, pullSecret string, envConfig *config.EnvConfig) Release {
 	return &release{
-		executer:     executer,
+		executer:     executer.NewExecuter(),
 		releaseImage: releaseImage,
 		pullSecret:   pullSecret,
 		cacheDir:     envConfig.CacheDir,
@@ -155,9 +155,12 @@ func (r *release) execute(executer executer.Executer, pullSecret, command string
 	return "", errors.Wrapf(err, "Failed to execute cmd (%s): %s", executeCommand, err)
 }
 
-func (r *release) MirrorRelease(ocpReleaseImage string) error {
+func (r *release) MirrorRelease(ocpReleaseImage *string) error {
+	if ocpReleaseImage == nil {
+		return errors.New("OCP release image URL must be specified")
+	}
 	mirroredImagesPath := filepath.Join(r.assetsDir, mirroredImagesDirName)
-	cmd := fmt.Sprintf(ocAdmMirrorCmd, ocpReleaseImage, mirroredImagesPath)
+	cmd := fmt.Sprintf(ocAdmMirrorCmd, *ocpReleaseImage, mirroredImagesPath)
 
 	if err := os.MkdirAll(mirroredImagesPath, os.ModePerm); err != nil {
 		logrus.Errorf("Failed to create dir: %s: %s", mirroredImagesPath, err.Error())

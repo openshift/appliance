@@ -47,7 +47,7 @@ func (c *coreos) DownloadDiskImage(cpuArch string) (string, error) {
 
 func (c *coreos) DownloadISO(releaseImage, pullSecret string) (string, error) {
 	envConfig := &config.EnvConfig{CacheDir: c.CacheDir, AssetsDir: c.AssetsDir, TempDir: c.TempDir}
-	r := release.NewRelease(executer.NewExecuter(), releaseImage, pullSecret, envConfig)
+	r := release.NewRelease(releaseImage, pullSecret, envConfig)
 	cpuArch, err := r.GetReleaseArchitecture()
 	if err != nil {
 		return "", err

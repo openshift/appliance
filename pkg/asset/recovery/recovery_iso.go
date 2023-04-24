@@ -8,7 +8,6 @@ import (
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/asset/ignition"
 	"github.com/danielerez/openshift-appliance/pkg/coreos"
-	"github.com/danielerez/openshift-appliance/pkg/executer"
 	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/release"
 	"github.com/openshift/assisted-image-service/pkg/isoeditor"
@@ -62,8 +61,9 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	}
 
 	r := release.NewRelease(
-		executer.NewExecuter(), applianceConfig.Config.OcpReleaseImage,
-		applianceConfig.Config.PullSecret, envConfig,
+		*applianceConfig.Config.OcpReleaseImage,
+		applianceConfig.Config.PullSecret,
+		envConfig,
 	)
 
 	if !generated {

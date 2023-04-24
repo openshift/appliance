@@ -3,7 +3,9 @@ module github.com/danielerez/openshift-appliance
 go 1.18
 
 require (
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/coreos/ignition/v2 v2.13.0
+	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/openshift/assisted-image-service v0.0.0-20220307202600-054a1afa8d28
 	github.com/openshift/assisted-service v1.0.10-0.20220223093655-7ada9949bf1d
 	github.com/openshift/installer v0.9.0-master.0.20220831144017-e4fba40d73bb
@@ -87,7 +89,6 @@ require (
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.0 // indirect
 	github.com/hashicorp/logutils v1.0.0 // indirect
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.17.0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
