@@ -17,7 +17,7 @@ type Executer interface {
 type executer struct {
 }
 
-func NewExecuter() *executer {
+func NewExecuter() Executer {
 	return &executer{}
 }
 

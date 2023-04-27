@@ -33,7 +33,7 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	dependencies.Get(envConfig, applianceConfig)
 
 	c := coreos.NewCoreOS(envConfig)
-	r := release.NewRelease(*applianceConfig.Config.OcpReleaseImage, applianceConfig.Config.PullSecret, envConfig)
+	r := release.NewRelease(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret, envConfig)
 	cpuArch, err := r.GetReleaseArchitecture()
 	if err != nil {
 		return err
@@ -41,8 +41,8 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 
 	// Search for disk image in cache dir
 	filePattern := fmt.Sprintf("fedora-coreos*%s.qcow2", cpuArch)
-	if fileName := c.FindInCache(filePattern); fileName != "" {
-		logrus.Info("Reusing appliance base disk image from cache...")
+	if fileName := envConfig.FindInCache(filePattern); fileName != "" {
+		logrus.Info("Reusing appliance base disk image from cache")
 		a.File = &asset.File{Filename: fileName}
 		return nil
 	}

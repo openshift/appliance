@@ -1,6 +1,10 @@
 package templates
 
 import (
+	"encoding/json"
+
+	"github.com/danielerez/openshift-appliance/pkg/asset/registry"
+	"github.com/danielerez/openshift-appliance/pkg/types"
 	"github.com/openshift/assisted-service/pkg/conversions"
 )
 
@@ -44,10 +48,36 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryPartitionSize, dataPartiti
 	}
 }
 
-func GetBootstrapIgnitionTemplateData(registryDataPath string) interface{} {
+func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath string) interface{} {
+	releaseImageObj := map[string]any{
+		"openshift_version": ocpReleaseImage.Version,
+		"version":           ocpReleaseImage.Version,
+		"cpu_architecture":  ocpReleaseImage.CpuArchitecture,
+		"url":               ocpReleaseImage.URL,
+	}
+	releaseImageArr := []map[string]any{releaseImageObj}
+	releaseImages, _ := json.Marshal(releaseImageArr)
+
 	return struct {
-		RegistryDataPath string
+		IsBootstrapStep bool
+
+		ReleaseImages, ReleaseImageUrl, RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage           string
+		AssistedServiceImage, AssistedInstallerAgentImage, AssistedInstallerControllerImage, AssistedInstallerImage string
 	}{
+		IsBootstrapStep: true,
+
+		// Registry
+		ReleaseImages:    string(releaseImages),
+		ReleaseImageUrl:  *ocpReleaseImage.URL,
 		RegistryDataPath: registryDataPath,
+		RegistryDomain:   registry.RegistryDomain,
+		RegistryFilePath: RegistryFilePath,
+		RegistryImage:    RegistryImage,
+
+		// AI images
+		AssistedServiceImage:             AssistedServiceImage,
+		AssistedInstallerAgentImage:      AssistedInstallerAgentImage,
+		AssistedInstallerControllerImage: AssistedInstallerControllerImage,
+		AssistedInstallerImage:           AssistedInstallerControllerImage,
 	}
 }

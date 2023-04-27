@@ -1,34 +1,60 @@
 #!/usr/bin/env bash
 
+# Mount agendata partition
+mkdir -p /mnt/agentdata
+mount -o ro /dev/disk/by-partlabel/agentdata /mnt/agentdata
+
 # Load registry image
-podman load -q -i /run/media/iso/assets/registry/registry.tar
+podman load -q -i /mnt/agentdata/images/{{.RegistryFilePath}}
 
 # Create certificate for the local registry
 mkdir -p /tmp/certs
 openssl req -newkey rsa:4096 -nodes -sha256 -keyout /tmp/certs/domain.key \
-    -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN=registry.appliance.com" \
+    -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN={{.RegistryDomain}}" \
     -addext "subjectAltName=DNS:registry.appliance.com,DNS:quay.io" \
     -x509 -days 36500 -out /tmp/certs/domain.crt
 
 # Apply certificates
-mkdir -p /etc/docker/certs.d/registry.appliance.com:5000
-cp /tmp/certs/domain.crt /etc/docker/certs.d/registry.appliance.com:5000
+mkdir -p /etc/docker/certs.d/{{.RegistryDomain}}:5000
+cp /tmp/certs/domain.crt /etc/docker/certs.d/{{.RegistryDomain}}:5000
 cp /tmp/certs/domain.crt /etc/pki/ca-trust/source/anchors/
 update-ca-trust
 
 # Config registry dns
 # TODO: check if worth exposing only locally and/or support IPv6
-echo "0.0.0.0 registry.appliance.com" >> /etc/hosts
-echo "0.0.0.0 api-int.appliance.appliance.com" >> /etc/hosts
+echo "0.0.0.0 {{.RegistryDomain}}" >> /etc/hosts
+echo "0.0.0.0 api-int.{{.RegistryDomain}}" >> /etc/hosts
+
+# Copy registry data to RAM if required, otherwise use data from source
+if [ {{.IsBootstrapStep}} ]; then
+  registry_data=/tmp/registry
+  cp -r {{.RegistryDataPath}} $registry_data
+  umount /mnt/agentdata
+else
+  registry_data={{.RegistryDataPath}}
+fi
 
 # Run local registry image
-mkdir -p {{.RegistryDataPath}}
 podman rm registry --force
 podman run --privileged -d --name registry \
     -p 5000:5000 -p 443:5000 \
-    -v {{.RegistryDataPath}}:/var/lib/registry --restart=always \
+    -v $registry_data:/var/lib/registry --restart=always \
     -v /tmp/certs:/certs \
     -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 \
     -e REGISTRY_HTTP_TLS_CERTIFICATE=certs/domain.crt \
     -e REGISTRY_HTTP_TLS_KEY=certs/domain.key \
-    docker.io/library/registry:2 
+    {{.RegistryImage}}
+
+
+if [ {{.IsBootstrapStep}} ]; then
+  # Add registry domain to assisted-service.env
+  sed -i 's/PUBLIC_CONTAINER_REGISTRIES=.*/&,registry.appliance.com:5000/g' /usr/local/share/assisted-service/assisted-service.env
+
+  # Set RELEASE_IMAGES in assisted-service.env
+  sed -i '/RELEASE_IMAGES=.*/d' /usr/local/share/assisted-service/assisted-service.env
+  echo 'RELEASE_IMAGES={{.ReleaseImages}}' >> /usr/local/share/assisted-service/assisted-service.env
+  
+  # Set OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR in assisted-service.env
+  sed -i '/OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR=.*/d' /usr/local/share/assisted-service/assisted-service.env
+  echo 'OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR={{.ReleaseImageUrl}}' >> /usr/local/share/assisted-service/assisted-service.env
+fi

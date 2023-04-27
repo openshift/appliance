@@ -9,7 +9,7 @@ import (
 	"github.com/danielerez/openshift-appliance/pkg/asset/ignition"
 	"github.com/danielerez/openshift-appliance/pkg/coreos"
 	"github.com/danielerez/openshift-appliance/pkg/log"
-	"github.com/danielerez/openshift-appliance/pkg/release"
+	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/assisted-image-service/pkg/isoeditor"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
@@ -51,20 +51,15 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	generated := false
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
 	recoveryIsoDirPath := filepath.Join(envConfig.TempDir, recoveryIsoDirName)
+	recoveryIsoPath := filepath.Join(envConfig.CacheDir, recoveryIsoFileName)
 	c := coreos.NewCoreOS(envConfig)
 
-	// Search for disk image in cache dir
-	if fileName := c.FindInCache(recoveryIsoFileName); fileName != "" {
-		logrus.Info("Reusing recovery ISO from cache...")
+	// Search for ISO in cache dir
+	if fileName := envConfig.FindInCache(recoveryIsoFileName); fileName != "" {
+		logrus.Info("Reusing recovery ISO from cache")
 		a.File = &asset.File{Filename: fileName}
 		generated = true
 	}
-
-	r := release.NewRelease(
-		*applianceConfig.Config.OcpReleaseImage,
-		applianceConfig.Config.PullSecret,
-		envConfig,
-	)
 
 	if !generated {
 		stop := log.Spinner("Generating recovery ISO...", "Successfully generated recovery ISO")
@@ -75,19 +70,19 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 			return err
 		}
 
+		// Extracting the base ISO and generating the recovery ISO with a different volume label.
+		// If required, we could utilize this flow later on for modifying initrd/rootfs/etc. 
 		if err := isoeditor.Extract(coreosIsoPath, recoveryIsoDirPath); err != nil {
-			logrus.Errorf("Failed to extract image: %s", err.Error())
+			logrus.Errorf("Failed to extract ISO: %s", err.Error())
 			return err
 		}
-
-		if err := r.MirrorRelease(applianceConfig.Config.OcpReleaseImage); err != nil {
-			logrus.Errorf("Failed to mirror release payload: %s", err.Error())
+		if err := isoeditor.Create(recoveryIsoPath, recoveryIsoDirPath, templates.RecoveryPartitionName); err != nil {
+			logrus.Errorf("Failed to create ISO: %s", err.Error())
 			return err
 		}
 	}
 
 	// Embed ignition in ISO
-	recoveryIsoPath := filepath.Join(envConfig.CacheDir, recoveryIsoFileName)
 	ignitionBytes, err := json.Marshal(recoveryIgnition.Config)
 	if err != nil {
 		logrus.Errorf("Failed to marshal recovery ignition to json: %s", err.Error())
@@ -98,17 +93,7 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
-	// Fetch ISO size
-	f, err := os.Stat(recoveryIsoPath)
-	if err != nil {
-		logrus.Errorf("Failed to get info on recovery iso file: %s", err.Error())
-		return err
-	}
-	a.Size = f.Size()
-
-	a.File = &asset.File{Filename: recoveryIsoPath}
-
-	return nil
+	return a.updateAsset(recoveryIsoPath)
 
 	// TODO
 	// 1. Extract base ISO - Done
@@ -124,4 +109,15 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 // Name returns the human-friendly name of the asset.
 func (a *RecoveryISO) Name() string {
 	return "Appliance Recovery ISO"
+}
+
+func (a *RecoveryISO) updateAsset(recoveryIsoPath string) error {
+	a.File = &asset.File{Filename: recoveryIsoPath}
+	f, err := os.Stat(recoveryIsoPath)
+	if err != nil {
+		return err
+	}
+	a.Size = f.Size()
+
+	return nil
 }

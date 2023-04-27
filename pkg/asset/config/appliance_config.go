@@ -118,7 +118,7 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	config.OcpReleaseImage = &releaseImage
+	config.OcpRelease.URL = &releaseImage
 	config.OcpRelease.Version = releaseVersion
 
 	a.File, a.Config = file, config
