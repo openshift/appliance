@@ -28,4 +28,8 @@ RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-previ
 COPY --from=quay.io/openshift/origin-cli:latest /usr/bin/oc /usr/bin/kubectl /usr/bin/
 COPY --from=builder /build/openshift-appliance /openshift-appliance
 
+# Copy
+RUN mkdir -p data
+COPY /data data
+
 ENTRYPOINT ["/openshift-appliance", "--dir", "assets"]
