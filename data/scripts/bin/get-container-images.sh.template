@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# Note: overrides https://github.com/openshift/installer/blob/85138dd3c4e9c27c4bd4fbe3588af7712404347b/data/data/agent/files/usr/local/bin/get-container-images.sh
+
+# Store images in the environment file used by services and passed to assisted-service
+cat <<EOF >/usr/local/share/assisted-service/agent-images.env
+SERVICE_IMAGE={{.AssistedServiceImage}}
+AGENT_DOCKER_IMAGE={{.AssistedInstallerAgentImage}}
+CONTROLLER_IMAGE={{.AssistedInstallerControllerImage}}
+INSTALLER_IMAGE={{.AssistedInstallerImage}}
+EOF

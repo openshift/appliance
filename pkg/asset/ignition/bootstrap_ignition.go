@@ -3,8 +3,10 @@ package ignition
 import (
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/asset/registry"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
+	assetignition "github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/openshift/installer/pkg/asset/password"
 	"github.com/sirupsen/logrus"
@@ -17,7 +19,14 @@ var (
 
 	bootstrapScripts = []string{
 		"start-local-registry.sh",
+		"get-container-images.sh",
+		"extract-agent.sh",
 	}
+)
+
+const (
+	bootstrapRegistryDataPath = "/mnt/agentdata/oc-mirror/bootstrap"
+	registriesConfFilePath    = "/etc/containers/registries.conf"
 )
 
 // BootstrapIgnition generates the bootstrap ignition file for the recovery ISO
@@ -37,6 +46,7 @@ func (i *BootstrapIgnition) Dependencies() []asset.Asset {
 	return []asset.Asset{
 		&config.ApplianceConfig{},
 		&password.KubeadminPassword{},
+		&registry.RegistriesConf{},
 	}
 }
 
@@ -44,7 +54,8 @@ func (i *BootstrapIgnition) Dependencies() []asset.Asset {
 func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	pwd := &password.KubeadminPassword{}
-	dependencies.Get(applianceConfig, pwd)
+	registryConf := &registry.RegistriesConf{}
+	dependencies.Get(applianceConfig, pwd, registryConf)
 
 	i.Config = igntypes.Config{}
 
@@ -54,7 +65,8 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	}
 
 	// Add bootstrap scripts to ignition
-	templateData := templates.GetBootstrapIgnitionTemplateData("/tmp/registry")
+	templateData := templates.GetBootstrapIgnitionTemplateData(
+		applianceConfig.Config.OcpRelease, bootstrapRegistryDataPath)
 	for _, script := range bootstrapScripts {
 		if err := bootstrap.AddStorageFiles(&i.Config,
 			"/usr/local/bin/"+script,
@@ -76,6 +88,10 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		}
 	}
 	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
+
+	registriesFile := assetignition.FileFromBytes(registriesConfFilePath,
+		"root", 0600, registryConf.FileData)
+	i.Config.Storage.Files = append(i.Config.Storage.Files, registriesFile)
 
 	logrus.Debug("Successfully generated bootstrap ignition")
 

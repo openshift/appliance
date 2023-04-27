@@ -3,7 +3,6 @@ package coreos
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
@@ -78,16 +77,4 @@ func (c *coreos) EmbedIgnition(ignition []byte, isoPath string) error {
 	args := strings.Split(embedCmd, " ")
 	_, err = executer.NewExecuter().Execute(args[0], args[1:]...)
 	return err
-}
-
-func (c *coreos) FindInCache(filePattern string) string {
-	files, err := filepath.Glob(filepath.Join(c.CacheDir, filePattern))
-	if err != nil {
-		logrus.Errorf("Failed searching for file '%s' in dir '%s'", filePattern, c.CacheDir)
-		return ""
-	}
-	if len(files) > 0 {
-		return files[0]
-	}
-	return ""
 }

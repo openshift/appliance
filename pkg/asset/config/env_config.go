@@ -43,6 +43,18 @@ func (e *EnvConfig) Generate(asset.Parents) error {
 }
 
 // Name returns the human-friendly name of the asset.
-func (a *EnvConfig) Name() string {
+func (e *EnvConfig) Name() string {
 	return "Env Config"
+}
+
+func (e *EnvConfig) FindInCache(filePattern string) string {
+	files, err := filepath.Glob(filepath.Join(e.CacheDir, filePattern))
+	if err != nil {
+		logrus.Errorf("Failed searching for file '%s' in dir '%s'", filePattern, e.CacheDir)
+		return ""
+	}
+	if len(files) > 0 {
+		return files[0]
+	}
+	return ""
 }

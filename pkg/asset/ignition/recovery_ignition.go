@@ -29,7 +29,7 @@ func (i *RecoveryIgnition) Dependencies() []asset.Asset {
 	}
 }
 
-// Generate the base ISO.
+// Generate the ignition embedded in the recovery ISO.
 func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
 	bootstrapIgnition := &BootstrapIgnition{}
 	dependencies.Get(bootstrapIgnition)
