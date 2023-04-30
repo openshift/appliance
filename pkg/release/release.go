@@ -8,9 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danielerez/openshift-appliance/pkg/asset/config"
-
 	"github.com/buger/jsonparser"
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/executer"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"

@@ -48,6 +48,14 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryPartitionSize, dataPartiti
 	}
 }
 
+func GetImageRegistryTemplateData(registryDataPath string) interface{} {
+	return struct {
+		RegistryDataPath string
+	}{
+		RegistryDataPath: registryDataPath,
+	}
+}
+
 func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath string) interface{} {
 	releaseImageObj := map[string]any{
 		"openshift_version": ocpReleaseImage.Version,

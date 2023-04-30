@@ -71,7 +71,7 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 		}
 
 		// Extracting the base ISO and generating the recovery ISO with a different volume label.
-		// If required, we could utilize this flow later on for modifying initrd/rootfs/etc. 
+		// If required, we could utilize this flow later on for modifying initrd/rootfs/etc.
 		if err := isoeditor.Extract(coreosIsoPath, recoveryIsoDirPath); err != nil {
 			logrus.Errorf("Failed to extract ISO: %s", err.Error())
 			return err

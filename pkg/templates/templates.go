@@ -12,14 +12,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//go:embed guestfish
-var GuestfishTemplates embed.FS
+//go:embed scripts
+var Scripts embed.FS
 
 func RenderTemplateFile(fileName string, templateData interface{}, outputDir string) error {
 	logrus.Debugf("Rendering %s", fileName)
 
 	// Read the template file
-	content, err := GuestfishTemplates.ReadFile(fileName)
+	content, err := Scripts.ReadFile(fileName)
 	if err != nil {
 		return errors.Wrapf(err, "Failed reading file: %s", fileName)
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/log"
+	"github.com/danielerez/openshift-appliance/pkg/registry"
 	"github.com/danielerez/openshift-appliance/pkg/skopeo"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
@@ -66,28 +67,33 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
-	imagesDirPath := filepath.Join(envConfig.TempDir, dataDir, imagesDir)
-
-	// Copying registry image
-	if err := skopeo.NewSkopeo().CopyToFile(templates.RegistryImage, templates.RegistryImageName, filepath.Join(imagesDirPath, templates.RegistryFilePath)); err != nil {
+	if err := a.copyRegistryImageIfNeeded(envConfig); err != nil {
 		return err
 	}
 
-	// 0. Check if already exists in cache
+	// TODO: Check if already exists in cache
+
+	// Copying registry boostrap images
+	filePath := filepath.Join(envConfig.TempDir, "data/bootstrap_registry")
+	bootstrapImageRegistry := registry.NewRegistry()
+
+	if err := bootstrapImageRegistry.StartRegistry(filePath); err != nil {
+		return err
+	}
 
 	// 1. generate mirror.sh template with bootstrap images
 	// 2. use oc-mirror to download images into a temp dir
 	// 3. start local registry (using registry.sh)
 	// 3.1. define RegistryDataPath as TempDir/data/bootstrap_registry
 	// 4. push the mirror (bootstrap images) to the registry
-	// 5. kill the the registry pod
+	// 5. kill the registry pod
 
 	// 6. generate mirror.sh template with all release images
 	// 7. use oc-mirror to download images into a temp dir
 	// 8. start local registry (using registry.sh)
 	// 8.1. define RegistryDataPath as TempDir/data/release_registry
 	// 9. push the mirror (release images) to the registry
-	// 10. kill the the registry pod
+	// 10. kill the registry pod
 
 	// genisoimage -J -joliet-long -D -V agentdata -o cache/dataIsoFileName dataDirPath
 
@@ -109,4 +115,19 @@ func (a *DataISO) updateAsset(envConfig *config.EnvConfig) error {
 	a.Size = f.Size()
 
 	return nil
+}
+
+func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig) error {
+	imagesDirPath := filepath.Join(envConfig.TempDir, dataDir, imagesDir)
+
+	// Search for Image in temp dir
+	if fileName := envConfig.FindInTemp(filepath.Join(dataDir, imagesDir, templates.RegistryFilePath)); fileName != "" {
+		logrus.Debug("Reusing registry.tar from temp")
+		return nil
+	}
+
+	// Copying registry image
+	err := skopeo.NewSkopeo().CopyToFile(
+		templates.RegistryImage, templates.RegistryImageName, filepath.Join(imagesDirPath, templates.RegistryFilePath))
+	return err
 }
