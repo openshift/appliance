@@ -16,6 +16,10 @@ type BaseDiskImage struct {
 	File *asset.File
 }
 
+const (
+	coreosImageName = "rhcos-*%s.qcow2"
+)
+
 var _ asset.Asset = (*BaseDiskImage)(nil)
 
 // Dependencies returns the assets on which the Bootstrap asset depends.
@@ -40,7 +44,7 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	}
 
 	// Search for disk image in cache dir
-	filePattern := fmt.Sprintf("fedora-coreos*%s.qcow2", cpuArch)
+	filePattern := fmt.Sprintf(coreosImageName, cpuArch)
 	if fileName := envConfig.FindInCache(filePattern); fileName != "" {
 		logrus.Info("Reusing appliance base disk image from cache")
 		a.File = &asset.File{Filename: fileName}
@@ -50,7 +54,7 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	// Download using coreos-installer
 	stop := log.Spinner("Downloading appliance base disk image...", "Successfully downloaded appliance base disk image")
 	defer stop()
-	fileName, err := c.DownloadDiskImage(cpuArch)
+	fileName, err := c.DownloadDiskImage(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret)
 	if err != nil {
 		return err
 	}

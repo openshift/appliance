@@ -24,11 +24,15 @@ func GetUserCfgTemplateData() interface{} {
 	}
 }
 
-func GetGuestfishScriptTemplateData(diskSize, recoveryPartitionSize, dataPartitionSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile string) interface{} {
+func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataPartitionSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile string) interface{} {
 	sectorSize := int64(512)
+	// ext4 filesystem has a larger overhead compared to ISO
+	// (an inode table for storing metadata, etc. See: https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout#Inode_Table)
+	ext4FsOverheadPercentage := 1.1
+
 	dataPartitionEndSector := (diskSize*conversions.GibToBytes(1) - conversions.MibToBytes(1)) / sectorSize
 	dataPartitionStartSector := dataPartitionEndSector - (dataPartitionSize / sectorSize)
-
+	recoveryPartitionSize := int64(float64(recoveryIsoSize) * ext4FsOverheadPercentage)
 	recoveryPartitionEndSector := dataPartitionStartSector - 1
 	recoveryPartitionStartSector := recoveryPartitionEndSector - (recoveryPartitionSize / sectorSize)
 
@@ -82,13 +86,14 @@ func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedIma
 }
 
 func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath string) interface{} {
-	releaseImageObj := map[string]any{
-		"openshift_version": ocpReleaseImage.Version,
-		"version":           ocpReleaseImage.Version,
-		"cpu_architecture":  ocpReleaseImage.CpuArchitecture,
-		"url":               ocpReleaseImage.URL,
+	releaseImageArr := []map[string]any{
+		{
+			"openshift_version": ocpReleaseImage.Version,
+			"version":           ocpReleaseImage.Version,
+			"cpu_architecture":  NormalizeCPUArchitecture(*ocpReleaseImage.CpuArchitecture),
+			"url":               ocpReleaseImage.URL,
+		},
 	}
-	releaseImageArr := []map[string]any{releaseImageObj}
 	releaseImages, _ := json.Marshal(releaseImageArr)
 
 	osImageArr := []map[string]any{

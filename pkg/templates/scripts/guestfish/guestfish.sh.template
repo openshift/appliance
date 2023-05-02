@@ -22,12 +22,21 @@ part-add /dev/sda p {{.RecoveryStartSector}} {{.RecoveryEndSector}}
 part-add /dev/sda p {{.DataStartSector}} {{.DataEndSector}}
 
 # Copy agent recovery ISO to recovery partition
-copy-device-to-device /dev/sdc /dev/sda4
+#copy-device-to-device /dev/sdc /dev/sda4
+# Copy ISO content to recovery partition
+mkfs ext4 /dev/sda4
+mount /dev/sda4 /
+mkdir /sdc
+mount /dev/sdc /sdc
+cp-a /sdc/. /
+umount /dev/sdc
+umount /dev/sda4
 
 # Copy data ISO to data partition
 copy-device-to-device /dev/sdd /dev/sda5
 
-# Set partition labels
+# Set partition/filesystem labels
+set-label /dev/sda4 {{.RecoveryPartitionName}}
 part-set-name /dev/sda 4 {{.RecoveryPartitionName}}
 part-set-name /dev/sda 5 {{.DataPartitionName}}
 

@@ -1,7 +1,10 @@
 set timeout={{.GrubTimeout}}
 set default={{.GrubDefault}}
 menuentry '{{.GrubMenuEntryName}}' {
-  search --set=root --label {{.RecoveryPartitionName}}
-  linux /images/pxeboot/vmlinuz coreos.liveiso={{.RecoveryPartitionName}} ignition.firstboot ignition.platform.id=metal
-  initrd /images/pxeboot/initrd.img /images/ignition.img
+  search --set=root --label agentboot
+  load_video
+  set gfx_payload=keep
+  insmod gzio
+  linux /images/pxeboot/vmlinuz random.trust_cpu=on console=tty0 console=ttyS0,115200n8 ignition.firstboot ignition.platform.id=metal ro
+  initrd /images/pxeboot/initrd.img /images/ignition.img /images/pxeboot/rootfs.img
 }

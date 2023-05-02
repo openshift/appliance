@@ -16,9 +16,8 @@ import (
 )
 
 const (
-	coreosIsoFileName   = "coreos-x86_64.iso"
-	recoveryIsoFileName = "recovery.iso"
-	recoveryIsoDirName  = "recovery_iso"
+	coreosIsoFileName  = "coreos-x86_64.iso"
+	recoveryIsoDirName = "recovery_iso"
 )
 
 // RecoveryISO is an asset that generates the bootable ISO copied
@@ -51,11 +50,10 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	generated := false
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
 	recoveryIsoDirPath := filepath.Join(envConfig.TempDir, recoveryIsoDirName)
-	recoveryIsoPath := filepath.Join(envConfig.CacheDir, recoveryIsoFileName)
-	c := coreos.NewCoreOS(envConfig)
+	recoveryIsoPath := filepath.Join(envConfig.CacheDir, templates.RecoveryIsoFileName)
 
 	// Search for ISO in cache dir
-	if fileName := envConfig.FindInCache(recoveryIsoFileName); fileName != "" {
+	if fileName := envConfig.FindInCache(templates.RecoveryIsoFileName); fileName != "" {
 		logrus.Info("Reusing recovery ISO from cache")
 		a.File = &asset.File{Filename: fileName}
 		generated = true
@@ -83,6 +81,7 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	}
 
 	// Embed ignition in ISO
+	c := coreos.NewCoreOS(envConfig)
 	ignitionBytes, err := json.Marshal(recoveryIgnition.Config)
 	if err != nil {
 		logrus.Errorf("Failed to marshal recovery ignition to json: %s", err.Error())
@@ -94,16 +93,6 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	}
 
 	return a.updateAsset(recoveryIsoPath)
-
-	// TODO
-	// 1. Extract base ISO - Done
-	// 2. Mirror release payload - Done
-	// 3. Create recovery ISO using 'isoeditor.Create' (includes extracted base ISO + release payload)
-	// 4. Generate custom ignition:
-	//    * On discovery - starts a local registry from tmp (with images required for bootstrap)
-	//    * On installation - starts a local registry from disk (with entire payload)
-	// 5. Merge custom ignition with 'un-configured ignition'
-	// 6. Embed custom ignition using 'coreos-installer iso embed'
 }
 
 // Name returns the human-friendly name of the asset.
