@@ -10,6 +10,12 @@ import (
 	"syscall"
 	"time"
 
+<<<<<<< HEAD
+=======
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/templates"
+
+>>>>>>> c38cadf (Bootstrap Ignition - added preparation services/scripts)
 	"github.com/buger/jsonparser"
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/executer"
@@ -26,8 +32,11 @@ const (
 	OcDefaultTries = 5
 	// OcDefaultRetryDelay is the time between retries
 	OcDefaultRetryDelay = time.Second * 5
+<<<<<<< HEAD
 	// QueryPattern formats the image names for a given release
 	QueryPattern = ".references.spec.tags[] | .name + \" \" + .from.name"
+=======
+>>>>>>> c38cadf (Bootstrap Ignition - added preparation services/scripts)
 )
 
 // Release is the interface to use the oc command to the get image info
@@ -108,7 +117,6 @@ func (r *release) ExtractFile(image string, filename string) (string, error) {
 		return "", err
 	}
 
-	logrus.Infof(imagePullSpec)
 	path, err := r.extractFileFromImage(imagePullSpec, filename, r.envConfig.CacheDir)
 	if err != nil {
 		return "", err
@@ -231,7 +239,6 @@ func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *con
 	}
 	return err
 }
-
 func (r *release) MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
 	return r.mirrorImages(
 		envConfig,
