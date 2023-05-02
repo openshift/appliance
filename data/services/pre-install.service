@@ -1,0 +1,11 @@
+[Unit]
+Description=Agent-based installer preparation service
+After=getty@tty1.service
+
+[Service]
+ExecStart=/usr/local/bin/pre-install.sh
+Type=oneshot
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

@@ -26,13 +26,6 @@ const (
 	OcDefaultTries = 5
 	// OcDefaultRetryDelay is the time between retries
 	OcDefaultRetryDelay = time.Second * 5
-
-	// CPU architectures
-	CPUArchitectureAMD64   = "amd64"
-	CPUArchitectureX86     = "x86_64"
-	CPUArchitectureARM64   = "arm64"
-	CPUArchitectureAARCH64 = "aarch64"
-
 	// QueryPattern formats the image names for a given release
 	QueryPattern = ".references.spec.tags[] | .name + \" \" + .from.name"
 )
@@ -47,11 +40,9 @@ type Release interface {
 
 type release struct {
 	executer                  executer.Executer
+	envConfig                 *config.EnvConfig
 	releaseImage              string
 	pullSecret                string
-	cacheDir                  string
-	assetsDir                 string
-	tempDir                   string
 	blockedBootstrapImages    map[string]bool
 	additionalBootstrapImages map[string]bool
 }
@@ -60,11 +51,9 @@ type release struct {
 func NewRelease(releaseImage, pullSecret string, envConfig *config.EnvConfig) Release {
 	return &release{
 		executer:                  executer.NewExecuter(),
+		envConfig:                 envConfig,
 		releaseImage:              releaseImage,
 		pullSecret:                pullSecret,
-		cacheDir:                  envConfig.CacheDir,
-		assetsDir:                 envConfig.AssetsDir,
-		tempDir:                   envConfig.TempDir,
 		blockedBootstrapImages:    initBlockedBootstrapImagesInfo(),
 		additionalBootstrapImages: initAdditionalImagesInfo(),
 	}
@@ -119,7 +108,8 @@ func (r *release) ExtractFile(image string, filename string) (string, error) {
 		return "", err
 	}
 
-	path, err := r.extractFileFromImage(imagePullSpec, filename, r.cacheDir)
+	logrus.Infof(imagePullSpec)
+	path, err := r.extractFileFromImage(imagePullSpec, filename, r.envConfig.CacheDir)
 	if err != nil {
 		return "", err
 	}
@@ -139,7 +129,7 @@ func (r *release) GetReleaseArchitecture() (string, error) {
 	}
 
 	// Convert architecture naming to supported values
-	return r.normalizeCPUArchitecture(architecture), nil
+	return templates.NormalizeCPUArchitecture(architecture), nil
 }
 
 func (r *release) getImageFromRelease(imageName string) (string, error) {
@@ -175,7 +165,7 @@ func (r *release) extractFileFromImage(image, file, cacheDir string) (string, er
 func (r *release) execute(executer executer.Executer, pullSecret, command string) (string, error) {
 	executeCommand := command
 	if pullSecret != "" {
-		ps, err := executer.TempFile(r.tempDir, "registry-config")
+		ps, err := executer.TempFile(r.envConfig.TempDir, "registry-config")
 		if err != nil {
 			return "", err
 		}
@@ -275,7 +265,7 @@ func (r *release) generateBlockedImagesList(applianceConfig *config.ApplianceCon
 	cmd := fmt.Sprintf(
 		ocAdmReleaseInfo,
 		applianceConfig.Config.OcpRelease.Version,
-		r.normalizeCPUArchitecture(swag.StringValue(applianceConfig.Config.OcpRelease.CpuArchitecture)),
+		templates.NormalizeCPUArchitecture(swag.StringValue(applianceConfig.Config.OcpRelease.CpuArchitecture)),
 	)
 
 	out, err := r.execute(r.executer, r.pullSecret, cmd)
@@ -346,15 +336,4 @@ func (r *release) MirrorBootStrapImages(envConfig *config.EnvConfig, applianceCo
 		blockedImages,
 		r.generateAdditionalImagesList(r.imagesListWithCustomImages()),
 	)
-}
-
-func (r *release) normalizeCPUArchitecture(arch string) string {
-	switch arch {
-	case CPUArchitectureAMD64:
-		return CPUArchitectureX86
-	case CPUArchitectureARM64:
-		return CPUArchitectureAARCH64
-	default:
-		return arch
-	}
 }

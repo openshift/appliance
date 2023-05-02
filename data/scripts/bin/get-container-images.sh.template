@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-# Note: overrides https://github.com/openshift/installer/blob/85138dd3c4e9c27c4bd4fbe3588af7712404347b/data/data/agent/files/usr/local/bin/get-container-images.sh
+# TODO: remove file - temporary for testing (custom agent image)
+
+# shellcheck disable=SC1091
+. /usr/local/bin/release-image.sh
 
 # Store images in the environment file used by services and passed to assisted-service
+# The agent image will be also retrieved when its script is run
 cat <<EOF >/usr/local/share/assisted-service/agent-images.env
-SERVICE_IMAGE={{.AssistedServiceImage}}
-AGENT_DOCKER_IMAGE={{.AssistedInstallerAgentImage}}
-CONTROLLER_IMAGE={{.AssistedInstallerControllerImage}}
-INSTALLER_IMAGE={{.AssistedInstallerImage}}
+SERVICE_IMAGE=$(image_for agent-installer-api-server)
+INSTALLER_IMAGE=$(image_for agent-installer-orchestrator)
+CONTROLLER_IMAGE=$(image_for agent-installer-csr-approver)
+AGENT_DOCKER_IMAGE=quay.io/masayag/assisted-installer-agent:billi
 EOF

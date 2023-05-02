@@ -10,6 +10,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/openshift/assisted-image-service v0.0.0-20220307202600-054a1afa8d28
 	github.com/openshift/assisted-service v1.0.10-0.20220223093655-7ada9949bf1d
+	github.com/openshift/hive/apis v0.0.0-20210506000654-5c038fb05190
 	github.com/openshift/installer v0.9.0-master.0.20220831144017-e4fba40d73bb
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
@@ -125,7 +126,6 @@ require (
 	github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20191219173431-2336783d4603 // indirect
 	github.com/openshift/cluster-api-provider-ovirt v0.1.1-0.20220323121149-e3f2850dd519 // indirect
 	github.com/openshift/custom-resource-status v1.1.0 // indirect
-	github.com/openshift/hive/apis v0.0.0-20210506000654-5c038fb05190 // indirect
 	github.com/openshift/machine-config-operator v0.0.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/ovirt/go-ovirt v0.0.0-20210809163552-d4276e35d3db // indirect

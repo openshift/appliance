@@ -20,17 +20,6 @@ const (
 	imagesDir = "images"
 )
 
-var (
-// TODO: use skopeo.CopyToRegistry to push AI images to local registry
-//
-//	aiImages = []string{
-//		templates.AssistedServiceImage,
-//		templates.AssistedInstallerAgentImage,
-//		templates.AssistedInstallerControllerImage,
-//		templates.AssistedInstallerImage,
-//	}
-)
-
 // DataISO is an asset that contains registry images
 // to a recovery partition in the OpenShift-based appliance.
 type DataISO struct {

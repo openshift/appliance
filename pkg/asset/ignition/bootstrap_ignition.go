@@ -1,8 +1,11 @@
 package ignition
 
 import (
+	"path/filepath"
+
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/asset/manifests"
 	"github.com/danielerez/openshift-appliance/pkg/asset/registry"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
@@ -15,18 +18,28 @@ import (
 var (
 	bootstrapServices = []string{
 		"start-local-registry.service",
+		"assisted-service.service",
+		"create-cluster-and-infraenv.service",
+		"pre-install.service",
 	}
 
 	bootstrapScripts = []string{
 		"start-local-registry.sh",
-		"get-container-images.sh",
+		"set-env-files.sh",
+		"pre-install.sh",
 		"extract-agent.sh",
+		"release-image.sh",
+		"prepare-cluster-installation.sh",
+
+		// TODO: remove (needed for using custom agent image)
+		"get-container-images.sh",
 	}
 )
 
 const (
 	bootstrapRegistryDataPath = "/mnt/agentdata/oc-mirror/bootstrap"
 	registriesConfFilePath    = "/etc/containers/registries.conf"
+	manifestPath              = "/etc/assisted/manifests"
 )
 
 // BootstrapIgnition generates the bootstrap ignition file for the recovery ISO
@@ -47,6 +60,7 @@ func (i *BootstrapIgnition) Dependencies() []asset.Asset {
 		&config.ApplianceConfig{},
 		&password.KubeadminPassword{},
 		&registry.RegistriesConf{},
+		&manifests.ClusterImageSet{},
 	}
 }
 
@@ -55,7 +69,8 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	pwd := &password.KubeadminPassword{}
 	registryConf := &registry.RegistriesConf{}
-	dependencies.Get(applianceConfig, pwd, registryConf)
+	clusterImageSet := &manifests.ClusterImageSet{}
+	dependencies.Get(applianceConfig, pwd, registryConf, clusterImageSet)
 
 	i.Config = igntypes.Config{}
 
@@ -89,9 +104,15 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	}
 	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
 
+	// Add registries.conf
 	registriesFile := assetignition.FileFromBytes(registriesConfFilePath,
 		"root", 0600, registryConf.FileData)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registriesFile)
+
+	// Add manifests
+	manifestFile := assetignition.FileFromBytes(filepath.Join(manifestPath, clusterImageSet.File.Filename),
+		"root", 0600, clusterImageSet.File.Data)
+	i.Config.Storage.Files = append(i.Config.Storage.Files, manifestFile)
 
 	logrus.Debug("Successfully generated bootstrap ignition")
 

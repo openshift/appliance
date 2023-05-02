@@ -20,7 +20,7 @@ const (
 	ImageSetReleaseTemplateFile = "scripts/mirror/imageset-release.yaml.template"
 
 	// Recovery/Data partitions
-	RecoveryPartitionName = "agentrecovery"
+	RecoveryPartitionName = "agentboot"
 	DataPartitionName     = "agentdata"
 
 	// ReservedPartitionGUID Set partition as Linux reserved partition: https://en.wikipedia.org/wiki/GUID_Partition_Table
@@ -31,10 +31,13 @@ const (
 	RegistryImageName = "registry:2"
 	RegistryFilePath  = "registry/registry.tar"
 
+	// CPU architectures
+	CPUArchitectureAMD64   = "amd64"
+	CPUArchitectureX86     = "x86_64"
+	CPUArchitectureARM64   = "arm64"
+	CPUArchitectureAARCH64 = "aarch64"
+
 	// AI images
-	// TODO: change official images when applicable
-	AssistedServiceImage             = "quay.io/nmagnezi/assisted-service:appliance2"
-	AssistedInstallerAgentImage      = "quay.io/masayag/assisted-installer-agent:billi"
-	AssistedInstallerControllerImage = "quay.io/edge-infrastructure/assisted-installer-controller:latest"
-	AssistedInstallerImage           = "quay.io/edge-infrastructure/assisted-installer:latest"
+	// TODO: remove when official images are updates
+	AssistedInstallerAgentImage = "quay.io/masayag/assisted-installer-agent:billi"
 )

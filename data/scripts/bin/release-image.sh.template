@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+image_for() {
+    podman run --quiet --rm --net=none "{{.ReleaseImage}}" image "${1}"
+}

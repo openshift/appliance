@@ -1,6 +1,6 @@
 [Unit]
 Description=Local Registry
-Wants=network.target network.service NetworkManager-wait-online.service
+Wants=network.target
 
 [Service]
 ExecStart=/usr/local/bin/start-local-registry.sh

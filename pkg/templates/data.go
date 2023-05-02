@@ -91,26 +91,30 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 	releaseImageArr := []map[string]any{releaseImageObj}
 	releaseImages, _ := json.Marshal(releaseImageArr)
 
+	osImageArr := []map[string]any{
+		{
+			"openshift_version": ocpReleaseImage.Version,
+			"cpu_architecture":  NormalizeCPUArchitecture(*ocpReleaseImage.CpuArchitecture),
+			"version":           "n/a",
+			"url":               "n/a",
+		},
+	}
+	osImages, _ := json.Marshal(osImageArr)
+
 	return struct {
 		IsBootstrapStep bool
 
-		ReleaseImages, ReleaseImageUrl, RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage           string
-		AssistedServiceImage, AssistedInstallerAgentImage, AssistedInstallerControllerImage, AssistedInstallerImage string
+		ReleaseImages, ReleaseImage, OsImages, RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
 	}{
 		IsBootstrapStep: true,
 
 		// Registry
 		ReleaseImages:    string(releaseImages),
-		ReleaseImageUrl:  *ocpReleaseImage.URL,
+		ReleaseImage:     *ocpReleaseImage.URL,
 		RegistryDataPath: registryDataPath,
 		RegistryDomain:   registry.RegistryDomain,
 		RegistryFilePath: RegistryFilePath,
 		RegistryImage:    RegistryImage,
-
-		// AI images
-		AssistedServiceImage:             AssistedServiceImage,
-		AssistedInstallerAgentImage:      AssistedInstallerAgentImage,
-		AssistedInstallerControllerImage: AssistedInstallerControllerImage,
-		AssistedInstallerImage:           AssistedInstallerControllerImage,
+		OsImages:         string(osImages),
 	}
 }
