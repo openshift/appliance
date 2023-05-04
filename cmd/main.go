@@ -13,6 +13,7 @@ var (
 	rootOpts struct {
 		dir      string
 		logLevel string
+		debug    bool
 	}
 )
 
@@ -27,6 +28,9 @@ func applianceMain() {
 		NewBuildCmd(),
 		NewCleanCmd(),
 		NewGenerateConfigCmd(),
+
+		// Hidden commands for debug
+		NewGenerateInstallIgnitionCmd(),
 	} {
 		rootCmd.AddCommand(subCmd)
 	}

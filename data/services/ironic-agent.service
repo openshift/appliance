@@ -1,0 +1,12 @@
+[Unit]
+Description=Stub service for debug to avoid reboot after coreos installation
+Before=pre-install.service
+
+[Service]
+ExecStart=echo
+KillMode=none
+Type=oneshot
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target

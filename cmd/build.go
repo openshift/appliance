@@ -14,17 +14,19 @@ import (
 )
 
 func NewBuildCmd() *cobra.Command {
-	agentCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:    "build",
 		Short:  "build an OpenShift-based appliance disk image",
-		PreRun: preRun,
-		Run:    run,
+		PreRun: preRunBuild,
+		Run:    runBuild,
 	}
+	cmd.Flags().BoolVar(&rootOpts.debug, "debug", false, "")
+	cmd.Flags().MarkHidden("debug")
 
-	return agentCmd
+	return cmd
 }
 
-func run(cmd *cobra.Command, args []string) {
+func runBuild(cmd *cobra.Command, args []string) {
 	timer.StartTimer(timer.TotalTimeElapsed)
 
 	cleanup := log.SetupFileHook(rootOpts.dir)
@@ -42,9 +44,12 @@ func run(cmd *cobra.Command, args []string) {
 	logrus.Infof("Appliance successfully created at assets directory: %s", templates.ApplianceFileName)
 }
 
-func preRun(cmd *cobra.Command, args []string) {
+func preRunBuild(cmd *cobra.Command, args []string) {
 	// Generate EnvConfig asset
-	if err := getAssetStore().Fetch(&config.EnvConfig{AssetsDir: rootOpts.dir}); err != nil {
+	if err := getAssetStore().Fetch(&config.EnvConfig{
+		AssetsDir: rootOpts.dir,
+		Debug:     rootOpts.debug,
+	}); err != nil {
 		logrus.Fatal(err)
 	}
 }

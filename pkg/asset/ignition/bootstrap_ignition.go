@@ -15,6 +15,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	bootstrapRegistryDataPath = "/mnt/agentdata/oc-mirror/bootstrap"
+	registriesConfFilePath    = "/etc/containers/registries.conf"
+	manifestPath              = "/etc/assisted/manifests"
+)
+
 var (
 	bootstrapServices = []string{
 		"start-local-registry.service",
@@ -36,12 +42,6 @@ var (
 	}
 )
 
-const (
-	bootstrapRegistryDataPath = "/mnt/agentdata/oc-mirror/bootstrap"
-	registriesConfFilePath    = "/etc/containers/registries.conf"
-	manifestPath              = "/etc/assisted/manifests"
-)
-
 // BootstrapIgnition generates the bootstrap ignition file for the recovery ISO
 type BootstrapIgnition struct {
 	Config igntypes.Config
@@ -57,22 +57,30 @@ func (i *BootstrapIgnition) Name() string {
 // Dependencies returns dependencies used by the asset.
 func (i *BootstrapIgnition) Dependencies() []asset.Asset {
 	return []asset.Asset{
+		&config.EnvConfig{},
 		&config.ApplianceConfig{},
 		&password.KubeadminPassword{},
 		&registry.RegistriesConf{},
 		&manifests.ClusterImageSet{},
+		&InstallIgnition{},
 	}
 }
 
 // Generate the base ISO.
 func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
+	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	pwd := &password.KubeadminPassword{}
 	registryConf := &registry.RegistriesConf{}
 	clusterImageSet := &manifests.ClusterImageSet{}
-	dependencies.Get(applianceConfig, pwd, registryConf, clusterImageSet)
+	dependencies.Get(envConfig, applianceConfig, pwd, registryConf, clusterImageSet)
 
 	i.Config = igntypes.Config{}
+
+	if envConfig.Debug {
+		// Avoid machine reboot after bootstrap to debug install ignition
+		bootstrapServices = append(bootstrapServices, "ironic-agent.service")
+	}
 
 	// Add bootstrap services to ignition
 	if err := bootstrap.AddSystemdUnits(&i.Config, "services", nil, bootstrapServices); err != nil {

@@ -17,6 +17,8 @@ type EnvConfig struct {
 	AssetsDir string
 	CacheDir  string
 	TempDir   string
+
+	Debug bool
 }
 
 var _ asset.Asset = (*EnvConfig)(nil)

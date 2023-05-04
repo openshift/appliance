@@ -1,7 +1,7 @@
 set timeout={{.GrubTimeout}}
 set default={{.GrubDefault}}
 menuentry '{{.GrubMenuEntryName}}' {
-  search --set=root --label agentboot
+  search --set=root --label {{.RecoveryPartitionName}}
   load_video
   set gfx_payload=keep
   insmod gzio
