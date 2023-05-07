@@ -15,5 +15,3 @@ mirror:
         type: ocp
 {{if .AdditionalImages}}  additionalImages:
 {{.AdditionalImages}}{{end}}
-{{if .BlockedImages}}  blockedImages:
-{{.BlockedImages}}{{end}}

@@ -13,6 +13,12 @@ const (
 	RecoveryIsoFileName         = "recovery.iso"
 	DataIsoFileName             = "data.iso"
 
+	// ImageSetBootstrapTemplateFile imageset-bootstrap.yaml.template
+	ImageSetBootstrapTemplateFile = "scripts/mirror/imageset-bootstrap.yaml.template"
+
+	// ImageSetReleaseTemplateFile imageset-release.yaml.template
+	ImageSetReleaseTemplateFile = "scripts/mirror/imageset-release.yaml.template"
+
 	// Recovery/Data partitions
 	RecoveryPartitionName = "agentrecovery"
 	DataPartitionName     = "agentdata"

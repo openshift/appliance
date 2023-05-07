@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/danielerez/openshift-appliance/pkg/release"
+
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/registry"
@@ -73,15 +75,34 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 
 	// TODO: Check if already exists in cache
 
+	r := release.NewRelease(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret, envConfig)
+
 	// Copying registry boostrap images
-	filePath := filepath.Join(envConfig.TempDir, "data/bootstrap_registry")
+	filePath := filepath.Join(envConfig.TempDir, "data/oc-mirror/bootstrap")
 	bootstrapImageRegistry := registry.NewRegistry()
 
 	if err := bootstrapImageRegistry.StartRegistry(filePath); err != nil {
 		return err
 	}
 
-	// 1. generate mirror.sh template with bootstrap images
+	if err := r.MirrorBootStrapImages(envConfig, applianceConfig); err != nil {
+		return err
+	}
+
+	//Copying registry boostrap images
+	filePath = filepath.Join(envConfig.TempDir, "data/oc-mirror/installation")
+	releaseImageRegistry := registry.NewRegistry()
+	if err := releaseImageRegistry.StartRegistry(filePath); err != nil {
+		return err
+	}
+	if err := r.MirrorReleaseImages(envConfig, applianceConfig); err != nil {
+		return err
+	}
+	if err := releaseImageRegistry.StopRegistry(); err != nil {
+		return err
+	}
+
+	// 1. generate mirror.sh template with bootstrap images - done
 	// 2. use oc-mirror to download images into a temp dir
 	// 3. start local registry (using registry.sh)
 	// 3.1. define RegistryDataPath as TempDir/data/bootstrap_registry
@@ -95,7 +116,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	// 9. push the mirror (release images) to the registry
 	// 10. kill the registry pod
 
-	// genisoimage -J -joliet-long -D -V agentdata -o cache/dataIsoFileName dataDirPath
+	// genisoimage -J -joliet-long -D -V agentdata -o cache/dataIsoFileName dataDirPath --> cache directory
 
 	return a.updateAsset(envConfig)
 }

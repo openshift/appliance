@@ -2,9 +2,13 @@ package templates
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/asset/registry"
 	"github.com/danielerez/openshift-appliance/pkg/types"
+	"github.com/go-openapi/swag"
 	"github.com/openshift/assisted-service/pkg/conversions"
 )
 
@@ -48,11 +52,32 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryPartitionSize, dataPartiti
 	}
 }
 
-func GetImageRegistryTemplateData(registryDataPath string) interface{} {
+// formatVersion trims the '.z' portion from  aversion if it came in a x.y.z format
+// Otherwise, return version with no changes.
+func formatVersion(version string) string {
+	if strings.Count(version, ".") == 2 {
+		lastIdx := strings.LastIndex(version, ".")
+		return version[:lastIdx]
+	}
+	return version
+}
+
+func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedImages string, additionalImages string) interface{} {
+	version := formatVersion(applianceConfig.Config.OcpRelease.Version)
 	return struct {
-		RegistryDataPath string
+		Architectures    string
+		ChannelName      string
+		MinVersion       string
+		MaxVersion       string
+		BlockedImages    string
+		AdditionalImages string
 	}{
-		RegistryDataPath: registryDataPath,
+		Architectures:    swag.StringValue(applianceConfig.Config.OcpRelease.CpuArchitecture),
+		ChannelName:      fmt.Sprintf("%s-%s", swag.StringValue(applianceConfig.Config.OcpRelease.Channel), version),
+		MinVersion:       applianceConfig.Config.OcpRelease.Version,
+		MaxVersion:       applianceConfig.Config.OcpRelease.Version,
+		BlockedImages:    blockedImages,
+		AdditionalImages: additionalImages,
 	}
 }
 

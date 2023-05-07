@@ -2,9 +2,11 @@ package registry
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/danielerez/openshift-appliance/pkg/executer"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
@@ -15,6 +17,10 @@ import (
 const (
 	registryStartCmd = "podman run --privileged -d --name registry -p 5000:5000 -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 %s"
 	registryStopCmd  = "podman rm registry -f"
+
+	registryURL                  = "http://127.0.0.1:5000"
+	registryAttempts             = 3
+	registrySleepBetweenAttempts = 5
 )
 
 type Registry interface {
@@ -32,6 +38,24 @@ func NewRegistry() Registry {
 	}
 }
 
+func (r *registry) verifyRegistryAvailability(registryURL string) error {
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	for i := 0; i < registryAttempts; i++ {
+		logrus.Debugf("image registry availability check attempts %d/%d", i+1, registryAttempts)
+		resp, err := client.Get(registryURL)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			time.Sleep(registrySleepBetweenAttempts * time.Second)
+			continue
+		}
+		if resp.StatusCode == http.StatusOK {
+			return nil
+		}
+	}
+	return errors.Errorf("image registry at %s was not available after %d attempts", registryURL, registryAttempts)
+}
 func (r *registry) StartRegistry(registryDataPath string) error {
 	_ = r.StopRegistry()
 	pwd, err := os.Getwd()
@@ -50,6 +74,10 @@ func (r *registry) StartRegistry(registryDataPath string) error {
 	_, err = r.executer.Execute(args[0], args[1:]...)
 	if err != nil {
 		return errors.Wrapf(err, "registry start failure")
+	}
+
+	if err = r.verifyRegistryAvailability(registryURL); err != nil {
+		return err
 	}
 	return nil
 }
