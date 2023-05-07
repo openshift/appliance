@@ -1,15 +1,14 @@
 package data
 
 import (
-	"github.com/danielerez/openshift-appliance/pkg/genisoimage"
 	"os"
 	"path/filepath"
 
-	"github.com/danielerez/openshift-appliance/pkg/release"
-
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/genisoimage"
 	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/registry"
+	"github.com/danielerez/openshift-appliance/pkg/release"
 	"github.com/danielerez/openshift-appliance/pkg/skopeo"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
@@ -74,8 +73,6 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
-	// TODO: Check if already exists in cache
-
 	r := release.NewRelease(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret, envConfig)
 
 	// Copying registry boostrap images
@@ -104,7 +101,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	}
 
 	imageGen := genisoimage.NewGenIsoImage()
-	if err := imageGen.GenerateDataImage(envConfig.CacheDir, filepath.Join(envConfig.TempDir, "data/oc-mirror")); err != nil {
+	if err := imageGen.GenerateDataImage(envConfig.CacheDir, filepath.Join(envConfig.TempDir, "data")); err != nil {
 		return err
 	}
 	return a.updateAsset(envConfig)

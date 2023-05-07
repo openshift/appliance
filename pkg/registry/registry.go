@@ -64,6 +64,10 @@ func (r *registry) StartRegistry(registryDataPath string) error {
 	}
 
 	filePath := filepath.Join(pwd, registryDataPath)
+
+	if err = os.RemoveAll(filePath); err != nil {
+		return err
+	}
 	if err = os.MkdirAll(filePath, os.ModePerm); err != nil {
 		return err
 	}
