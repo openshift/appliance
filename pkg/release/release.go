@@ -248,7 +248,7 @@ func (r *release) MirrorReleaseImages(envConfig *config.EnvConfig, applianceConf
 		applianceConfig,
 		templates.ImageSetReleaseTemplateFile,
 		"",
-		r.generateAdditionalImagesList(),
+		r.generateAdditionalImagesList(r.additionalBootstrapImages),
 	)
 }
 
@@ -309,11 +309,11 @@ func (r *release) generateBlockedImagesList(applianceConfig *config.ApplianceCon
 	return result.String(), nil
 }
 
-func (r *release) generateAdditionalImagesList() string {
+func (r *release) generateAdditionalImagesList(imagesMap map[string]bool) string {
 	var result strings.Builder
+	var i int
 
-	i := 1
-	for imageURL := range r.additionalBootstrapImages {
+	for imageURL := range imagesMap {
 		result.WriteString(fmt.Sprintf("    - name: \"%s\"", imageURL))
 		if i != len(r.additionalBootstrapImages) {
 			result.WriteString(fmt.Sprintf("\n"))
@@ -323,17 +323,28 @@ func (r *release) generateAdditionalImagesList() string {
 	return result.String()
 }
 
+func (r *release) imagesListWithCustomImages() map[string]bool {
+	// TODO(MGMT-14548): Remove when no longer needed to use unofficial images.
+	additionalImages := make(map[string]bool)
+	for key, value := range r.additionalBootstrapImages {
+		additionalImages[key] = value
+	}
+	additionalImages[templates.AssistedInstallerAgentImage] = true
+	return additionalImages
+}
+
 func (r *release) MirrorBootStrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
 	blockedImages, err := r.generateBlockedImagesList(applianceConfig)
 	if err != nil {
 		return err
 	}
+
 	return r.mirrorImages(
 		envConfig,
 		applianceConfig,
 		templates.ImageSetBootstrapTemplateFile,
 		blockedImages,
-		r.generateAdditionalImagesList(),
+		r.generateAdditionalImagesList(r.imagesListWithCustomImages()),
 	)
 }
 
