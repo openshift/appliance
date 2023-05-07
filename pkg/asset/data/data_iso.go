@@ -1,6 +1,7 @@
 package data
 
 import (
+	"github.com/danielerez/openshift-appliance/pkg/genisoimage"
 	"os"
 	"path/filepath"
 
@@ -102,22 +103,10 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
-	// 1. generate mirror.sh template with bootstrap images - done
-	// 2. use oc-mirror to download images into a temp dir
-	// 3. start local registry (using registry.sh)
-	// 3.1. define RegistryDataPath as TempDir/data/bootstrap_registry
-	// 4. push the mirror (bootstrap images) to the registry
-	// 5. kill the registry pod
-
-	// 6. generate mirror.sh template with all release images
-	// 7. use oc-mirror to download images into a temp dir
-	// 8. start local registry (using registry.sh)
-	// 8.1. define RegistryDataPath as TempDir/data/release_registry
-	// 9. push the mirror (release images) to the registry
-	// 10. kill the registry pod
-
-	// genisoimage -J -joliet-long -D -V agentdata -o cache/dataIsoFileName dataDirPath --> cache directory
-
+	imageGen := genisoimage.NewGenIsoImage()
+	if err := imageGen.GenerateDataImage(envConfig.CacheDir, filepath.Join(envConfig.TempDir, "data/oc-mirror")); err != nil {
+		return err
+	}
 	return a.updateAsset(envConfig)
 }
 
