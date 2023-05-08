@@ -21,9 +21,7 @@ part-add /dev/sda p {{.RecoveryStartSector}} {{.RecoveryEndSector}}
 # Create data partition
 part-add /dev/sda p {{.DataStartSector}} {{.DataEndSector}}
 
-# Copy agent recovery ISO to recovery partition
-#copy-device-to-device /dev/sdc /dev/sda4
-# Copy ISO content to recovery partition
+# Copy recovery ISO content to recovery partition
 mkfs ext4 /dev/sda4
 mount /dev/sda4 /
 mkdir /sdc

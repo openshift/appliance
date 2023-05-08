@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/danielerez/openshift-appliance/pkg/coreos"
 	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
-	"github.com/openshift/assisted-image-service/pkg/isoeditor"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )
@@ -49,7 +49,6 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 
 	generated := false
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
-	recoveryIsoDirPath := filepath.Join(envConfig.TempDir, recoveryIsoDirName)
 	recoveryIsoPath := filepath.Join(envConfig.CacheDir, templates.RecoveryIsoFileName)
 
 	// Search for ISO in cache dir
@@ -63,19 +62,13 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 		stop := log.Spinner("Generating recovery ISO...", "Successfully generated recovery ISO")
 		defer stop()
 
-		if err := os.MkdirAll(recoveryIsoDirPath, os.ModePerm); err != nil {
-			logrus.Errorf("Failed to create dir: %s", recoveryIsoDirPath)
+		// Copy base ISO file
+		bytesRead, err := ioutil.ReadFile(coreosIsoPath)
+		if err != nil {
 			return err
 		}
-
-		// Extracting the base ISO and generating the recovery ISO with a different volume label.
-		// If required, we could utilize this flow later on for modifying initrd/rootfs/etc.
-		if err := isoeditor.Extract(coreosIsoPath, recoveryIsoDirPath); err != nil {
-			logrus.Errorf("Failed to extract ISO: %s", err.Error())
-			return err
-		}
-		if err := isoeditor.Create(recoveryIsoPath, recoveryIsoDirPath, templates.RecoveryPartitionName); err != nil {
-			logrus.Errorf("Failed to create ISO: %s", err.Error())
+		err = ioutil.WriteFile(recoveryIsoPath, bytesRead, 0755)
+		if err != nil {
 			return err
 		}
 	}
