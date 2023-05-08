@@ -30,6 +30,8 @@ const (
 	RegistryImage     = "docker.io/library/registry:2"
 	RegistryImageName = "registry:2"
 	RegistryFilePath  = "registry/registry.tar"
+	// To avoid docker pull rate limit:
+	// RegistryImage  = "quay.io/libpod/registry:2.8"
 
 	// CPU architectures
 	CPUArchitectureAMD64   = "amd64"

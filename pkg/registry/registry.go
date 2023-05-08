@@ -15,12 +15,17 @@ import (
 )
 
 const (
-	registryStartCmd = "podman run --privileged -d --name registry -p 5000:5000 -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 %s"
+	RegistryPort = "5005"
+
+	registryStartCmd = "podman run --privileged -d --name registry -p %s:5000 -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 %s"
 	registryStopCmd  = "podman rm registry -f"
 
-	registryURL                  = "http://127.0.0.1:5000"
 	registryAttempts             = 3
 	registrySleepBetweenAttempts = 5
+)
+
+var (
+	registryURL = fmt.Sprintf("http://127.0.0.1:%s", RegistryPort)
 )
 
 type Registry interface {
@@ -72,7 +77,7 @@ func (r *registry) StartRegistry(registryDataPath string) error {
 		return err
 	}
 
-	cmd := fmt.Sprintf(registryStartCmd, filePath, templates.RegistryImage)
+	cmd := fmt.Sprintf(registryStartCmd, RegistryPort, filePath, templates.RegistryImage)
 	logrus.Debugf("Running registry cmd: %s", cmd)
 	args := strings.Split(cmd, " ")
 	_, err = r.executer.Execute(args[0], args[1:]...)
@@ -86,7 +91,7 @@ func (r *registry) StartRegistry(registryDataPath string) error {
 	return nil
 }
 func (r *registry) StopRegistry() error {
-	logrus.Debug("Stopping registry script")
+	logrus.Debug("Stopping registry container")
 	args := strings.Split(registryStopCmd, " ")
 	_, err := r.executer.Execute(args[0], args[1:]...)
 	if err != nil {

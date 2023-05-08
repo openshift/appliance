@@ -13,6 +13,7 @@ import (
 	"github.com/buger/jsonparser"
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/executer"
+	"github.com/danielerez/openshift-appliance/pkg/registry"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/go-openapi/swag"
 	"github.com/itchyny/gojq"
@@ -35,7 +36,7 @@ type Release interface {
 	ExtractFile(image string, filename string) (string, error)
 	GetReleaseArchitecture() (string, error)
 	MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
-	MirrorBootStrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
+	MirrorBootstrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
 }
 
 type release struct {
@@ -97,7 +98,7 @@ const (
 	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
 	templateImageInfo    = "oc image info --output json %s"
-	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:5000 --dest-skip-tls"
+	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:%s --dest-skip-tls"
 	ocAdmReleaseInfo     = "oc adm release info quay.io/openshift-release-dev/ocp-release:%s-%s -o json"
 )
 
@@ -209,7 +210,7 @@ func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *con
 	}
 
 	filePath := filepath.Join(p, templates.GetFilePathByTemplate(templateFile, envConfig.TempDir))
-	cmd := fmt.Sprintf(ocMirrorAndUpload, filePath)
+	cmd := fmt.Sprintf(ocMirrorAndUpload, filePath, registry.RegistryPort)
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 
 	if err = syscall.Chdir(filepath.Join(p, envConfig.TempDir)); err != nil {
@@ -217,6 +218,9 @@ func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *con
 	}
 	result, err := r.execute(r.executer, "", cmd)
 	logrus.Debugf("mirroring result: %s", result)
+	if err != nil {
+		return err
+	}
 
 	// remove oc mirror leftovers
 	if err = os.RemoveAll(filepath.Join(p, envConfig.TempDir, "oc-mirror-workspace")); err != nil {
@@ -321,7 +325,7 @@ func (r *release) imagesListWithCustomImages() map[string]bool {
 	return additionalImages
 }
 
-func (r *release) MirrorBootStrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
+func (r *release) MirrorBootstrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
 	blockedImages, err := r.generateBlockedImagesList(applianceConfig)
 	if err != nil {
 		return err

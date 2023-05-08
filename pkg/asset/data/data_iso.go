@@ -16,8 +16,10 @@ import (
 )
 
 const (
-	dataDir   = "data"
-	imagesDir = "images"
+	dataDir            = "data"
+	imagesDir          = "images"
+	bootstrapMirrorDir = "data/oc-mirror/bootstrap"
+	installMirrorDir   = "data/oc-mirror/install"
 )
 
 // DataISO is an asset that contains registry images
@@ -64,20 +66,19 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 
 	r := release.NewRelease(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret, envConfig)
 
-	// Copying registry boostrap images
-	filePath := filepath.Join(envConfig.TempDir, "data/oc-mirror/bootstrap")
+	// Copying registry bootstrap images
+	filePath := filepath.Join(envConfig.TempDir, bootstrapMirrorDir)
 	bootstrapImageRegistry := registry.NewRegistry()
 
 	if err := bootstrapImageRegistry.StartRegistry(filePath); err != nil {
 		return err
 	}
-
-	if err := r.MirrorBootStrapImages(envConfig, applianceConfig); err != nil {
+	if err := r.MirrorBootstrapImages(envConfig, applianceConfig); err != nil {
 		return err
 	}
 
-	//Copying registry boostrap images
-	filePath = filepath.Join(envConfig.TempDir, "data/oc-mirror/installation")
+	// Copying registry bootstrap images
+	filePath = filepath.Join(envConfig.TempDir, installMirrorDir)
 	releaseImageRegistry := registry.NewRegistry()
 	if err := releaseImageRegistry.StartRegistry(filePath); err != nil {
 		return err
