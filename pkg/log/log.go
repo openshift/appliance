@@ -124,17 +124,37 @@ func SetupOutputHook(logLevel string) {
 	}))
 }
 
-func Spinner(message, completeMessage string) func() {
+type Spinner struct {
+	Spinner                                         *spinner.Spinner
+	ProgressMessage, SuccessMessage, FailureMessage string
+}
+
+func NewSpinner(progressMessage, successMessage, failureMessage string) *Spinner {
 	// Create and start spinner with message
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
-	s.Suffix = fmt.Sprintf(" %s", message)
+	s.Suffix = fmt.Sprintf(" %s", progressMessage)
 	if err := s.Color("blue"); err != nil {
 		logrus.Fatalln(err)
 	}
 	s.Start()
 
-	return func() {
-		s.Stop()
-		logrus.Info(completeMessage)
+	return &Spinner{
+		Spinner:         s,
+		ProgressMessage: progressMessage,
+		SuccessMessage:  successMessage,
+		FailureMessage:  failureMessage,
 	}
+}
+
+func StopSpinner(spinner *Spinner, err error) error {
+	if spinner == nil {
+		return err
+	}
+	spinner.Spinner.Stop()
+	if err != nil {
+		logrus.Error(spinner.FailureMessage)
+	} else {
+		logrus.Info(spinner.SuccessMessage)
+	}
+	return err
 }

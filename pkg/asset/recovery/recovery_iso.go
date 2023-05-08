@@ -47,29 +47,29 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	recoveryIgnition := &ignition.RecoveryIgnition{}
 	dependencies.Get(envConfig, baseISO, applianceConfig, recoveryIgnition)
 
-	generated := false
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
 	recoveryIsoPath := filepath.Join(envConfig.CacheDir, templates.RecoveryIsoFileName)
 
+	var spinner *log.Spinner
+
 	// Search for ISO in cache dir
 	if fileName := envConfig.FindInCache(templates.RecoveryIsoFileName); fileName != "" {
-		logrus.Info("Reusing recovery ISO from cache")
+		logrus.Info("Reusing recovery CoreOS ISO from cache")
 		a.File = &asset.File{Filename: fileName}
-		generated = true
-	}
-
-	if !generated {
-		stop := log.Spinner("Generating recovery ISO...", "Successfully generated recovery ISO")
-		defer stop()
+	} else {
+		spinner = log.NewSpinner(
+			"Generating recovery CoreOS ISO...",
+			"Successfully generated recovery CoreOS ISO",
+			"Failed to generate recovery CoreOS ISO",
+		)
 
 		// Copy base ISO file
 		bytesRead, err := ioutil.ReadFile(coreosIsoPath)
 		if err != nil {
-			return err
+			return log.StopSpinner(spinner, err)
 		}
-		err = ioutil.WriteFile(recoveryIsoPath, bytesRead, 0755)
-		if err != nil {
-			return err
+		if err = ioutil.WriteFile(recoveryIsoPath, bytesRead, 0755); err != nil {
+			return log.StopSpinner(spinner, err)
 		}
 	}
 
@@ -78,14 +78,14 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	ignitionBytes, err := json.Marshal(recoveryIgnition.Config)
 	if err != nil {
 		logrus.Errorf("Failed to marshal recovery ignition to json: %s", err.Error())
-		return err
+		return log.StopSpinner(spinner, err)
 	}
 	if err := c.EmbedIgnition(ignitionBytes, recoveryIsoPath); err != nil {
 		logrus.Errorf("Failed to embed ignition in recovery ISO: %s", err.Error())
-		return err
+		return log.StopSpinner(spinner, err)
 	}
 
-	return a.updateAsset(recoveryIsoPath)
+	return log.StopSpinner(spinner, a.updateAsset(recoveryIsoPath))
 }
 
 // Name returns the human-friendly name of the asset.

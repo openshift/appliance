@@ -51,8 +51,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return a.updateAsset(envConfig)
 	}
 
-	stop := log.Spinner("Generating data ISO...", "Successfully generated data ISO")
-	defer stop()
+	r := release.NewRelease(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret, envConfig)
 
 	dataDirPath := filepath.Join(envConfig.TempDir, dataDir)
 	if err := os.MkdirAll(dataDirPath, os.ModePerm); err != nil {
@@ -60,41 +59,61 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
+	spinner := log.NewSpinner(
+		"Pulling docker registry image...",
+		"Successfully pulled docker registry image",
+		"Failed to pull docker registry image",
+	)
 	if err := a.copyRegistryImageIfNeeded(envConfig); err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
+	log.StopSpinner(spinner, nil)
 
-	r := release.NewRelease(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret, envConfig)
-
-	// Copying registry bootstrap images
+	// Copying bootstrap images
+	spinner = log.NewSpinner(
+		"Pulling release images required for bootstrap...",
+		"Successfully pulled release images required for bootstrap",
+		"Failed to pull release images required for bootstrap",
+	)
 	filePath := filepath.Join(envConfig.TempDir, bootstrapMirrorDir)
 	bootstrapImageRegistry := registry.NewRegistry()
-
 	if err := bootstrapImageRegistry.StartRegistry(filePath); err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
 	if err := r.MirrorBootstrapImages(envConfig, applianceConfig); err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
+	log.StopSpinner(spinner, nil)
 
-	// Copying registry bootstrap images
+	// Copying release images
+	spinner = log.NewSpinner(
+		"Pulling release images required for installation...",
+		"Successfully pulled release images required for installation",
+		"Failed to pull release images required for installation",
+	)
 	filePath = filepath.Join(envConfig.TempDir, installMirrorDir)
 	releaseImageRegistry := registry.NewRegistry()
 	if err := releaseImageRegistry.StartRegistry(filePath); err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
 	if err := r.MirrorReleaseImages(envConfig, applianceConfig); err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
 	if err := releaseImageRegistry.StopRegistry(); err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
+	log.StopSpinner(spinner, nil)
 
+	spinner = log.NewSpinner(
+		"Generating data ISO...",
+		"Successfully generated data ISO",
+		"Failed to generate data ISO",
+	)
 	imageGen := genisoimage.NewGenIsoImage()
 	if err := imageGen.GenerateDataImage(envConfig.CacheDir, filepath.Join(envConfig.TempDir, "data")); err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
-	return a.updateAsset(envConfig)
+	return log.StopSpinner(spinner, a.updateAsset(envConfig))
 }
 
 // Name returns the human-friendly name of the asset.

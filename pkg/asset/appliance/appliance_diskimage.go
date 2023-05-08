@@ -34,8 +34,11 @@ func (a *ApplianceDiskImage) Dependencies() []asset.Asset {
 
 // Generate the appliance disk.
 func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
-	stop := log.Spinner("Generating appliance disk image...", "Successfully generated appliance disk image")
-	defer stop()
+	spinner := log.NewSpinner(
+		"Generating appliance disk image...",
+		"Successfully generated appliance disk image",
+		"Failed to generate appliance disk image",
+	)
 
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
@@ -49,7 +52,7 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 		templates.UserCfgTemplateFile,
 		templates.GetUserCfgTemplateData(),
 		envConfig.TempDir); err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
 
 	// Render guestfish.sh
@@ -68,7 +71,7 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 		templates.GuestfishScriptTemplateFile,
 		gfTemplateData,
 		envConfig.TempDir); err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
 
 	// Invoke guestfish.sh script
@@ -76,12 +79,12 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	guestfishFileName := templates.GetFilePathByTemplate(
 		templates.GuestfishScriptTemplateFile, envConfig.TempDir)
 	if _, err := executer.NewExecuter().Execute(guestfishFileName); err != nil {
-		return errors.Wrapf(err, "guestfish script failure")
+		return log.StopSpinner(spinner, errors.Wrapf(err, "guestfish script failure"))
 	}
 
 	a.File = &asset.File{Filename: applianceImageFile}
 
-	return nil
+	return log.StopSpinner(spinner, nil)
 }
 
 // Name returns the human-friendly name of the asset.

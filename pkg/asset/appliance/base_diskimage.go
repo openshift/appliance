@@ -52,16 +52,19 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	}
 
 	// Download using coreos-installer
-	stop := log.Spinner("Downloading appliance base disk image...", "Successfully downloaded appliance base disk image")
-	defer stop()
+	spinner := log.NewSpinner(
+		"Downloading appliance base disk image...",
+		"Successfully downloaded appliance base disk image",
+		"Failed to download appliance base disk image",
+	)
 	fileName, err := c.DownloadDiskImage(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret)
 	if err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
 
 	a.File = &asset.File{Filename: fileName}
 
-	return nil
+	return log.StopSpinner(spinner, nil)
 }
 
 // Name returns the human-friendly name of the asset.

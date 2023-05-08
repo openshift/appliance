@@ -46,22 +46,25 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	// Search for disk image in cache dir
 	filePattern := fmt.Sprintf("coreos-%s*", cpuArch)
 	if fileName := envConfig.FindInCache(filePattern); fileName != "" {
-		logrus.Info("Reusing base ISO from cache")
+		logrus.Info("Reusing base CoreOS ISO from cache")
 		i.File = &asset.File{Filename: fileName}
 		return nil
 	}
 
 	// Download base CoreOS ISO according to specified release image
-	stop := log.Spinner("Downloading CoreOS ISO...", "Successfully downloaded CoreOS ISO")
-	defer stop()
+	spinner := log.NewSpinner(
+		"Downloading CoreOS ISO...",
+		"Successfully downloaded CoreOS ISO",
+		"Failed to download CoreOS ISO",
+	)
 	fileName, err := c.DownloadISO(
 		*applianceConfig.Config.OcpRelease.URL,
 		applianceConfig.Config.PullSecret)
 	if err != nil {
-		return err
+		return log.StopSpinner(spinner, err)
 	}
 
 	i.File = &asset.File{Filename: fileName}
 
-	return nil
+	return log.StopSpinner(spinner, nil)
 }
