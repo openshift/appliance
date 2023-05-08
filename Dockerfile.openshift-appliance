@@ -28,6 +28,11 @@ RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-previ
 COPY --from=quay.io/openshift/origin-cli:latest /usr/bin/oc /usr/bin/kubectl /usr/bin/
 COPY --from=builder /build/openshift-appliance /openshift-appliance
 
+# TODO(MGMT-14555): Remove when no longer needed.
+# Workaround Copy unconfigured.ign
+RUN mkdir -p pkg/asset/ignition/
+COPY /pkg/asset/ignition/unconfigured.ign pkg/asset/ignition/unconfigured.ign
+
 # Copy
 RUN mkdir -p data
 COPY /data data

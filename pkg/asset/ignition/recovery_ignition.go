@@ -35,7 +35,7 @@ func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
 	dependencies.Get(bootstrapIgnition)
 
 	// Fetch un-configured ignition
-	// TODO: use API when ready ('openshift-install agent create unconfigured-ignition')
+	// TODO(AGENT-574): use API when ready ('openshift-install agent create unconfigured-ignition')
 	//       see: https://issues.redhat.com/browse/AGENT-574
 	configBytes, err := os.ReadFile("pkg/asset/ignition/unconfigured.ign")
 	if err != nil {
