@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danielerez/openshift-appliance/pkg/executer"
-	"github.com/danielerez/openshift-appliance/pkg/templates"
+	"github.com/openshift/appliance/pkg/executer"
+	"github.com/openshift/appliance/pkg/templates"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )

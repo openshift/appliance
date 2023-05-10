@@ -3,7 +3,7 @@ package manifests
 import (
 	"fmt"
 
-	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"

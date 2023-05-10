@@ -5,12 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/danielerez/openshift-appliance/pkg/asset/config"
-	"github.com/danielerez/openshift-appliance/pkg/asset/ignition"
-	"github.com/danielerez/openshift-appliance/pkg/coreos"
-	"github.com/danielerez/openshift-appliance/pkg/fileutil"
-	"github.com/danielerez/openshift-appliance/pkg/log"
-	"github.com/danielerez/openshift-appliance/pkg/templates"
+	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/asset/ignition"
+	"github.com/openshift/appliance/pkg/coreos"
+	"github.com/openshift/appliance/pkg/fileutil"
+	"github.com/openshift/appliance/pkg/log"
+	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )

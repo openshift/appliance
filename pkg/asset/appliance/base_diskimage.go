@@ -3,11 +3,11 @@ package appliance
 import (
 	"fmt"
 
-	"github.com/danielerez/openshift-appliance/pkg/asset/config"
-	"github.com/danielerez/openshift-appliance/pkg/coreos"
-	"github.com/danielerez/openshift-appliance/pkg/fileutil"
-	"github.com/danielerez/openshift-appliance/pkg/log"
-	"github.com/danielerez/openshift-appliance/pkg/release"
+	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/coreos"
+	"github.com/openshift/appliance/pkg/fileutil"
+	"github.com/openshift/appliance/pkg/log"
+	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )

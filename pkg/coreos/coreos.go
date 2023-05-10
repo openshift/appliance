@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/cavaliergopher/grab/v3"
-	"github.com/danielerez/openshift-appliance/pkg/asset/config"
-	"github.com/danielerez/openshift-appliance/pkg/executer"
-	"github.com/danielerez/openshift-appliance/pkg/release"
 	"github.com/itchyny/gojq"
+	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/executer"
+	"github.com/openshift/appliance/pkg/release"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )

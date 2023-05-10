@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/danielerez/openshift-appliance/pkg/asset/config"
-	"github.com/danielerez/openshift-appliance/pkg/asset/ignition"
+	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/asset/ignition"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
