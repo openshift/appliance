@@ -1,15 +1,13 @@
 package coreos
 
 import (
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/cavaliergopher/grab/v3"
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/executer"
 	"github.com/danielerez/openshift-appliance/pkg/release"
@@ -25,7 +23,8 @@ const (
 	coreOsFileName            = "coreos/coreos-%s.iso"
 	coreOsStream              = "coreos/coreos-stream.json"
 	coreOsDiskImageUrlQuery   = ".architectures.x86_64.artifacts.qemu.formats[\"qcow2.gz\"].disk.location"
-	coreOsDiskImageGz         = "coreos.tar.gz"
+
+	CoreOsDiskImageGz = "coreos.tar.gz"
 )
 
 type CoreOS interface {
@@ -61,13 +60,13 @@ func (c *coreos) DownloadDiskImage(releaseImage, pullSecret string) (string, err
 	}
 
 	qcowGzUrl := v.(string)
-	compressed := filepath.Join(c.EnvConfig.TempDir, coreOsDiskImageGz)
-	c.downloadFile(compressed, qcowGzUrl)
+	compressed := filepath.Join(c.EnvConfig.TempDir, CoreOsDiskImageGz)
+	_, err = grab.Get(compressed, qcowGzUrl)
 	if err != nil {
 		return "", err
 	}
 
-	return c.ungzip(compressed, c.EnvConfig.CacheDir)
+	return compressed, nil
 }
 
 func (c *coreos) DownloadISO(releaseImage, pullSecret string) (string, error) {
@@ -122,56 +121,4 @@ func (c *coreos) FetchCoreOSStream(releaseImage, pullSecret string) (map[string]
 	}
 
 	return m, nil
-}
-
-func (c *coreos) downloadFile(filepath string, url string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Check server response
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	// Create output file
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	// Writer the body to file
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *coreos) ungzip(source, target string) (string, error) {
-	reader, err := os.Open(source)
-	if err != nil {
-		return "", err
-	}
-	defer reader.Close()
-
-	archive, err := gzip.NewReader(reader)
-	if err != nil {
-		return "", err
-	}
-	defer archive.Close()
-
-	target = filepath.Join(target, archive.Name)
-	writer, err := os.Create(target)
-	if err != nil {
-		return "", err
-	}
-	defer writer.Close()
-
-	_, err = io.Copy(writer, archive)
-	return target, err
 }

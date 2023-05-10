@@ -1,6 +1,7 @@
 package appliance
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
@@ -34,18 +35,27 @@ func (a *ApplianceDiskImage) Dependencies() []asset.Asset {
 
 // Generate the appliance disk.
 func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
-	spinner := log.NewSpinner(
-		"Generating appliance disk image...",
-		"Successfully generated appliance disk image",
-		"Failed to generate appliance disk image",
-	)
-
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	recoveryISO := &recovery.RecoveryISO{}
 	dataISO := &data.DataISO{}
 	baseDiskImage := &BaseDiskImage{}
 	dependencies.Get(envConfig, applianceConfig, recoveryISO, dataISO, baseDiskImage)
+
+	// Remove appliance file if already exists
+	if fileName := envConfig.FindInAssets(templates.ApplianceFileName); fileName != "" {
+		if err := os.RemoveAll(fileName); err != nil {
+			return err
+		}
+	}
+
+	spinner := log.NewSpinner(
+		"Generating appliance disk image...",
+		"Successfully generated appliance disk image",
+		"Failed to generate appliance disk image",
+		envConfig,
+	)
+	spinner.FileToMonitor = templates.ApplianceFileName
 
 	// Render user.cfg
 	if err := templates.RenderTemplateFile(

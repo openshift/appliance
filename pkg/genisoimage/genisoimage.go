@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	genDataImageCmd = "genisoimage -J -joliet-long -D -V agentdata -o %s/data.iso %s"
+	genDataImageCmd = "genisoimage -J -joliet-long -D -V agentdata -o %s/%s %s"
 )
 
 type GenIsoImage interface {
-	GenerateDataImage(imagePath string, dataPath string) error
+	GenerateImage(imagePath, imageName, dirPath string) error
 }
 
 type genisoimage struct {
@@ -25,8 +25,8 @@ func NewGenIsoImage() GenIsoImage {
 	}
 }
 
-func (s *genisoimage) GenerateDataImage(imagePath string, dataPath string) error {
-	cmd := fmt.Sprintf(genDataImageCmd, imagePath, dataPath)
+func (s *genisoimage) GenerateImage(imagePath, imageName, dirPath string) error {
+	cmd := fmt.Sprintf(genDataImageCmd, imagePath, imageName, dirPath)
 	args := strings.Split(cmd, " ")
 	_, err := s.executer.Execute(args[0], args[1:]...)
 	return err

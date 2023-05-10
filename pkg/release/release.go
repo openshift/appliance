@@ -3,11 +3,11 @@ package release
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/buger/jsonparser"
@@ -29,6 +29,14 @@ const (
 	OcDefaultRetryDelay = time.Second * 5
 	// QueryPattern formats the image names for a given release
 	QueryPattern = ".references.spec.tags[] | .name + \" \" + .from.name"
+)
+
+const (
+	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
+	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
+	templateImageInfo    = "oc image info --output json %s"
+	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:%s --dest-skip-tls --dir %s"
+	ocAdmReleaseInfo     = "oc adm release info quay.io/openshift-release-dev/ocp-release:%s-%s -o json"
 )
 
 // Release is the interface to use the oc command to the get image info
@@ -93,14 +101,6 @@ func initAdditionalImagesInfo() map[string]bool {
 		"registry.redhat.io/ubi8/ubi:latest": true,
 	}
 }
-
-const (
-	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
-	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
-	templateImageInfo    = "oc image info --output json %s"
-	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:%s --dest-skip-tls"
-	ocAdmReleaseInfo     = "oc adm release info quay.io/openshift-release-dev/ocp-release:%s-%s -o json"
-)
 
 // ExtractFile extracts the specified file from the given image name, and store it in the cache dir.
 func (r *release) ExtractFile(image string, filename string) (string, error) {
@@ -204,34 +204,26 @@ func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *con
 		return err
 	}
 
-	p, err := os.Getwd()
+	absPath, err := filepath.Abs(templates.GetFilePathByTemplate(templateFile, envConfig.TempDir))
 	if err != nil {
 		return err
 	}
 
-	filePath := filepath.Join(p, templates.GetFilePathByTemplate(templateFile, envConfig.TempDir))
-	cmd := fmt.Sprintf(ocMirrorAndUpload, filePath, registry.RegistryPort)
-	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
-
-	if err = syscall.Chdir(filepath.Join(p, envConfig.TempDir)); err != nil {
+	tempDir, err := ioutil.TempDir(envConfig.TempDir, "oc-mirror")
+	if err != nil {
 		return err
 	}
+	defer os.RemoveAll(tempDir)
+
+	cmd := fmt.Sprintf(ocMirrorAndUpload, absPath, registry.RegistryPort, tempDir)
+	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
+
 	result, err := r.execute(r.executer, "", cmd)
 	logrus.Debugf("mirroring result: %s", result)
 	if err != nil {
 		return err
 	}
 
-	// remove oc mirror leftovers
-	if err = os.RemoveAll(filepath.Join(p, envConfig.TempDir, "oc-mirror-workspace")); err != nil {
-		return err
-	}
-	if err = os.RemoveAll(filepath.Join(p, envConfig.TempDir, "metadata")); err != nil {
-		return err
-	}
-	if err = syscall.Chdir(p); err != nil {
-		return err
-	}
 	return err
 }
 func (r *release) MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
