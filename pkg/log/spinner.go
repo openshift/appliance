@@ -11,8 +11,8 @@ import (
 
 	"github.com/alecthomas/units"
 	"github.com/briandowns/spinner"
-	"github.com/danielerez/openshift-appliance/pkg/asset/config"
-	"github.com/dustin/go-humanize"
+	humanize "github.com/dustin/go-humanize"
+	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/sirupsen/logrus"
 )
 

@@ -1,4 +1,4 @@
-module github.com/danielerez/openshift-appliance
+module github.com/openshift/appliance
 
 go 1.18
 

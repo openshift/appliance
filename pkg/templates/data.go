@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/danielerez/openshift-appliance/pkg/asset/config"
-	"github.com/danielerez/openshift-appliance/pkg/asset/registry"
-	"github.com/danielerez/openshift-appliance/pkg/types"
 	"github.com/go-openapi/swag"
+	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/asset/registry"
+	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/assisted-service/pkg/conversions"
 )
 

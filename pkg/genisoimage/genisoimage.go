@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/danielerez/openshift-appliance/pkg/executer"
+	"github.com/openshift/appliance/pkg/executer"
 )
 
 const (
