@@ -2,13 +2,13 @@ package recovery
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/asset/ignition"
 	"github.com/danielerez/openshift-appliance/pkg/coreos"
+	"github.com/danielerez/openshift-appliance/pkg/fileutil"
 	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
@@ -61,14 +61,11 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 			"Generating recovery CoreOS ISO...",
 			"Successfully generated recovery CoreOS ISO",
 			"Failed to generate recovery CoreOS ISO",
+			envConfig,
 		)
 
 		// Copy base ISO file
-		bytesRead, err := ioutil.ReadFile(coreosIsoPath)
-		if err != nil {
-			return log.StopSpinner(spinner, err)
-		}
-		if err = ioutil.WriteFile(recoveryIsoPath, bytesRead, 0755); err != nil {
+		if err := fileutil.CopyFile(coreosIsoPath, recoveryIsoPath); err != nil {
 			return log.StopSpinner(spinner, err)
 		}
 	}

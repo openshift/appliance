@@ -5,6 +5,7 @@ import (
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/danielerez/openshift-appliance/pkg/coreos"
+	"github.com/danielerez/openshift-appliance/pkg/fileutil"
 	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/release"
 	"github.com/openshift/installer/pkg/asset"
@@ -56,8 +57,24 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 		"Downloading appliance base disk image...",
 		"Successfully downloaded appliance base disk image",
 		"Failed to download appliance base disk image",
+		envConfig,
 	)
-	fileName, err := c.DownloadDiskImage(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret)
+	spinner.FileToMonitor = coreos.CoreOsDiskImageGz
+	compressed, err := c.DownloadDiskImage(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret)
+	if err != nil {
+		return log.StopSpinner(spinner, err)
+	}
+	log.StopSpinner(spinner, nil)
+
+	// Extracting gz file
+	spinner = log.NewSpinner(
+		"Extracting appliance base disk image...",
+		"Successfully extracted appliance base disk image",
+		"Failed to extract appliance base disk image",
+		envConfig,
+	)
+	spinner.FileToMonitor = filePattern
+	fileName, err := fileutil.ExtractCompressedFile(compressed, envConfig.CacheDir)
 	if err != nil {
 		return log.StopSpinner(spinner, err)
 	}

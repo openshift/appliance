@@ -5,8 +5,10 @@ go 1.18
 require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/buger/jsonparser v1.1.1
+	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coreos/ignition/v2 v2.14.0
+	github.com/dustin/go-humanize v1.0.1
 	github.com/go-openapi/swag v0.21.1
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/itchyny/gojq v0.12.12
@@ -99,6 +101,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kdomanski/iso9660 v0.2.1 // indirect
+	github.com/kr/pretty v0.3.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/libvirt/libvirt-go v5.10.0+incompatible // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -132,8 +135,10 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/shurcooL/httpfs v0.0.0-20171119174359-809beceb2371 // indirect
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd // indirect
+	github.com/stretchr/testify v1.8.2 // indirect
 	github.com/vincent-petithory/dataurl v1.0.0 // indirect
 	github.com/vmware/govmomi v0.27.4 // indirect
 	go.mongodb.org/mongo-driver v1.8.3 // indirect
@@ -162,7 +167,7 @@ require (
 )
 
 require (
-	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
+	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
 	github.com/aws/aws-sdk-go v1.44.163 // indirect
 	github.com/briandowns/spinner v1.23.0
 	github.com/go-logr/logr v1.2.2 // indirect

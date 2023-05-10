@@ -1,14 +1,11 @@
 package log
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/briandowns/spinner"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/term"
@@ -122,39 +119,4 @@ func SetupOutputHook(logLevel string) {
 		DisableLevelTruncation: true,
 		DisableQuote:           true,
 	}))
-}
-
-type Spinner struct {
-	Spinner                                         *spinner.Spinner
-	ProgressMessage, SuccessMessage, FailureMessage string
-}
-
-func NewSpinner(progressMessage, successMessage, failureMessage string) *Spinner {
-	// Create and start spinner with message
-	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
-	s.Suffix = fmt.Sprintf(" %s", progressMessage)
-	if err := s.Color("blue"); err != nil {
-		logrus.Fatalln(err)
-	}
-	s.Start()
-
-	return &Spinner{
-		Spinner:         s,
-		ProgressMessage: progressMessage,
-		SuccessMessage:  successMessage,
-		FailureMessage:  failureMessage,
-	}
-}
-
-func StopSpinner(spinner *Spinner, err error) error {
-	if spinner == nil {
-		return err
-	}
-	spinner.Spinner.Stop()
-	if err != nil {
-		logrus.Error(spinner.FailureMessage)
-	} else {
-		logrus.Info(spinner.SuccessMessage)
-	}
-	return err
 }

@@ -49,8 +49,8 @@ func (e *EnvConfig) Name() string {
 	return "Env Config"
 }
 
-func (e *EnvConfig) FindInAssets(assetSubDIr, filePattern string) string {
-	files, err := filepath.Glob(filepath.Join(assetSubDIr, filePattern))
+func (e *EnvConfig) findInDir(dir, filePattern string) string {
+	files, err := filepath.Glob(filepath.Join(dir, filePattern))
 	if err != nil {
 		logrus.Errorf("Failed searching for file '%s' in dir '%s'", filePattern, e.CacheDir)
 		return ""
@@ -62,9 +62,19 @@ func (e *EnvConfig) FindInAssets(assetSubDIr, filePattern string) string {
 }
 
 func (e *EnvConfig) FindInCache(filePattern string) string {
-	return e.FindInAssets(e.CacheDir, filePattern)
+	return e.findInDir(e.CacheDir, filePattern)
 }
 
 func (e *EnvConfig) FindInTemp(filePattern string) string {
-	return e.FindInAssets(e.TempDir, filePattern)
+	return e.findInDir(e.TempDir, filePattern)
+}
+
+func (e *EnvConfig) FindInAssets(filePattern string) string {
+	if file := e.FindInCache(filePattern); file != "" {
+		return file
+	}
+	if file := e.FindInTemp(filePattern); file != "" {
+		return file
+	}
+	return e.findInDir(e.AssetsDir, filePattern)
 }

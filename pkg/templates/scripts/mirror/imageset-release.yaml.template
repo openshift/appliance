@@ -1,9 +1,6 @@
 kind: ImageSetConfiguration
 apiVersion: mirror.openshift.io/v1alpha2
 archiveSize: 8
-storageConfig:
-  local:
-    path: metadata
 mirror:
   platform:
     architectures:

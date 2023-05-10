@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/fileutil"
 	"github.com/danielerez/openshift-appliance/pkg/genisoimage"
 	"github.com/danielerez/openshift-appliance/pkg/log"
 	"github.com/danielerez/openshift-appliance/pkg/registry"
@@ -20,6 +21,7 @@ const (
 	imagesDir          = "images"
 	bootstrapMirrorDir = "data/oc-mirror/bootstrap"
 	installMirrorDir   = "data/oc-mirror/install"
+	dataIsoName        = "data.iso"
 )
 
 // DataISO is an asset that contains registry images
@@ -63,6 +65,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		"Pulling docker registry image...",
 		"Successfully pulled docker registry image",
 		"Failed to pull docker registry image",
+		envConfig,
 	)
 	if err := a.copyRegistryImageIfNeeded(envConfig); err != nil {
 		return log.StopSpinner(spinner, err)
@@ -74,10 +77,12 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		"Pulling release images required for bootstrap...",
 		"Successfully pulled release images required for bootstrap",
 		"Failed to pull release images required for bootstrap",
+		envConfig,
 	)
-	filePath := filepath.Join(envConfig.TempDir, bootstrapMirrorDir)
+	registryDir := filepath.Join(envConfig.TempDir, bootstrapMirrorDir)
+	spinner.DirToMonitor = registryDir
 	bootstrapImageRegistry := registry.NewRegistry()
-	if err := bootstrapImageRegistry.StartRegistry(filePath); err != nil {
+	if err := bootstrapImageRegistry.StartRegistry(registryDir); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	if err := r.MirrorBootstrapImages(envConfig, applianceConfig); err != nil {
@@ -90,10 +95,12 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		"Pulling release images required for installation...",
 		"Successfully pulled release images required for installation",
 		"Failed to pull release images required for installation",
+		envConfig,
 	)
-	filePath = filepath.Join(envConfig.TempDir, installMirrorDir)
+	registryDir = filepath.Join(envConfig.TempDir, installMirrorDir)
+	spinner.DirToMonitor = registryDir
 	releaseImageRegistry := registry.NewRegistry()
-	if err := releaseImageRegistry.StartRegistry(filePath); err != nil {
+	if err := releaseImageRegistry.StartRegistry(registryDir); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	if err := r.MirrorReleaseImages(envConfig, applianceConfig); err != nil {
@@ -108,9 +115,11 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		"Generating data ISO...",
 		"Successfully generated data ISO",
 		"Failed to generate data ISO",
+		envConfig,
 	)
+	spinner.FileToMonitor = dataIsoName
 	imageGen := genisoimage.NewGenIsoImage()
-	if err := imageGen.GenerateDataImage(envConfig.CacheDir, filepath.Join(envConfig.TempDir, "data")); err != nil {
+	if err := imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir)); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	return log.StopSpinner(spinner, a.updateAsset(envConfig))
@@ -134,16 +143,28 @@ func (a *DataISO) updateAsset(envConfig *config.EnvConfig) error {
 }
 
 func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig) error {
-	imagesDirPath := filepath.Join(envConfig.TempDir, dataDir, imagesDir)
+	registryFilename := filepath.Base(templates.RegistryFilePath)
+	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
 
-	// Search for Image in temp dir
-	if fileName := envConfig.FindInTemp(filepath.Join(dataDir, imagesDir, templates.RegistryFilePath)); fileName != "" {
-		logrus.Debug("Reusing registry.tar from temp")
-		return nil
+	// Search for registry image in cache dir
+	if fileName := envConfig.FindInCache(registryFilename); fileName != "" {
+		logrus.Debug("Reusing registry.tar from cache")
+	} else {
+		// Copying registry image to cache
+		if err := skopeo.NewSkopeo().CopyToFile(
+			templates.RegistryImage,
+			templates.RegistryImageName,
+			fileInCachePath); err != nil {
+			return err
+		}
 	}
 
-	// Copying registry image
-	err := skopeo.NewSkopeo().CopyToFile(
-		templates.RegistryImage, templates.RegistryImageName, filepath.Join(imagesDirPath, templates.RegistryFilePath))
-	return err
+	// Copy to data dir in temp
+	fileInDataDir := filepath.Join(envConfig.TempDir, dataDir, imagesDir, templates.RegistryFilePath)
+	if err := fileutil.CopyFile(fileInCachePath, fileInDataDir); err != nil {
+		logrus.Error(err)
+		return err
+	}
+
+	return nil
 }
