@@ -5,13 +5,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/openshift/appliance/pkg/graph"
-	"github.com/openshift/appliance/pkg/types"
-	"github.com/openshift/installer/pkg/asset"
-	"github.com/openshift/installer/pkg/validate"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/yaml"
+
+	"github.com/openshift/installer/pkg/asset"
+	"github.com/openshift/installer/pkg/validate"
+
+	"github.com/danielerez/openshift-appliance/pkg/graph"
+	"github.com/danielerez/openshift-appliance/pkg/types"
 )
 
 var (

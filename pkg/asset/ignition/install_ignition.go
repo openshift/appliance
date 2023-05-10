@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
-	"github.com/openshift/appliance/pkg/asset/config"
-	ignitionutil "github.com/openshift/appliance/pkg/ignition"
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	ignitionutil "github.com/danielerez/openshift-appliance/pkg/ignition"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/sirupsen/logrus"

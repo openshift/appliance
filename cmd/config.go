@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

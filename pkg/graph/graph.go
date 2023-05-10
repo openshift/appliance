@@ -12,7 +12,7 @@ import (
 	"github.com/blang/semver"
 	"github.com/hashicorp/go-retryablehttp"
 
-	"github.com/openshift/appliance/pkg/executer"
+	"github.com/danielerez/openshift-appliance/pkg/executer"
 )
 
 // Response is what Cincinnati sends us when querying for releases in a channel

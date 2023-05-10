@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/openshift/appliance/pkg/asset/appliance"
-	"github.com/openshift/appliance/pkg/asset/config"
-	"github.com/openshift/appliance/pkg/log"
-	"github.com/openshift/appliance/pkg/templates"
+	"github.com/danielerez/openshift-appliance/pkg/asset/appliance"
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/log"
+	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
 	"github.com/openshift/installer/pkg/metrics/timer"

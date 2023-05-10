@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"github.com/containers/image/pkg/sysregistriesv2"
-	"github.com/openshift/appliance/pkg/asset/config"
-	"github.com/openshift/installer/pkg/asset"
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
 	"github.com/pelletier/go-toml"
+
+	"github.com/openshift/installer/pkg/asset"
 )
 
 const (

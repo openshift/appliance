@@ -4,9 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/openshift/appliance/pkg/asset/config"
-	"github.com/openshift/appliance/pkg/log"
-	"github.com/openshift/appliance/pkg/templates"
+	"github.com/danielerez/openshift-appliance/pkg/asset/config"
+	"github.com/danielerez/openshift-appliance/pkg/log"
+	"github.com/danielerez/openshift-appliance/pkg/templates"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
