@@ -60,7 +60,7 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	// Render user.cfg
 	if err := templates.RenderTemplateFile(
 		templates.UserCfgTemplateFile,
-		templates.GetUserCfgTemplateData(),
+		templates.GetUserCfgTemplateData(templates.GrubMenuEntryName, templates.GrubDefault),
 		envConfig.TempDir); err != nil {
 		return log.StopSpinner(spinner, err)
 	}

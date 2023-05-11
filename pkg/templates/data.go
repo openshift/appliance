@@ -12,14 +12,14 @@ import (
 	"github.com/openshift/assisted-service/pkg/conversions"
 )
 
-func GetUserCfgTemplateData() interface{} {
+func GetUserCfgTemplateData(grubMenuEntryName string, grubDefault int) interface{} {
 	return struct {
 		GrubTimeout, GrubDefault                 int
 		GrubMenuEntryName, RecoveryPartitionName string
 	}{
 		GrubTimeout:           GrubTimeout,
-		GrubDefault:           GrubDefault,
-		GrubMenuEntryName:     GrubMenuEntryName,
+		GrubDefault:           grubDefault,
+		GrubMenuEntryName:     grubMenuEntryName,
 		RecoveryPartitionName: RecoveryPartitionName,
 	}
 }

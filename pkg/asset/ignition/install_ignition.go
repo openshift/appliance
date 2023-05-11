@@ -7,7 +7,9 @@ import (
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/openshift/appliance/pkg/asset/config"
 	ignitionutil "github.com/openshift/appliance/pkg/ignition"
+	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
+	assetignition "github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/sirupsen/logrus"
 )
@@ -15,6 +17,8 @@ import (
 const (
 	InstallIgnitionPath = "ignition/install/config.ign"
 	baseIgnitionPath    = "ignition/base/config.ign"
+	bootDevice          = "/dev/disk/by-partlabel/boot"
+	bootMountPath       = "/boot"
 )
 
 var (
@@ -62,12 +66,43 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	}
 	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
 
+	// Add grub menu item
+	if err := i.addRecoveryGrubMenuItem(envConfig.TempDir); err != nil {
+		return err
+	}
+
 	// Add bootstrap services to ignition
 	if err := bootstrap.AddSystemdUnits(&i.Config, "services", nil, installServices); err != nil {
 		return err
 	}
 
 	logrus.Debug("Successfully generated install ignition")
+
+	return nil
+}
+
+func (i *InstallIgnition) addRecoveryGrubMenuItem(tempDir string) error {
+	if err := templates.RenderTemplateFile(
+		templates.UserCfgTemplateFile,
+		templates.GetUserCfgTemplateData(templates.GrubMenuEntryNameRecovery, templates.GrubDefaultRecovery),
+		tempDir); err != nil {
+		return err
+	}
+	cfgFilePath := templates.GetFilePathByTemplate(templates.UserCfgTemplateFile, tempDir)
+	cfgFileBytes, err := os.ReadFile(cfgFilePath)
+	if err != nil {
+		return err
+	}
+	cfgFile := assetignition.FileFromBytes(templates.UserCfgFilePath,
+		"root", 0644, cfgFileBytes)
+	i.Config.Storage.Files = append(i.Config.Storage.Files, cfgFile)
+	format := "ext4"
+	path := bootMountPath
+	i.Config.Storage.Filesystems = append(i.Config.Storage.Filesystems, igntypes.Filesystem{
+		Device: bootDevice,
+		Format: &format,
+		Path:   &path,
+	})
 
 	return nil
 }
