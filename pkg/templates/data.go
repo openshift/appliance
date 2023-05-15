@@ -85,7 +85,7 @@ func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedIma
 	}
 }
 
-func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath string) interface{} {
+func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig string) interface{} {
 	releaseImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
@@ -107,11 +107,13 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 	osImages, _ := json.Marshal(osImageArr)
 
 	return struct {
-		IsBootstrapStep bool
-
-		ReleaseImages, ReleaseImage, OsImages, RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
+		IsBootstrapStep                                                   bool
+		InstallIgnitionConfig                                             string
+		ReleaseImages, ReleaseImage, OsImages                             string
+		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
 	}{
-		IsBootstrapStep: true,
+		IsBootstrapStep:       true,
+		InstallIgnitionConfig: installIgnitionConfig,
 
 		// Registry
 		ReleaseImages:    string(releaseImages),
