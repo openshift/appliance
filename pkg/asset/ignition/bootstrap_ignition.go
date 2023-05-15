@@ -1,6 +1,7 @@
 package ignition
 
 import (
+	"encoding/json"
 	"path/filepath"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
@@ -73,9 +74,14 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	pwd := &password.KubeadminPassword{}
 	registryConf := &registry.RegistriesConf{}
 	clusterImageSet := &manifests.ClusterImageSet{}
-	dependencies.Get(envConfig, applianceConfig, pwd, registryConf, clusterImageSet)
+	installIgnition := &InstallIgnition{}
+	dependencies.Get(envConfig, applianceConfig, pwd, registryConf, clusterImageSet, installIgnition)
 
-	i.Config = igntypes.Config{}
+	i.Config = igntypes.Config{
+		Ignition: igntypes.Ignition{
+			Version: igntypes.MaxVersion.String(),
+		},
+	}
 
 	if envConfig.Debug {
 		// Avoid machine reboot after bootstrap to debug install ignition
@@ -87,9 +93,15 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
+	// Fetch install ignition config
+	installIgnitionConfig, err := json.Marshal(installIgnition.Config)
+	if err != nil {
+		return err
+	}
+
 	// Add bootstrap scripts to ignition
 	templateData := templates.GetBootstrapIgnitionTemplateData(
-		applianceConfig.Config.OcpRelease, bootstrapRegistryDataPath)
+		applianceConfig.Config.OcpRelease, bootstrapRegistryDataPath, string(installIgnitionConfig))
 	for _, script := range bootstrapScripts {
 		if err := bootstrap.AddStorageFiles(&i.Config,
 			"/usr/local/bin/"+script,

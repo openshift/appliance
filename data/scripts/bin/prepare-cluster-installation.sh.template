@@ -56,6 +56,7 @@ done
 echo "All ${total_required_nodes} hosts are ready." 1>&2
 clear_issue "${status_issue}"
 
+ignition=$(echo '{{.InstallIgnitionConfig}}' | jq -c --raw-input)
 host_ids=$(curl -s -S "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts" | jq -r .[].id)
 if [[ -n ${host_ids} ]]; then
     for id in ${host_ids}; do
@@ -64,6 +65,11 @@ if [[ -n ${host_ids} ]]; then
         curl -s -S -X PATCH "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/installer-args" \
             -H "Content-Type: application/json" \
             -d '{"args": '"${args}"'}'
+
+        # Update host's ingition (used when booting from the installtion disk after bootstrap)
+        curl -s -S -X PATCH "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/ignition" \
+            -H "Content-Type: application/json" \
+            -d '{"config": '"${ignition}"'}'
     done
 fi
 

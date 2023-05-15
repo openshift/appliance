@@ -53,7 +53,11 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
 
-	i.Config = igntypes.Config{}
+	i.Config = igntypes.Config{
+		Ignition: igntypes.Ignition{
+			Version: igntypes.MaxVersion.String(),
+		},
+	}
 
 	// Add public ssh key
 	passwdUser := igntypes.PasswdUser{
