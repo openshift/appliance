@@ -21,8 +21,9 @@ func NewBuildCmd() *cobra.Command {
 		Run:    runBuild,
 	}
 	cmd.Flags().BoolVar(&rootOpts.debug, "debug", false, "")
-	cmd.Flags().MarkHidden("debug")
-
+	if err := cmd.Flags().MarkHidden("debug"); err != nil {
+		logrus.Fatal(err)
+	}
 	return cmd
 }
 

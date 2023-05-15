@@ -300,7 +300,7 @@ func (r *release) generateAdditionalImagesList(imagesMap map[string]bool) string
 	for imageURL := range imagesMap {
 		result.WriteString(fmt.Sprintf("    - name: \"%s\"", imageURL))
 		if i != len(r.additionalBootstrapImages) {
-			result.WriteString(fmt.Sprintf("\n"))
+			result.WriteString("\n")
 		}
 		i++
 	}

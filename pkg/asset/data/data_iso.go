@@ -70,7 +70,9 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	if err := a.copyRegistryImageIfNeeded(envConfig); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	log.StopSpinner(spinner, nil)
+	if err := log.StopSpinner(spinner, nil); err != nil {
+		return err
+	}
 
 	// Copying bootstrap images
 	spinner = log.NewSpinner(
@@ -88,7 +90,9 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	if err := r.MirrorBootstrapImages(envConfig, applianceConfig); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	log.StopSpinner(spinner, nil)
+	if err := log.StopSpinner(spinner, nil); err != nil {
+		return err
+	}
 
 	// Copying release images
 	spinner = log.NewSpinner(
@@ -109,7 +113,9 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	if err := releaseImageRegistry.StopRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	log.StopSpinner(spinner, nil)
+	if err := log.StopSpinner(spinner, nil); err != nil {
+		return err
+	}
 
 	spinner = log.NewSpinner(
 		"Generating data ISO...",
