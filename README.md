@@ -4,7 +4,7 @@
 
 ## Quick Start
 
-Build and run: binary or docker image
+Build and run: binary or container image
 
 ### Using the binary
 * Install dependencies (libguestfs-tools/coreos-installer/oc)
@@ -20,7 +20,7 @@ Build and run: binary or docker image
 * --dir
 * --log-level
 
-### Using a docker image
+### Using a container image
 
 #### Configuration
 ``` bash
