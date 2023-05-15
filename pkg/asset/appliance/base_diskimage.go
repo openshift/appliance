@@ -64,7 +64,9 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	if err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	log.StopSpinner(spinner, nil)
+	if err := log.StopSpinner(spinner, nil); err != nil {
+		return err
+	}
 
 	// Extracting gz file
 	spinner = log.NewSpinner(
