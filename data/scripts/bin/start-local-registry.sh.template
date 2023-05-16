@@ -11,21 +11,20 @@ podman load -q -i /mnt/agentdata/images/{{.RegistryFilePath}}
 mkdir -p /tmp/certs
 openssl req -newkey rsa:4096 -nodes -sha256 -keyout /tmp/certs/domain.key \
     -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN={{.RegistryDomain}}" \
-    -addext "subjectAltName=DNS:registry.appliance.com,DNS:quay.io" \
+    -addext "subjectAltName=DNS:{{.RegistryDomain}},DNS:quay.io" \
     -x509 -days 36500 -out /tmp/certs/domain.crt
 
 # Apply certificates
 mkdir -p /etc/docker/certs.d/{{.RegistryDomain}}:5000
 cp /tmp/certs/domain.crt /etc/docker/certs.d/{{.RegistryDomain}}:5000
 cp /tmp/certs/domain.crt /etc/pki/ca-trust/source/anchors/
-update-ca-trust
+update-ca-trust extract
 
 # Config registry dns
 # TODO: check if worth exposing only locally and/or support IPv6
 echo "0.0.0.0 {{.RegistryDomain}}" >> /etc/hosts
-echo "0.0.0.0 api-int.{{.RegistryDomain}}" >> /etc/hosts
 
-if [ {{.IsBootstrapStep}} ]; then
+if [ {{.IsBootstrapStep}} = true ]; then
   # Copy registry data to RAM
   registry_data=/tmp/registry
   cp -r {{.RegistryDataPath}} $registry_data
@@ -38,7 +37,7 @@ fi
 # Run local registry image
 podman rm registry --force
 podman run --privileged -d --name registry \
-    -p 5000:5000 -p 443:5000 \
+    -p 5000:5000 -p 5443:5000 \
     -v $registry_data:/var/lib/registry --restart=always \
     -v /tmp/certs:/certs \
     -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 \

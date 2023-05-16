@@ -107,21 +107,40 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 	osImages, _ := json.Marshal(osImageArr)
 
 	return struct {
-		IsBootstrapStep                                                   bool
-		InstallIgnitionConfig                                             string
+		IsBootstrapStep       bool
+		InstallIgnitionConfig string
+
 		ReleaseImages, ReleaseImage, OsImages                             string
 		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
 	}{
 		IsBootstrapStep:       true,
 		InstallIgnitionConfig: installIgnitionConfig,
 
+		// Images
+		ReleaseImages: string(releaseImages),
+		ReleaseImage:  swag.StringValue(ocpReleaseImage.URL),
+		OsImages:      string(osImages),
+
 		// Registry
-		ReleaseImages:    string(releaseImages),
-		ReleaseImage:     *ocpReleaseImage.URL,
 		RegistryDataPath: registryDataPath,
 		RegistryDomain:   registry.RegistryDomain,
 		RegistryFilePath: RegistryFilePath,
 		RegistryImage:    RegistryImage,
-		OsImages:         string(osImages),
+	}
+}
+
+func GetInstallIgnitionTemplateData(registryDataPath string) interface{} {
+	return struct {
+		IsBootstrapStep bool
+
+		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
+	}{
+		IsBootstrapStep: false,
+
+		// Registry
+		RegistryDataPath: registryDataPath,
+		RegistryDomain:   registry.RegistryDomain,
+		RegistryFilePath: RegistryFilePath,
+		RegistryImage:    RegistryImage,
 	}
 }
