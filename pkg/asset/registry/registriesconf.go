@@ -61,6 +61,7 @@ func (i *RegistriesConf) Generate(dependencies asset.Parents) error {
 					},
 				},
 			},
+			// TODO: remove once not using custom AGENT_DOCKER_IMAGE from quay.io
 			{
 				Endpoint: sysregistriesv2.Endpoint{
 					Location: "quay.io",

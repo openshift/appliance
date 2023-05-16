@@ -1,7 +1,7 @@
 # Test changes in InstallIgnition asset
 
 ## Preparation steps:    
-1. Build appliance with --debug flag
+1. Build appliance with --debug-bootstrap flag
 2. Boot appliance and wait for "Ironic will reboot the node shortly" in assisted-service logs.
    - Leaves the appliance in pre-installed state (bootstrap completed)
 3. Shutdown appliance
@@ -13,6 +13,7 @@
 1. Run 'generate-install-ignition' command
    - Generates merged ignition (base ignition from step 4 + InstallIgnition asset)
    - Outputs to assets/ignition/install/config.ign
+   - use --debug-install flag to include the public sshKey from appliance-config
 2. Run hack/diskimage/embed_install_ignition.sh
    - Creates a snapshot and embeds the merged ignition
 3. Run the appliance

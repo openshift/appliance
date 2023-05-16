@@ -6,6 +6,7 @@ import (
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/asset/registry"
 	ignitionutil "github.com/openshift/appliance/pkg/ignition"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
@@ -15,15 +16,20 @@ import (
 )
 
 const (
-	InstallIgnitionPath = "ignition/install/config.ign"
-	baseIgnitionPath    = "ignition/base/config.ign"
-	bootDevice          = "/dev/disk/by-partlabel/boot"
-	bootMountPath       = "/boot"
+	InstallIgnitionPath     = "ignition/install/config.ign"
+	baseIgnitionPath        = "ignition/base/config.ign"
+	bootDevice              = "/dev/disk/by-partlabel/boot"
+	bootMountPath           = "/boot"
+	installRegistryDataPath = "/mnt/agentdata/oc-mirror/install"
 )
 
 var (
 	installServices = []string{
 		"start-local-registry.service",
+	}
+
+	installScripts = []string{
+		"start-local-registry.sh",
 	}
 )
 
@@ -44,6 +50,7 @@ func (i *InstallIgnition) Dependencies() []asset.Asset {
 	return []asset.Asset{
 		&config.EnvConfig{},
 		&config.ApplianceConfig{},
+		&registry.RegistriesConf{},
 	}
 }
 
@@ -51,7 +58,8 @@ func (i *InstallIgnition) Dependencies() []asset.Asset {
 func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
-	dependencies.Get(envConfig, applianceConfig)
+	registryConf := &registry.RegistriesConf{}
+	dependencies.Get(envConfig, applianceConfig, registryConf)
 
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -59,24 +67,43 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 		},
 	}
 
-	// Add public ssh key
-	passwdUser := igntypes.PasswdUser{
-		Name: "core",
-	}
-	if applianceConfig.Config.SshKey != nil {
-		passwdUser.SSHAuthorizedKeys = []igntypes.SSHAuthorizedKey{
-			igntypes.SSHAuthorizedKey(*applianceConfig.Config.SshKey),
+	// Add public ssh key for debugging
+	// Use: export KUBECONFIG=/etc/kubernetes/bootstrap-secrets/kubeconfig
+	if envConfig.DebugInstall {
+		passwdUser := igntypes.PasswdUser{
+			Name: "core",
 		}
+		if applianceConfig.Config.SshKey != nil {
+			passwdUser.SSHAuthorizedKeys = []igntypes.SSHAuthorizedKey{
+				igntypes.SSHAuthorizedKey(*applianceConfig.Config.SshKey),
+			}
+		}
+		i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
 	}
-	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
 
-	// Add grub menu item
-	if err := i.addRecoveryGrubMenuItem(envConfig.TempDir); err != nil {
+	// Add install services to ignition
+	if err := bootstrap.AddSystemdUnits(&i.Config, "services", nil, installServices); err != nil {
 		return err
 	}
 
-	// Add bootstrap services to ignition
-	if err := bootstrap.AddSystemdUnits(&i.Config, "services", nil, installServices); err != nil {
+	// Add install scripts to ignition
+	templateData := templates.GetInstallIgnitionTemplateData(installRegistryDataPath)
+	for _, script := range installScripts {
+		if err := bootstrap.AddStorageFiles(&i.Config,
+			"/usr/local/bin/"+script,
+			"scripts/bin/"+script+".template",
+			templateData); err != nil {
+			return err
+		}
+	}
+
+	// Add registries.conf
+	registriesFile := assetignition.FileFromBytes(registriesConfFilePath,
+		"root", 0600, registryConf.FileData)
+	i.Config.Storage.Files = append(i.Config.Storage.Files, registriesFile)
+
+	// Add grub menu item
+	if err := i.addRecoveryGrubMenuItem(envConfig.TempDir); err != nil {
 		return err
 	}
 

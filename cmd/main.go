@@ -11,9 +11,10 @@ import (
 
 var (
 	rootOpts struct {
-		dir      string
-		logLevel string
-		debug    bool
+		dir            string
+		logLevel       string
+		debugBootstrap bool
+		debugInstall   bool
 	}
 )
 

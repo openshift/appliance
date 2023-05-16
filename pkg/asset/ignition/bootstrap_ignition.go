@@ -83,7 +83,7 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		},
 	}
 
-	if envConfig.Debug {
+	if envConfig.DebugBootstrap {
 		// Avoid machine reboot after bootstrap to debug install ignition
 		bootstrapServices = append(bootstrapServices, "ironic-agent.service")
 	}
