@@ -84,7 +84,7 @@ func getProgressSize(spinner *Spinner, envConfig *config.EnvConfig) (uint64, err
 			return 0, err
 		}
 		if err := filepath.Walk(spinner.DirToMonitor, func(path string, info os.FileInfo, err error) error {
-			if !info.IsDir() {
+			if info != nil && !info.IsDir() {
 				size += uint64(info.Size())
 			}
 			return nil
