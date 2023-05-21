@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -26,12 +27,21 @@ var _ asset.Asset = (*EnvConfig)(nil)
 
 // Dependencies returns no dependencies.
 func (e *EnvConfig) Dependencies() []asset.Asset {
-	return []asset.Asset{}
+	return []asset.Asset{
+		&ApplianceConfig{},
+	}
 }
 
-// Generate queries for the pull secret from the user.
-func (e *EnvConfig) Generate(asset.Parents) error {
-	e.CacheDir = filepath.Join(e.AssetsDir, CacheDir)
+// Generate EnvConfig asset
+func (e *EnvConfig) Generate(dependencies asset.Parents) error {
+	applianceConfig := &ApplianceConfig{}
+	dependencies.Get(applianceConfig)
+
+	// Cache dir in 'version-arch' format
+	cacheDirPattern := fmt.Sprintf("%s-%s",
+		applianceConfig.Config.OcpRelease.Version, applianceConfig.GetCpuArchitecture())
+
+	e.CacheDir = filepath.Join(e.AssetsDir, CacheDir, cacheDirPattern)
 	e.TempDir = filepath.Join(e.AssetsDir, TempDir)
 
 	if err := os.MkdirAll(e.CacheDir, os.ModePerm); err != nil {

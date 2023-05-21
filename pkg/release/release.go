@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/buger/jsonparser"
 	"github.com/go-openapi/swag"
 	"github.com/itchyny/gojq"
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -42,7 +41,6 @@ const (
 // Release is the interface to use the oc command to the get image info
 type Release interface {
 	ExtractFile(image string, filename string) (string, error)
-	GetReleaseArchitecture() (string, error)
 	MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
 	MirrorBootstrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
 }
@@ -114,22 +112,6 @@ func (r *release) ExtractFile(image string, filename string) (string, error) {
 		return "", err
 	}
 	return path, err
-}
-
-func (r *release) GetReleaseArchitecture() (string, error) {
-	cmd := fmt.Sprintf(templateImageInfo, r.releaseImage)
-	imageInfoStr, err := r.execute(r.executer, r.pullSecret, cmd)
-	if err != nil {
-		return "", err
-	}
-
-	architecture, err := jsonparser.GetString([]byte(imageInfoStr), "config", "architecture")
-	if err != nil {
-		return "", err
-	}
-
-	// Convert architecture naming to supported values
-	return templates.NormalizeCPUArchitecture(architecture), nil
 }
 
 func (r *release) getImageFromRelease(imageName string) (string, error) {
@@ -259,7 +241,7 @@ func (r *release) generateBlockedImagesList(applianceConfig *config.ApplianceCon
 	cmd := fmt.Sprintf(
 		ocAdmReleaseInfo,
 		applianceConfig.Config.OcpRelease.Version,
-		templates.NormalizeCPUArchitecture(swag.StringValue(applianceConfig.Config.OcpRelease.CpuArchitecture)),
+		swag.StringValue(applianceConfig.Config.OcpRelease.CpuArchitecture),
 	)
 
 	out, err := r.execute(r.executer, r.pullSecret, cmd)

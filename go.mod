@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/buger/jsonparser v1.1.1
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coreos/ignition/v2 v2.14.0
@@ -18,6 +17,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.0
+	github.com/thoas/go-funk v0.9.3
 	golang.org/x/term v0.8.0
 	k8s.io/apimachinery v0.27.2
 	sigs.k8s.io/yaml v1.3.0

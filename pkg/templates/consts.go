@@ -37,12 +37,6 @@ const (
 	// To avoid docker pull rate limit:
 	// RegistryImage  = "quay.io/libpod/registry:2.8"
 
-	// CPU architectures
-	CPUArchitectureAMD64   = "amd64"
-	CPUArchitectureX86     = "x86_64"
-	CPUArchitectureARM64   = "arm64"
-	CPUArchitectureAARCH64 = "aarch64"
-
 	// AI images
 	// TODO: remove when official images are updates
 	AssistedInstallerAgentImage = "quay.io/masayag/assisted-installer-agent:billi"

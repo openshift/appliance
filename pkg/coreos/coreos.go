@@ -29,7 +29,7 @@ const (
 
 type CoreOS interface {
 	DownloadDiskImage(releaseImage, pullSecret string) (string, error)
-	DownloadISO(releaseImage, pullSecret string) (string, error)
+	DownloadISO(releaseImage, cpuArch, pullSecret string) (string, error)
 	EmbedIgnition(ignition []byte, isoPath string) error
 	FetchCoreOSStream(releaseImage, pullSecret string) (map[string]any, error)
 }
@@ -69,12 +69,8 @@ func (c *coreos) DownloadDiskImage(releaseImage, pullSecret string) (string, err
 	return compressed, nil
 }
 
-func (c *coreos) DownloadISO(releaseImage, pullSecret string) (string, error) {
+func (c *coreos) DownloadISO(releaseImage, cpuArch, pullSecret string) (string, error) {
 	r := release.NewRelease(releaseImage, pullSecret, c.EnvConfig)
-	cpuArch, err := r.GetReleaseArchitecture()
-	if err != nil {
-		return "", err
-	}
 	fileName := fmt.Sprintf(coreOsFileName, cpuArch)
 	return r.ExtractFile(machineOsImageName, fileName)
 }

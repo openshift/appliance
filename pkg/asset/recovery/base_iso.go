@@ -3,10 +3,10 @@ package recovery
 import (
 	"fmt"
 
+	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/coreos"
 	"github.com/openshift/appliance/pkg/log"
-	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )
@@ -17,7 +17,7 @@ type BaseISO struct {
 }
 
 const (
-	coreosIsoName = "coreos-%s*"
+	coreosIsoName = "coreos-%s.iso"
 )
 
 var _ asset.Asset = (*BaseISO)(nil)
@@ -41,14 +41,8 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
 
-	c := coreos.NewCoreOS(envConfig)
-	r := release.NewRelease(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret, envConfig)
-	cpuArch, err := r.GetReleaseArchitecture()
-	if err != nil {
-		return err
-	}
 	// Search for disk image in cache dir
-	filePattern := fmt.Sprintf(coreosIsoName, cpuArch)
+	filePattern := fmt.Sprintf(coreosIsoName, applianceConfig.GetCpuArchitecture())
 	if fileName := envConfig.FindInCache(filePattern); fileName != "" {
 		logrus.Info("Reusing base CoreOS ISO from cache")
 		i.File = &asset.File{Filename: fileName}
@@ -63,8 +57,10 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 		envConfig,
 	)
 	spinner.FileToMonitor = filePattern
+	c := coreos.NewCoreOS(envConfig)
 	fileName, err := c.DownloadISO(
-		*applianceConfig.Config.OcpRelease.URL,
+		swag.StringValue(applianceConfig.Config.OcpRelease.URL),
+		applianceConfig.GetCpuArchitecture(),
 		applianceConfig.Config.PullSecret)
 	if err != nil {
 		return log.StopSpinner(spinner, err)

@@ -4,18 +4,35 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/graph"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/validate"
 	"github.com/pkg/errors"
+	"github.com/thoas/go-funk"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/yaml"
 )
 
-var (
+const (
 	ApplianceConfigFilename = "appliance-config.yaml"
+
+	// CPU architectures
+	CpuArchitectureX86     = "x86_64"
+	CpuArchitectureAARCH64 = "aarch64"
+	CpuArchitecturePPC64le = "ppc64le"
+
+	// Release architecture
+	ReleaseArchitectureAMD64   = "amd64"
+	ReleaseArchitectureARM64   = "arm64"
+	ReleaseArchitecturePPC64le = "ppc64le"
+)
+
+var (
+	cpuArchitectures = []string{CpuArchitectureX86, CpuArchitectureAARCH64, CpuArchitecturePPC64le}
 )
 
 // ApplianceConfig reads the appliance-config.yaml file.
@@ -55,8 +72,8 @@ ocpRelease:
 	# Default: stable
 	# [Optional] 
 	channel: ocp-release-channel
-	# OCP release CPU architecture: amd64/arm64/ppc64le/s390x
-	# Default: amd64
+	# OCP release CPU architecture: x86_64|aarch64|ppc64le
+	# Default: x86_64
 	# [Optional]
 	cpuArchitecture: cpu-architecture
 # Virtual size of the appliance disk image
@@ -111,8 +128,20 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 		return false, errors.Wrapf(err, "failed to unmarshal %s", ApplianceConfigFilename)
 	}
 
+	// Fallback to x86_64
+	if config.OcpRelease.CpuArchitecture == nil {
+		config.OcpRelease.CpuArchitecture = swag.String(CpuArchitectureX86)
+	}
+
+	cpuArch := strings.ToLower(*config.OcpRelease.CpuArchitecture)
+	if !funk.Contains(cpuArchitectures, cpuArch) {
+		return false, errors.Errorf("Unsupported CPU architecture: %s", cpuArch)
+	}
+	config.OcpRelease.CpuArchitecture = swag.String(cpuArch)
+	releaseArch := GetReleaseArchitectureByCPU(cpuArch)
+
 	g := graph.NewGraph()
-	releaseImage, releaseVersion, err := g.GetReleaseImage(config.OcpRelease.Version, config.OcpRelease.Channel, config.OcpRelease.CpuArchitecture)
+	releaseImage, releaseVersion, err := g.GetReleaseImage(config.OcpRelease.Version, config.OcpRelease.Channel, releaseArch)
 	if err != nil {
 		return false, err
 	}
@@ -142,7 +171,7 @@ func (a *ApplianceConfig) validateConfig() field.ErrorList {
 	}
 	switch v := a.Config.APIVersion; v {
 	case types.ApplianceConfigVersion:
-		// Current version
+	// Current version
 	default:
 		return field.ErrorList{field.Invalid(field.NewPath("apiVersion"), a.Config.TypeMeta.APIVersion, fmt.Sprintf("appliance-config version must be %q", types.ApplianceConfigVersion))}
 	}
@@ -152,4 +181,20 @@ func (a *ApplianceConfig) validateConfig() field.ErrorList {
 	}
 
 	return allErrs
+}
+
+func (a *ApplianceConfig) GetCpuArchitecture() string {
+	// Note: in Load func, we ensure that CpuArchitecture is not nil and fallback to x86_64
+	return swag.StringValue(a.Config.OcpRelease.CpuArchitecture)
+}
+
+func GetReleaseArchitectureByCPU(arch string) string {
+	switch arch {
+	case CpuArchitectureX86:
+		return ReleaseArchitectureAMD64
+	case CpuArchitectureAARCH64:
+		return ReleaseArchitectureARM64
+	default:
+		return arch
+	}
 }

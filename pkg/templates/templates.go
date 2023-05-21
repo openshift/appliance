@@ -68,15 +68,3 @@ func applyTemplateData(fileName string, templateFileContent []byte, templateData
 	}
 	return buf.Bytes(), nil
 }
-
-func NormalizeCPUArchitecture(arch string) string {
-	switch arch {
-	case CPUArchitectureAMD64:
-		return CPUArchitectureX86
-	case CPUArchitectureARM64:
-		return CPUArchitectureAARCH64
-	default:
-		return arch
-
-	}
-}
