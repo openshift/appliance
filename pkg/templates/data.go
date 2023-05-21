@@ -76,7 +76,7 @@ func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedIma
 		BlockedImages    string
 		AdditionalImages string
 	}{
-		Architectures:    swag.StringValue(applianceConfig.Config.OcpRelease.CpuArchitecture),
+		Architectures:    config.GetReleaseArchitectureByCPU(applianceConfig.GetCpuArchitecture()),
 		ChannelName:      fmt.Sprintf("%s-%s", swag.StringValue(applianceConfig.Config.OcpRelease.Channel), version),
 		MinVersion:       applianceConfig.Config.OcpRelease.Version,
 		MaxVersion:       applianceConfig.Config.OcpRelease.Version,
@@ -90,7 +90,7 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 		{
 			"openshift_version": ocpReleaseImage.Version,
 			"version":           ocpReleaseImage.Version,
-			"cpu_architecture":  NormalizeCPUArchitecture(*ocpReleaseImage.CpuArchitecture),
+			"cpu_architecture":  swag.StringValue(ocpReleaseImage.CpuArchitecture),
 			"url":               ocpReleaseImage.URL,
 		},
 	}
@@ -99,7 +99,7 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 	osImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
-			"cpu_architecture":  NormalizeCPUArchitecture(*ocpReleaseImage.CpuArchitecture),
+			"cpu_architecture":  swag.StringValue(ocpReleaseImage.CpuArchitecture),
 			"version":           "n/a",
 			"url":               "n/a",
 		},

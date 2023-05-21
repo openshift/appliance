@@ -34,7 +34,7 @@ type OcpRelease struct {
 	Channel ReleaseChannel `json:"channel"`
 	// Architecture is the architecture for the release.
 	// Defaults to amd64.
-	Architecture ReleaseArchitecture `json:"architecture,omitempty"`
+	Architecture string `json:"architecture,omitempty"`
 }
 
 type ReleaseChannel string
@@ -46,18 +46,9 @@ const (
 	ReleaseChannelEUS       ReleaseChannel = "eus"
 )
 
-type ReleaseArchitecture string
-
-const (
-	ReleaseArchitectureAMD64   ReleaseArchitecture = "amd64"
-	ReleaseArchitecturePPC64le ReleaseArchitecture = "ppc64le"
-	ReleaseArchitectureS390x   ReleaseArchitecture = "s390x"
-	ReleaseArchitectureARM64   ReleaseArchitecture = "arm64"
-)
-
 // Graph is the interface for fetching info from api.openshift.com/api/upgrades_info/graph
 type Graph interface {
-	GetReleaseImage(version string, channel, arch *string) (string, string, error)
+	GetReleaseImage(version string, channel *string, arch string) (string, string, error)
 }
 
 type graph struct {
@@ -78,7 +69,7 @@ var (
 	majorMinorRegExp = regexp.MustCompile(`^(?P<majorMinor>(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*))\.?.*`)
 )
 
-func (g *graph) GetReleaseImage(version string, channel, arch *string) (string, string, error) {
+func (g *graph) GetReleaseImage(version string, channel *string, arch string) (string, string, error) {
 	var releaseChannel ReleaseChannel
 	if channel == nil {
 		releaseChannel = ReleaseChannelStable
@@ -86,17 +77,10 @@ func (g *graph) GetReleaseImage(version string, channel, arch *string) (string, 
 		releaseChannel = ReleaseChannel(*channel)
 	}
 
-	var releaseArchitecture ReleaseArchitecture
-	if channel == nil {
-		releaseArchitecture = ReleaseArchitectureAMD64
-	} else {
-		releaseArchitecture = ReleaseArchitecture(*arch)
-	}
-
 	release := OcpRelease{
 		Version:      version,
 		Channel:      releaseChannel,
-		Architecture: releaseArchitecture,
+		Architecture: arch,
 	}
 	client := retryablehttp.NewClient()
 	client.Logger = nil

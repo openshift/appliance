@@ -7,7 +7,6 @@ import (
 	"github.com/openshift/appliance/pkg/coreos"
 	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/log"
-	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )
@@ -37,15 +36,8 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
 
-	c := coreos.NewCoreOS(envConfig)
-	r := release.NewRelease(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret, envConfig)
-	cpuArch, err := r.GetReleaseArchitecture()
-	if err != nil {
-		return err
-	}
-
 	// Search for disk image in cache dir
-	filePattern := fmt.Sprintf(coreosImageName, cpuArch)
+	filePattern := fmt.Sprintf(coreosImageName, applianceConfig.GetCpuArchitecture())
 	if fileName := envConfig.FindInCache(filePattern); fileName != "" {
 		logrus.Info("Reusing appliance base disk image from cache")
 		a.File = &asset.File{Filename: fileName}
@@ -60,6 +52,7 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 		envConfig,
 	)
 	spinner.FileToMonitor = coreos.CoreOsDiskImageGz
+	c := coreos.NewCoreOS(envConfig)
 	compressed, err := c.DownloadDiskImage(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret)
 	if err != nil {
 		return log.StopSpinner(spinner, err)

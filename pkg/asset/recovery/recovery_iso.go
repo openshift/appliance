@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -13,11 +14,6 @@ import (
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
-)
-
-const (
-	coreosIsoFileName  = "coreos-x86_64.iso"
-	recoveryIsoDirName = "recovery_iso"
 )
 
 // RecoveryISO is an asset that generates the bootable ISO copied
@@ -47,6 +43,7 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	recoveryIgnition := &ignition.RecoveryIgnition{}
 	dependencies.Get(envConfig, baseISO, applianceConfig, recoveryIgnition)
 
+	coreosIsoFileName := fmt.Sprintf(coreosIsoName, applianceConfig.GetCpuArchitecture())
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
 	recoveryIsoPath := filepath.Join(envConfig.CacheDir, templates.RecoveryIsoFileName)
 
