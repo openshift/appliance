@@ -6,12 +6,33 @@ of an OpenShift cluster. Thus, all required images are included in the appliance
 
 ## Quick Start
 
-Build and run: binary or container image
+### Build (binary or container image)
 
-### Using the binary
-* Install dependencies (libguestfs-tools/coreos-installer/oc)
-* make build-appliance
-* ./bin/openshift-appliance
+#### Build binary
+
+##### Install dependencies
+
+* libguestfs-tools
+* coreos-installer
+* oc
+* skopeo
+* podman or docker
+
+##### Build
+
+``` bash
+make build-appliance
+```
+
+#### Build container image
+
+``` bash
+export IMAGE=<image_url>
+
+make build
+```
+
+### Run
 
 #### Commands
 * build
@@ -22,18 +43,66 @@ Build and run: binary or container image
 * --dir
 * --log-level
 
-### Using a container image
+#### Create config file (appliance-config.yaml)
 
-#### Configuration
+A configuration file named `appliance-config.yaml` is required for running the tool. The file should include the following properties:
+
+* ocpRelease.version: OCP release version in major.minor or major.minor.patch format (for major.minor, latest patch version will be used)
+* ocpRelease.channel: OCP release update channel (stable|fast|eus|candidate)
+* ocpRelease.cpuArchitecture: CPU architecture of the release payload (x86_64|aarch64|ppc64le)
+* diskSizeGB: Virtual size of the appliance disk image
+* pullSecret: PullSecret required for mirroring the OCP release payload
+* sshKey: Public SSH key for accessing the appliance
+
+##### Generate config file template
+
+Using binary:
 ``` bash
-export IMAGE=<image_url>
-export ASSETS=<assets_dir>
-export LOG_LEVEL=info/debug/error
-export CMD=build/clean/generate-config
+./bin/openshift-appliance generate-config --dir <assets-dir>
 ```
 
-#### Build and Run
-make build run
+Using container image:
+``` bash
+export CMD=generate-config
+export ASSETS=<assets-dir>
+
+make run --dir assets
+```
+
+##### Example
+
+```
+apiVersion: v1beta1
+kind: ApplianceConfig
+ocpRelease:
+  version: "4.12.10"
+  channel: "stable"
+  cpuArchitecture: "x86_64"
+diskSizeGB: 200
+pullSecret: ...
+sshKey: ...
+
+```
+
+#### Start appliance disk image build flow
+
+Using binary:
+``` bash
+./bin/openshift-appliance build --dir <assets-dir> --log-level info
+```
+
+Using container image:
+``` bash
+export CMD=build
+export ASSETS=<assets-dir>
+export LOG_LEVEL=info/debug/error
+
+make run build --dir assets
+```
+
+##### Cleanup
+
+After a successful build, use the `clean` command before re-building the appliance (removes temp folder and state file).
 
 ## Development
 
@@ -61,10 +130,6 @@ The public ssh key provided in appliance-config.yaml is used (`sshKey` property)
 #### Test changes in the install ignition
 
 To debug/test changes made in the `InstallIgnition` asset, follow the steps described on [test_install_ignition.md](/hack/diskimage/test_install_ignition.md)
-
-### Cleanup
-
-After a successful build, use the `clean` command before re-building the appliance (removes temp folder and state file).
 
 ## Main Components
 
