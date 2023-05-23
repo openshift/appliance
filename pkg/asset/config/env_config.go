@@ -67,9 +67,21 @@ func (e *EnvConfig) findInDir(dir, filePattern string) string {
 		return ""
 	}
 	if len(files) > 0 {
-		return files[0]
+		file := files[0]
+		if !e.isValidFileSize(file) {
+			return ""
+		}
+		return file
 	}
 	return ""
+}
+
+func (e *EnvConfig) isValidFileSize(file string) bool {
+	f, err := os.Stat(file)
+	if err != nil {
+		return false
+	}
+	return f.Size() != 0
 }
 
 func (e *EnvConfig) FindInCache(filePattern string) string {
