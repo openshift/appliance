@@ -16,7 +16,7 @@ VOLUME $ASSETS_DIR
 ENV ASSETS_DIR=$ASSETS_DIR
 
 # Install and config libguestfs
-RUN dnf -y install libguestfs-tools coreos-installer && dnf clean all
+RUN dnf -y install libguestfs-tools coreos-installer skopeo && dnf clean all
 ENV LIBGUESTFS_BACKEND=direct
 
 # Download oc-mirror
