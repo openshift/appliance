@@ -176,6 +176,28 @@ func (r *release) execute(executer executer.Executer, pullSecret, command string
 	return "", errors.Wrapf(err, "Failed to execute cmd (%s): %s", executeCommand, err)
 }
 
+func (r *release) setDockerConfig() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return errors.Wrapf(err, "Failed to get home directory")
+	}
+
+	configPath := filepath.Join(homeDir, ".docker", "config.json")
+	if _, err := os.Stat(configPath); err == nil {
+		logrus.Debugf("Using pull secret from: %s", configPath)
+		return nil
+	}
+
+	if err = os.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
+		return err
+	}
+
+	if err = os.WriteFile(configPath, []byte(r.pullSecret), os.ModePerm); err != nil {
+		return errors.Wrap(err, "failed to write file")
+	}
+	return nil
+}
+
 func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig,
 	templateFile string, blockedImages string, additionalImages string) error {
 	if err := templates.RenderTemplateFile(
@@ -198,6 +220,10 @@ func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *con
 
 	cmd := fmt.Sprintf(ocMirrorAndUpload, absPath, registry.RegistryPort, tempDir)
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
+
+	if err = r.setDockerConfig(); err != nil {
+		return err
+	}
 
 	result, err := r.execute(r.executer, "", cmd)
 	logrus.Debugf("mirroring result: %s", result)

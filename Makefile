@@ -50,6 +50,7 @@ run:
 	podman run --rm -it \
 		-v $(ASSETS):/assets:Z \
 		--privileged \
+		--net=host \
 		$(IMAGE) $(CMD) --log-level $(LOG_LEVEL)
 
 all: lint test build run

@@ -17,7 +17,7 @@ import (
 const (
 	RegistryPort = "5005"
 
-	registryStartCmd = "podman run --privileged -d --name registry -p %s:5000 -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 %s"
+	registryStartCmd = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%s %s"
 	registryStopCmd  = "podman rm registry -f"
 
 	registryAttempts             = 3
@@ -68,16 +68,16 @@ func (r *registry) StartRegistry(registryDataPath string) error {
 		return err
 	}
 
-	filePath := filepath.Join(pwd, registryDataPath)
+	dataDirPath := filepath.Join(pwd, registryDataPath)
 
-	if err = os.RemoveAll(filePath); err != nil {
+	if err = os.RemoveAll(dataDirPath); err != nil {
 		return err
 	}
-	if err = os.MkdirAll(filePath, os.ModePerm); err != nil {
+	if err = os.MkdirAll(dataDirPath, os.ModePerm); err != nil {
 		return err
 	}
 
-	cmd := fmt.Sprintf(registryStartCmd, RegistryPort, filePath, templates.RegistryImage)
+	cmd := fmt.Sprintf(registryStartCmd, dataDirPath, RegistryPort, templates.RegistryImage)
 	logrus.Debugf("Running registry cmd: %s", cmd)
 	args := strings.Split(cmd, " ")
 	_, err = r.executer.Execute(args[0], args[1:]...)
