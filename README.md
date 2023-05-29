@@ -88,6 +88,8 @@ sshKey: ...
 
 Using binary:
 ``` bash
+export LIBGUESTFS_BACKEND=direct
+
 ./bin/openshift-appliance build --dir <assets-dir> --log-level info
 ```
 
