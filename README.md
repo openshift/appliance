@@ -16,7 +16,7 @@ of an OpenShift cluster. Thus, all required images are included in the appliance
 * coreos-installer
 * oc
 * skopeo
-* podman or docker
+* podman
 
 ##### Build
 
