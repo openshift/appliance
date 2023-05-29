@@ -208,7 +208,7 @@ func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *con
 	return err
 }
 func (r *release) MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
-	return r.mirrorImages(envConfig, applianceConfig, templates.ImageSetReleaseTemplateFile, "", "")
+	return r.mirrorImages(envConfig, applianceConfig, templates.ImageSetTemplateFile, "", "")
 }
 
 func (r *release) shouldBlockImage(imageName string) bool {
@@ -301,7 +301,7 @@ func (r *release) MirrorBootstrapImages(envConfig *config.EnvConfig, applianceCo
 	return r.mirrorImages(
 		envConfig,
 		applianceConfig,
-		templates.ImageSetBootstrapTemplateFile,
+		templates.ImageSetTemplateFile,
 		blockedImages,
 		r.generateAdditionalImagesList(r.imagesListWithCustomImages()),
 	)
