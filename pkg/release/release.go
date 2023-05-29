@@ -3,7 +3,6 @@ package release
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -191,7 +190,7 @@ func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *con
 		return err
 	}
 
-	tempDir, err := ioutil.TempDir(envConfig.TempDir, "oc-mirror")
+	tempDir, err := os.MkdirTemp(envConfig.TempDir, "oc-mirror")
 	if err != nil {
 		return err
 	}
