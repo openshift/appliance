@@ -9,12 +9,10 @@ ROOT_DIR = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 REPORTS ?= $(ROOT_DIR)/reports
 COVER_PROFILE := $(or ${COVER_PROFILE},$(REPORTS)/unit_coverage.out)
 
-CONTAINER_COMMAND := $(shell hack/utils.sh get_container_runtime_command)
-
 .PHONY: build
 
 build:
-	$(CONTAINER_COMMAND) build -f Dockerfile.openshift-appliance . -t $(IMAGE)
+	podman build -f Dockerfile.openshift-appliance . -t $(IMAGE)
 
 build-appliance:
 	mkdir -p build
@@ -49,7 +47,7 @@ format:
 	@goimports -w -l main.go internal pkg || /bin/true
 
 run: 
-	$(CONTAINER_COMMAND) run --rm -it \
+	podman run --rm -it \
 		-v $(ASSETS):/assets:Z \
 		--privileged \
 		$(IMAGE) $(CMD) --log-level $(LOG_LEVEL)
