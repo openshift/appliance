@@ -3,14 +3,13 @@ package fileutil
 import (
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
 
 func CopyFile(source, dest string) error {
 	// Read source file
-	bytesRead, err := ioutil.ReadFile(source)
+	bytesRead, err := os.ReadFile(source)
 	if err != nil {
 		return err
 	}
@@ -27,7 +26,7 @@ func CopyFile(source, dest string) error {
 	}
 
 	// Copy file to dest
-	if err = ioutil.WriteFile(dest, bytesRead, fileinfo.Mode().Perm()); err != nil {
+	if err = os.WriteFile(dest, bytesRead, fileinfo.Mode().Perm()); err != nil {
 		return err
 	}
 

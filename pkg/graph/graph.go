@@ -1,9 +1,10 @@
 package graph
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"regexp"
 	"sort"
@@ -120,15 +121,17 @@ func (g *graph) resolvePullSpec(client *http.Client, endpoint string, release Oc
 		return "", "", fmt.Errorf("failed to request %s: got a nil response", targetName)
 	}
 	defer resp.Body.Close()
-	data, readErr := ioutil.ReadAll(resp.Body)
+
+	var buf bytes.Buffer
+	_, readErr := io.Copy(&buf, resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("failed to request %s: server responded with %d: %s", targetName, resp.StatusCode, data)
+		return "", "", fmt.Errorf("failed to request %s: server responded with %d: %s", targetName, resp.StatusCode, buf.String())
 	}
 	if readErr != nil {
 		return "", "", fmt.Errorf("failed to read response body: %w", readErr)
 	}
 	response := Response{}
-	err = json.Unmarshal(data, &response)
+	err = json.Unmarshal(buf.Bytes(), &response)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
