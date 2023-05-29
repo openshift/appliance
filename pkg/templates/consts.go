@@ -17,11 +17,8 @@ const (
 	RecoveryIsoFileName         = "recovery.iso"
 	DataIsoFileName             = "data.iso"
 
-	// ImageSetBootstrapTemplateFile imageset-bootstrap.yaml.template
-	ImageSetBootstrapTemplateFile = "scripts/mirror/imageset-bootstrap.yaml.template"
-
-	// ImageSetReleaseTemplateFile imageset-release.yaml.template
-	ImageSetReleaseTemplateFile = "scripts/mirror/imageset-release.yaml.template"
+	// ImageSetTemplateFile imageset.yaml.template
+	ImageSetTemplateFile = "scripts/mirror/imageset.yaml.template"
 
 	// Recovery/Data partitions
 	RecoveryPartitionName = "agentboot"
