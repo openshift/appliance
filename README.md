@@ -128,6 +128,10 @@ Add `--debug-bootstrap` flag to the build command to avoid machine reboot on boo
 
 Add `--debug-install` flag to the build command for enabling ssh login on the installation step.
 The public ssh key provided in appliance-config.yaml is used (`sshKey` property).
+During installation, to run `oc` commands, define `KUBECONFIG` using:
+```bash
+export KUBECONFIG=/etc/kubernetes/bootstrap-secrets/kubeconfig
+```
 
 #### Test changes in the install ignition
 
