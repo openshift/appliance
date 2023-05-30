@@ -10,8 +10,7 @@ import (
 )
 
 const (
-	RegistryDomain         = "registry.appliance.com"
-	RegistriesConfFilename = "registries.conf"
+	RegistryDomain = "registry.appliance.com"
 )
 
 // RegistriesConf generates the registries.conf file.

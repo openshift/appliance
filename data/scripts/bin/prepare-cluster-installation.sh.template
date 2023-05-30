@@ -66,7 +66,7 @@ if [[ -n ${host_ids} ]]; then
             -H "Content-Type: application/json" \
             -d '{"args": '"${args}"'}'
 
-        # Update host's ingition (used when booting from the installtion disk after bootstrap)
+        # Update host's ignition (used when booting from the installation disk after bootstrap)
         curl -s -S -X PATCH "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/ignition" \
             -H "Content-Type: application/json" \
             -d '{"config": '"${ignition}"'}'

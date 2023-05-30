@@ -52,7 +52,7 @@ var _ asset.Asset = (*BootstrapIgnition)(nil)
 
 // Name returns the human-friendly name of the asset.
 func (i *BootstrapIgnition) Name() string {
-	return "Bootstrap Ignition"
+	return "Bootstrap ignition"
 }
 
 // Dependencies returns dependencies used by the asset.
