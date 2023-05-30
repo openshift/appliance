@@ -3,7 +3,7 @@ package ignition
 import (
 	"os"
 
-	config_32 "github.com/coreos/ignition/v2/config/v3_2"
+	configv32 "github.com/coreos/ignition/v2/config/v3_2"
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pkg/errors"
@@ -41,12 +41,12 @@ func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to fetch un-configured ignition")
 	}
-	config, _, err := config_32.Parse(configBytes)
+	config, _, err := configv32.Parse(configBytes)
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse un-configured ignition")
 	}
 
-	i.Config = config_32.Merge(config, bootstrapIgnition.Config)
+	i.Config = configv32.Merge(config, bootstrapIgnition.Config)
 
 	logrus.Debug("Successfully generated recovery ignition")
 

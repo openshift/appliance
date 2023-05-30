@@ -32,7 +32,6 @@ const (
 const (
 	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
-	templateImageInfo    = "oc image info --output json %s"
 	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:%s --dest-skip-tls --dir %s"
 	ocAdmReleaseInfo     = "oc adm release info quay.io/openshift-release-dev/ocp-release:%s-%s -o json"
 )

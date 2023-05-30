@@ -17,12 +17,11 @@ import (
 )
 
 const (
-	templateDownloadDiskImage = "coreos-installer download -s stable -p qemu -f qcow2.xz --architecture %s --decompress -C %s"
-	templateEmbedIgnition     = "coreos-installer iso ignition embed -f --ignition-file %s %s"
-	machineOsImageName        = "machine-os-images"
-	coreOsFileName            = "coreos/coreos-%s.iso"
-	coreOsStream              = "coreos/coreos-stream.json"
-	coreOsDiskImageUrlQuery   = ".architectures.x86_64.artifacts.qemu.formats[\"qcow2.gz\"].disk.location"
+	templateEmbedIgnition   = "coreos-installer iso ignition embed -f --ignition-file %s %s"
+	machineOsImageName      = "machine-os-images"
+	coreOsFileName          = "coreos/coreos-%s.iso"
+	coreOsStream            = "coreos/coreos-stream.json"
+	coreOsDiskImageUrlQuery = ".architectures.x86_64.artifacts.qemu.formats[\"qcow2.gz\"].disk.location"
 
 	CoreOsDiskImageGz = "coreos.tar.gz"
 )

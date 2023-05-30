@@ -27,7 +27,7 @@ type Release struct {
 	Payload string `json:"payload"`
 }
 
-// Release describes a generally available release payload
+// OcpRelease describes a generally available release payload
 type OcpRelease struct {
 	// Version is the minor version to search for
 	Version string `json:"version"`
@@ -111,7 +111,7 @@ func (g *graph) resolvePullSpec(client *http.Client, endpoint string, release Oc
 		targetName = release.Version
 	}
 	query.Add("channel", channel)
-	query.Add("arch", string(release.Architecture))
+	query.Add("arch", release.Architecture)
 	req.URL.RawQuery = query.Encode()
 	resp, err := client.Do(req)
 	if err != nil {

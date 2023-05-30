@@ -16,8 +16,8 @@ func NewGenerateConfigCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		PreRun: func(cmd *cobra.Command, args []string) {
 			configFilePath := filepath.Join(rootOpts.dir, config.ApplianceConfigFilename)
-			_, error := os.Stat(configFilePath)
-			if !os.IsNotExist(error) {
+			_, err := os.Stat(configFilePath)
+			if !os.IsNotExist(err) {
 				logrus.Fatal("Config file already exists at assets directory")
 			}
 		},

@@ -42,7 +42,7 @@ var _ asset.Asset = (*InstallIgnition)(nil)
 
 // Name returns the human-friendly name of the asset.
 func (i *InstallIgnition) Name() string {
-	return "Install Ignition"
+	return "Install ignition"
 }
 
 // Dependencies returns dependencies used by the asset.

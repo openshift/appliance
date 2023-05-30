@@ -12,10 +12,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Added to manage ignition versions in one file
-var EmptyIgnitionConfig = types.IgnitionConfig{}
-var EmptyIgnition = types.Config{}
-
 //go:generate mockgen -source=ignition.go -package=ignition -destination=mock_ignition.go
 type Ignition interface {
 	ParseIgnitionFile(path string) (*types.Config, error)
@@ -25,7 +21,7 @@ type Ignition interface {
 
 type ignition struct{}
 
-func NewIgnition() *ignition {
+func NewIgnition() Ignition {
 	return &ignition{}
 }
 
@@ -69,7 +65,7 @@ func (i *ignition) WriteIgnitionFile(path string, config *types.Config) error {
 	return nil
 }
 
-// MergeIgnitionConfig merges the specified configs and check the result is a valid Ignition config
+// MergeIgnitionConfig merges the specified configs and check the result is a valid ignition config
 func (i *ignition) MergeIgnitionConfig(base *types.Config, overrides *types.Config) (*types.Config, error) {
 	config := ignitionConfig.Merge(*base, *overrides)
 	report := validate.ValidateWithContext(config, nil)

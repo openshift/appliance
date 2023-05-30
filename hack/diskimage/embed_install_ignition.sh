@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Embeds install ingition config in boot partition of the diskimage
+# Embeds install ignition config in boot partition of the diskimage
 
 appliance=${1:-appliance.qcow2}
 snapshot=${2:-assets/snapshot.qcow2}

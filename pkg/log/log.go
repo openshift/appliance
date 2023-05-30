@@ -11,7 +11,7 @@ import (
 	"golang.org/x/term"
 )
 
-type fileHook struct {
+type Filehook struct {
 	file      io.Writer
 	formatter logrus.Formatter
 	level     logrus.Level
@@ -19,21 +19,21 @@ type fileHook struct {
 	truncateAtNewLine bool
 }
 
-func NewFileHook(file io.Writer, level logrus.Level, formatter logrus.Formatter) *fileHook {
-	return &fileHook{
+func NewFileHook(file io.Writer, level logrus.Level, formatter logrus.Formatter) *Filehook {
+	return &Filehook{
 		file:      file,
 		formatter: formatter,
 		level:     level,
 	}
 }
 
-func NewFileHookWithNewlineTruncate(file io.Writer, level logrus.Level, formatter logrus.Formatter) *fileHook {
+func NewFileHookWithNewlineTruncate(file io.Writer, level logrus.Level, formatter logrus.Formatter) *Filehook {
 	f := NewFileHook(file, level, formatter)
 	f.truncateAtNewLine = true
 	return f
 }
 
-func (h fileHook) Levels() []logrus.Level {
+func (h Filehook) Levels() []logrus.Level {
 	var levels []logrus.Level
 	for _, level := range logrus.AllLevels {
 		if level <= h.level {
@@ -44,7 +44,7 @@ func (h fileHook) Levels() []logrus.Level {
 	return levels
 }
 
-func (h *fileHook) Fire(entry *logrus.Entry) error {
+func (h Filehook) Fire(entry *logrus.Entry) error {
 	// logrus reuses the same entry for each invocation of hooks.
 	// so we need to make sure we leave them message field as we received.
 	orig := entry.Message
