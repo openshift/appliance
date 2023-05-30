@@ -26,8 +26,8 @@ export CI_BUILD_ID="${JOB_NAME}"
 export CI_JOB_ID="${BUILD_ID}"
 
 if [[ -z "${ARTIFACT_DIR:-}" ]] || [[ ! -d "${ARTIFACT_DIR}" ]] || [[ ! -w "${ARTIFACT_DIR}" ]]; then
-        echo '${ARTIFACT_DIR} must be set for non-local jobs, and must point to a writable directory' >&2
+        echo "${ARTIFACT_DIR} must be set for non-local jobs, and must point to a writable directory" >&2
         exit 1
 fi
 curl -sS https://codecov.io/bash -o "${ARTIFACT_DIR}/codecov.sh"
-bash <(cat "${ARTIFACT_DIR}/codecov.sh") -Z -K -f "${COVER_PROFILE}" -r "${REPO_OWNER}/${REPO_NAME}" ${REF_FLAGS}
+bash <(cat "${ARTIFACT_DIR}/codecov.sh") -Z -K -f "${COVER_PROFILE}" -r "${REPO_OWNER}/${REPO_NAME}" "${REF_FLAGS}"
