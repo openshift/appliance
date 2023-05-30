@@ -53,7 +53,7 @@ A configuration file named `appliance-config.yaml` is required for running the t
 * ocpRelease.version: OCP release version in major.minor or major.minor.patch format (for major.minor, latest patch version will be used)
 * ocpRelease.channel: OCP release [update channel](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/updating_clusters/understanding-upgrade-channels-releases#understanding-upgrade-channels_understanding-upgrade-channels-releases) (stable|fast|eus|candidate)
 * ocpRelease.cpuArchitecture: CPU architecture of the release payload (x86_64|aarch64|ppc64le)
-* diskSizeGB: Virtual size of the appliance disk image
+* diskSizeGB: Virtual size of the appliance disk image (at least 150 GiB)
 * pullSecret: PullSecret required for mirroring the OCP release payload
 * sshKey: Public SSH key for accessing the appliance
 * userCorePass: Password for user 'core' to login from console

@@ -4,8 +4,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ApplianceConfigVersion is the version supported by this package.
-const ApplianceConfigVersion = "v1beta1"
+// ApplianceConfigApiVersion is the version supported by this package.
+const ApplianceConfigApiVersion = "v1beta1"
 
 type ApplianceConfig struct {
 	metav1.TypeMeta   `json:",inline"`

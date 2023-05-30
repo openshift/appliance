@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/swag"
+	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/graph"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
@@ -29,6 +30,10 @@ const (
 	ReleaseArchitectureAMD64   = "amd64"
 	ReleaseArchitectureARM64   = "arm64"
 	ReleaseArchitecturePPC64le = "ppc64le"
+
+	// Validation values
+	MinDiskSize   = 150
+	MinOcpVersion = "4.12" // TODO: update to supported version when ready
 )
 
 var (
@@ -76,7 +81,7 @@ ocpRelease:
 	# Default: x86_64
 	# [Optional]
 	cpuArchitecture: cpu-architecture
-# Virtual size of the appliance disk image
+# Virtual size of the appliance disk image (at least 150GiB)
 diskSizeGB: disk-size
 # PullSecret required for mirroring the OCP release payload
 pullSecret: pull-secret
@@ -131,6 +136,12 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 		return false, errors.Wrapf(err, "failed to unmarshal %s", ApplianceConfigFilename)
 	}
 
+	a.File, a.Config = file, config
+
+	if err := a.validateConfig().ToAggregate(); err != nil {
+		return false, errors.Wrapf(err, "invalid Appliance Config configuration")
+	}
+
 	// Fallback to x86_64
 	if config.OcpRelease.CpuArchitecture == nil {
 		config.OcpRelease.CpuArchitecture = swag.String(CpuArchitectureX86)
@@ -141,9 +152,9 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 		return false, errors.Errorf("Unsupported CPU architecture: %s", cpuArch)
 	}
 	config.OcpRelease.CpuArchitecture = swag.String(cpuArch)
-	releaseArch := GetReleaseArchitectureByCPU(cpuArch)
 
 	g := graph.NewGraph()
+	releaseArch := GetReleaseArchitectureByCPU(cpuArch)
 	releaseImage, releaseVersion, err := g.GetReleaseImage(config.OcpRelease.Version, config.OcpRelease.Channel, releaseArch)
 	if err != nil {
 		return false, err
@@ -151,39 +162,7 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	config.OcpRelease.URL = &releaseImage
 	config.OcpRelease.Version = releaseVersion
 
-	a.File, a.Config = file, config
-	if err = a.finish(); err != nil {
-		return false, err
-	}
-
 	return true, nil
-}
-
-func (a *ApplianceConfig) finish() error {
-	if err := a.validateConfig().ToAggregate(); err != nil {
-		return errors.Wrapf(err, "invalid Appliance Config configuration")
-	}
-
-	return nil
-}
-
-func (a *ApplianceConfig) validateConfig() field.ErrorList {
-	allErrs := field.ErrorList{}
-	if a.Config.TypeMeta.APIVersion == "" {
-		return field.ErrorList{field.Required(field.NewPath("apiVersion"), "install-config version required")}
-	}
-	switch v := a.Config.APIVersion; v {
-	case types.ApplianceConfigVersion:
-	// Current version
-	default:
-		return field.ErrorList{field.Invalid(field.NewPath("apiVersion"), a.Config.TypeMeta.APIVersion, fmt.Sprintf("appliance-config version must be %q", types.ApplianceConfigVersion))}
-	}
-
-	if err := validate.ImagePullSecret(a.Config.PullSecret); err != nil {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("pullSecret"), a.Config.PullSecret, err.Error()))
-	}
-
-	return allErrs
 }
 
 func (a *ApplianceConfig) GetCpuArchitecture() string {
@@ -200,4 +179,110 @@ func GetReleaseArchitectureByCPU(arch string) string {
 	default:
 		return arch
 	}
+}
+
+func (a *ApplianceConfig) validateConfig() field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Validate apiVersion
+	if err := a.validateApiVersion(); err != nil {
+		allErrs = append(allErrs, err...)
+	}
+
+	// Validate ocpRelease
+	if err := a.validateOcpRelease(); err != nil {
+		allErrs = append(allErrs, err...)
+	}
+
+	// Validate diskSizeGB
+	if err := a.validateDiskSize(); err != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("diskSizeGB"), a.Config.DiskSizeGB, err.Error()))
+	}
+
+	// Validate pullSecret
+	if err := validate.ImagePullSecret(a.Config.PullSecret); err != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("pullSecret"), a.Config.PullSecret, err.Error()))
+	}
+
+	// Validate sshKey
+	if a.Config.SshKey != nil {
+		if err := validate.SSHPublicKey(*a.Config.SshKey); err != nil {
+			allErrs = append(allErrs, field.Invalid(field.NewPath("sshKey"), *a.Config.SshKey, err.Error()))
+		}
+	}
+
+	return allErrs
+}
+
+func (a *ApplianceConfig) validateApiVersion() field.ErrorList {
+	if a.Config.TypeMeta.APIVersion == "" {
+		return field.ErrorList{field.Required(field.NewPath("apiVersion"), "apiVersion is required")}
+	}
+	switch v := a.Config.APIVersion; v {
+	case types.ApplianceConfigApiVersion: // Current version
+	default:
+		return field.ErrorList{field.Invalid(field.NewPath("apiVersion"),
+			a.Config.TypeMeta.APIVersion,
+			fmt.Sprintf("apiVersion must be %q", types.ApplianceConfigApiVersion))}
+	}
+	return nil
+}
+
+func (a *ApplianceConfig) validateOcpRelease() field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Validate ocpRelease.version
+	if a.Config.OcpRelease.Version == "" {
+		allErrs = append(allErrs, field.ErrorList{field.Required(field.NewPath("ocpRelease.version"),
+			"ocpRelease version is required")}...)
+	}
+	minOcpVer, _ := version.NewVersion(MinOcpVersion)
+	ocpVer, err := version.NewVersion(a.Config.OcpRelease.Version)
+	if err != nil {
+		allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("ocpRelease.version"),
+			a.Config.OcpRelease.Version,
+			fmt.Sprintf("OCP release version must be in major.minor or major.minor.patch format %q", err))}...)
+
+	}
+	if ocpVer.LessThan(minOcpVer) {
+		allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("ocpRelease.version"),
+			a.Config.OcpRelease.Version,
+			fmt.Sprintf("OCP release version must be at least %s", MinOcpVersion))}...)
+	}
+
+	// Validate ocpRelease.channel
+	if swag.StringValue(a.Config.OcpRelease.Channel) != "" {
+		switch graph.ReleaseChannel(*a.Config.OcpRelease.Channel) {
+		case graph.ReleaseChannelStable:
+		case graph.ReleaseChannelFast:
+		case graph.ReleaseChannelCandidate:
+		case graph.ReleaseChannelEUS:
+		default:
+			allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("ocpRelease.channel"),
+				a.Config.OcpRelease.Channel,
+				"Unsupported OCP release channel (supported channels: stable|fast|eus|candidate)")}...)
+		}
+	}
+
+	// Validate ocpRelease.cpuArchitecture
+	if swag.StringValue(a.Config.OcpRelease.CpuArchitecture) != "" {
+		switch *a.Config.OcpRelease.CpuArchitecture {
+		case CpuArchitectureX86:
+		case CpuArchitectureAARCH64:
+		case CpuArchitecturePPC64le:
+		default:
+			allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("ocpRelease.cpuArchitecture"),
+				a.Config.OcpRelease.CpuArchitecture,
+				"Unsupported OCP release cpu architecture (supported architectures: x86_64|aarch64|ppc64le)")}...)
+		}
+	}
+
+	return allErrs
+}
+
+func (a *ApplianceConfig) validateDiskSize() error {
+	if a.Config.DiskSizeGB < MinDiskSize {
+		return fmt.Errorf("diskSizeGB must be at least %d GiB", MinDiskSize)
+	}
+	return nil
 }
