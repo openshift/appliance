@@ -26,7 +26,7 @@ func (*RegistriesConf) Name() string {
 	return "Mirror Registries Config"
 }
 
-// Dependencies returns all of the dependencies directly needed to generate
+// Dependencies returns all the dependencies directly needed to generate
 // the asset.
 func (*RegistriesConf) Dependencies() []asset.Asset {
 	return []asset.Asset{

@@ -110,7 +110,7 @@ func SetupOutputHook(logLevel string) {
 
 	logrus.AddHook(NewFileHookWithNewlineTruncate(os.Stderr, level, &logrus.TextFormatter{
 		// Setting ForceColors is necessary because logrus.TextFormatter determines
-		// whether or not to enable colors by looking at the output of the logger.
+		// whether to enable colors by looking at the output of the logger.
 		// In this case, the output is io.Discard, which is not a terminal.
 		// Overriding it here allows the same check to be done, but against the
 		// hook's output instead of the logger's output.

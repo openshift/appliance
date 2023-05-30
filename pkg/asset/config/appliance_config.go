@@ -49,7 +49,7 @@ func (*ApplianceConfig) Name() string {
 	return "Appliance Config"
 }
 
-// Dependencies returns all of the dependencies directly needed to generate
+// Dependencies returns all the dependencies directly needed to generate
 // the asset.
 func (*ApplianceConfig) Dependencies() []asset.Asset {
 	return []asset.Asset{}

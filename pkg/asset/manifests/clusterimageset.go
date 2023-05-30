@@ -29,7 +29,7 @@ func (*ClusterImageSet) Name() string {
 	return "ClusterImageSet Config"
 }
 
-// Dependencies returns all of the dependencies directly needed to generate
+// Dependencies returns all the dependencies directly needed to generate
 // the asset.
 func (*ClusterImageSet) Dependencies() []asset.Asset {
 	return []asset.Asset{
