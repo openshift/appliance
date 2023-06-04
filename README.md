@@ -1,6 +1,6 @@
 # OpenShift-based Appliance Builder
 
-`openshift-appliance` is a command line utility for building a disk image that orchestrates OpenShift installation using the Agent-based installer. 
+`openshift-appliance` is a command line utility for building a disk image that orchestrates OpenShift installation using the [Agent-based installer](https://cloud.redhat.com/blog/meet-the-new-agent-based-openshift-installer-1).
 The primary use-case of the appliance is to support a fully disconnected installation
 of an OpenShift cluster. Thus, all required images are included in the appliance disk image.
 
@@ -50,7 +50,7 @@ make build
 A configuration file named `appliance-config.yaml` is required for running the tool. The file should include the following properties:
 
 * ocpRelease.version: OCP release version in major.minor or major.minor.patch format (for major.minor, latest patch version will be used)
-* ocpRelease.channel: OCP release update channel (stable|fast|eus|candidate)
+* ocpRelease.channel: OCP release [update channel](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/updating_clusters/understanding-upgrade-channels-releases#understanding-upgrade-channels_understanding-upgrade-channels-releases) (stable|fast|eus|candidate)
 * ocpRelease.cpuArchitecture: CPU architecture of the release payload (x86_64|aarch64|ppc64le)
 * diskSizeGB: Virtual size of the appliance disk image
 * pullSecret: PullSecret required for mirroring the OCP release payload
@@ -181,9 +181,11 @@ The appliance build process consists of the following steps:
      * A recovery partition for reinstalling if necessary
      * The full OCP release payload for supporting disconnected environments
 
+### Demo
+
 [![asciicast](https://asciinema.org/a/583868.svg)](https://asciinema.org/a/583868)
 
-## Appliance disk image structure
+#### Appliance disk image structure
 
 ``` bash
 $ virt-filesystems -a assets/appliance.raw -l -h
