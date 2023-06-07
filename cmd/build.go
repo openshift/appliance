@@ -3,8 +3,8 @@ package main
 import (
 	"github.com/openshift/appliance/pkg/asset/appliance"
 	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/asset/installer"
 	"github.com/openshift/appliance/pkg/log"
-	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
 	"github.com/openshift/installer/pkg/metrics/timer"
@@ -47,10 +47,20 @@ func runBuild(cmd *cobra.Command, args []string) {
 		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", applianceDiskImage.Name()))
 	}
 
+	// Generate openshift-install binary download URL
+	installerBinary := installer.InstallerBinary{}
+	if err := getAssetStore().Fetch(&installerBinary); err != nil {
+		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", installerBinary.Name()))
+	}
+
 	timer.StopTimer(timer.TotalTimeElapsed)
 	timer.LogSummary()
 
-	logrus.Infof("Appliance successfully created at assets directory: %s", templates.ApplianceFileName)
+	logrus.Info()
+	logrus.Infof("Appliance successfully created at assets directory: %s", applianceDiskImage.File.Filename)
+	logrus.Info()
+	logrus.Infof("Create configuration ISO using: openshift-install agent create config-image")
+	logrus.Infof("Download openshift-install from: %s", installerBinary.URL)
 }
 
 func preRunBuild(cmd *cobra.Command, args []string) {

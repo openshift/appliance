@@ -49,7 +49,7 @@ func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
-	inst := installer.NewInstaller(envConfig)
+	inst := installer.NewInstaller(envConfig, applianceConfig)
 	unconfiguredIgnitionFileName, err := inst.CreateUnconfiguredIgnition(
 		swag.StringValue(applianceConfig.Config.OcpRelease.URL),
 		applianceConfig.Config.PullSecret,

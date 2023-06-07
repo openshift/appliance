@@ -38,7 +38,7 @@ const (
 
 // Release is the interface to use the oc command to the get image info
 type Release interface {
-	ExtractFile(image string, filename string) (string, error)
+	ExtractFile(image, filename string) (string, error)
 	MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
 	MirrorBootstrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
 	GetImageFromRelease(imageName string) (string, error)
@@ -125,16 +125,16 @@ func (r *release) GetImageFromRelease(imageName string) (string, error) {
 	return image, nil
 }
 
-func (r *release) extractFileFromImage(image, file, cacheDir string) (string, error) {
-	cmd := fmt.Sprintf(templateImageExtract, file, cacheDir, image)
+func (r *release) extractFileFromImage(image, file, outputDir string) (string, error) {
+	cmd := fmt.Sprintf(templateImageExtract, file, outputDir, image)
 
-	logrus.Debugf("extracting %s to %s, %s", file, cacheDir, cmd)
+	logrus.Debugf("extracting %s to %s, %s", file, outputDir, cmd)
 	_, err := retry.Do(OcDefaultTries, OcDefaultRetryDelay, r.execute, r.executer, r.pullSecret, cmd)
 	if err != nil {
 		return "", err
 	}
 	// Make sure file exists after extraction
-	p := filepath.Join(cacheDir, path.Base(file))
+	p := filepath.Join(outputDir, path.Base(file))
 	if _, err = os.Stat(p); err != nil {
 		logrus.Debugf("File %s was not found, err %s", file, err.Error())
 		return "", err
@@ -165,7 +165,7 @@ func (r *release) execute(executer executer.Executer, pullSecret, command string
 		executeCommand = command[:] + " --registry-config=" + ps.Name()
 	}
 
-	logrus.Debugf("Executing mirror command: %s", executeCommand)
+	logrus.Debugf("Executing command: %s", executeCommand)
 	args := strings.Split(executeCommand, " ")
 
 	stdout, err := executer.Execute(args[0], args[1:]...)
