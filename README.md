@@ -17,6 +17,7 @@ of an OpenShift cluster. Thus, all required images are included in the appliance
 * oc
 * skopeo
 * podman
+* go >= 1.19
 
 Note: for oc-mirror usage, the builder ensures that the pull secret exists at `~/.docker/config.json`
 
