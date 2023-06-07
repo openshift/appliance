@@ -55,6 +55,7 @@ A configuration file named `appliance-config.yaml` is required for running the t
 * diskSizeGB: Virtual size of the appliance disk image
 * pullSecret: PullSecret required for mirroring the OCP release payload
 * sshKey: Public SSH key for accessing the appliance
+* userCorePass: Password for user 'core' to login from console
 
 ##### Generate config file template
 
@@ -83,7 +84,7 @@ ocpRelease:
 diskSizeGB: 200
 pullSecret: ...
 sshKey: ...
-
+userCorePass: ...
 ```
 
 #### Start appliance disk image build flow
