@@ -83,6 +83,9 @@ pullSecret: pull-secret
 # Public SSH key for accessing the appliance
 # [Optional]
 sshKey: ssh-key
+# Password of user 'core' for connecting from console
+# [Optional]
+userCorePass: user-core-pass
 `
 	a.Template = applianceConfigTemplate
 

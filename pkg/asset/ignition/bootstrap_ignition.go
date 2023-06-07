@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/openshift/installer/pkg/asset/password"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -111,12 +112,19 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		}
 	}
 
-	// Add public ssh key
-	pwdHash := string(pwd.PasswordHash)
 	passwdUser := igntypes.PasswdUser{
-		Name:         "core",
-		PasswordHash: &pwdHash,
+		Name: "core",
 	}
+	// Add user 'core' password
+	if applianceConfig.Config.UserCorePass != nil {
+		passBytes, err := bcrypt.GenerateFromPassword([]byte(*applianceConfig.Config.UserCorePass), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		pwdHash := string(passBytes)
+		passwdUser.PasswordHash = &pwdHash
+	}
+	// Add public ssh key
 	if applianceConfig.Config.SshKey != nil {
 		passwdUser.SSHAuthorizedKeys = []igntypes.SSHAuthorizedKey{
 			igntypes.SSHAuthorizedKey(*applianceConfig.Config.SshKey),
