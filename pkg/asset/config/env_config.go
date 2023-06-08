@@ -19,8 +19,9 @@ type EnvConfig struct {
 	CacheDir  string
 	TempDir   string
 
-	DebugBootstrap bool
-	DebugInstall   bool
+	DebugBootstrap    bool
+	DebugInstall      bool
+	DebugBaseIgnition bool 
 }
 
 var _ asset.Asset = (*EnvConfig)(nil)

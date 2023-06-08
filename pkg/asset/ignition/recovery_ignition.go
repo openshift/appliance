@@ -5,6 +5,10 @@ import (
 
 	configv32 "github.com/coreos/ignition/v2/config/v3_2"
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
+	"github.com/go-openapi/swag"
+	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/asset/manifests"
+	"github.com/openshift/appliance/pkg/installer"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -26,27 +30,45 @@ func (i *RecoveryIgnition) Name() string {
 func (i *RecoveryIgnition) Dependencies() []asset.Asset {
 	return []asset.Asset{
 		&BootstrapIgnition{},
+		&config.EnvConfig{},
+		&config.ApplianceConfig{},
+		&manifests.UnconfiguredManifests{},
 	}
 }
 
 // Generate the ignition embedded in the recovery ISO.
 func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
+	applianceConfig := &config.ApplianceConfig{}
+	envConfig := &config.EnvConfig{}
 	bootstrapIgnition := &BootstrapIgnition{}
-	dependencies.Get(bootstrapIgnition)
+	unconfiguredManifests := &manifests.UnconfiguredManifests{}
+	dependencies.Get(envConfig, applianceConfig, bootstrapIgnition, unconfiguredManifests)
 
-	// Fetch un-configured ignition
-	// TODO(AGENT-574): use API when ready ('openshift-install agent create unconfigured-ignition')
-	//       see: https://issues.redhat.com/browse/AGENT-574
-	configBytes, err := os.ReadFile("pkg/asset/ignition/unconfigured.ign")
+	// Persists cluster-manifests required for unconfigured ignition
+	if err := asset.PersistToFile(unconfiguredManifests, envConfig.TempDir); err != nil {
+		return err
+	}
+
+	inst := installer.NewInstaller(envConfig)
+	unconfiguredIgnitionFileName, err := inst.CreateUnconfiguredIgnition(
+		swag.StringValue(applianceConfig.Config.OcpRelease.URL),
+		applianceConfig.Config.PullSecret,
+	)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create un-configured ignition")
+	}
+
+	configBytes, err := os.ReadFile(unconfiguredIgnitionFileName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to fetch un-configured ignition")
 	}
-	config, _, err := configv32.Parse(configBytes)
+
+	unconfiguredIgnitionConfig, _, err := configv32.Parse(configBytes)
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse un-configured ignition")
 	}
 
-	i.Config = configv32.Merge(config, bootstrapIgnition.Config)
+	i.Config = configv32.Merge(unconfiguredIgnitionConfig, bootstrapIgnition.Config)
 
 	logrus.Debug("Successfully generated recovery ignition")
 

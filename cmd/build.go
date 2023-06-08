@@ -22,10 +22,14 @@ func NewBuildCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&rootOpts.debugBootstrap, "debug-bootstrap", false, "")
 	cmd.Flags().BoolVar(&rootOpts.debugInstall, "debug-install", false, "")
+	cmd.Flags().BoolVar(&rootOpts.debugBaseIgnition, "debug-base-ignition", false, "")
 	if err := cmd.Flags().MarkHidden("debug-bootstrap"); err != nil {
 		logrus.Fatal(err)
 	}
 	if err := cmd.Flags().MarkHidden("debug-install"); err != nil {
+		logrus.Fatal(err)
+	}
+	if err := cmd.Flags().MarkHidden("debug-base-ignition"); err != nil {
 		logrus.Fatal(err)
 	}
 	return cmd
@@ -52,9 +56,10 @@ func runBuild(cmd *cobra.Command, args []string) {
 func preRunBuild(cmd *cobra.Command, args []string) {
 	// Generate EnvConfig asset
 	if err := getAssetStore().Fetch(&config.EnvConfig{
-		AssetsDir:      rootOpts.dir,
-		DebugBootstrap: rootOpts.debugBootstrap,
-		DebugInstall:   rootOpts.debugInstall,
+		AssetsDir:         rootOpts.dir,
+		DebugBootstrap:    rootOpts.debugBootstrap,
+		DebugInstall:      rootOpts.debugInstall,
+		DebugBaseIgnition: rootOpts.debugBaseIgnition,
 	}); err != nil {
 		logrus.Fatal(err)
 	}

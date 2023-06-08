@@ -41,6 +41,7 @@ type Release interface {
 	ExtractFile(image string, filename string) (string, error)
 	MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
 	MirrorBootstrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
+	GetImageFromRelease(imageName string) (string, error)
 }
 
 type release struct {
@@ -100,7 +101,7 @@ func initAdditionalImagesInfo() map[string]bool {
 
 // ExtractFile extracts the specified file from the given image name, and store it in the cache dir.
 func (r *release) ExtractFile(image string, filename string) (string, error) {
-	imagePullSpec, err := r.getImageFromRelease(image)
+	imagePullSpec, err := r.GetImageFromRelease(image)
 	if err != nil {
 		return "", err
 	}
@@ -112,7 +113,7 @@ func (r *release) ExtractFile(image string, filename string) (string, error) {
 	return path, err
 }
 
-func (r *release) getImageFromRelease(imageName string) (string, error) {
+func (r *release) GetImageFromRelease(imageName string) (string, error) {
 	cmd := fmt.Sprintf(templateGetImage, imageName, true, r.releaseImage)
 
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
