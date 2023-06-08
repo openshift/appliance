@@ -11,10 +11,11 @@ import (
 
 var (
 	rootOpts struct {
-		dir            string
-		logLevel       string
-		debugBootstrap bool
-		debugInstall   bool
+		dir               string
+		logLevel          string
+		debugBootstrap    bool
+		debugInstall      bool
+		debugBaseIgnition bool
 	}
 )
 

@@ -7,11 +7,13 @@ require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coreos/ignition/v2 v2.14.0
+	github.com/coreos/stream-metadata-go v0.1.8
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-openapi/swag v0.22.3
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/itchyny/gojq v0.12.12
 	github.com/openshift/assisted-service v0.0.0-20220928142635-a40422bdea61
+	github.com/openshift/assisted-service/api v0.0.0
 	github.com/openshift/hive/apis v0.0.0-20220222213051-def9088fdb5a
 	github.com/openshift/installer v0.9.0-master.0.20230519205718-14f8ef527b8c
 	github.com/pkg/errors v0.9.1
@@ -19,6 +21,7 @@ require (
 	github.com/spf13/cobra v1.6.0
 	github.com/thoas/go-funk v0.9.3
 	golang.org/x/term v0.8.0
+	k8s.io/api v0.26.1
 	k8s.io/apimachinery v0.27.2
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -89,7 +92,6 @@ require (
 	github.com/coreos/go-json v0.0.0-20211020211907-c63f628265de // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.4.0 // indirect
-	github.com/coreos/stream-metadata-go v0.1.8 // indirect
 	github.com/coreos/vcontext v0.0.0-20211021162308-f1dbbca7bef4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
@@ -143,7 +145,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20211202193544-a5463b7f9c84 // indirect
 	github.com/openshift/api v3.9.1-0.20191111211345-a27ff30ebf09+incompatible // indirect
-	github.com/openshift/assisted-service/api v0.0.0 // indirect
 	github.com/openshift/assisted-service/models v0.0.0 // indirect
 	github.com/openshift/cloud-credential-operator v0.0.0-20200316201045-d10080b52c9e // indirect
 	github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e // indirect
@@ -178,7 +179,6 @@ require (
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.23.8 // indirect
-	k8s.io/api v0.26.1 // indirect
 	k8s.io/apiextensions-apiserver v0.25.2 // indirect
 	k8s.io/client-go v12.0.0+incompatible // indirect
 	k8s.io/klog v1.0.0 // indirect
