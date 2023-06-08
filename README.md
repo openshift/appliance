@@ -67,10 +67,11 @@ Using binary:
 
 Using container image:
 ``` bash
+export IMAGE=<image_url>
 export CMD=generate-config
 export ASSETS=<assets-dir>
 
-make run --dir assets
+make run
 ```
 
 ##### Example
@@ -99,11 +100,12 @@ export LIBGUESTFS_BACKEND=direct
 
 Using container image:
 ``` bash
+export IMAGE=<image_url>
 export CMD=build
 export ASSETS=<assets-dir>
 export LOG_LEVEL=info/debug/error
 
-make run build --dir assets
+make run
 ```
 
 ##### Cleanup
