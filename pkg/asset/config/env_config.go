@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/openshift/installer/pkg/asset"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,7 +22,7 @@ type EnvConfig struct {
 
 	DebugBootstrap    bool
 	DebugInstall      bool
-	DebugBaseIgnition bool 
+	DebugBaseIgnition bool
 }
 
 var _ asset.Asset = (*EnvConfig)(nil)
@@ -37,6 +38,10 @@ func (e *EnvConfig) Dependencies() []asset.Asset {
 func (e *EnvConfig) Generate(dependencies asset.Parents) error {
 	applianceConfig := &ApplianceConfig{}
 	dependencies.Get(applianceConfig)
+
+	if applianceConfig.File == nil {
+		return errors.Errorf("Missing config file in assets directory: %s/%s", e.AssetsDir, ApplianceConfigFilename)
+	}
 
 	// Cache dir in 'version-arch' format
 	cacheDirPattern := fmt.Sprintf("%s-%s",
