@@ -41,8 +41,17 @@ func runBuild(cmd *cobra.Command, args []string) {
 	cleanup := log.SetupFileHook(rootOpts.dir)
 	defer cleanup()
 
-	// Generate ApplianceDiskImage asset (including all of its dependencies)
+	// Load ApplianceDiskImage asset to check whether a clean is required
 	applianceDiskImage := appliance.ApplianceDiskImage{}
+	if asset, err := getAssetStore().Load(&applianceDiskImage); err == nil && asset != nil {
+		if asset.(*appliance.ApplianceDiskImage).File != nil {
+			logrus.Infof("Appliance build flow has already been completed.")
+			logrus.Infof("Run 'clean' command before re-building the appliance.")
+			return
+		}
+	}
+
+	// Generate ApplianceDiskImage asset (including all of its dependencies)
 	if err := getAssetStore().Fetch(&applianceDiskImage); err != nil {
 		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", applianceDiskImage.Name()))
 	}
