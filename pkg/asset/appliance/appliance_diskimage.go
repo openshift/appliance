@@ -1,7 +1,6 @@
 package appliance
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -41,13 +40,6 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	dataISO := &data.DataISO{}
 	baseDiskImage := &BaseDiskImage{}
 	dependencies.Get(envConfig, applianceConfig, recoveryISO, dataISO, baseDiskImage)
-
-	// Remove appliance file if already exists
-	if fileName := envConfig.FindInAssets(templates.ApplianceFileName); fileName != "" {
-		if err := os.RemoveAll(fileName); err != nil {
-			return err
-		}
-	}
 
 	spinner := log.NewSpinner(
 		"Generating appliance disk image...",
