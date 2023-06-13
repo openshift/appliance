@@ -45,4 +45,4 @@ part-set-gpt-type /dev/sda 5 {{.ReservedPartitionGUID}}
 # Handle GRUB
 mount /dev/sda3 /
 copy-in {{.CfgFile}} /grub2
-rm-f /boot/loader/entries/ostree-1-fedora-coreos.conf
+rm-f /boot/loader/entries/ostree-1-rhcos.conf
