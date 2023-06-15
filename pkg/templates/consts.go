@@ -36,5 +36,5 @@ const (
 
 	// AI images
 	// TODO: remove when official images are updates
-	AssistedInstallerAgentImage = "quay.io/masayag/assisted-installer-agent:billi"
+	AssistedInstallerAgentImage = "quay.io/edge-infrastructure/assisted-installer-agent:latest"
 )

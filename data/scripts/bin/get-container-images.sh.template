@@ -12,5 +12,5 @@ cat <<EOF >/usr/local/share/assisted-service/agent-images.env
 SERVICE_IMAGE=$(image_for agent-installer-api-server)
 INSTALLER_IMAGE=$(image_for agent-installer-orchestrator)
 CONTROLLER_IMAGE=$(image_for agent-installer-csr-approver)
-AGENT_DOCKER_IMAGE=quay.io/masayag/assisted-installer-agent:billi
+AGENT_DOCKER_IMAGE=quay.io/edge-infrastructure/assisted-installer-agent:latest
 EOF
