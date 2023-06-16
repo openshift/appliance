@@ -64,6 +64,11 @@ func (i *InfraEnv) Generate(dependencies asset.Parents) error {
 				Name: PullSecretName,
 			},
 			CpuArchitecture: applianceConfig.GetCpuArchitecture(),
+			NMStateConfigLabelSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"infraenvs.agent-install.openshift.io": ClusterName,
+				},
+			},
 		},
 	}
 

@@ -12,6 +12,7 @@ echo 'RELEASE_IMAGES={{.ReleaseImages}}' >> $assistedServiceEnvFile
 
 # Set OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR in assisted-service.env
 sed -i '/OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR=.*/d' $assistedServiceEnvFile
+echo 'OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR={{.ReleaseImage}}' >> $assistedServiceEnvFile
 
 # Set OS_IMAGES in images.env
 sed -i '/OS_IMAGES=.*/d' $imagesEnvFile
