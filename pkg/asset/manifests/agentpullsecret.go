@@ -17,8 +17,8 @@ import (
 const (
 	PullSecretName = "appliance-pull-secret" //nolint:gosec // not a secret despite the word
 
-	pullSecretKey   = ".dockerconfigjson"                 //nolint:gosec
-	dummyPullSecret = `{"auths":{"quay.io":{"auth":""}}}` //nolint:gosec
+	pullSecretKey   = ".dockerconfigjson"                      //nolint:gosec
+	dummyPullSecret = `{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}` //nolint:gosec
 )
 
 var pullSecretFilename = filepath.Join(clusterManifestDir, "pull-secret.yaml")
