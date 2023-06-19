@@ -103,6 +103,9 @@ func (i *installer) downloadInstallerBinary() (string, error) {
 	if err = targz.Extract(compressed, i.EnvConfig.CacheDir); err != nil {
 		return "", log.StopSpinner(spinner, err)
 	}
-	log.StopSpinner(spinner, nil)
+	err = log.StopSpinner(spinner, nil)
+	if err != nil {
+		return "", err
+	}
 	return filepath.Join(i.EnvConfig.CacheDir, installerBinaryName), nil
 }
