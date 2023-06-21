@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -62,9 +63,9 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	}
 
 	spinner := log.NewSpinner(
-		"Pulling docker registry image...",
-		"Successfully pulled docker registry image",
-		"Failed to pull docker registry image",
+		"Pulling container registry image...",
+		"Successfully pulled container registry image",
+		"Failed to pull container registry image",
 		envConfig,
 	)
 	if err := a.copyRegistryImageIfNeeded(envConfig); err != nil {
@@ -76,9 +77,12 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 
 	// Copying bootstrap images
 	spinner = log.NewSpinner(
-		"Pulling release images required for bootstrap...",
-		"Successfully pulled release images required for bootstrap",
-		"Failed to pull release images required for bootstrap",
+		fmt.Sprintf("Pulling OpenShift %s release images required for bootstrap...",
+			applianceConfig.Config.OcpRelease.Version),
+		fmt.Sprintf("Successfully pulled OpenShift %s release images required for bootstrap",
+			applianceConfig.Config.OcpRelease.Version),
+		fmt.Sprintf("Failed to pull OpenShift %s release images required for bootstrap",
+			applianceConfig.Config.OcpRelease.Version),
 		envConfig,
 	)
 	registryDir := filepath.Join(envConfig.TempDir, bootstrapMirrorDir)
@@ -96,9 +100,12 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 
 	// Copying release images
 	spinner = log.NewSpinner(
-		"Pulling release images required for installation...",
-		"Successfully pulled release images required for installation",
-		"Failed to pull release images required for installation",
+		fmt.Sprintf("Pulling OpenShift %s release images required for installation...",
+			applianceConfig.Config.OcpRelease.Version),
+		fmt.Sprintf("Successfully pulled OpenShift %s release images required for installation",
+			applianceConfig.Config.OcpRelease.Version),
+		fmt.Sprintf("Failed to pull OpenShift %s release images required for installation",
+			applianceConfig.Config.OcpRelease.Version),
 		envConfig,
 	)
 	registryDir = filepath.Join(envConfig.TempDir, installMirrorDir)
