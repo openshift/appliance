@@ -29,6 +29,7 @@ var (
 		"assisted-service.service",
 		"create-cluster-and-infraenv.service",
 		"pre-install.service",
+		"update-hosts.service",
 	}
 
 	bootstrapScripts = []string{
@@ -37,7 +38,7 @@ var (
 		"pre-install.sh",
 		"extract-agent.sh",
 		"release-image.sh",
-		"prepare-cluster-installation.sh",
+		"update-hosts.sh",
 
 		// TODO: remove (needed for using custom agent image)
 		"get-container-images.sh",

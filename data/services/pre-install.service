@@ -1,6 +1,8 @@
 [Unit]
 Description=Agent-based installer preparation service
-After=getty@tty1.service
+Wants=network.target node-zero.service
+After=network-online.target node-zero.service
+ConditionPathExists=/etc/assisted/node0
 
 [Service]
 ExecStart=/usr/local/bin/pre-install.sh

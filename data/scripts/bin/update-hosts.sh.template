@@ -1,0 +1,32 @@
+#!/bin/bash
+set -e
+
+BASE_URL="${SERVICE_BASE_URL}api/assisted-install/v2"
+
+while [[ "${cluster_status}" != "ready" ]]
+do
+    echo "Waiting for cluster to become ready..." 1>&2
+    cluster_status=$(curl -s -S "${BASE_URL}/clusters" | jq -r .[].status)
+    echo "Cluster status: ${cluster_status}" 1>&2
+    sleep 2
+done
+
+ignition=$(echo '{{.InstallIgnitionConfig}}' | jq -c --raw-input)
+host_ids=$(curl -s -S "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts" | jq -r .[].id)
+if [[ -n ${host_ids} ]]; then
+    for id in ${host_ids}; do
+        args='["--save-partlabel", "agent*"]'
+        # Update host's installer-args (for passing '--save-partlabel' to coreos-installer)
+        curl -s -S -X PATCH "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/installer-args" \
+            -H "Content-Type: application/json" \
+            -d '{"args": '"${args}"'}'
+
+        # Update host's ignition (used when booting from the installation disk after bootstrap)
+        curl -s -S -X PATCH "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/ignition" \
+            -H "Content-Type: application/json" \
+            -d '{"config": '"${ignition}"'}'
+    done
+fi
+
+echo "Updated installer-args and ignition of the hosts"
+
