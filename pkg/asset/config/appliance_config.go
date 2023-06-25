@@ -70,17 +70,17 @@ func (a *ApplianceConfig) Generate(dependencies asset.Parents) error {
 apiVersion: v1beta1
 kind: ApplianceConfig
 ocpRelease:
-	# OCP release version in major.minor or major.minor.patch format
-	# (in case of major.minor - latest patch version will be used)
-	version: ocp-release-version 
-	# OCP release update channel: stable|fast|eus|candidate
-	# Default: stable
-	# [Optional] 
-	channel: ocp-release-channel
-	# OCP release CPU architecture: x86_64|aarch64|ppc64le
-	# Default: x86_64
-	# [Optional]
-	cpuArchitecture: cpu-architecture
+  # OCP release version in major.minor or major.minor.patch format
+  # (in case of major.minor - latest patch version will be used)
+  version: ocp-release-version
+  # OCP release update channel: stable|fast|eus|candidate
+  # Default: stable
+  # [Optional]
+  channel: ocp-release-channel
+  # OCP release CPU architecture: x86_64|aarch64|ppc64le
+  # Default: x86_64
+  # [Optional]
+  cpuArchitecture: cpu-architecture
 # Virtual size of the appliance disk image (at least 150GiB)
 diskSizeGB: disk-size
 # PullSecret required for mirroring the OCP release payload
