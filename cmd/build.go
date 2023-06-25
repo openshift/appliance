@@ -66,7 +66,7 @@ func runBuild(cmd *cobra.Command, args []string) {
 	timer.LogSummary()
 
 	logrus.Info()
-	logrus.Infof("Appliance successfully created at assets directory: %s", applianceDiskImage.File.Filename)
+	logrus.Infof("Appliance successfully created in assets directory: %s", applianceDiskImage.File.Filename)
 	logrus.Info()
 	logrus.Infof("Create configuration ISO using: openshift-install agent create config-image")
 	logrus.Infof("Download openshift-install from: %s", installerBinary.URL)
