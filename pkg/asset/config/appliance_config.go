@@ -242,9 +242,7 @@ func (a *ApplianceConfig) validateOcpRelease() field.ErrorList {
 		allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("ocpRelease.version"),
 			a.Config.OcpRelease.Version,
 			fmt.Sprintf("OCP release version must be in major.minor or major.minor.patch format %q", err))}...)
-
-	}
-	if ocpVer.LessThan(minOcpVer) {
+	} else if ocpVer.LessThan(minOcpVer) {
 		allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("ocpRelease.version"),
 			a.Config.OcpRelease.Version,
 			fmt.Sprintf("OCP release version must be at least %s", MinOcpVersion))}...)
