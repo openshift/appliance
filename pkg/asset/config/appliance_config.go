@@ -262,6 +262,8 @@ func (a *ApplianceConfig) validateOcpRelease() field.ErrorList {
 				a.Config.OcpRelease.Channel,
 				"Unsupported OCP release channel (supported channels: stable|fast|eus|candidate)")}...)
 		}
+	} else {
+		a.Config.OcpRelease.Channel = swag.String(string(graph.ReleaseChannelStable))
 	}
 
 	// Validate ocpRelease.cpuArchitecture
