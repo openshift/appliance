@@ -1,4 +1,4 @@
-IMAGE := $(or ${IMAGE}, quay.io/derez/openshift-appliance:latest)
+IMAGE := $(or ${IMAGE}, quay.io/edge-infrastructure/openshift-appliance:latest)
 PWD = $(shell pwd)
 LOG_LEVEL := $(or ${LOG_LEVEL}, info)
 CMD := $(or ${CMD}, build)
