@@ -29,7 +29,7 @@ func NewGenerateConfigCmd() *cobra.Command {
 			if err := configAppliance.PersistToFile(rootOpts.dir); err != nil {
 				logrus.Fatal(err)
 			}
-			logrus.Infof("Generated config file at assets directory: %s", config.ApplianceConfigFilename)
+			logrus.Infof("Generated config file in assets directory: %s", config.ApplianceConfigFilename)
 		},
 		PostRun: func(cmd *cobra.Command, args []string) {
 			if err := deleteStateFile(rootOpts.dir); err != nil {
