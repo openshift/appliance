@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	ClusterName = "appliance"
+	infraEnvName = "appliance"
 )
 
 var (
@@ -52,23 +52,14 @@ func (i *InfraEnv) Generate(dependencies asset.Parents) error {
 
 	infraEnv := &aiv1beta1.InfraEnv{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ClusterName,
+			Name:      infraEnvName,
 			Namespace: "",
 		},
 		Spec: aiv1beta1.InfraEnvSpec{
-			ClusterRef: &aiv1beta1.ClusterReference{
-				Name:      ClusterName,
-				Namespace: "",
-			},
 			PullSecretRef: &corev1.LocalObjectReference{
 				Name: PullSecretName,
 			},
 			CpuArchitecture: applianceConfig.GetCpuArchitecture(),
-			NMStateConfigLabelSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"infraenvs.agent-install.openshift.io": ClusterName,
-				},
-			},
 		},
 	}
 
