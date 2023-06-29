@@ -192,7 +192,7 @@ The appliance build process consists of the following steps:
 
 ### Demo
 
-[![asciicast](https://asciinema.org/a/583868.svg)](https://asciinema.org/a/583868)
+[![asciicast](https://asciinema.org/a/591871.svg)](https://asciinema.org/a/591871)
 
 #### Appliance disk image structure
 
