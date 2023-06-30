@@ -3,9 +3,9 @@ package templates
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/go-openapi/swag"
+	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/types"
@@ -56,18 +56,8 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataPartitionSize
 	}
 }
 
-// formatVersion trims the '.z' portion from  aversion if it came in a x.y.z format
-// Otherwise, return version with no changes.
-func formatVersion(version string) string {
-	if strings.Count(version, ".") == 2 {
-		lastIdx := strings.LastIndex(version, ".")
-		return version[:lastIdx]
-	}
-	return version
-}
-
 func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedImages string, additionalImages string) interface{} {
-	version := formatVersion(applianceConfig.Config.OcpRelease.Version)
+	version := applianceConfig.Config.OcpRelease.Version
 	return struct {
 		Architectures    string
 		ChannelName      string
@@ -77,9 +67,9 @@ func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedIma
 		AdditionalImages string
 	}{
 		Architectures:    config.GetReleaseArchitectureByCPU(applianceConfig.GetCpuArchitecture()),
-		ChannelName:      fmt.Sprintf("%s-%s", swag.StringValue(applianceConfig.Config.OcpRelease.Channel), version),
-		MinVersion:       applianceConfig.Config.OcpRelease.Version,
-		MaxVersion:       applianceConfig.Config.OcpRelease.Version,
+		ChannelName:      fmt.Sprintf("%s-%s", swag.StringValue(applianceConfig.Config.OcpRelease.Channel), toMajorMinor(version)),
+		MinVersion:       version,
+		MaxVersion:       version,
 		BlockedImages:    blockedImages,
 		AdditionalImages: additionalImages,
 	}
@@ -143,4 +133,10 @@ func GetInstallIgnitionTemplateData(registryDataPath string) interface{} {
 		RegistryFilePath: RegistryFilePath,
 		RegistryImage:    RegistryImage,
 	}
+}
+
+// Returns version in major.minor format
+func toMajorMinor(openshiftVersion string) string {
+	v, _ := version.NewVersion(openshiftVersion)
+	return fmt.Sprintf("%d.%d", v.Segments()[0], v.Segments()[1])
 }
