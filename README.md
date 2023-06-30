@@ -142,7 +142,7 @@ export KUBECONFIG=/etc/kubernetes/bootstrap-secrets/kubeconfig
 #### unconfigured-ignition API
 
 Add `--debug-base-ignition` flag to the build command for using a custom openshift-install binary to invoke `agent create unconfigured-ignition`.
-Use these [instructions](https://github.com/openshift/installer#quick-start) to build the openshift-install binary, and copy it into `cache` dir under `assets`.
+Use these [instructions](https://github.com/openshift/installer#quick-start) to build the openshift-install binary, and copy it into `assets` dir.
 
 #### Test changes in the install ignition
 

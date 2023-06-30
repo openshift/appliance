@@ -61,8 +61,8 @@ func (i *installer) CreateUnconfiguredIgnition(releaseImage, pullSecret string) 
 			}
 		}
 	} else {
-		logrus.Debugf("Using openshift-install binary from cache dir to fetch unconfigured-ignition")
-		openshiftInstallFilePath = filepath.Join(i.EnvConfig.AssetsDir, config.CacheDir, installerBinaryName)
+		logrus.Debugf("Using openshift-install binary from assets dir to fetch unconfigured-ignition")
+		openshiftInstallFilePath = filepath.Join(i.EnvConfig.AssetsDir, installerBinaryName)
 	}
 
 	createCmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, openshiftInstallFilePath, i.EnvConfig.TempDir)
