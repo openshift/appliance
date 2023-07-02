@@ -80,9 +80,9 @@ make run
 apiVersion: v1beta1
 kind: ApplianceConfig
 ocpRelease:
-  version: "4.12.10"
-  channel: "stable"
-  cpuArchitecture: "x86_64"
+  version: 4.12.10
+  channel: stable
+  cpuArchitecture: x86_64
 diskSizeGB: 200
 pullSecret: ...
 sshKey: ...
@@ -231,14 +231,15 @@ Note: for disconnected environments, specify a dummy pull-secret in install-conf
 
 ```
 apiVersion: v1alpha1
-metadata:
-  name: appliance
+kind: AgentConfig
 rendezvousIP: 192.168.122.100
 ```
 
 ##### install-config.yaml
 ```
 apiVersion: v1
+metadata:
+  name: appliance
 baseDomain: appliance.com
 controlPlane:
   name: master
@@ -246,8 +247,6 @@ controlPlane:
 compute:
 - name: worker
   replicas: 0
-metadata:
-  name: appliance
 networking:
   networkType: OVNKubernetes
   machineNetwork:
@@ -263,14 +262,15 @@ pullSecret: '{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'
 
 ```
 apiVersion: v1alpha1
-metadata:
-  name: appliance
+kind: AgentConfig
 rendezvousIP: 192.168.122.100
 ```
 
 ##### install-config.yaml
 ```
 apiVersion: v1
+metadata:
+  name: appliance
 baseDomain: appliance.com
 controlPlane:
   name: master
@@ -278,8 +278,6 @@ controlPlane:
 compute:
 - name: worker
   replicas: 2
-metadata:
-  name: appliance
 networking:
   networkType: OVNKubernetes
   machineNetwork:
