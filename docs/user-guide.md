@@ -127,12 +127,12 @@ userCorePass: <redacted>
 
 ### Build the image
 * Make sure you have enough free disk space.
+  * The amount of space needed is defined by the configured `diskSizeGB` value mentioned above, which is at least 150GiB.
 * Building the image may take several minutes.
 * The option `--privileged` is used because the `openshift-appliance` container needs to use `guestfish` to build the image.
 * The option `--net=host` is used because the `openshift-appliance` container needs to use the host networking for the image registry container it runs as a part of the build process.
 ```shell
 podman run --rm -it --privileged --net=host -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build
-
 ```
 Result
 ```shell
