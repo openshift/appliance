@@ -1,10 +1,9 @@
 # OpenShift Appliance User Guide
 
 ## What is OpenShift Appliance
-The `openshift-appliance` is a container-based utility that builds a disk image that facilitates the installation of OpenShift with an [Agent-based installer](https://cloud.redhat.com/blog/meet-the-new-agent-based-openshift-installer-1).
-
-Its main purpose is to enable a completely offline installation of an OpenShift cluster, Thus, all required images are included in the appliance disk image.
-
+The `openshift-appliance` utility enables self-contained OpenShift cluster installations, meaning that it does not rely on Internet connectivity or external registries.
+It is a container-based utility that builds a disk image that includes the [Agent-based installer](https://cloud.redhat.com/blog/meet-the-new-agent-based-openshift-installer-1).
+That disk image can then be used to install multiple OpenShift clusters.
 
 ## Download
 OpenShift Appliance is available for download at: https://quay.io/edge-infrastructure/openshift-appliance
@@ -14,9 +13,9 @@ OpenShift Appliance is available for download at: https://quay.io/edge-infrastru
 ![hl-overview.png](images%2Fhl-overview.png)
 
 ### Lab
-* This is where `openshift-appliance` gets used to create a raw space disk image.
+* This is where `openshift-appliance` gets used to create a raw sparse disk image.
   * **raw:** so it can be copied as-is to multiple servers. 
-  * **sparse:** to keep the size as small as possible.
+  * **sparse:** to minimize the physical size.
 * The end result is a generic disk image with a partition layout as follows:
   ``` bash
   Name       Type        VFS      Label       Size  Parent
@@ -29,17 +28,17 @@ OpenShift Appliance is available for download at: https://quay.io/edge-infrastru
 * The two additional partitions:
   * `agentboot`: Agent-based installer ISO:
     * Allows a first boot.
-    * Used as a recovery / re-install partition (with an added grub manu entry).
+    * Used as a recovery / re-install partition (with an added GRUB manu entry).
   * `agentdata`: OCP release images payload.
-* Note that sizes may change, depending on the configured `diskSizeGB` and the selected OpenShift version configured in `appliance-config.yaml`
-* It’s important to note that the sizes may vary based on the `diskSizeGB` configuration and the OpenShift version selected in the `appliance-config.yaml` file (detailed later on).
+* Note that sizes may change, depending on the configured `diskSizeGB` and the selected OpenShift version configured in `appliance-config.yaml` (described below).
 
 ### Factory
 * This is where the disk image is written to the disk using tools such as `dd`.
-* As mentioned above, the created image is generic. Thus, the same image can be used on multiple servers, assuming they have the same disk size.
+* As mentioned above, the image is generic. Thus, the same image can be used on multiple servers for multiple clusters, assuming they have the same disk size.
 
 ### User site
-* This is where the user boots the machine and mounts the configuration ISO (cluster configuration).
+* This is where the cluster will be deployed.
+* The user boots the machine and mounts the configuration ISO (cluster configuration).
 * The OpenShift installation will run until completion.
 
 :warning: note that the openshift-appliance disk image supports UEFI boot mode only.
@@ -69,7 +68,6 @@ Result:
 ```shell
 INFO Generated config file in assets directory: appliance-config.yaml
 ```
-  
 
 ### Set `appliance-config`
 * Initially, the template will include comments about each option and will look as follows:
@@ -106,7 +104,7 @@ sshKey: ssh-key
 userCorePass: user-core-pass
 ```
 * Modify it based on your needs. Note that:
-  * The preferred version is 4.12.z until the `openshift-install` bug [OCPBUGS-14900](https://issues.redhat.com/browse/OCPBUGS-14900 ) gets resolved.
+  * The preferred version is 4.12.z until `openshift-install` bug [OCPBUGS-14900](https://issues.redhat.com/browse/OCPBUGS-14900 ) gets resolved.
   * `diskSizeGB`: Must be set according to the actual server disk size. If you have several server specs, you need an appliance image per each spec.
   * `ocpRelease.channel`: OCP release [update channel](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/updating_clusters/understanding-upgrade-channels-releases#understanding-upgrade-channels_understanding-upgrade-channels-releases) (stable|fast|eus|candidate)
   * `pullSecret`: May be obtained from https://console.redhat.com/openshift/install/pull-secret (requires registration).
@@ -120,7 +118,7 @@ ocpRelease:
   channel: stable
   cpuArchitecture: x86_64
 diskSizeGB: 200
-pullSecret: <redacted>
+pullSecret: '{"auths":{<redacted>}}'
 sshKey: <redacted>
 userCorePass: <redacted>
 ```
@@ -132,7 +130,7 @@ userCorePass: <redacted>
 * The option `--privileged` is used because the `openshift-appliance` container needs to use `guestfish` to build the image.
 * The option `--net=host` is used because the `openshift-appliance` container needs to use the host networking for the image registry container it runs as a part of the build process.
 ```shell
-podman run --rm -it --privileged --net=host -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build
+sudo podman run --rm -it --privileged --net=host -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build
 ```
 Result
 ```shell
@@ -181,6 +179,9 @@ INFO Download openshift-install from: https://mirror.openshift.com/pub/openshift
   * [OpenShift Documentation](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#installation-bare-metal-agent-installer-config-yaml_preparing-to-install-with-agent-based-installer)
   * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_ba[…]taller/preparing-to-install-with-agent-based-installer.html), currently blocked by [OCPBUGS-15637](https://issues.redhat.com/browse/OCPBUGS-15637)
 * When ready, generate the config-iso.
+
+  :warning: The following command will delete the `install-config.yaml` and `agent-config.yaml` files - back them up first.
+
   ```shell
   ./openshift-install agent create config-image --dir $CLUSTER_CONFIG
   ```
@@ -205,12 +206,12 @@ The content of `cluster_config` directory should be
 #### Use `openshift-install` to monitor the bootstrap process
   ```shell
   export KUBECONFIG=$CLUSTER_CONFIG/auth/kubeconfig 
-  ./openshift-install --dir $CLUSTER_CONFIG  wait-for bootstrap-complete
+  ./openshift-install --dir $CLUSTER_CONFIG agent wait-for bootstrap-complete
   ```
 * Review OpenShift documentation: [Waiting for the bootstrap process to complete](https://docs.openshift.com/container-platform/4.13/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-installing-bare-metal_installing-platform-agnostic)
 #### Monitor the installation process
   ```shell
-  ./openshift-install --dir $CLUSTER_CONFIG wait-for install-complete
+  ./openshift-install --dir $CLUSTER_CONFIG agent wait-for install-complete
   ```
 * Review OpenShift documentation: [Completing installation on user-provisioned infrastructure](https://docs.openshift.com/container-platform/4.13/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-complete-user-infra_installing-platform-agnostic)
 
