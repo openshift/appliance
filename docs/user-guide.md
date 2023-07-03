@@ -48,7 +48,7 @@ OpenShift Appliance is available for download at: https://quay.io/edge-infrastru
 
 ### Set Environment
 
-**:warning: use absolute paths.**
+**:warning: Use absolute directory paths.**
   ```shell
   export APPLIANCE_IMAGE="quay.io/edge-infrastructure/openshift-appliance"
   export APPLIANCE_ASSETS="/home/test/appliance_assets"
@@ -168,7 +168,7 @@ INFO Download openshift-install from: https://mirror.openshift.com/pub/openshift
 ### Generate a Cluster Configuration Image
 * Create a configuration directory
 
-**:warning: use absolute paths.**
+**:warning: Use absolute directory paths.**
   ```shell
   export CLUSTER_CONFIG=/home/test/cluster_config
   mkdir $CLUSTER_CONFIG && cd $CLUSTER_CONFIG
@@ -196,6 +196,7 @@ The content of `cluster_config` directory should be
   ```
 
 ### Mount
+**:warning: Ensure nodes have sufficient vCPUs and memory, see [requirements](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#recommended-resources-for-topologies).**
 * Mount the `agentconfig.noarch.iso` as a CD-ROM on every node, or attach it using a USB stick.
 * Start the machine(s)
 
