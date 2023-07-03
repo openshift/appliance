@@ -165,11 +165,7 @@ INFO Download openshift-install from: https://mirror.openshift.com/pub/openshift
 ### Download `openshift-install`
 * So far, the generated image has been completely generic. To install the cluster, the installer will need cluster-specific configuration.
 * The `openshift-install` version mentioned above does not include the config-image API. This API is available starting from version `4.14`.
-* * Download and extract the latest `openshift-install` version from: https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview/latest/openshift-install-linux.tar.gz
-```shell
-  curl -O https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview/latest/openshift-install-linux.tar.gz
-  tar -xvf openshift-install-linux.tar.gz
-  ```
+* Download a custom build of openshift-install binary (for linux/x86_64) from https://drive.google.com/file/d/1BwtEnmUmCPtQoOXhMjfn0qseT7rITzjh/view?usp=drive_link
 
 ### Generate a Cluster Configuration Image
 * Create a configuration directory
