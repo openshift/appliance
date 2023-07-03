@@ -204,9 +204,12 @@ The content of `cluster_config` directory should be
 [![asciicast](https://asciinema.org/a/590824.svg)](https://asciinema.org/a/590824)
 
 ### Monitor installation
-#### Use `openshift-install` to monitor the bootstrap process
+Use `openshift-install` to monitor the bootstrap and installation process
+
+**:warning: Ensure the server domain in $CLUSTER_CONFIG/auth/kubeconfig is resolvable.**
+
+#### Monitor the bootstrap process
   ```shell
-  export KUBECONFIG=$CLUSTER_CONFIG/auth/kubeconfig 
   ./openshift-install --dir $CLUSTER_CONFIG agent wait-for bootstrap-complete
   ```
 * Review OpenShift documentation: [Waiting for the bootstrap process to complete](https://docs.openshift.com/container-platform/4.13/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-installing-bare-metal_installing-platform-agnostic)
@@ -215,6 +218,24 @@ The content of `cluster_config` directory should be
   ./openshift-install --dir $CLUSTER_CONFIG agent wait-for install-complete
   ```
 * Review OpenShift documentation: [Completing installation on user-provisioned infrastructure](https://docs.openshift.com/container-platform/4.13/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-complete-user-infra_installing-platform-agnostic)
+
+### Access Cluster
+
+**:warning: Ensure the server domain in $CLUSTER_CONFIG/auth/kubeconfig is resolvable.**
+
+```shell
+export KUBECONFIG=$CLUSTER_CONFIG/auth/kubeconfig
+```
+
+#### Confirm that the cluster version is available:
+```shell
+oc get clusterverison
+```
+
+#### Confirm that all cluster components are available:
+``` shell
+oc get clusteroperator
+```
 
 ### Recovery / Reinstall
 * To reinstall the cluster using the above-mentioned `agentboot` partition, reboot all the nodes and select the `Recovery: Agent-Based Installer` option.
