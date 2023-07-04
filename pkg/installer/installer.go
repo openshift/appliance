@@ -44,11 +44,6 @@ func (i *installer) CreateUnconfiguredIgnition(releaseImage, pullSecret string) 
 	var err error
 
 	if !i.EnvConfig.DebugBaseIgnition {
-		// TODO: remove once the API is ready (see below)
-		if true {
-			return "pkg/asset/ignition/unconfigured.ign", nil
-		}
-
 		// TODO: use logic below once the API is ready ('agent create unconfigured-ignition')
 		//       see: https://issues.redhat.com/browse/AGENT-574
 		if fileName := i.EnvConfig.FindInCache(installerBinaryName); fileName != "" {
