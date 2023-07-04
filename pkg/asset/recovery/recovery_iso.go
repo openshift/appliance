@@ -8,10 +8,10 @@ import (
 
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/ignition"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/coreos"
 	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/log"
-	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )
@@ -45,12 +45,12 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 
 	coreosIsoFileName := fmt.Sprintf(coreosIsoName, applianceConfig.GetCpuArchitecture())
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
-	recoveryIsoPath := filepath.Join(envConfig.CacheDir, templates.RecoveryIsoFileName)
+	recoveryIsoPath := filepath.Join(envConfig.CacheDir, consts.RecoveryIsoFileName)
 
 	var spinner *log.Spinner
 
 	// Search for ISO in cache dir
-	if fileName := envConfig.FindInCache(templates.RecoveryIsoFileName); fileName != "" {
+	if fileName := envConfig.FindInCache(consts.RecoveryIsoFileName); fileName != "" {
 		logrus.Info("Reusing recovery CoreOS ISO from cache")
 		a.File = &asset.File{Filename: fileName}
 	} else {

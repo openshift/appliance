@@ -102,13 +102,25 @@ sshKey: ssh-key
 # Password of user 'core' for connecting from console
 # [Optional]
 userCorePass: user-core-pass
+# [Optional]
+imageRegistry:
+  # The URI for the image
+  # Default: docker.io/library/registry:2
+  # Alternative: quay.io/libpod/registry:2.8
+  # [Optional]
+  uri: uri
+  # The image registry container TCP port to bind. A valid port number is between 1024 and 65535.
+  # Default: 5005
+  # [Optional]
+  port: port
 ```
 * Modify it based on your needs. Note that:
   * The preferred version is 4.12.z until `openshift-install` bug [OCPBUGS-14900](https://issues.redhat.com/browse/OCPBUGS-14900 ) gets resolved.
   * `diskSizeGB`: Must be set according to the actual server disk size. If you have several server specs, you need an appliance image per each spec.
   * `ocpRelease.channel`: OCP release [update channel](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/updating_clusters/understanding-upgrade-channels-releases#understanding-upgrade-channels_understanding-upgrade-channels-releases) (stable|fast|eus|candidate)
   * `pullSecret`: May be obtained from https://console.redhat.com/openshift/install/pull-secret (requires registration).
-
+  * `imageRegistry.uri`: Change it only if needed, otherwise the default should work.
+  * `imageRegistry.port`: Change the port number in case another app uses TCP 5005. 
 #### `appliance-config.yaml` Example:
 ```yaml
 apiVersion: v1beta1
@@ -132,6 +144,7 @@ userCorePass: <redacted>
 ```shell
 sudo podman run --rm -it --privileged --net=host -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build
 ```
+
 Result
 ```shell
 INFO Successfully downloaded CoreOS ISO
