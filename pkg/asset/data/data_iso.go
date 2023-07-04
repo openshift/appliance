@@ -5,14 +5,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/genisoimage"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/appliance/pkg/skopeo"
-	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )
@@ -49,7 +50,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	dependencies.Get(envConfig, applianceConfig)
 
 	// Search for ISO in cache dir
-	if fileName := envConfig.FindInCache(templates.DataIsoFileName); fileName != "" {
+	if fileName := envConfig.FindInCache(consts.DataIsoFileName); fileName != "" {
 		logrus.Info("Reusing data ISO from cache")
 		return a.updateAsset(envConfig)
 	}
@@ -87,7 +88,9 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	)
 	registryDir := filepath.Join(envConfig.TempDir, bootstrapMirrorDir)
 	spinner.DirToMonitor = registryDir
-	bootstrapImageRegistry := registry.NewRegistry()
+	bootstrapImageRegistry := registry.NewRegistry(
+		swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
+		swag.IntValue(applianceConfig.Config.ImageRegistry.Port))
 	if err := bootstrapImageRegistry.StartRegistry(registryDir); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
@@ -110,7 +113,9 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	)
 	registryDir = filepath.Join(envConfig.TempDir, installMirrorDir)
 	spinner.DirToMonitor = registryDir
-	releaseImageRegistry := registry.NewRegistry()
+	releaseImageRegistry := registry.NewRegistry(
+		swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
+		swag.IntValue(applianceConfig.Config.ImageRegistry.Port))
 	if err := releaseImageRegistry.StartRegistry(registryDir); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
@@ -144,7 +149,7 @@ func (a *DataISO) Name() string {
 }
 
 func (a *DataISO) updateAsset(envConfig *config.EnvConfig) error {
-	dataIsoPath := filepath.Join(envConfig.CacheDir, templates.DataIsoFileName)
+	dataIsoPath := filepath.Join(envConfig.CacheDir, consts.DataIsoFileName)
 	a.File = &asset.File{Filename: dataIsoPath}
 	f, err := os.Stat(dataIsoPath)
 	if err != nil {
@@ -156,7 +161,7 @@ func (a *DataISO) updateAsset(envConfig *config.EnvConfig) error {
 }
 
 func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig) error {
-	registryFilename := filepath.Base(templates.RegistryFilePath)
+	registryFilename := filepath.Base(consts.RegistryFilePath)
 	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
 
 	// Search for registry image in cache dir
@@ -165,15 +170,15 @@ func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig) error {
 	} else {
 		// Copying registry image to cache
 		if err := skopeo.NewSkopeo().CopyToFile(
-			templates.RegistryImage,
-			templates.RegistryImageName,
+			consts.RegistryImage,
+			consts.RegistryImageName,
 			fileInCachePath); err != nil {
 			return err
 		}
 	}
 
 	// Copy to data dir in temp
-	fileInDataDir := filepath.Join(envConfig.TempDir, dataDir, imagesDir, templates.RegistryFilePath)
+	fileInDataDir := filepath.Join(envConfig.TempDir, dataDir, imagesDir, consts.RegistryFilePath)
 	if err := fileutil.CopyFile(fileInCachePath, fileInDataDir); err != nil {
 		logrus.Error(err)
 		return err

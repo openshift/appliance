@@ -12,8 +12,8 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/itchyny/gojq"
 	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
-	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -32,7 +32,7 @@ const (
 const (
 	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
-	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:%s --dest-skip-tls --dir %s"
+	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:%d --dest-skip-tls --dir %s"
 	ocAdmReleaseInfo     = "oc adm release info quay.io/openshift-release-dev/ocp-release:%s-%s -o json"
 )
 
@@ -218,7 +218,7 @@ func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *con
 	}
 	defer os.RemoveAll(tempDir)
 
-	cmd := fmt.Sprintf(ocMirrorAndUpload, absPath, registry.RegistryPort, tempDir)
+	cmd := fmt.Sprintf(ocMirrorAndUpload, absPath, swag.IntValue(applianceConfig.Config.ImageRegistry.Port), tempDir)
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 
 	if err = r.setDockerConfig(); err != nil {
@@ -234,7 +234,7 @@ func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *con
 	return err
 }
 func (r *release) MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
-	return r.mirrorImages(envConfig, applianceConfig, templates.ImageSetTemplateFile, "", "")
+	return r.mirrorImages(envConfig, applianceConfig, consts.ImageSetTemplateFile, "", "")
 }
 
 func (r *release) shouldBlockImage(imageName string) bool {
@@ -314,7 +314,7 @@ func (r *release) imagesListWithCustomImages() map[string]bool {
 	for key, value := range r.additionalBootstrapImages {
 		additionalImages[key] = value
 	}
-	additionalImages[templates.AssistedInstallerAgentImage] = true
+	additionalImages[consts.AssistedInstallerAgentImage] = true
 	return additionalImages
 }
 
@@ -327,7 +327,7 @@ func (r *release) MirrorBootstrapImages(envConfig *config.EnvConfig, applianceCo
 	return r.mirrorImages(
 		envConfig,
 		applianceConfig,
-		templates.ImageSetTemplateFile,
+		consts.ImageSetTemplateFile,
 		blockedImages,
 		r.generateAdditionalImagesList(r.imagesListWithCustomImages()),
 	)

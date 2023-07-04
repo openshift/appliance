@@ -9,23 +9,16 @@ import (
 	"time"
 
 	"github.com/openshift/appliance/pkg/executer"
-	"github.com/openshift/appliance/pkg/templates"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	RegistryPort = "5005"
-
-	registryStartCmd = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%s %s"
+	registryStartCmd = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%d %s"
 	registryStopCmd  = "podman rm registry -f"
 
 	registryAttempts             = 3
 	registrySleepBetweenAttempts = 5
-)
-
-var (
-	registryURL = fmt.Sprintf("http://127.0.0.1:%s", RegistryPort)
 )
 
 type Registry interface {
@@ -34,12 +27,18 @@ type Registry interface {
 }
 
 type registry struct {
-	executer executer.Executer
+	executer    executer.Executer
+	port        int
+	registryURL string
+	uri         string
 }
 
-func NewRegistry() Registry {
+func NewRegistry(uri string, port int) Registry {
 	return &registry{
-		executer: executer.NewExecuter(),
+		executer:    executer.NewExecuter(),
+		port:        port,
+		registryURL: fmt.Sprintf("http://127.0.0.1:%d", port),
+		uri:         uri,
 	}
 }
 
@@ -77,7 +76,7 @@ func (r *registry) StartRegistry(registryDataPath string) error {
 		return err
 	}
 
-	cmd := fmt.Sprintf(registryStartCmd, dataDirPath, RegistryPort, templates.RegistryImage)
+	cmd := fmt.Sprintf(registryStartCmd, dataDirPath, r.port, r.uri)
 	logrus.Debugf("Running registry cmd: %s", cmd)
 	args := strings.Split(cmd, " ")
 	_, err = r.executer.Execute(args[0], args[1:]...)
@@ -85,7 +84,7 @@ func (r *registry) StartRegistry(registryDataPath string) error {
 		return errors.Wrapf(err, "registry start failure")
 	}
 
-	if err = r.verifyRegistryAvailability(registryURL); err != nil {
+	if err = r.verifyRegistryAvailability(r.registryURL); err != nil {
 		return err
 	}
 	return nil

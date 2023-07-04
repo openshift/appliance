@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/registry"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/assisted-service/pkg/conversions"
 )
@@ -17,10 +18,10 @@ func GetUserCfgTemplateData(grubMenuEntryName string, grubDefault int) interface
 		GrubTimeout, GrubDefault                 int
 		GrubMenuEntryName, RecoveryPartitionName string
 	}{
-		GrubTimeout:           GrubTimeout,
+		GrubTimeout:           consts.GrubTimeout,
 		GrubDefault:           grubDefault,
 		GrubMenuEntryName:     grubMenuEntryName,
-		RecoveryPartitionName: RecoveryPartitionName,
+		RecoveryPartitionName: consts.RecoveryPartitionName,
 	}
 }
 
@@ -49,9 +50,9 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataPartitionSize
 		RecoveryEndSector:     recoveryPartitionEndSector,
 		DataStartSector:       dataPartitionStartSector,
 		DataEndSector:         dataPartitionEndSector,
-		RecoveryPartitionName: RecoveryPartitionName,
-		DataPartitionName:     DataPartitionName,
-		ReservedPartitionGUID: ReservedPartitionGUID,
+		RecoveryPartitionName: consts.RecoveryPartitionName,
+		DataPartitionName:     consts.DataPartitionName,
+		ReservedPartitionGUID: consts.ReservedPartitionGUID,
 		CfgFile:               cfgFile,
 	}
 }
@@ -114,8 +115,8 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 		// Registry
 		RegistryDataPath: registryDataPath,
 		RegistryDomain:   registry.RegistryDomain,
-		RegistryFilePath: RegistryFilePath,
-		RegistryImage:    RegistryImage,
+		RegistryFilePath: consts.RegistryFilePath,
+		RegistryImage:    consts.RegistryImage,
 	}
 }
 
@@ -130,8 +131,8 @@ func GetInstallIgnitionTemplateData(registryDataPath string) interface{} {
 		// Registry
 		RegistryDataPath: registryDataPath,
 		RegistryDomain:   registry.RegistryDomain,
-		RegistryFilePath: RegistryFilePath,
-		RegistryImage:    RegistryImage,
+		RegistryFilePath: consts.RegistryFilePath,
+		RegistryImage:    consts.RegistryImage,
 	}
 }
 

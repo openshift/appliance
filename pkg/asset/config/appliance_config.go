@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-openapi/swag"
 	"github.com/hashicorp/go-version"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/graph"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
@@ -32,8 +33,10 @@ const (
 	ReleaseArchitecturePPC64le = "ppc64le"
 
 	// Validation values
-	MinDiskSize   = 150
-	MinOcpVersion = "4.12" // TODO: update to supported version when ready
+	MinDiskSize     = 150
+	MinOcpVersion   = "4.12" // TODO: update to supported version when ready
+	RegistryMinPort = 1024
+	RegistryMaxPort = 65535
 )
 
 var (
@@ -91,6 +94,17 @@ sshKey: ssh-key
 # Password of user 'core' for connecting from console
 # [Optional]
 userCorePass: user-core-pass
+# [Optional]
+imageRegistry:
+  # The URI for the image
+  # Default: docker.io/library/registry:2
+  # Alternative: quay.io/libpod/registry:2.8
+  # [Optional]
+  uri: uri
+  # The image registry container TCP port to bind. A valid port number is between 1024 and 65535.
+  # Default: 5005
+  # [Optional]
+  port: port
 `
 	a.Template = applianceConfigTemplate
 
@@ -162,6 +176,20 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	config.OcpRelease.URL = &releaseImage
 	config.OcpRelease.Version = releaseVersion
 
+	if config.ImageRegistry == nil {
+		config.ImageRegistry = &types.ImageRegistry{
+			URI:  swag.String(consts.RegistryImage),
+			Port: swag.Int(consts.RegistryPort),
+		}
+	} else {
+		if config.ImageRegistry.URI == nil {
+			config.ImageRegistry.URI = swag.String(consts.RegistryImage)
+		}
+		if config.ImageRegistry.Port == nil {
+			config.ImageRegistry.Port = swag.Int(consts.RegistryPort)
+		}
+	}
+
 	return true, nil
 }
 
@@ -199,6 +227,11 @@ func (a *ApplianceConfig) validateConfig() field.ErrorList {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("diskSizeGB"), a.Config.DiskSizeGB, err.Error()))
 	}
 
+	// Validate imageRegistry
+	if err := a.validateImageRegistry(); err != nil {
+		allErrs = append(allErrs, err...)
+	}
+
 	// Validate pullSecret
 	if err := validate.ImagePullSecret(a.Config.PullSecret); err != nil {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("pullSecret"), a.Config.PullSecret, err.Error()))
@@ -212,6 +245,23 @@ func (a *ApplianceConfig) validateConfig() field.ErrorList {
 	}
 
 	return allErrs
+}
+
+func (a *ApplianceConfig) validateImageRegistry() field.ErrorList {
+	if a.Config.ImageRegistry == nil {
+		return nil
+	}
+
+	// TODO(MGMT-15163): add validation for a.Config.ImageRegistry.URI
+	if a.Config.ImageRegistry.Port != nil {
+		registryPort := swag.IntValue(a.Config.ImageRegistry.Port)
+		if registryPort < RegistryMinPort || registryPort > RegistryMaxPort {
+			return field.ErrorList{field.Invalid(field.NewPath("imageRegistry.registryPort"),
+				swag.IntValue(a.Config.ImageRegistry.Port),
+				fmt.Sprintf("registryPort must be between %d and %d", RegistryMinPort, RegistryMaxPort))}
+		}
+	}
+	return nil
 }
 
 func (a *ApplianceConfig) validateApiVersion() field.ErrorList {

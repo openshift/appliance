@@ -6,6 +6,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/data"
 	"github.com/openshift/appliance/pkg/asset/recovery"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/templates"
@@ -47,12 +48,12 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 		"Failed to generate appliance disk image",
 		envConfig,
 	)
-	spinner.FileToMonitor = templates.ApplianceFileName
+	spinner.FileToMonitor = consts.ApplianceFileName
 
 	// Render user.cfg
 	if err := templates.RenderTemplateFile(
-		templates.UserCfgTemplateFile,
-		templates.GetUserCfgTemplateData(templates.GrubMenuEntryName, templates.GrubDefault),
+		consts.UserCfgTemplateFile,
+		templates.GetUserCfgTemplateData(consts.GrubMenuEntryName, consts.GrubDefault),
 		envConfig.TempDir); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
@@ -62,15 +63,15 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	recoveryPartitionSize := recoveryISO.Size
 	dataPartitionSize := dataISO.Size
 	baseImageFile := baseDiskImage.File.Filename
-	applianceImageFile := filepath.Join(envConfig.AssetsDir, templates.ApplianceFileName)
-	recoveryIsoFile := filepath.Join(envConfig.CacheDir, templates.RecoveryIsoFileName)
-	dataIsoFile := filepath.Join(envConfig.CacheDir, templates.DataIsoFileName)
-	cfgFile := templates.GetFilePathByTemplate(templates.UserCfgTemplateFile, envConfig.TempDir)
+	applianceImageFile := filepath.Join(envConfig.AssetsDir, consts.ApplianceFileName)
+	recoveryIsoFile := filepath.Join(envConfig.CacheDir, consts.RecoveryIsoFileName)
+	dataIsoFile := filepath.Join(envConfig.CacheDir, consts.DataIsoFileName)
+	cfgFile := templates.GetFilePathByTemplate(consts.UserCfgTemplateFile, envConfig.TempDir)
 	gfTemplateData := templates.GetGuestfishScriptTemplateData(
 		diskSize, recoveryPartitionSize, dataPartitionSize, baseImageFile,
 		applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile)
 	if err := templates.RenderTemplateFile(
-		templates.GuestfishScriptTemplateFile,
+		consts.GuestfishScriptTemplateFile,
 		gfTemplateData,
 		envConfig.TempDir); err != nil {
 		return log.StopSpinner(spinner, err)
@@ -79,7 +80,7 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	// Invoke guestfish.sh script
 	logrus.Debug("Running guestfish script")
 	guestfishFileName := templates.GetFilePathByTemplate(
-		templates.GuestfishScriptTemplateFile, envConfig.TempDir)
+		consts.GuestfishScriptTemplateFile, envConfig.TempDir)
 	if _, err := executer.NewExecuter().Execute(guestfishFileName); err != nil {
 		return log.StopSpinner(spinner, errors.Wrapf(err, "guestfish script failure"))
 	}

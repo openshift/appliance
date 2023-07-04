@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/log"
-	"github.com/openshift/appliance/pkg/templates"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -34,7 +34,7 @@ func NewCleanCmd() *cobra.Command {
 			}
 
 			// Remove appliance file
-			if err := os.RemoveAll(filepath.Join(rootOpts.dir, templates.ApplianceFileName)); err != nil {
+			if err := os.RemoveAll(filepath.Join(rootOpts.dir, consts.ApplianceFileName)); err != nil {
 				logrus.Fatal(err)
 			}
 

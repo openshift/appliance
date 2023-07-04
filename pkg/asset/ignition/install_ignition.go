@@ -7,6 +7,7 @@ import (
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/registry"
+	"github.com/openshift/appliance/pkg/consts"
 	ignitionutil "github.com/openshift/appliance/pkg/ignition"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
@@ -114,17 +115,17 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 
 func (i *InstallIgnition) addRecoveryGrubMenuItem(tempDir string) error {
 	if err := templates.RenderTemplateFile(
-		templates.UserCfgTemplateFile,
-		templates.GetUserCfgTemplateData(templates.GrubMenuEntryNameRecovery, templates.GrubDefaultRecovery),
+		consts.UserCfgTemplateFile,
+		templates.GetUserCfgTemplateData(consts.GrubMenuEntryNameRecovery, consts.GrubDefaultRecovery),
 		tempDir); err != nil {
 		return err
 	}
-	cfgFilePath := templates.GetFilePathByTemplate(templates.UserCfgTemplateFile, tempDir)
+	cfgFilePath := templates.GetFilePathByTemplate(consts.UserCfgTemplateFile, tempDir)
 	cfgFileBytes, err := os.ReadFile(cfgFilePath)
 	if err != nil {
 		return err
 	}
-	cfgFile := assetignition.FileFromBytes(templates.UserCfgFilePath,
+	cfgFile := assetignition.FileFromBytes(consts.UserCfgFilePath,
 		"root", 0644, cfgFileBytes)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, cfgFile)
 	format := "ext4"

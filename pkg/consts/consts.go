@@ -1,4 +1,4 @@
-package templates
+package consts
 
 const (
 	// user.cfg template
@@ -31,8 +31,7 @@ const (
 	RegistryImage     = "docker.io/library/registry:2"
 	RegistryImageName = "registry:2"
 	RegistryFilePath  = "registry/registry.tar"
-	// To avoid docker pull rate limit:
-	// RegistryImage  = "quay.io/libpod/registry:2.8"
+	RegistryPort      = 5005
 
 	// AI images
 	// TODO: remove when official images are updates
