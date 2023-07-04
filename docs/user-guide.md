@@ -219,8 +219,6 @@ The content of `cluster_config` directory should be
 ### Monitor installation
 Use `openshift-install` to monitor the bootstrap and installation process
 
-**:warning: Ensure the server domain in $CLUSTER_CONFIG/auth/kubeconfig is resolvable.**
-
 #### Monitor the bootstrap process
   ```shell
   ./openshift-install --dir $CLUSTER_CONFIG agent wait-for bootstrap-complete
