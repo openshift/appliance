@@ -69,7 +69,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		"Failed to pull container registry image",
 		envConfig,
 	)
-	if err := a.copyRegistryImageIfNeeded(envConfig); err != nil {
+	if err := a.copyRegistryImageIfNeeded(envConfig, applianceConfig); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	if err := log.StopSpinner(spinner, nil); err != nil {
@@ -160,7 +160,7 @@ func (a *DataISO) updateAsset(envConfig *config.EnvConfig) error {
 	return nil
 }
 
-func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig) error {
+func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
 	registryFilename := filepath.Base(consts.RegistryFilePath)
 	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
 
@@ -170,7 +170,7 @@ func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig) error {
 	} else {
 		// Copying registry image to cache
 		if err := skopeo.NewSkopeo().CopyToFile(
-			consts.RegistryImage,
+			swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
 			consts.RegistryImageName,
 			fileInCachePath); err != nil {
 			return err
