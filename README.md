@@ -76,7 +76,7 @@ make run
 
 ##### Example
 
-```
+```yaml
 apiVersion: v1beta1
 kind: ApplianceConfig
 ocpRelease:
@@ -229,14 +229,14 @@ Note: for disconnected environments, specify a dummy pull-secret in install-conf
 
 ##### agent-config.yaml
 
-```
+```yaml
 apiVersion: v1alpha1
 kind: AgentConfig
 rendezvousIP: 192.168.122.100
 ```
 
 ##### install-config.yaml
-```
+```yaml
 apiVersion: v1
 metadata:
   name: appliance
@@ -260,14 +260,14 @@ pullSecret: '{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'
 
 ##### agent-config.yaml
 
-```
+```yaml
 apiVersion: v1alpha1
 kind: AgentConfig
 rendezvousIP: 192.168.122.100
 ```
 
 ##### install-config.yaml
-```
+```yaml
 apiVersion: v1
 metadata:
   name: appliance
