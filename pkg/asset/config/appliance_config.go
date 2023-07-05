@@ -53,7 +53,6 @@ type ApplianceConfig struct {
 	File     *asset.File
 	Config   *types.ApplianceConfig
 	Template string
-	executer executer.Executer
 }
 
 var _ asset.WritableAsset = (*ApplianceConfig)(nil)
@@ -157,7 +156,6 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	}
 
 	a.File, a.Config = file, config
-	a.executer = executer.NewExecuter()
 
 	if err := a.validateConfig().ToAggregate(); err != nil {
 		return false, errors.Wrapf(err, "invalid Appliance Config configuration")
@@ -265,7 +263,7 @@ func (a *ApplianceConfig) validateImageRegistry() field.ErrorList {
 		cmd := fmt.Sprintf(PodmanPull, swag.StringValue(a.Config.ImageRegistry.URI))
 		logrus.Debugf("Running uri validation cmd: %s", cmd)
 		args := strings.Split(cmd, " ")
-		if _, err := a.executer.Execute(args[0], args[1:]...); err != nil {
+		if _, err := executer.NewExecuter().Execute(args[0], args[1:]...); err != nil {
 			allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("imageRegistry.uri"),
 				swag.StringValue(a.Config.ImageRegistry.URI),
 				fmt.Sprintf("Invalid uri: %s", err.Error()))}...)
