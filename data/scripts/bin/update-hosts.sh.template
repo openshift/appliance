@@ -3,16 +3,26 @@ set -e
 
 BASE_URL="${SERVICE_BASE_URL}api/assisted-install/v2"
 
-while [[ "${cluster_status}" != "ready" ]]
+required_master_nodes=$(grep -m 1 required_master_nodes '/usr/local/bin/start-cluster-installation.sh' | awk -F"=" '{ print $2 }')
+required_worker_nodes=$(grep -m 1 required_worker_nodes '/usr/local/bin/start-cluster-installation.sh' | awk -F"=" '{ print $2 }')
+total_required_nodes=$(( required_master_nodes+required_worker_nodes ))
+
+declare host_ids
+while [[ "${num_of_hosts}" != "${total_required_nodes}" ]]
 do
-    echo "Waiting for cluster to become ready..." 1>&2
-    cluster_status=$(curl -s -S "${BASE_URL}/clusters" | jq -r .[].status)
-    echo "Cluster status: ${cluster_status}" 1>&2
+    echo "Waiting for ${total_required_nodes} required hosts..." 1>&2
+    host_ids=$(curl -s -S "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts" | jq -r .[].id)
+    if [[ -n ${host_ids} ]]; then
+        num_of_hosts=0
+        for id in ${host_ids}; do
+            ((num_of_hosts+=1))
+        done
+        echo "Discoverd ${num_of_hosts} hosts"
+    fi
     sleep 2
 done
 
 ignition=$(echo '{{.InstallIgnitionConfig}}' | jq -c --raw-input)
-host_ids=$(curl -s -S "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts" | jq -r .[].id)
 if [[ -n ${host_ids} ]]; then
     for id in ${host_ids}; do
         args='["--save-partlabel", "agent*"]'
@@ -25,8 +35,7 @@ if [[ -n ${host_ids} ]]; then
         curl -s -S -X PATCH "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/ignition" \
             -H "Content-Type: application/json" \
             -d '{"config": '"${ignition}"'}'
+
+        echo "Updated installer-args and ignition of host with id: ${id}"
     done
 fi
-
-echo "Updated installer-args and ignition of the hosts"
-
