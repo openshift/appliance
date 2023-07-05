@@ -9,11 +9,13 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/consts"
+	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/graph"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/validate"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/thoas/go-funk"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/yaml"
@@ -37,6 +39,9 @@ const (
 	MinOcpVersion   = "4.12" // TODO: update to supported version when ready
 	RegistryMinPort = 1024
 	RegistryMaxPort = 65535
+
+	// Validation commands
+	PodmanInspect = "podman inspect %s"
 )
 
 var (
@@ -48,6 +53,7 @@ type ApplianceConfig struct {
 	File     *asset.File
 	Config   *types.ApplianceConfig
 	Template string
+	executer executer.Executer
 }
 
 var _ asset.WritableAsset = (*ApplianceConfig)(nil)
@@ -151,6 +157,7 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	}
 
 	a.File, a.Config = file, config
+	a.executer = executer.NewExecuter()
 
 	if err := a.validateConfig().ToAggregate(); err != nil {
 		return false, errors.Wrapf(err, "invalid Appliance Config configuration")
@@ -248,20 +255,32 @@ func (a *ApplianceConfig) validateConfig() field.ErrorList {
 }
 
 func (a *ApplianceConfig) validateImageRegistry() field.ErrorList {
+	allErrs := field.ErrorList{}
+
 	if a.Config.ImageRegistry == nil {
 		return nil
 	}
 
-	// TODO(MGMT-15163): add validation for a.Config.ImageRegistry.URI
+	if a.Config.ImageRegistry.URI != nil {
+		cmd := fmt.Sprintf(PodmanInspect, swag.StringValue(a.Config.ImageRegistry.URI))
+		logrus.Debugf("Running uri validation cmd: %s", cmd)
+		args := strings.Split(cmd, " ")
+		if _, err := a.executer.Execute(args[0], args[1:]...); err != nil {
+			allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("imageRegistry.uri"),
+				swag.StringValue(a.Config.ImageRegistry.URI),
+				fmt.Sprintf("Invalid uri: %s", err.Error()))}...)
+		}
+	}
+
 	if a.Config.ImageRegistry.Port != nil {
 		registryPort := swag.IntValue(a.Config.ImageRegistry.Port)
 		if registryPort < RegistryMinPort || registryPort > RegistryMaxPort {
-			return field.ErrorList{field.Invalid(field.NewPath("imageRegistry.registryPort"),
+			allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("imageRegistry.port"),
 				swag.IntValue(a.Config.ImageRegistry.Port),
-				fmt.Sprintf("registryPort must be between %d and %d", RegistryMinPort, RegistryMaxPort))}
+				fmt.Sprintf("registryPort must be between %d and %d", RegistryMinPort, RegistryMaxPort))}...)
 		}
 	}
-	return nil
+	return allErrs
 }
 
 func (a *ApplianceConfig) validateApiVersion() field.ErrorList {
