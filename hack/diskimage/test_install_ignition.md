@@ -13,7 +13,6 @@
 1. Run 'generate-install-ignition' command
    - Generates merged ignition (base ignition from step 4 + InstallIgnition asset)
    - Outputs to assets/ignition/install/config.ign
-   - use --debug-install flag to include the public sshKey from appliance-config
 2. Run hack/diskimage/embed_install_ignition.sh
    - Creates a snapshot and embeds the merged ignition
 3. Run the appliance

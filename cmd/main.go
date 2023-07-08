@@ -14,7 +14,6 @@ var (
 		dir               string
 		logLevel          string
 		debugBootstrap    bool
-		debugInstall      bool
 		debugBaseIgnition bool
 	}
 )

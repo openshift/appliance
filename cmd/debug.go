@@ -15,7 +15,6 @@ func NewGenerateInstallIgnitionCmd() *cobra.Command {
 		PreRun: func(cmd *cobra.Command, args []string) {
 			if err := getAssetStore().Fetch(&config.EnvConfig{
 				AssetsDir:    rootOpts.dir,
-				DebugInstall: rootOpts.debugInstall,
 			}); err != nil {
 				logrus.Fatal(err)
 			}
@@ -35,10 +34,6 @@ func NewGenerateInstallIgnitionCmd() *cobra.Command {
 				logrus.Fatal(err)
 			}
 		},
-	}
-	cmd.Flags().BoolVar(&rootOpts.debugInstall, "debug-install", false, "")
-	if err := cmd.Flags().MarkHidden("debug-install"); err != nil {
-		logrus.Fatal(err)
 	}
 
 	return cmd

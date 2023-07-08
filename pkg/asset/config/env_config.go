@@ -21,7 +21,6 @@ type EnvConfig struct {
 	TempDir   string
 
 	DebugBootstrap    bool
-	DebugInstall      bool
 	DebugBaseIgnition bool
 }
 
