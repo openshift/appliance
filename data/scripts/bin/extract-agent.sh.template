@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-# Note: overrides https://github.com/openshift/installer/blob/85138dd3c4e9c27c4bd4fbe3588af7712404347b/data/data/agent/files/usr/local/bin/extract-agent.sh
-
-source /usr/local/bin/release-image.sh
-IMAGE=$(image_for agent-installer-node-agent)
-/usr/bin/podman run --privileged --rm -v /usr/local/bin:/hostbin "${IMAGE}" cp /usr/bin/agent /hostbin

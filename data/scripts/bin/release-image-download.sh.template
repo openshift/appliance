@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+# Overrides https://github.com/openshift/installer/blob/master/data/data/bootstrap/files/usr/local/bin/release-image-download.sh.template
+# No need to download the release image as already included in appliance

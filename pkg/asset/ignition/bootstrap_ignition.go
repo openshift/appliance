@@ -7,7 +7,6 @@ import (
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
-	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	assetignition "github.com/openshift/installer/pkg/asset/ignition"
@@ -36,7 +35,7 @@ var (
 		"start-local-registry.sh",
 		"set-env-files.sh",
 		"pre-install.sh",
-		"extract-agent.sh",
+		"release-image-download.sh",
 		"release-image.sh",
 		"update-hosts.sh",
 
@@ -63,7 +62,6 @@ func (i *BootstrapIgnition) Dependencies() []asset.Asset {
 		&config.EnvConfig{},
 		&config.ApplianceConfig{},
 		&password.KubeadminPassword{},
-		&registry.RegistriesConf{},
 		&manifests.ClusterImageSet{},
 		&InstallIgnition{},
 	}
@@ -74,10 +72,9 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	pwd := &password.KubeadminPassword{}
-	registryConf := &registry.RegistriesConf{}
 	clusterImageSet := &manifests.ClusterImageSet{}
 	installIgnition := &InstallIgnition{}
-	dependencies.Get(envConfig, applianceConfig, pwd, registryConf, clusterImageSet, installIgnition)
+	dependencies.Get(envConfig, applianceConfig, pwd, clusterImageSet, installIgnition)
 
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -90,8 +87,13 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		bootstrapServices = append(bootstrapServices, "ironic-agent.service")
 	}
 
-	// Add bootstrap services to ignition
-	if err := bootstrap.AddSystemdUnits(&i.Config, "services", nil, bootstrapServices); err != nil {
+	// Add services common for bootstrap and install
+	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", nil, bootstrapServices); err != nil {
+		return err
+	}
+
+	// Add services exclusive for bootstrap
+	if err := bootstrap.AddSystemdUnits(&i.Config, "services/bootstrap", nil, bootstrapServices); err != nil {
 		return err
 	}
 
@@ -132,11 +134,6 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		}
 	}
 	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
-
-	// Add registries.conf
-	registriesFile := assetignition.FileFromBytes(registriesConfFilePath,
-		"root", 0600, registryConf.FileData)
-	i.Config.Storage.Files = append(i.Config.Storage.Files, registriesFile)
 
 	// Add manifests
 	manifestFile := assetignition.FileFromBytes(filepath.Join(manifestPath, clusterImageSet.File.Filename),
