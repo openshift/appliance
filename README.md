@@ -130,15 +130,6 @@ make lint
 
 Add `--debug-bootstrap` flag to the build command to avoid machine reboot on bootstrap step completion. Useful for taking a snapshot of the appliance disk image before testing changes in the install ignition. 
 
-#### Install step
-
-Add `--debug-install` flag to the build command for enabling ssh login on the installation step.
-The public ssh key provided in appliance-config.yaml is used (`sshKey` property).
-During installation, to run `oc` commands, define `KUBECONFIG` using:
-```bash
-export KUBECONFIG=/etc/kubernetes/bootstrap-secrets/kubeconfig
-```
-
 #### unconfigured-ignition API
 
 Add `--debug-base-ignition` flag to the build command for using a custom openshift-install binary to invoke `agent create unconfigured-ignition`.

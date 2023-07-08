@@ -14,6 +14,7 @@ import (
 	assetignition "github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -68,16 +69,16 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 		},
 	}
 
-	// Add public ssh key for debugging
-	// Use: export KUBECONFIG=/etc/kubernetes/bootstrap-secrets/kubeconfig
-	if envConfig.DebugInstall {
-		passwdUser := igntypes.PasswdUser{
-			Name: "core",
+	// Add user 'core' password if required
+	if applianceConfig.Config.UserCorePass != nil {
+		passBytes, err := bcrypt.GenerateFromPassword([]byte(*applianceConfig.Config.UserCorePass), bcrypt.DefaultCost)
+		if err != nil {
+			return err
 		}
-		if applianceConfig.Config.SshKey != nil {
-			passwdUser.SSHAuthorizedKeys = []igntypes.SSHAuthorizedKey{
-				igntypes.SSHAuthorizedKey(*applianceConfig.Config.SshKey),
-			}
+		pwdHash := string(passBytes)
+		passwdUser := igntypes.PasswdUser{
+			Name:         "core",
+			PasswordHash: &pwdHash,
 		}
 		i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
 	}
