@@ -82,8 +82,8 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 		i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
 	}
 
-	// Add install services to ignition
-	if err := bootstrap.AddSystemdUnits(&i.Config, "services", nil, installServices); err != nil {
+	// Add services common for bootstrap and install
+	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", nil, installServices); err != nil {
 		return err
 	}
 
@@ -100,7 +100,7 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 
 	// Add registries.conf
 	registriesFile := assetignition.FileFromBytes(registriesConfFilePath,
-		"root", 0600, registryConf.FileData)
+		"root", 0600, registryConf.File.Data)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registriesFile)
 
 	// Add grub menu item
