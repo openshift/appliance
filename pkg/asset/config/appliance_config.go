@@ -75,21 +75,21 @@ func (a *ApplianceConfig) Generate(dependencies asset.Parents) error {
 # which fields are available to aid you in creating your
 # own appliance-config.yaml file.
 #
-apiVersion: v1beta1
+apiVersion: %s
 kind: ApplianceConfig
 ocpRelease:
   # OCP release version in major.minor or major.minor.patch format
   # (in case of major.minor - latest patch version will be used)
   version: ocp-release-version
   # OCP release update channel: stable|fast|eus|candidate
-  # Default: stable
+  # Default: %s
   # [Optional]
   channel: ocp-release-channel
   # OCP release CPU architecture: x86_64|aarch64|ppc64le
-  # Default: x86_64
+  # Default: %s
   # [Optional]
   cpuArchitecture: cpu-architecture
-# Virtual size of the appliance disk image (at least 150GiB)
+# Virtual size of the appliance disk image (at least %dGiB)
 diskSizeGB: disk-size
 # PullSecret required for mirroring the OCP release payload
 pullSecret: pull-secret
@@ -102,16 +102,19 @@ userCorePass: user-core-pass
 # [Optional]
 imageRegistry:
   # The URI for the image
-  # Default: docker.io/library/registry:2
+  # Default: %s
   # Alternative: quay.io/libpod/registry:2.8
   # [Optional]
   uri: uri
-  # The image registry container TCP port to bind. A valid port number is between 1024 and 65535.
-  # Default: 5005
+  # The image registry container TCP port to bind. A valid port number is between %d and %d.
+  # Default: %d
   # [Optional]
   port: port
 `
-	a.Template = applianceConfigTemplate
+	a.Template = fmt.Sprintf(
+		applianceConfigTemplate,
+		types.ApplianceConfigApiVersion, graph.ReleaseChannelStable, CpuArchitectureX86,
+		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort)
 
 	return nil
 }
