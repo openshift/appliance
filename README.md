@@ -55,7 +55,8 @@ A configuration file named `appliance-config.yaml` is required for running the t
 * ocpRelease.cpuArchitecture: CPU architecture of the release payload (x86_64|aarch64|ppc64le)
 * diskSizeGB: Virtual size of the appliance disk image (at least 150 GiB)
 * pullSecret: PullSecret required for mirroring the OCP release payload
-* sshKey: Public SSH key for accessing the appliance
+* sshKey: Public SSH key for accessing the appliance during the bootstrap phase.
+  * To access the cluster during or after installation, set the `sshKey` in [install-config.yaml](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#installation-bare-metal-agent-installer-config-yaml_preparing-to-install-with-agent-based-installer)
 * userCorePass: Password for user 'core' to login from console
 
 ##### Generate config file template

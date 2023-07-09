@@ -93,7 +93,7 @@ ocpRelease:
 diskSizeGB: disk-size
 # PullSecret required for mirroring the OCP release payload
 pullSecret: pull-secret
-# Public SSH key for accessing the appliance
+# Public SSH key for accessing the appliance during the bootstrap phase
 # [Optional]
 sshKey: ssh-key
 # Password of user 'core' for connecting from console
