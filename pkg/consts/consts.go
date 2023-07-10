@@ -7,7 +7,7 @@ const (
 	GrubDefault         = 0
 	GrubMenuEntryName   = "Agent-Based Installer"
 	// For installation ignition
-	GrubMenuEntryNameRecovery = "Recovery: Agent-Based Installer"
+	GrubMenuEntryNameRecovery = "Recovery: Agent-Based Installer (Reinstall Cluster)"
 	GrubDefaultRecovery       = 1
 	UserCfgFilePath           = "/boot/grub2/user.cfg"
 
