@@ -158,7 +158,7 @@ INFO Successfully extracted appliance base disk image
 INFO Successfully generated appliance disk image
 INFO Time elapsed: 8m0s
 INFO
-INFO Appliance successfully created in assets directory: assets/appliance.raw
+INFO Appliance disk image was successfully created in assets directory: assets/appliance.raw
 INFO
 INFO Create configuration ISO using: openshift-install agent create config-image
 INFO Download openshift-install from: https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.12.10/openshift-install-linux.tar.gz
