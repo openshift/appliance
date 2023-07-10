@@ -168,7 +168,12 @@ INFO Download openshift-install from: https://mirror.openshift.com/pub/openshift
 [![asciicast](https://asciinema.org/a/591871.svg)](https://asciinema.org/a/591871)
 
 ## Copy Appliance Image to Disk - Factory
-* Baremetal servers: use `dd`
+* Baremetal servers: use a tool like `dd` to clone the disk image.
+  * E.g.
+    ```shell
+    dd if=appliance.raw of=/dev/sdX bs=4096
+    ```
+    This will copy the appliance disk image to sdX. To initiate the cluster installation, boot the machine from the sdX device.
 * Virtual Machines: configure the disk to use `/path/to/appliance.raw`
 
 ## OpenShift Cluster Install - User Site
