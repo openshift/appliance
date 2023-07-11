@@ -164,6 +164,14 @@ INFO Create configuration ISO using: openshift-install agent create config-image
 INFO Download openshift-install from: https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.12.10/openshift-install-linux.tar.gz
 ```
 
+### Rebuild
+
+Before rebuilding the appliance, e.g. for changing `diskSizeGB` or `ocpRelease`, use the `clean` command. This command removes the temp folder and prepares the `assets` folder for a rebuild. 
+Note: the command keeps the `cache` folder under `assets` intact.
+```shell
+podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE clean
+```
+
 #### Demo
 [![asciicast](https://asciinema.org/a/591871.svg)](https://asciinema.org/a/591871)
 
