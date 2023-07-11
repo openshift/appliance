@@ -22,6 +22,7 @@ update-ca-trust extract
 
 # Config registry dns
 # TODO: check if worth exposing only locally and/or support IPv6
+sed -i '/0.0.0.0 {{.RegistryDomain}}/d' /etc/hosts
 echo "0.0.0.0 {{.RegistryDomain}}" >> /etc/hosts
 
 if [ {{.IsBootstrapStep}} = true ]; then
