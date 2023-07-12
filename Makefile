@@ -9,6 +9,19 @@ ROOT_DIR = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 REPORTS ?= $(ROOT_DIR)/reports
 COVER_PROFILE := $(or ${COVER_PROFILE},$(REPORTS)/unit_coverage.out)
 
+CI ?= false
+VERBOSE ?= false
+GO_TEST_FORMAT = pkgname
+
+GOTEST_FLAGS = --format=$(GO_TEST_FORMAT) $(GOTEST_PUBLISH_FLAGS) -- -count=1 -cover -coverprofile=$(REPORTS)/$(TEST_SCENARIO)_coverage.out
+GINKGO_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo.v -ginkgo.reportFile=./junit_$(TEST_SCENARIO)_test.xml
+
+TIMEOUT = 30m
+GINKGO_REPORTFILE := $(or $(GINKGO_REPORTFILE), ./junit_unit_test.xml)
+GO_UNITTEST_FLAGS = --format=$(GO_TEST_FORMAT) $(GOTEST_PUBLISH_FLAGS) -- -count=1 -cover -coverprofile=$(COVER_PROFILE)
+GINKGO_UNITTEST_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo.v -ginkgo.reportFile=$(GINKGO_REPORTFILE)
+
+
 .PHONY: build
 
 build:
@@ -60,3 +73,27 @@ $(REPORTS):
 
 clean:
 	-rm -rf $(REPORTS)
+
+generate-mocks:
+	find . -name 'mock_*.go' -type f -not -path './vendor/*' -delete
+	go generate -v $(shell go list ./...)
+
+unit-test:
+	$(MAKE) _unit_test TIMEOUT=30m TEST="$(or $(TEST),$(shell go list ./...))"
+
+
+_unit_test: $(REPORTS)
+	gotestsum $(GO_UNITTEST_FLAGS) $(TEST) $(GINKGO_UNITTEST_FLAGS) -timeout $(TIMEOUT) || ($(MAKE) _post_unit_test && /bin/false)
+	$(MAKE) _post_unit_test
+
+_post_unit_test: $(REPORTS)
+	@for name in `find '$(ROOT_DIR)' -name 'junit*.xml' -type f -not -path '$(REPORTS)/*'`; do \
+		mv -f $$name $(REPORTS)/junit_unit_$$(basename $$(dirname $$name)).xml; \
+	done
+	$(MAKE) _unit_test_coverage
+
+_unit_test_coverage: $(REPORTS)
+ifeq ($(CI), true)
+	gocov convert $(REPORTS)/unit_coverage.out | gocov-xml > $(REPORTS)/unit_coverage.xml
+	./hack/publish-codecov.sh
+endif
