@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-//go:generate mockgen -source=ignition.go -package=ignition -destination=mock_ignition.go
+//go:generate mockgen -source=ignition.go -package=ignitionutil -destination=mock_ignition.go
 type Ignition interface {
 	ParseIgnitionFile(path string) (*types.Config, error)
 	WriteIgnitionFile(path string, config *types.Config) error

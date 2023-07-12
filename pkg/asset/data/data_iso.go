@@ -86,18 +86,23 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 			applianceConfig.Config.OcpRelease.Version),
 		envConfig,
 	)
-	registryDir := filepath.Join(envConfig.TempDir, bootstrapMirrorDir)
+	registryDir, err := registry.GetRegistryDataPath(envConfig.TempDir, bootstrapMirrorDir)
+	if err != nil {
+		return log.StopSpinner(spinner, err)
+	}
 	spinner.DirToMonitor = registryDir
 	bootstrapImageRegistry := registry.NewRegistry(
-		swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
-		swag.IntValue(applianceConfig.Config.ImageRegistry.Port))
-	if err := bootstrapImageRegistry.StartRegistry(registryDir); err != nil {
+		registry.RegistryConfig{
+			URI:  swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
+			Port: swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+		})
+	if err = bootstrapImageRegistry.StartRegistry(registryDir); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err := r.MirrorBootstrapImages(envConfig, applianceConfig); err != nil {
+	if err = r.MirrorBootstrapImages(envConfig, applianceConfig); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err := log.StopSpinner(spinner, nil); err != nil {
+	if err = log.StopSpinner(spinner, nil); err != nil {
 		return err
 	}
 
@@ -111,21 +116,27 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 			applianceConfig.Config.OcpRelease.Version),
 		envConfig,
 	)
-	registryDir = filepath.Join(envConfig.TempDir, installMirrorDir)
+	registryDir, err = registry.GetRegistryDataPath(envConfig.TempDir, installMirrorDir)
+	if err != nil {
+		return log.StopSpinner(spinner, err)
+	}
 	spinner.DirToMonitor = registryDir
 	releaseImageRegistry := registry.NewRegistry(
-		swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
-		swag.IntValue(applianceConfig.Config.ImageRegistry.Port))
-	if err := releaseImageRegistry.StartRegistry(registryDir); err != nil {
+		registry.RegistryConfig{
+			URI:  swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
+			Port: swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+		})
+
+	if err = releaseImageRegistry.StartRegistry(registryDir); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err := r.MirrorReleaseImages(envConfig, applianceConfig); err != nil {
+	if err = r.MirrorReleaseImages(envConfig, applianceConfig); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err := releaseImageRegistry.StopRegistry(); err != nil {
+	if err = releaseImageRegistry.StopRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err := log.StopSpinner(spinner, nil); err != nil {
+	if err = log.StopSpinner(spinner, nil); err != nil {
 		return err
 	}
 
