@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"testing"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2/dsl/core"
@@ -113,8 +112,3 @@ var _ = Describe("Test Image Registry", func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
-
-func TestRegistry(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "registry_test")
-}
