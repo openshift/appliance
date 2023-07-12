@@ -29,7 +29,7 @@ build:
 
 build-appliance:
 	mkdir -p build
-	cd ./cmd && CGO_ENABLED=0 GOFLAGS="" GO111MODULE=on go build -o ../build/openshift-appliance
+	cd ./cmd && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o ../build/openshift-appliance
 
 build-openshift-ci-test-bin:
 	./hack/setup_env.sh
