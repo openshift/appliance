@@ -13,6 +13,7 @@ var (
 	rootOpts struct {
 		dir               string
 		logLevel          string
+		logFile           string
 		debugBootstrap    bool
 		debugBaseIgnition bool
 	}
@@ -30,6 +31,12 @@ func applianceMain() {
 		NewCleanCmd(),
 		NewGenerateConfigCmd(),
 		NewGenerateUpgradeBundleCmd(),
+
+		// Upgrade controller commands:
+		NewStartUpgradeControllerCmd(),
+		NewStartUpgradeBundleServerCmd(),
+		NewStartUpgradeBundleExtractorCmd(),
+		NewStartUpgradeBundleLoaderCmd(),
 
 		// Hidden commands for debug
 		NewGenerateInstallIgnitionCmd(),
@@ -51,8 +58,27 @@ func newRootCmd() *cobra.Command {
 		SilenceErrors:    true,
 		SilenceUsage:     true,
 	}
-	cmd.PersistentFlags().StringVar(&rootOpts.dir, "dir", ".", "assets directory")
-	cmd.PersistentFlags().StringVar(&rootOpts.logLevel, "log-level", "info", "log level (e.g. \"debug | info | warn | error\")")
+	flags := cmd.PersistentFlags()
+	flags.StringVar(
+		&rootOpts.dir,
+		"dir",
+		".",
+		"Assets directory.",
+	)
+	flags.StringVar(
+		&rootOpts.logLevel,
+		"log-level",
+		"info",
+		"Log level (e.g. \"debug | info | warn | error\").",
+	)
+	flags.StringVar(
+		&rootOpts.logFile,
+		"log-file",
+		"",
+		"Log file. The default is to create a '.openshift_appliance.log' file in the "+
+			"assets directory. If the value is 'stdout' then the log will be "+
+			"written to the stardard output of the process.",
+	)
 	return cmd
 }
 

@@ -34,7 +34,7 @@ func NewBuildCmd() *cobra.Command {
 func runBuild(cmd *cobra.Command, args []string) {
 	timer.StartTimer(timer.TotalTimeElapsed)
 
-	cleanup := log.SetupFileHook(rootOpts.dir)
+	cleanup := log.SetupFileHook(rootOpts.dir, rootOpts.logFile)
 	defer cleanup()
 
 	// Load ApplianceDiskImage asset to check whether a clean is required

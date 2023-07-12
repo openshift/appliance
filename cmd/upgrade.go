@@ -23,7 +23,7 @@ func NewGenerateUpgradeBundleCmd() *cobra.Command {
 func runGenerateUpgradeBundle(cmd *cobra.Command, args []string) {
 	timer.StartTimer(timer.TotalTimeElapsed)
 
-	cleanup := log.SetupFileHook(rootOpts.dir)
+	cleanup := log.SetupFileHook(rootOpts.dir, rootOpts.logFile)
 	defer cleanup()
 
 	// Fetch the asset:

@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/bombsimon/logrusr/v4"
-	"github.com/distribution/distribution/v3/reference"
+	dreference "github.com/distribution/distribution/v3/reference"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
@@ -22,13 +22,15 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/jq"
 	"github.com/openshift/appliance/pkg/registry"
+	"github.com/openshift/appliance/pkg/upgrade"
 	"github.com/openshift/installer/pkg/asset"
 )
 
 // Bundle generates the upgrade bundle.
 type Bundle struct {
-	Tar    *asset.File
-	Digest *asset.File
+	Tar      *asset.File
+	Digest   *asset.File
+	Manifest *asset.File
 }
 
 var _ asset.Asset = (*Bundle)(nil)
@@ -105,6 +107,9 @@ func (b *Bundle) Generate(dependencies asset.Parents) error {
 	b.Digest = &asset.File{
 		Filename: generator.digestFile(),
 	}
+	b.Manifest = &asset.File{
+		Filename: generator.manifestFile(),
+	}
 
 	return nil
 }
@@ -150,7 +155,7 @@ func (g *bundleGenerator) run(ctx context.Context) error {
 	if g.appCfg.Config.OcpRelease.CpuArchitecture == nil {
 		return errors.New("CPU architecture is mandatory")
 	}
-	metadata := &Metadata{
+	metadata := &upgrade.Metadata{
 		Version: g.appCfg.Config.OcpRelease.Version,
 		Arch:    *g.appCfg.Config.OcpRelease.CpuArchitecture,
 		Release: releaseImageRef,
@@ -171,6 +176,13 @@ func (g *bundleGenerator) run(ctx context.Context) error {
 	// Write the digest:
 	g.logger.Infof("Writing digest to '%s' ...", g.digestFile())
 	err = g.writeDigest(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Write the manifest:
+	g.logger.Infof("Writing manifest to '%s' ...", g.manifestFile())
+	err = g.writeManifest(ctx)
 	if err != nil {
 		return err
 	}
@@ -330,11 +342,11 @@ func (g *bundleGenerator) downloadImages(ctx context.Context,
 	registryAddr := registryServer.ListenAddr()
 	for i, srcTag := range imageTags {
 		srcRef := imageMap[srcTag]
-		srcNamed, err := reference.ParseNamed(srcRef)
+		srcNamed, err := dreference.ParseNamed(srcRef)
 		if err != nil {
 			return fmt.Errorf("failed to parse image reference '%s': %w", srcRef, err)
 		}
-		srcPath := reference.Path(srcNamed)
+		srcPath := dreference.Path(srcNamed)
 		g.logger.Infof(
 			"Downloading image '%s:%s' (%d of %d) ...",
 			srcPath, srcTag, i+1, len(imageTags),
@@ -383,7 +395,7 @@ func (g *bundleGenerator) downloadImage(ctx context.Context, certDir string, aut
 	return err
 }
 
-func (g *bundleGenerator) writeMetadata(ctx context.Context, metadata *Metadata) error {
+func (g *bundleGenerator) writeMetadata(ctx context.Context, metadata *upgrade.Metadata) error {
 	data, err := json.Marshal(metadata)
 	if err != nil {
 		return err
@@ -467,12 +479,29 @@ func (g *bundleGenerator) writeDigest(ctx context.Context) error {
 	return nil
 }
 
+func (g *bundleGenerator) writeManifest(context.Context) error {
+	content, err := upgrade.TemplatesFS.ReadFile("templates/manifest.yaml")
+	if err != nil {
+		return err
+	}
+	manifest := g.manifestFile()
+	err = os.WriteFile(manifest, content, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (g *bundleGenerator) bundleFile() string {
 	return g.outputBase() + ".tar"
 }
 
 func (g *bundleGenerator) digestFile() string {
 	return g.outputBase() + ".sha256"
+}
+
+func (c *bundleGenerator) manifestFile() string {
+	return c.outputBase() + ".yaml"
 }
 
 func (g *bundleGenerator) outputBase() string {
