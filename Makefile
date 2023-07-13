@@ -21,6 +21,7 @@ GINKGO_REPORTFILE := $(or $(GINKGO_REPORTFILE), ./junit_unit_test.xml)
 GO_UNITTEST_FLAGS = --format=$(GO_TEST_FORMAT) $(GOTEST_PUBLISH_FLAGS) -- -count=1 -cover -coverprofile=$(COVER_PROFILE)
 GINKGO_UNITTEST_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo.v -ginkgo.reportFile=$(GINKGO_REPORTFILE)
 
+.EXPORT_ALL_VARIABLES:
 
 .PHONY: build
 
@@ -34,7 +35,10 @@ build-appliance:
 build-openshift-ci-test-bin:
 	./hack/setup_env.sh
 
-lint:
+install-test-tools:
+	./hack/install_tools.sh
+
+unit-test:
 	golangci-lint run -v --timeout=10m
 
 test: $(REPORTS)
@@ -78,7 +82,7 @@ generate-mocks:
 	find . -name 'mock_*.go' -type f -not -path './vendor/*' -delete
 	go generate -v $(shell go list ./...)
 
-unit-test:
+lint: install-test-tools
 	$(MAKE) _unit_test TIMEOUT=30m TEST="$(or $(TEST),$(shell go list ./...))"
 
 
