@@ -66,8 +66,9 @@ func (i *installer) CreateUnconfiguredIgnition(releaseImage, pullSecret string) 
 	}
 
 	createCmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, openshiftInstallFilePath, i.EnvConfig.TempDir)
-	args := strings.Split(createCmd, " ")
-	_, err = executer.NewExecuter().Execute(args[0], args[1:]...)
+	_, err = executer.NewExecuter().Execute(executer.Command{
+		Args: strings.Fields(createCmd),
+	})
 	return filepath.Join(i.EnvConfig.TempDir, unconfiguredIgnitionFileName), err
 }
 

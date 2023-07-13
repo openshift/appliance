@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/openshift/appliance/pkg/executer"
@@ -85,9 +86,10 @@ func (r *registry) StartRegistry(dataDirPath string) error {
 	}
 
 	command := fmt.Sprintf(registryStartCmd, dataDirPath, r.Port, r.URI)
-	logrus.Debugf("Running registry cmd: %s", command)
-	command, formattedArgs := executer.FormatCommand(command)
-	_, err = r.Executer.Execute(command, formattedArgs...)
+	logrus.Debugf("Running registry start cmd: %s", command)
+	_, err = r.Executer.Execute(executer.Command{
+		Args: strings.Fields(command),
+	})
 	if err != nil {
 		return errors.Wrapf(err, "registry start failure")
 	}
@@ -99,10 +101,10 @@ func (r *registry) StartRegistry(dataDirPath string) error {
 }
 
 func (r *registry) StopRegistry() error {
-	logrus.Debug("Stopping registry container")
-	command, formattedArgs := executer.FormatCommand(registryStopCmd)
-	logrus.Debugf("Running registry cmd: %s", command)
-	_, err := r.Executer.Execute(command, formattedArgs...)
+	logrus.Debugf("Running registry stop cmd: %s", registryStopCmd)
+	_, err := r.Executer.Execute(executer.Command{
+		Args: strings.Fields(registryStopCmd),
+	})
 	if err != nil {
 		return errors.Wrapf(err, "registry stop failure")
 

@@ -81,7 +81,10 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	logrus.Debug("Running guestfish script")
 	guestfishFileName := templates.GetFilePathByTemplate(
 		consts.GuestfishScriptTemplateFile, envConfig.TempDir)
-	if _, err := executer.NewExecuter().Execute(guestfishFileName); err != nil {
+	_, err := executer.NewExecuter().Execute(executer.Command{
+		Args: []string{guestfishFileName},
+	})
+	if err != nil {
 		return log.StopSpinner(spinner, errors.Wrapf(err, "guestfish script failure"))
 	}
 
