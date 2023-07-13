@@ -29,6 +29,7 @@ func applianceMain() {
 		NewBuildCmd(),
 		NewCleanCmd(),
 		NewGenerateConfigCmd(),
+		NewGenerateUpgradeBundleCmd(),
 
 		// Hidden commands for debug
 		NewGenerateInstallIgnitionCmd(),
