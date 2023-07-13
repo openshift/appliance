@@ -10,12 +10,10 @@ import (
 )
 
 const (
-	templateCopyToRegistry = "skopeo copy docker://%s docker://%s"
-	templateCopyToFile     = "skopeo copy docker://%s docker-archive:%s:%s"
+	templateCopyToFile = "skopeo copy docker://%s docker-archive:%s:%s"
 )
 
 type Skopeo interface {
-	CopyToRegistry(srcImage, dstImage string) error
 	CopyToFile(imageUrl, imageName, filePath string) error
 }
 
@@ -27,13 +25,6 @@ func NewSkopeo() Skopeo {
 	return &skopeo{
 		executer: executer.NewExecuter(),
 	}
-}
-
-func (s *skopeo) CopyToRegistry(srcImage, dstImage string) error {
-	cmd := fmt.Sprintf(templateCopyToRegistry, srcImage, dstImage)
-	args := strings.Split(cmd, " ")
-	_, err := s.executer.Execute(args[0], args[1:]...)
-	return err
 }
 
 func (s *skopeo) CopyToFile(imageUrl, imageName, filePath string) error {
