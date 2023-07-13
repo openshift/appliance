@@ -1,5 +1,4 @@
 FROM registry.ci.openshift.org/openshift/release:golang-1.19
-ENV GO111MODULE=on
 ENV GOFLAGS=""
 
 COPY hack/setup_env.sh ./
