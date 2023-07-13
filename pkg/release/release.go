@@ -143,10 +143,10 @@ func (r *release) extractFileFromImage(image, file, outputDir string) (string, e
 	return p, nil
 }
 
-func (r *release) execute(executer executer.Executer, pullSecret, command string) (string, error) {
+func (r *release) execute(exe executer.Executer, pullSecret, command string) (string, error) {
 	executeCommand := command
 	if pullSecret != "" {
-		ps, err := executer.TempFile(r.envConfig.TempDir, "registry-config")
+		ps, err := exe.TempFile(r.envConfig.TempDir, "registry-config")
 		if err != nil {
 			return "", err
 		}
@@ -166,9 +166,9 @@ func (r *release) execute(executer executer.Executer, pullSecret, command string
 	}
 
 	logrus.Debugf("Executing command: %s", executeCommand)
-	args := strings.Split(executeCommand, " ")
-
-	stdout, err := executer.Execute(args[0], args[1:]...)
+	stdout, err := exe.Execute(executer.Command{
+		Args: strings.Fields(executeCommand),
+	})
 	if err == nil {
 		return strings.TrimSpace(stdout), nil
 	}

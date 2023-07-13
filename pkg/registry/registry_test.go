@@ -39,11 +39,15 @@ var _ = Describe("Test Image Registry", func() {
 		dataDirPath, err := GetRegistryDataPath("/fake/path", "/data")
 		Expect(err).NotTo(HaveOccurred())
 
-		startCmd, startCmdrgs := executer.FormatCommand(fmt.Sprintf(registryStartCmd, dataDirPath, port, uri))
-		stopCmd, stopCmdrgs := executer.FormatCommand(registryStopCmd)
+		startCmd := fmt.Sprintf(registryStartCmd, dataDirPath, port, uri)
+		stopCmd := registryStopCmd
 
-		mockExecuter.EXPECT().Execute(stopCmd, stopCmdrgs).Return("", nil).Times(1)
-		mockExecuter.EXPECT().Execute(startCmd, startCmdrgs).Return("", nil).Times(1)
+		mockExecuter.EXPECT().Execute(executer.Command{
+			Args: strings.Fields(startCmd),
+		}).Return("", nil).Times(1)
+		mockExecuter.EXPECT().Execute(executer.Command{
+			Args: strings.Fields(stopCmd),
+		}).Return("", nil).Times(1)
 
 		imageRegistry := NewRegistry(
 			RegistryConfig{
@@ -61,11 +65,15 @@ var _ = Describe("Test Image Registry", func() {
 		dataDirPath, err := GetRegistryDataPath("/fake/path", "/data")
 		Expect(err).NotTo(HaveOccurred())
 
-		startCmd, startCmdrgs := executer.FormatCommand(fmt.Sprintf(registryStartCmd, dataDirPath, port, uri))
-		stopCmd, stopCmdrgs := executer.FormatCommand(registryStopCmd)
+		startCmd := fmt.Sprintf(registryStartCmd, dataDirPath, port, uri)
+		stopCmd := registryStopCmd
 
-		mockExecuter.EXPECT().Execute(stopCmd, stopCmdrgs).Return("", nil).Times(1)
-		mockExecuter.EXPECT().Execute(startCmd, startCmdrgs).Return("", errors.New("some error")).Times(1)
+		mockExecuter.EXPECT().Execute(executer.Command{
+			Args: strings.Fields(stopCmd),
+		}).Return("", nil).Times(1)
+		mockExecuter.EXPECT().Execute(executer.Command{
+			Args: strings.Fields(startCmd),
+		}).Return("", errors.New("some error")).Times(1)
 
 		imageRegistry := NewRegistry(
 			RegistryConfig{
@@ -80,9 +88,9 @@ var _ = Describe("Test Image Registry", func() {
 	})
 
 	It("Stop Registry - Success", func() {
-		stopCmd, stopCmdrgs := executer.FormatCommand(registryStopCmd)
-
-		mockExecuter.EXPECT().Execute(stopCmd, stopCmdrgs).Return("", nil).Times(1)
+		mockExecuter.EXPECT().Execute(executer.Command{
+			Args: strings.Fields(registryStopCmd),
+		}).Return("", nil).Times(1)
 
 		imageRegistry := NewRegistry(
 			RegistryConfig{
@@ -97,9 +105,9 @@ var _ = Describe("Test Image Registry", func() {
 	})
 
 	It("Stop Registry - Fail", func() {
-		stopCmd, stopCmdrgs := executer.FormatCommand(registryStopCmd)
-
-		mockExecuter.EXPECT().Execute(stopCmd, stopCmdrgs).Return("", errors.New("some error")).Times(1)
+		mockExecuter.EXPECT().Execute(executer.Command{
+			Args: strings.Fields(registryStopCmd),
+		}).Return("", errors.New("some error")).Times(1)
 
 		imageRegistry := NewRegistry(
 			RegistryConfig{

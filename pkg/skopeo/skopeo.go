@@ -32,7 +32,9 @@ func NewSkopeo() Skopeo {
 func (s *skopeo) CopyToRegistry(srcImage, dstImage string) error {
 	cmd := fmt.Sprintf(templateCopyToRegistry, srcImage, dstImage)
 	args := strings.Split(cmd, " ")
-	_, err := s.executer.Execute(args[0], args[1:]...)
+	_, err := s.executer.Execute(executer.Command{
+		Args: args,
+	})
 	return err
 }
 
@@ -43,6 +45,8 @@ func (s *skopeo) CopyToFile(imageUrl, imageName, filePath string) error {
 
 	cmd := fmt.Sprintf(templateCopyToFile, imageUrl, filePath, imageName)
 	args := strings.Split(cmd, " ")
-	_, err := s.executer.Execute(args[0], args[1:]...)
+	_, err := s.executer.Execute(executer.Command{
+		Args: args,
+	})
 	return err
 }

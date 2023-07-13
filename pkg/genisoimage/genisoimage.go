@@ -28,6 +28,8 @@ func NewGenIsoImage() GenIsoImage {
 func (s *genisoimage) GenerateImage(imagePath, imageName, dirPath string) error {
 	cmd := fmt.Sprintf(genDataImageCmd, imagePath, imageName, dirPath)
 	args := strings.Split(cmd, " ")
-	_, err := s.executer.Execute(args[0], args[1:]...)
+	_, err := s.executer.Execute(executer.Command{
+		Args: args,
+	})
 	return err
 }

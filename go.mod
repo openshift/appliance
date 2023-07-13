@@ -22,6 +22,7 @@ require (
 	github.com/spf13/cobra v1.6.0
 	github.com/thoas/go-funk v0.9.3
 	github.com/walle/targz v0.0.0-20140417120357-57fe4206da5a
+	golang.org/x/exp v0.0.0-20230711153332-06a737ee72cb
 	golang.org/x/term v0.8.0
 	k8s.io/api v0.26.1
 	k8s.io/apimachinery v0.27.2
