@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/term"
 )
@@ -72,21 +71,37 @@ func (h Filehook) Fire(entry *logrus.Entry) error {
 	return nil
 }
 
-func SetupFileHook(baseDir string) func() {
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		logrus.Fatal(errors.Wrap(err, "failed to create base directory for logs"))
+func SetupFileHook(baseDir string, logFile string) func() {
+	var err error
+	if logFile == "" {
+		logFile = filepath.Join(baseDir, ".openshift_appliance.log")
 	}
-
-	logfile, err := os.OpenFile(filepath.Join(baseDir, ".openshift_appliance.log"), os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
-	if err != nil {
-		logrus.Fatal(errors.Wrap(err, "failed to open log file"))
+	var logWriter io.WriteCloser
+	if strings.EqualFold(logFile, "stdout") {
+		logWriter = os.Stdout
+	} else {
+		logDir := filepath.Dir(logFile)
+		err = os.MkdirAll(logDir, 0755)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				logrus.ErrorKey: err,
+				"dir":           logDir,
+			}).Fatal("Failed to create directory for logs")
+		}
+		logWriter, err = os.OpenFile(logFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				logrus.ErrorKey: err,
+				"file":          logFile,
+			}).Fatal("Failed to open log file")
+		}
 	}
 
 	originalHooks := logrus.LevelHooks{}
 	for k, v := range logrus.StandardLogger().Hooks {
 		originalHooks[k] = v
 	}
-	logrus.AddHook(NewFileHook(logfile, logrus.TraceLevel, &logrus.TextFormatter{
+	logrus.AddHook(NewFileHook(logWriter, logrus.TraceLevel, &logrus.TextFormatter{
 		DisableColors:          true,
 		DisableTimestamp:       false,
 		FullTimestamp:          true,
@@ -94,7 +109,9 @@ func SetupFileHook(baseDir string) func() {
 	}))
 
 	return func() {
-		logfile.Close()
+		if logWriter != os.Stdout {
+			logWriter.Close()
+		}
 		logrus.StandardLogger().ReplaceHooks(originalHooks)
 	}
 }

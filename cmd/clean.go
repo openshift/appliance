@@ -20,7 +20,7 @@ func NewCleanCmd() *cobra.Command {
 		Short: "clean assets directory (exclude builder cache)",
 		Long:  "",
 		Run: func(_ *cobra.Command, _ []string) {
-			cleanup := log.SetupFileHook(rootOpts.dir)
+			cleanup := log.SetupFileHook(rootOpts.dir, rootOpts.logFile)
 			defer cleanup()
 
 			// Remove state file
