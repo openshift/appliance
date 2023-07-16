@@ -15,6 +15,9 @@ import (
 //go:embed scripts
 var Scripts embed.FS
 
+//go:embed data
+var Data embed.FS
+
 func RenderTemplateFile(fileName string, templateData interface{}, outputDir string) error {
 	logrus.Debugf("Rendering %s", fileName)
 

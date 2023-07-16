@@ -25,7 +25,7 @@ func GetUserCfgTemplateData(grubMenuEntryName string, grubDefault int) interface
 	}
 }
 
-func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataPartitionSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile string) interface{} {
+func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataPartitionSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile, efiDir string) interface{} {
 	sectorSize := int64(512)
 	// ext4 filesystem has a larger overhead compared to ISO
 	// (an inode table for storing metadata, etc. See: https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout#Inode_Table)
@@ -38,8 +38,8 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataPartitionSize
 	recoveryPartitionStartSector := recoveryPartitionEndSector - (recoveryPartitionSize / sectorSize)
 
 	return struct {
-		ApplianceFile, RecoveryIsoFile, DataIsoFile, CoreOSImage, RecoveryPartitionName, DataPartitionName, ReservedPartitionGUID, CfgFile string
-		DiskSize, RecoveryStartSector, RecoveryEndSector, DataStartSector, DataEndSector                                                   int64
+		ApplianceFile, RecoveryIsoFile, DataIsoFile, CoreOSImage, RecoveryPartitionName, DataPartitionName, ReservedPartitionGUID, CfgFile, EfiDir string
+		DiskSize, RecoveryStartSector, RecoveryEndSector, DataStartSector, DataEndSector                                                           int64
 	}{
 		ApplianceFile:         applianceImageFile,
 		RecoveryIsoFile:       recoveryIsoFile,
@@ -54,6 +54,7 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataPartitionSize
 		DataPartitionName:     consts.DataPartitionName,
 		ReservedPartitionGUID: consts.ReservedPartitionGUID,
 		CfgFile:               cfgFile,
+		EfiDir:                efiDir,
 	}
 }
 
