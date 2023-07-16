@@ -28,6 +28,7 @@ mkdir /sdc
 mount /dev/sdc /sdc
 cp-a /sdc/. /
 umount /dev/sdc
+rmdir /sdc
 umount /dev/sda4
 
 # Copy data ISO to data partition
@@ -46,3 +47,13 @@ part-set-gpt-type /dev/sda 5 {{.ReservedPartitionGUID}}
 mount /dev/sda3 /
 copy-in {{.CfgFile}} /grub2
 rm-f /boot/loader/entries/ostree-1-rhcos.conf
+umount /dev/sda3
+
+# Override EFI files 
+# A temporary fix till the grub2 issue is backported:
+# https://github.com/rhboot/grub2/commit/a048b2280ae6a2cf90fd5d2960823843e17e4d66
+mount /dev/sda2 /
+rm-rf /EFI
+mkdir /EFI
+copy-in {{.EfiDir}}/. /EFI/
+umount /dev/sda2

@@ -41,8 +41,8 @@ OpenShift Appliance is available for download at: https://quay.io/edge-infrastru
 * The user boots the machine and mounts the configuration ISO (cluster configuration).
 * The OpenShift installation will run until completion.
 
-:warning: note that the openshift-appliance disk image supports UEFI boot mode only.
-
+**:warning: Note that the appliance supports UEFI boot mode only.**
+**:warning: UEFI [Secure Boot](https://access.redhat.com/articles/5254641) and TPM are not supported for now.**
 
 ## Disk Image Build - Lab 
 
@@ -203,7 +203,7 @@ podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE clean
 * Find examples in:
   * [Appliance README](../README.md#examples)
   * [OpenShift Documentation](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#installation-bare-metal-agent-installer-config-yaml_preparing-to-install-with-agent-based-installer)
-  * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_ba[…]taller/preparing-to-install-with-agent-based-installer.html), currently blocked by [OCPBUGS-15637](https://issues.redhat.com/browse/OCPBUGS-15637)
+  * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#stat), currently blocked by [OCPBUGS-15637](https://issues.redhat.com/browse/OCPBUGS-15637)
 * When ready, generate the config-iso.
 
   :warning: The following command will delete the `install-config.yaml` and `agent-config.yaml` files - back them up first.

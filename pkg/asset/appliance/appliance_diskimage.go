@@ -1,6 +1,7 @@
 package appliance
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -13,6 +14,11 @@ import (
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/walle/targz"
+)
+
+const (
+	efiArchive = "data/efi/efi.tar.gz"
 )
 
 // ApplianceDiskImage is an asset that generates the OpenShift-based appliance.
@@ -67,14 +73,20 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	recoveryIsoFile := filepath.Join(envConfig.CacheDir, consts.RecoveryIsoFileName)
 	dataIsoFile := filepath.Join(envConfig.CacheDir, consts.DataIsoFileName)
 	cfgFile := templates.GetFilePathByTemplate(consts.UserCfgTemplateFile, envConfig.TempDir)
+	efiDir := filepath.Join(envConfig.TempDir, "EFI")
 	gfTemplateData := templates.GetGuestfishScriptTemplateData(
 		diskSize, recoveryPartitionSize, dataPartitionSize, baseImageFile,
-		applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile)
+		applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile, efiDir)
 	if err := templates.RenderTemplateFile(
 		consts.GuestfishScriptTemplateFile,
 		gfTemplateData,
 		envConfig.TempDir); err != nil {
 		return log.StopSpinner(spinner, err)
+	}
+
+	// Extract EFI.tar.gz
+	if err := extractEFIArchive(envConfig); err != nil {
+		return err
 	}
 
 	// Invoke guestfish.sh script
@@ -93,4 +105,16 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 // Name returns the human-friendly name of the asset.
 func (a *ApplianceDiskImage) Name() string {
 	return "Appliance disk image"
+}
+
+func extractEFIArchive(envConfig *config.EnvConfig) error {
+	content, err := templates.Data.ReadFile(efiArchive)
+	if err != nil {
+		return errors.Wrapf(err, "Failed reading EFI archive: %s", efiArchive)
+	}
+	compressedFilePath := filepath.Join(envConfig.TempDir, filepath.Base(efiArchive))
+	if err := os.WriteFile(compressedFilePath, content, os.ModePerm); err != nil {
+		return errors.Wrap(err, "failed to write file")
+	}
+	return targz.Extract(compressedFilePath, envConfig.TempDir)
 }
