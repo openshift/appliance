@@ -81,19 +81,6 @@ generate-mocks:
 unit-test:
 	$(MAKE) _unit_test TIMEOUT=30m TEST="$(or $(TEST),$(shell go list ./...))"
 
-
 _unit_test: $(REPORTS)
-	gotestsum $(GO_UNITTEST_FLAGS) $(TEST) $(GINKGO_UNITTEST_FLAGS) -timeout $(TIMEOUT) || ($(MAKE) _post_unit_test && /bin/false)
-	$(MAKE) _post_unit_test
-
-_post_unit_test: $(REPORTS)
-	@for name in `find '$(ROOT_DIR)' -name 'junit*.xml' -type f -not -path '$(REPORTS)/*'`; do \
-		mv -f $$name $(REPORTS)/junit_unit_$$(basename $$(dirname $$name)).xml; \
-	done
-	$(MAKE) _unit_test_coverage
-
-_unit_test_coverage: $(REPORTS)
-ifeq ($(CI), true)
-	gocov convert $(REPORTS)/unit_coverage.out | gocov-xml > $(REPORTS)/unit_coverage.xml
-	./hack/publish-codecov.sh
-endif
+	# TODO: Add code coverage reports
+	gotestsum $(GO_UNITTEST_FLAGS) $(TEST) $(GINKGO_UNITTEST_FLAGS) -timeout $(TIMEOUT)
