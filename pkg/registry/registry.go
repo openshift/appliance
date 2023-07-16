@@ -101,7 +101,7 @@ func (r *registry) StartRegistry(dataDirPath string) error {
 func (r *registry) StopRegistry() error {
 	logrus.Debug("Stopping registry container")
 	command, formattedArgs := executer.FormatCommand(registryStopCmd)
-	logrus.Debugf("Running registry cmd: %s", command)
+	logrus.Debugf("Running registry cmd: %s %s", command, formattedArgs)
 	_, err := r.Executer.Execute(command, formattedArgs...)
 	if err != nil {
 		return errors.Wrapf(err, "registry stop failure")
