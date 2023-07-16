@@ -2,9 +2,8 @@ package genisoimage
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/openshift/appliance/pkg/executer"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -19,15 +18,19 @@ type genisoimage struct {
 	executer executer.Executer
 }
 
-func NewGenIsoImage() GenIsoImage {
+func NewGenIsoImage(exec executer.Executer) GenIsoImage {
+	if exec == nil {
+		exec = executer.NewExecuter()
+	}
+
 	return &genisoimage{
-		executer: executer.NewExecuter(),
+		executer: exec,
 	}
 }
 
 func (s *genisoimage) GenerateImage(imagePath, imageName, dirPath string) error {
-	cmd := fmt.Sprintf(genDataImageCmd, imagePath, imageName, dirPath)
-	args := strings.Split(cmd, " ")
-	_, err := s.executer.Execute(args[0], args[1:]...)
+	command, formattedArgs := executer.FormatCommand(fmt.Sprintf(genDataImageCmd, imagePath, imageName, dirPath))
+	logrus.Debugf("Running genisoimage cmd: %s %s", command, formattedArgs)
+	_, err := s.executer.Execute(command, formattedArgs...)
 	return err
 }
