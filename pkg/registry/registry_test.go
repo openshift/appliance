@@ -47,13 +47,14 @@ var _ = Describe("Test Image Registry", func() {
 
 		imageRegistry := NewRegistry(
 			RegistryConfig{
-				URI:        uri,
-				Port:       port,
-				Executer:   mockExecuter,
-				HTTPClient: &ClientMock{},
+				URI:         uri,
+				Port:        port,
+				Executer:    mockExecuter,
+				HTTPClient:  &ClientMock{},
+				DataDirPath: dataDirPath,
 			})
 
-		err = imageRegistry.StartRegistry(dataDirPath)
+		err = imageRegistry.StartRegistry()
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -69,13 +70,14 @@ var _ = Describe("Test Image Registry", func() {
 
 		imageRegistry := NewRegistry(
 			RegistryConfig{
-				URI:        uri,
-				Port:       port,
-				Executer:   mockExecuter,
-				HTTPClient: &ClientMock{},
+				URI:         uri,
+				Port:        port,
+				Executer:    mockExecuter,
+				HTTPClient:  &ClientMock{},
+				DataDirPath: dataDirPath,
 			})
 
-		err = imageRegistry.StartRegistry(dataDirPath)
+		err = imageRegistry.StartRegistry()
 		Expect(err).To(HaveOccurred())
 	})
 

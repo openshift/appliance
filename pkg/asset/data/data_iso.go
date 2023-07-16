@@ -93,10 +93,11 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	spinner.DirToMonitor = registryDir
 	bootstrapImageRegistry := registry.NewRegistry(
 		registry.RegistryConfig{
-			URI:  swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
-			Port: swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+			DataDirPath: registryDir,
+			URI:         swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
+			Port:        swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
 		})
-	if err = bootstrapImageRegistry.StartRegistry(registryDir); err != nil {
+	if err = bootstrapImageRegistry.StartRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	if err = r.MirrorBootstrapImages(envConfig, applianceConfig); err != nil {
@@ -123,11 +124,12 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	spinner.DirToMonitor = registryDir
 	releaseImageRegistry := registry.NewRegistry(
 		registry.RegistryConfig{
-			URI:  swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
-			Port: swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+			DataDirPath: registryDir,
+			URI:         swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
+			Port:        swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
 		})
 
-	if err = releaseImageRegistry.StartRegistry(registryDir); err != nil {
+	if err = releaseImageRegistry.StartRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	if err = r.MirrorReleaseImages(envConfig, applianceConfig); err != nil {

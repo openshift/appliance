@@ -21,7 +21,7 @@ const (
 )
 
 type Registry interface {
-	StartRegistry(registryDataPath string) error
+	StartRegistry() error
 	StopRegistry() error
 }
 
@@ -30,10 +30,11 @@ type HTTPClient interface {
 }
 
 type RegistryConfig struct {
-	Executer   executer.Executer
-	HTTPClient HTTPClient
-	Port       int
-	URI        string
+	Executer    executer.Executer
+	HTTPClient  HTTPClient
+	Port        int
+	URI         string
+	DataDirPath string
 }
 
 type registry struct {
@@ -73,18 +74,18 @@ func (r *registry) verifyRegistryAvailability(registryURL string) error {
 	return errors.Errorf("image registry at %s was not available after %d attempts", registryURL, registryAttempts)
 }
 
-func (r *registry) StartRegistry(dataDirPath string) error {
+func (r *registry) StartRegistry() error {
 	var err error
 	_ = r.StopRegistry()
 
-	if err = os.RemoveAll(dataDirPath); err != nil {
+	if err = os.RemoveAll(r.DataDirPath); err != nil {
 		return err
 	}
-	if err = os.MkdirAll(dataDirPath, os.ModePerm); err != nil {
+	if err = os.MkdirAll(r.DataDirPath, os.ModePerm); err != nil {
 		return err
 	}
 
-	command := fmt.Sprintf(registryStartCmd, dataDirPath, r.Port, r.URI)
+	command := fmt.Sprintf(registryStartCmd, r.DataDirPath, r.Port, r.URI)
 	logrus.Debugf("Running registry cmd: %s", command)
 	command, formattedArgs := executer.FormatCommand(command)
 	_, err = r.Executer.Execute(command, formattedArgs...)
