@@ -149,8 +149,8 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		envConfig,
 	)
 	spinner.FileToMonitor = dataIsoName
-	imageGen := genisoimage.NewGenIsoImage()
-	if err := imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir)); err != nil {
+	imageGen := genisoimage.NewGenIsoImage(nil)
+	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir)); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	return log.StopSpinner(spinner, a.updateAsset(envConfig))
