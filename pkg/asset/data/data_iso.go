@@ -182,7 +182,7 @@ func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig, applian
 		logrus.Debug("Reusing registry.tar from cache")
 	} else {
 		// Copying registry image to cache
-		if err := skopeo.NewSkopeo().CopyToFile(
+		if err := skopeo.NewSkopeo(nil).CopyToFile(
 			swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
 			consts.RegistryImageName,
 			fileInCachePath); err != nil {

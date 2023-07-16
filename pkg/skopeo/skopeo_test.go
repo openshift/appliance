@@ -1,0 +1,50 @@
+package skopeo
+
+import (
+	"errors"
+	"fmt"
+	"github.com/openshift/appliance/pkg/consts"
+	"testing"
+
+	"github.com/golang/mock/gomock"
+	. "github.com/onsi/ginkgo/v2/dsl/core"
+	. "github.com/onsi/gomega"
+	"github.com/openshift/appliance/pkg/executer"
+)
+
+var _ = Describe("Test Skopeo", func() {
+	var (
+		ctrl         *gomock.Controller
+		mockExecuter *executer.MockExecuter
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockExecuter = executer.NewMockExecuter(ctrl)
+	})
+
+	It("skopeo CopyToFile - success", func() {
+
+		fakePath := "path/to/registry.tar"
+		copyCmd, copyCmdrgs := executer.FormatCommand(fmt.Sprintf(templateCopyToFile, consts.RegistryImage, fakePath, consts.RegistryImageName))
+		mockExecuter.EXPECT().Execute(copyCmd, copyCmdrgs).Return("", nil).Times(1)
+
+		skopeo := NewSkopeo(mockExecuter)
+		err := skopeo.CopyToFile(consts.RegistryImage, consts.RegistryImageName, fakePath)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("skopeo CopyToFile - failure", func() {
+		fakePath := "path/to/registry.tar"
+		mockExecuter.EXPECT().Execute(gomock.Any(), gomock.Any()).Return("", errors.New("some error")).Times(1)
+
+		skopeo := NewSkopeo(mockExecuter)
+		err := skopeo.CopyToFile(consts.RegistryImage, consts.RegistryImageName, fakePath)
+		Expect(err).To(HaveOccurred())
+	})
+})
+
+func TestSkopeo(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "skopeo_test")
+}

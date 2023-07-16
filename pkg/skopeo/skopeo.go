@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/openshift/appliance/pkg/executer"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -21,9 +21,13 @@ type skopeo struct {
 	executer executer.Executer
 }
 
-func NewSkopeo() Skopeo {
+func NewSkopeo(exec executer.Executer) Skopeo {
+	if exec == nil {
+		exec = executer.NewExecuter()
+	}
+
 	return &skopeo{
-		executer: executer.NewExecuter(),
+		executer: exec,
 	}
 }
 
@@ -32,8 +36,8 @@ func (s *skopeo) CopyToFile(imageUrl, imageName, filePath string) error {
 		return err
 	}
 
-	cmd := fmt.Sprintf(templateCopyToFile, imageUrl, filePath, imageName)
-	args := strings.Split(cmd, " ")
-	_, err := s.executer.Execute(args[0], args[1:]...)
+	command, formattedArgs := executer.FormatCommand(fmt.Sprintf(templateCopyToFile, imageUrl, filePath, imageName))
+	logrus.Debugf("Running skopeo cmd: %s %s", command, formattedArgs)
+	_, err := s.executer.Execute(command, formattedArgs...)
 	return err
 }
