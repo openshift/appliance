@@ -2,14 +2,12 @@ package ignition
 
 import (
 	"encoding/json"
-	"path/filepath"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
-	assetignition "github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/openshift/installer/pkg/asset/password"
 	"github.com/sirupsen/logrus"
@@ -72,9 +70,8 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	pwd := &password.KubeadminPassword{}
-	clusterImageSet := &manifests.ClusterImageSet{}
 	installIgnition := &InstallIgnition{}
-	dependencies.Get(envConfig, applianceConfig, pwd, clusterImageSet, installIgnition)
+	dependencies.Get(envConfig, applianceConfig, pwd, installIgnition)
 
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -134,11 +131,6 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		}
 	}
 	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
-
-	// Add manifests
-	manifestFile := assetignition.FileFromBytes(filepath.Join(manifestPath, clusterImageSet.File.Filename),
-		"root", 0600, clusterImageSet.File.Data)
-	i.Config.Storage.Files = append(i.Config.Storage.Files, manifestFile)
 
 	logrus.Debug("Successfully generated bootstrap ignition")
 
