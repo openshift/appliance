@@ -90,6 +90,8 @@ func initBlockedBootstrapImagesInfo() map[string]bool {
 		"coredns":                                  true,
 		"installer":                                true,
 		"cluster-kube-controller-manager-operator": true,
+		"cluster-version-operator":                 true,
+		"cluster-node-tuning-operator":             true,
 	}
 }
 
