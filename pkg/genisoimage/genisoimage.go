@@ -2,8 +2,8 @@ package genisoimage
 
 import (
 	"fmt"
+
 	"github.com/openshift/appliance/pkg/executer"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -30,7 +30,6 @@ func NewGenIsoImage(exec executer.Executer) GenIsoImage {
 
 func (s *genisoimage) GenerateImage(imagePath, imageName, dirPath string) error {
 	command, formattedArgs := executer.FormatCommand(fmt.Sprintf(genDataImageCmd, imagePath, imageName, dirPath))
-	logrus.Debugf("Running genisoimage cmd: %s %s", command, formattedArgs)
 	_, err := s.executer.Execute(command, formattedArgs...)
 	return err
 }

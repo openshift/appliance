@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 //go:generate mockgen -source=executer.go -package=executer -destination=mock_executer.go
@@ -24,6 +25,7 @@ func NewExecuter() Executer {
 
 func (e *executer) Execute(command string, args ...string) (string, error) {
 	var stdoutBytes, stderrBytes bytes.Buffer
+	logrus.Debugf("Running cmd: %s %s", command, strings.Join(args[:], " "))
 	cmd := exec.Command(command, args...)
 	cmd.Stdout = &stdoutBytes
 	cmd.Stderr = &stderrBytes
