@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/openshift/appliance/pkg/executer"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -37,7 +36,6 @@ func (s *skopeo) CopyToFile(imageUrl, imageName, filePath string) error {
 	}
 
 	command, formattedArgs := executer.FormatCommand(fmt.Sprintf(templateCopyToFile, imageUrl, filePath, imageName))
-	logrus.Debugf("Running skopeo cmd: %s %s", command, formattedArgs)
 	_, err := s.executer.Execute(command, formattedArgs...)
 	return err
 }
