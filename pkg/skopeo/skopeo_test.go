@@ -16,11 +16,13 @@ var _ = Describe("Test Skopeo", func() {
 	var (
 		ctrl         *gomock.Controller
 		mockExecuter *executer.MockExecuter
+		testSkopeo   Skopeo
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockExecuter = executer.NewMockExecuter(ctrl)
+		testSkopeo = NewSkopeo(mockExecuter)
 	})
 
 	It("skopeo CopyToFile - success", func() {
@@ -29,8 +31,7 @@ var _ = Describe("Test Skopeo", func() {
 		copyCmd, copyCmdrgs := executer.FormatCommand(fmt.Sprintf(templateCopyToFile, consts.RegistryImage, fakePath, consts.RegistryImageName))
 		mockExecuter.EXPECT().Execute(copyCmd, copyCmdrgs).Return("", nil).Times(1)
 
-		skopeo := NewSkopeo(mockExecuter)
-		err := skopeo.CopyToFile(consts.RegistryImage, consts.RegistryImageName, fakePath)
+		err := testSkopeo.CopyToFile(consts.RegistryImage, consts.RegistryImageName, fakePath)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -38,8 +39,7 @@ var _ = Describe("Test Skopeo", func() {
 		fakePath := "path/to/registry.tar"
 		mockExecuter.EXPECT().Execute(gomock.Any(), gomock.Any()).Return("", errors.New("some error")).Times(1)
 
-		skopeo := NewSkopeo(mockExecuter)
-		err := skopeo.CopyToFile(consts.RegistryImage, consts.RegistryImageName, fakePath)
+		err := testSkopeo.CopyToFile(consts.RegistryImage, consts.RegistryImageName, fakePath)
 		Expect(err).To(HaveOccurred())
 	})
 })
