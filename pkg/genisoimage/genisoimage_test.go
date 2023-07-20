@@ -13,16 +13,18 @@ import (
 
 var _ = Describe("Test GenIsoImage", func() {
 	var (
-		ctrl          *gomock.Controller
-		mockExecuter  *executer.MockExecuter
-		fakeCachePath = "/path/to/cache"
-		fakeDataPath  = "/path/to/data"
-		fakeImageName = "testdata.iso"
+		ctrl            *gomock.Controller
+		mockExecuter    *executer.MockExecuter
+		testGenIsoImage GenIsoImage
+		fakeCachePath   = "/path/to/cache"
+		fakeDataPath    = "/path/to/data"
+		fakeImageName   = "testdata.iso"
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockExecuter = executer.NewMockExecuter(ctrl)
+		testGenIsoImage = NewGenIsoImage(mockExecuter)
 	})
 
 	It("genisoimage GenerateImage - success", func() {
@@ -34,16 +36,14 @@ var _ = Describe("Test GenIsoImage", func() {
 		copyCmd, copyCmdrgs := executer.FormatCommand(fmt.Sprintf(genDataImageCmd, fakeCachePath, fakeImageName, fakeDataPath))
 		mockExecuter.EXPECT().Execute(copyCmd, copyCmdrgs).Return("", nil).Times(1)
 
-		skopeo := NewGenIsoImage(mockExecuter)
-		err := skopeo.GenerateImage(fakeCachePath, fakeImageName, fakeDataPath)
+		err := testGenIsoImage.GenerateImage(fakeCachePath, fakeImageName, fakeDataPath)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("genisoimage GenerateImage - failure", func() {
 		mockExecuter.EXPECT().Execute(gomock.Any(), gomock.Any()).Return("", errors.New("some error")).Times(1)
 
-		skopeo := NewGenIsoImage(mockExecuter)
-		err := skopeo.GenerateImage(fakeCachePath, fakeImageName, fakeDataPath)
+		err := testGenIsoImage.GenerateImage(fakeCachePath, fakeImageName, fakeDataPath)
 		Expect(err).To(HaveOccurred())
 	})
 })
