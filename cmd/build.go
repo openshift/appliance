@@ -16,7 +16,7 @@ import (
 func NewBuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "build",
-		Short:  "build an OpenShift-based appliance disk image",
+		Short:  "Build an OpenShift-based appliance disk image",
 		PreRun: preRunBuild,
 		Run:    runBuild,
 	}

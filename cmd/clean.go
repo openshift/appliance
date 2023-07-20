@@ -17,7 +17,7 @@ import (
 func NewCleanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clean",
-		Short: "clean assets directory (exclude builder cache)",
+		Short: "Clean assets directory (exclude builder cache)",
 		Long:  "",
 		Run: func(_ *cobra.Command, _ []string) {
 			cleanup := log.SetupFileHook(rootOpts.dir)
