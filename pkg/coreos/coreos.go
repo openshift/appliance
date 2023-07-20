@@ -3,10 +3,6 @@ package coreos
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/cavaliergopher/grab/v3"
 	"github.com/itchyny/gojq"
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -14,6 +10,8 @@ import (
 	"github.com/openshift/appliance/pkg/release"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"os"
+	"path/filepath"
 )
 
 const (
@@ -27,24 +25,41 @@ const (
 )
 
 type CoreOS interface {
-	DownloadDiskImage(releaseImage, pullSecret string) (string, error)
-	DownloadISO(releaseImage, cpuArch, pullSecret string) (string, error)
+	DownloadDiskImage() (string, error)
+	DownloadISO() (string, error)
 	EmbedIgnition(ignition []byte, isoPath string) error
-	FetchCoreOSStream(releaseImage, pullSecret string) (map[string]any, error)
+	FetchCoreOSStream() (map[string]any, error)
+}
+
+type CoreOSConfig struct {
+	Executer     executer.Executer
+	EnvConfig    *config.EnvConfig
+	Release      release.Release
+	ReleaseImage string
+	CpuArch      string
+	PullSecret   string
 }
 
 type coreos struct {
-	EnvConfig *config.EnvConfig
+	CoreOSConfig
 }
 
-func NewCoreOS(envConfig *config.EnvConfig) CoreOS {
+func NewCoreOS(config CoreOSConfig) CoreOS {
+	if config.Executer == nil {
+		config.Executer = executer.NewExecuter()
+	}
+	if config.Release == nil {
+		config.Release = release.NewRelease(
+			config.ReleaseImage, config.PullSecret, config.EnvConfig)
+	}
+
 	return &coreos{
-		EnvConfig: envConfig,
+		CoreOSConfig: config,
 	}
 }
 
-func (c *coreos) DownloadDiskImage(releaseImage, pullSecret string) (string, error) {
-	coreosStream, err := c.FetchCoreOSStream(releaseImage, pullSecret)
+func (c *coreos) DownloadDiskImage() (string, error) {
+	coreosStream, err := c.FetchCoreOSStream()
 	if err != nil {
 		return "", err
 	}
@@ -68,10 +83,9 @@ func (c *coreos) DownloadDiskImage(releaseImage, pullSecret string) (string, err
 	return compressed, nil
 }
 
-func (c *coreos) DownloadISO(releaseImage, cpuArch, pullSecret string) (string, error) {
-	r := release.NewRelease(releaseImage, pullSecret, c.EnvConfig)
-	fileName := fmt.Sprintf(coreOsFileName, cpuArch)
-	return r.ExtractFile(machineOsImageName, fileName)
+func (c *coreos) DownloadISO() (string, error) {
+	fileName := fmt.Sprintf(coreOsFileName, c.CpuArch)
+	return c.Release.ExtractFile(machineOsImageName, fileName)
 }
 
 func (c *coreos) EmbedIgnition(ignition []byte, isoPath string) error {
@@ -93,14 +107,13 @@ func (c *coreos) EmbedIgnition(ignition []byte, isoPath string) error {
 
 	// Invoke embed ignition command
 	embedCmd := fmt.Sprintf(templateEmbedIgnition, ignitionFile.Name(), isoPath)
-	args := strings.Split(embedCmd, " ")
-	_, err = executer.NewExecuter().Execute(args[0], args[1:]...)
+	command, formattedArgs := executer.FormatCommand(embedCmd)
+	_, err = c.Executer.Execute(command, formattedArgs...)
 	return err
 }
 
-func (c *coreos) FetchCoreOSStream(releaseImage, pullSecret string) (map[string]any, error) {
-	r := release.NewRelease(releaseImage, pullSecret, c.EnvConfig)
-	path, err := r.ExtractFile(machineOsImageName, coreOsStream)
+func (c *coreos) FetchCoreOSStream() (map[string]any, error) {
+	path, err := c.Release.ExtractFile(machineOsImageName, coreOsStream)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +124,7 @@ func (c *coreos) FetchCoreOSStream(releaseImage, pullSecret string) (map[string]
 	}
 
 	var m map[string]any
-	if err := json.Unmarshal(file, &m); err != nil {
+	if err = json.Unmarshal(file, &m); err != nil {
 		return nil, errors.Wrap(err, "failed to parse CoreOS stream metadata")
 	}
 
