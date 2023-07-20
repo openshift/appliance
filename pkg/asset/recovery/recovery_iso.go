@@ -68,13 +68,14 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	}
 
 	// Embed ignition in ISO
-	c := coreos.NewCoreOS(envConfig)
+	coreOSConfig := coreos.CoreOSConfig{EnvConfig: envConfig}
+	c := coreos.NewCoreOS(coreOSConfig)
 	ignitionBytes, err := json.Marshal(recoveryIgnition.Config)
 	if err != nil {
 		logrus.Errorf("Failed to marshal recovery ignition to json: %s", err.Error())
 		return log.StopSpinner(spinner, err)
 	}
-	if err := c.EmbedIgnition(ignitionBytes, recoveryIsoPath); err != nil {
+	if err = c.EmbedIgnition(ignitionBytes, recoveryIsoPath); err != nil {
 		logrus.Errorf("Failed to embed ignition in recovery ISO: %s", err.Error())
 		return log.StopSpinner(spinner, err)
 	}

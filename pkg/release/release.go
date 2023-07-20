@@ -37,6 +37,8 @@ const (
 )
 
 // Release is the interface to use the oc command to the get image info
+//
+//go:generate mockgen -source=release.go -package=release -destination=mock_release.go
 type Release interface {
 	ExtractFile(image, filename string) (string, error)
 	MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error

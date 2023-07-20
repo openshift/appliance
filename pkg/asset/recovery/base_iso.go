@@ -57,11 +57,15 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 		envConfig,
 	)
 	spinner.FileToMonitor = filePattern
-	c := coreos.NewCoreOS(envConfig)
-	fileName, err := c.DownloadISO(
-		swag.StringValue(applianceConfig.Config.OcpRelease.URL),
-		applianceConfig.GetCpuArchitecture(),
-		applianceConfig.Config.PullSecret)
+
+	coreOSConfig := coreos.CoreOSConfig{
+		EnvConfig:    envConfig,
+		ReleaseImage: swag.StringValue(applianceConfig.Config.OcpRelease.URL),
+		CpuArch:      applianceConfig.GetCpuArchitecture(),
+		PullSecret:   applianceConfig.Config.PullSecret,
+	}
+	c := coreos.NewCoreOS(coreOSConfig)
+	fileName, err := c.DownloadISO()
 	if err != nil {
 		return log.StopSpinner(spinner, err)
 	}
