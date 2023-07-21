@@ -66,8 +66,8 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 
 	// Render guestfish.sh
 	diskSize := int64(applianceConfig.Config.DiskSizeGB)
-	recoveryPartitionSize := recoveryISO.Size
-	dataPartitionSize := dataISO.Size
+	recoveryIsoSize := recoveryISO.Size
+	dataIsoSize := dataISO.Size
 	baseImageFile := baseDiskImage.File.Filename
 	applianceImageFile := filepath.Join(envConfig.AssetsDir, consts.ApplianceFileName)
 	recoveryIsoFile := filepath.Join(envConfig.CacheDir, consts.RecoveryIsoFileName)
@@ -75,7 +75,7 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	cfgFile := templates.GetFilePathByTemplate(consts.UserCfgTemplateFile, envConfig.TempDir)
 	efiDir := filepath.Join(envConfig.TempDir, "EFI")
 	gfTemplateData := templates.GetGuestfishScriptTemplateData(
-		diskSize, recoveryPartitionSize, dataPartitionSize, baseImageFile,
+		diskSize, recoveryIsoSize, dataIsoSize, baseImageFile,
 		applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile, efiDir)
 	if err := templates.RenderTemplateFile(
 		consts.GuestfishScriptTemplateFile,
