@@ -179,7 +179,7 @@ podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE clean
 * Baremetal servers: use a tool like `dd` to clone the disk image.
   * E.g.
     ```shell
-    dd if=appliance.raw of=/dev/sdX bs=4096
+    dd if=appliance.raw of=/dev/sdX bs=1M status=progress
     ```
     This will copy the appliance disk image to sdX. To initiate the cluster installation, boot the machine from the sdX device.
 * Virtual Machines: configure the disk to use `/path/to/appliance.raw`
