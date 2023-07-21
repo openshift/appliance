@@ -10,7 +10,6 @@ import (
 	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/types"
-	"github.com/openshift/assisted-service/pkg/conversions"
 )
 
 func GetUserCfgTemplateData(grubMenuEntryName string, grubDefault int) interface{} {
@@ -25,17 +24,8 @@ func GetUserCfgTemplateData(grubMenuEntryName string, grubDefault int) interface
 	}
 }
 
-func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataPartitionSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile, efiDir string) interface{} {
-	sectorSize := int64(512)
-	// ext4 filesystem has a larger overhead compared to ISO
-	// (an inode table for storing metadata, etc. See: https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout#Inode_Table)
-	ext4FsOverheadPercentage := 1.1
-
-	dataPartitionEndSector := (diskSize*conversions.GibToBytes(1) - conversions.MibToBytes(1)) / sectorSize
-	dataPartitionStartSector := dataPartitionEndSector - (dataPartitionSize / sectorSize)
-	recoveryPartitionSize := int64(float64(recoveryIsoSize) * ext4FsOverheadPercentage)
-	recoveryPartitionEndSector := dataPartitionStartSector - 1
-	recoveryPartitionStartSector := recoveryPartitionEndSector - (recoveryPartitionSize / sectorSize)
+func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataIsoSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile, efiDir string) interface{} {
+	partitionsInfo := NewPartitions(diskSize, recoveryIsoSize, dataIsoSize)
 
 	return struct {
 		ApplianceFile, RecoveryIsoFile, DataIsoFile, CoreOSImage, RecoveryPartitionName, DataPartitionName, ReservedPartitionGUID, CfgFile, EfiDir string
@@ -46,10 +36,10 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataPartitionSize
 		DataIsoFile:           dataIsoFile,
 		DiskSize:              diskSize,
 		CoreOSImage:           baseImageFile,
-		RecoveryStartSector:   recoveryPartitionStartSector,
-		RecoveryEndSector:     recoveryPartitionEndSector,
-		DataStartSector:       dataPartitionStartSector,
-		DataEndSector:         dataPartitionEndSector,
+		RecoveryStartSector:   partitionsInfo.RecoveryStartSector,
+		RecoveryEndSector:     partitionsInfo.RecoveryEndSector,
+		DataStartSector:       partitionsInfo.DataStartSector,
+		DataEndSector:         partitionsInfo.DataEndSector,
 		RecoveryPartitionName: consts.RecoveryPartitionName,
 		DataPartitionName:     consts.DataPartitionName,
 		ReservedPartitionGUID: consts.ReservedPartitionGUID,
