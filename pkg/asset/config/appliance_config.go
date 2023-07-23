@@ -175,9 +175,13 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	}
 	config.OcpRelease.CpuArchitecture = swag.String(cpuArch)
 
-	g := graph.NewGraph()
-	releaseArch := GetReleaseArchitectureByCPU(cpuArch)
-	releaseImage, releaseVersion, err := g.GetReleaseImage(config.OcpRelease.Version, config.OcpRelease.Channel, releaseArch)
+	graphConfig := graph.GraphConfig{
+		Arch:    GetReleaseArchitectureByCPU(cpuArch),
+		Version: config.OcpRelease.Version,
+		Channel: config.OcpRelease.Channel,
+	}
+	g := graph.NewGraph(graphConfig)
+	releaseImage, releaseVersion, err := g.GetReleaseImage()
 	if err != nil {
 		return false, err
 	}
