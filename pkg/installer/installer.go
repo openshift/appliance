@@ -3,7 +3,6 @@ package installer
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/cavaliergopher/grab/v3"
 	"github.com/hashicorp/go-version"
@@ -23,23 +22,31 @@ const (
 )
 
 type Installer interface {
-	CreateUnconfiguredIgnition(releaseImage, pullSecret string) (string, error)
+	CreateUnconfiguredIgnition() (string, error)
 	GetInstallerDownloadURL() (string, error)
 }
 
-type installer struct {
+type InstallerConfig struct {
+	Executer        executer.Executer
 	EnvConfig       *config.EnvConfig
 	ApplianceConfig *config.ApplianceConfig
 }
 
-func NewInstaller(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) Installer {
+type installer struct {
+	InstallerConfig
+}
+
+func NewInstaller(config InstallerConfig) Installer {
+	if config.Executer == nil {
+		config.Executer = executer.NewExecuter()
+	}
+
 	return &installer{
-		EnvConfig:       envConfig,
-		ApplianceConfig: applianceConfig,
+		InstallerConfig: config,
 	}
 }
 
-func (i *installer) CreateUnconfiguredIgnition(releaseImage, pullSecret string) (string, error) {
+func (i *installer) CreateUnconfiguredIgnition() (string, error) {
 	var openshiftInstallFilePath string
 	var err error
 
@@ -66,8 +73,8 @@ func (i *installer) CreateUnconfiguredIgnition(releaseImage, pullSecret string) 
 	}
 
 	createCmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, openshiftInstallFilePath, i.EnvConfig.TempDir)
-	args := strings.Split(createCmd, " ")
-	_, err = executer.NewExecuter().Execute(args[0], args[1:]...)
+	command, formattedArgs := executer.FormatCommand(createCmd)
+	_, err = i.Executer.Execute(command, formattedArgs...)
 	return filepath.Join(i.EnvConfig.TempDir, unconfiguredIgnitionFileName), err
 }
 

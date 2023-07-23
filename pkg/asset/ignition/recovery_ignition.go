@@ -5,7 +5,6 @@ import (
 
 	configv32 "github.com/coreos/ignition/v2/config/v3_2"
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
-	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/installer"
@@ -49,11 +48,12 @@ func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
-	inst := installer.NewInstaller(envConfig, applianceConfig)
-	unconfiguredIgnitionFileName, err := inst.CreateUnconfiguredIgnition(
-		swag.StringValue(applianceConfig.Config.OcpRelease.URL),
-		applianceConfig.Config.PullSecret,
-	)
+	installerConfig := installer.InstallerConfig{
+		EnvConfig:       envConfig,
+		ApplianceConfig: applianceConfig,
+	}
+	inst := installer.NewInstaller(installerConfig)
+	unconfiguredIgnitionFileName, err := inst.CreateUnconfiguredIgnition()
 	if err != nil {
 		return errors.Wrapf(err, "failed to create un-configured ignition")
 	}

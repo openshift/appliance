@@ -25,7 +25,11 @@ func (a *InstallerBinary) Generate(dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
 
-	inst := installer.NewInstaller(envConfig, applianceConfig)
+	installerConfig := installer.InstallerConfig{
+		EnvConfig:       envConfig,
+		ApplianceConfig: applianceConfig,
+	}
+	inst := installer.NewInstaller(installerConfig)
 	installerDownloadURL, err := inst.GetInstallerDownloadURL()
 	if err != nil {
 		return errors.Wrapf(err, "Failed to generate installer download URL")
