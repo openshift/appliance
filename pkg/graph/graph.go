@@ -9,11 +9,10 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/blang/semver"
-	"github.com/hashicorp/go-retryablehttp"
-
-	"github.com/openshift/appliance/pkg/executer"
+	"github.com/go-openapi/swag"
 )
 
 // Response is what Cincinnati sends us when querying for releases in a channel
@@ -47,21 +46,6 @@ const (
 	ReleaseChannelEUS       ReleaseChannel = "eus"
 )
 
-// Graph is the interface for fetching info from api.openshift.com/api/upgrades_info/graph
-type Graph interface {
-	GetReleaseImage(version string, channel *string, arch string) (string, string, error)
-}
-
-type graph struct {
-	executer executer.Executer
-}
-
-func NewGraph() Graph {
-	return &graph{
-		executer: executer.NewExecuter(),
-	}
-}
-
 const (
 	cincinnatiAddress = "https://api.openshift.com/api/upgrades_info/graph"
 )
@@ -70,22 +54,54 @@ var (
 	majorMinorRegExp = regexp.MustCompile(`^(?P<majorMinor>(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*))\.?.*`)
 )
 
-func (g *graph) GetReleaseImage(version string, channel *string, arch string) (string, string, error) {
-	var releaseChannel ReleaseChannel
-	if channel == nil {
-		releaseChannel = ReleaseChannelStable
-	} else {
-		releaseChannel = ReleaseChannel(*channel)
+// Graph is the interface for fetching info from api.openshift.com/api/upgrades_info/graph
+type Graph interface {
+	GetReleaseImage() (string, string, error)
+}
+
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+type GraphConfig struct {
+	HTTPClient        HTTPClient
+	Arch              string
+	Version           string
+	CincinnatiAddress *string
+	Channel           *string
+}
+
+type graph struct {
+	GraphConfig
+}
+
+func NewGraph(config GraphConfig) Graph {
+	if config.HTTPClient == nil {
+		config.HTTPClient = &http.Client{
+			Timeout: 5 * time.Second,
+		}
 	}
 
-	release := OcpRelease{
-		Version:      version,
-		Channel:      releaseChannel,
-		Architecture: arch,
+	if config.CincinnatiAddress == nil {
+		config.CincinnatiAddress = swag.String(cincinnatiAddress)
 	}
-	client := retryablehttp.NewClient()
-	client.Logger = nil
-	payload, version, err := g.resolvePullSpec(client.StandardClient(), cincinnatiAddress, release)
+
+	if config.Channel == nil {
+		config.Channel = swag.String(string(ReleaseChannelStable))
+	}
+	return &graph{
+		GraphConfig: config,
+	}
+}
+
+func (g *graph) GetReleaseImage() (string, string, error) {
+	release := OcpRelease{
+		Version:      g.Version,
+		Channel:      ReleaseChannel(*g.Channel),
+		Architecture: g.Arch,
+	}
+
+	payload, version, err := g.resolvePullSpec(*g.CincinnatiAddress, release)
 	if err != nil {
 		return "", "", err
 	}
@@ -95,7 +111,7 @@ func (g *graph) GetReleaseImage(version string, channel *string, arch string) (s
 
 // Copied from ci-tools (https://github.com/openshift/ci-tools/blob/master/pkg/release/official/client.go)
 
-func (g *graph) resolvePullSpec(client *http.Client, endpoint string, release OcpRelease) (string, string, error) {
+func (g *graph) resolvePullSpec(endpoint string, release OcpRelease) (string, string, error) {
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return "", "", err
@@ -113,7 +129,7 @@ func (g *graph) resolvePullSpec(client *http.Client, endpoint string, release Oc
 	query.Add("channel", channel)
 	query.Add("arch", release.Architecture)
 	req.URL.RawQuery = query.Encode()
-	resp, err := client.Do(req)
+	resp, err := g.HTTPClient.Do(req)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to request %s: %w", targetName, err)
 	}
