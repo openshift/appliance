@@ -147,7 +147,7 @@ To debug/test changes made in the `InstallIgnition` asset, follow the steps desc
 * RecoveryISO - the base ISO with an embedded recovery ignition
 
 ### Appliance Assets (pkg/asset/appliance/)
-* BaseDiskImage - a CoreOS qcow2 disk image used as a base for the appliance disk image
+* BaseDiskImage - a CoreOS raw disk image used as a base for the appliance disk image
 * ApplianceDiskImage - the output disk image of the builder
 
 ### Ignition Assets (pkg/asset/ignition/)

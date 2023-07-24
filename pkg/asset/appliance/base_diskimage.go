@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/coreos"
 	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/log"
@@ -15,10 +16,6 @@ import (
 type BaseDiskImage struct {
 	File *asset.File
 }
-
-const (
-	coreosImageName = "rhcos-*%s.qcow2"
-)
 
 var _ asset.Asset = (*BaseDiskImage)(nil)
 
@@ -37,7 +34,7 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	dependencies.Get(envConfig, applianceConfig)
 
 	// Search for disk image in cache dir
-	filePattern := fmt.Sprintf(coreosImageName, applianceConfig.GetCpuArchitecture())
+	filePattern := fmt.Sprintf(consts.CoreosImagePattern, applianceConfig.GetCpuArchitecture())
 	if fileName := envConfig.FindInCache(filePattern); fileName != "" {
 		logrus.Info("Reusing appliance base disk image from cache")
 		a.File = &asset.File{Filename: fileName}

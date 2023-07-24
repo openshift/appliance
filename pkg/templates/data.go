@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/types"
+	"github.com/sirupsen/logrus"
 )
 
 func GetUserCfgTemplateData(grubMenuEntryName string, grubDefault int) interface{} {
@@ -24,27 +25,27 @@ func GetUserCfgTemplateData(grubMenuEntryName string, grubDefault int) interface
 	}
 }
 
-func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataIsoSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile, efiDir string) interface{} {
-	partitionsInfo := NewPartitions(diskSize, recoveryIsoSize, dataIsoSize)
+func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataIsoSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile string) interface{} {
+	partitionsInfo := NewPartitions().GetAgentPartitions(diskSize, recoveryIsoSize, dataIsoSize)
 
 	return struct {
-		ApplianceFile, RecoveryIsoFile, DataIsoFile, CoreOSImage, RecoveryPartitionName, DataPartitionName, ReservedPartitionGUID, CfgFile, EfiDir string
-		DiskSize, RecoveryStartSector, RecoveryEndSector, DataStartSector, DataEndSector                                                           int64
+		ApplianceFile, RecoveryIsoFile, DataIsoFile, CoreOSImage, RecoveryPartitionName, DataPartitionName, ReservedPartitionGUID, CfgFile string
+		DiskSize, RecoveryStartSector, RecoveryEndSector, DataStartSector, DataEndSector, RootEndSector                                    int64
 	}{
 		ApplianceFile:         applianceImageFile,
 		RecoveryIsoFile:       recoveryIsoFile,
 		DataIsoFile:           dataIsoFile,
 		DiskSize:              diskSize,
 		CoreOSImage:           baseImageFile,
-		RecoveryStartSector:   partitionsInfo.RecoveryStartSector,
-		RecoveryEndSector:     partitionsInfo.RecoveryEndSector,
-		DataStartSector:       partitionsInfo.DataStartSector,
-		DataEndSector:         partitionsInfo.DataEndSector,
+		RecoveryStartSector:   partitionsInfo.RecoveryPartition.StartSector,
+		RecoveryEndSector:     partitionsInfo.RecoveryPartition.EndSector,
+		DataStartSector:       partitionsInfo.DataPartition.StartSector,
+		DataEndSector:         partitionsInfo.DataPartition.EndSector,
+		RootEndSector:         partitionsInfo.RecoveryPartition.StartSector - 1,
 		RecoveryPartitionName: consts.RecoveryPartitionName,
 		DataPartitionName:     consts.DataPartitionName,
 		ReservedPartitionGUID: consts.ReservedPartitionGUID,
 		CfgFile:               cfgFile,
-		EfiDir:                efiDir,
 	}
 }
 
@@ -68,7 +69,7 @@ func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedIma
 	}
 }
 
-func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig string) interface{} {
+func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig, coreosImagePath string) interface{} {
 	releaseImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
@@ -89,12 +90,20 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 	}
 	osImages, _ := json.Marshal(osImageArr)
 
+	// Fetch base image partitions
+	partitions, err := NewPartitions().GetCoreOSPartitions(coreosImagePath)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
 	return struct {
 		IsBootstrapStep       bool
 		InstallIgnitionConfig string
 
 		ReleaseImages, ReleaseImage, OsImages                             string
 		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
+
+		Partition0, Partition1, Partition2, Partition3 Partition
 	}{
 		IsBootstrapStep:       true,
 		InstallIgnitionConfig: installIgnitionConfig,
@@ -109,6 +118,12 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 		RegistryDomain:   registry.RegistryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
+
+		// CoreOS Partitions
+		Partition0: partitions[0],
+		Partition1: partitions[1],
+		Partition2: partitions[2],
+		Partition3: partitions[3],
 	}
 }
 

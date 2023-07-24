@@ -13,6 +13,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/itchyny/gojq v0.12.12
 	github.com/onsi/ginkgo/v2 v2.9.1
+	github.com/openshift/assisted-image-service v0.0.0-20220506122314-2f689a1084b8
 	github.com/openshift/assisted-service v0.0.0-20220928142635-a40422bdea61
 	github.com/openshift/assisted-service/api v0.0.0
 	github.com/openshift/hive/apis v0.0.0-20220222213051-def9088fdb5a
@@ -29,11 +30,22 @@ require (
 )
 
 require (
+	cloud.google.com/go v0.105.0 // indirect
+	cloud.google.com/go/iam v0.8.0 // indirect
+	cloud.google.com/go/storage v1.27.0 // indirect
+	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e // indirect
+	github.com/diskfs/go-diskfs v1.2.1-0.20210727185522-a769efacd235 // indirect
 	github.com/go-openapi/strfmt v0.21.2 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
 	github.com/openshift/assisted-service/models v0.0.0 // indirect
+	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
+	github.com/pin/tftp v2.1.0+incompatible // indirect
+	github.com/pkg/xattr v0.4.1 // indirect
+	github.com/ulikunitz/xz v0.5.10 // indirect
 	golang.org/x/tools v0.7.0 // indirect
+	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
+	gopkg.in/djherbis/times.v1 v1.2.0 // indirect
 	gorm.io/gorm v1.23.8 // indirect
 )
 

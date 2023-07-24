@@ -9,9 +9,6 @@ run
 # Copy CoreOS to appliance diskimage
 copy-device-to-device /dev/sdb /dev/sda
 
-# Delete root (partition is redundant as we boot from recovery)
-part-del /dev/sda 4
-
 # Move backup GPT data structures to the end of the disk
 part-expand-gpt /dev/sda
 
@@ -21,39 +18,28 @@ part-add /dev/sda p {{.RecoveryStartSector}} {{.RecoveryEndSector}}
 # Create data partition
 part-add /dev/sda p {{.DataStartSector}} {{.DataEndSector}}
 
-# Copy recovery ISO content to recovery partition
-mkfs ext4 /dev/sda4
-mount /dev/sda4 /
-mkdir /sdc
-mount /dev/sdc /sdc
-cp-a /sdc/. /
-umount /dev/sdc
-rmdir /sdc
-umount /dev/sda4
+# Copy recovery ISO to data partition
+copy-device-to-device /dev/sdc /dev/sda5
 
 # Copy data ISO to data partition
-copy-device-to-device /dev/sdd /dev/sda5
+copy-device-to-device /dev/sdd /dev/sda6
 
 # Set partition/filesystem labels
-set-label /dev/sda4 {{.RecoveryPartitionName}}
-part-set-name /dev/sda 4 {{.RecoveryPartitionName}}
-part-set-name /dev/sda 5 {{.DataPartitionName}}
+part-set-name /dev/sda 5 {{.RecoveryPartitionName}}
+part-set-name /dev/sda 6 {{.DataPartitionName}}
 
 # Set partition as Linux reserved partition
-part-set-gpt-type /dev/sda 4 {{.ReservedPartitionGUID}}
 part-set-gpt-type /dev/sda 5 {{.ReservedPartitionGUID}}
+part-set-gpt-type /dev/sda 6 {{.ReservedPartitionGUID}}
+
+# Resize the root partition (needed for coreos-installer)
+part-resize /dev/sda 4 {{.RootEndSector}}
+
+# Format root partition (content is redundant as we boot from recovery)
+mkfs xfs /dev/sda4
 
 # Handle GRUB
 mount /dev/sda3 /
 copy-in {{.CfgFile}} /grub2
 rm-f /boot/loader/entries/ostree-1-rhcos.conf
 umount /dev/sda3
-
-# Override EFI files 
-# A temporary fix till the grub2 issue is backported:
-# https://github.com/rhboot/grub2/commit/a048b2280ae6a2cf90fd5d2960823843e17e4d66
-mount /dev/sda2 /
-rm-rf /EFI
-mkdir /EFI
-copy-in {{.EfiDir}}/. /EFI/
-umount /dev/sda2

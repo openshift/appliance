@@ -41,9 +41,6 @@ OpenShift Appliance is available for download at: https://quay.io/edge-infrastru
 * The user boots the machine and mounts the configuration ISO (cluster configuration).
 * The OpenShift installation will run until completion.
 
-**:warning: Note that the appliance supports UEFI boot mode only.**
-**:warning: UEFI [Secure Boot](https://access.redhat.com/articles/5254641) and TPM are not supported for now.**
-
 ## Disk Image Build - Lab 
 
 ### Set Environment

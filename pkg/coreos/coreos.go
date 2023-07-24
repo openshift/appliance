@@ -19,7 +19,7 @@ const (
 	machineOsImageName      = "machine-os-images"
 	coreOsFileName          = "coreos/coreos-%s.iso"
 	coreOsStream            = "coreos/coreos-stream.json"
-	coreOsDiskImageUrlQuery = ".architectures.x86_64.artifacts.qemu.formats[\"qcow2.gz\"].disk.location"
+	coreOsDiskImageUrlQuery = ".architectures.x86_64.artifacts.metal.formats[\"raw.gz\"].disk.location"
 
 	CoreOsDiskImageGz = "coreos.tar.gz"
 )
@@ -74,9 +74,9 @@ func (c *coreos) DownloadDiskImage() (string, error) {
 		return "", err
 	}
 
-	qcowGzUrl := v.(string)
+	rawGzUrl := v.(string)
 	compressed := filepath.Join(c.EnvConfig.TempDir, CoreOsDiskImageGz)
-	_, err = grab.Get(compressed, qcowGzUrl)
+	_, err = grab.Get(compressed, rawGzUrl)
 	if err != nil {
 		return "", err
 	}
