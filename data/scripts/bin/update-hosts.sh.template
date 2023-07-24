@@ -3,9 +3,7 @@ set -e
 
 BASE_URL="${SERVICE_BASE_URL}api/assisted-install/v2"
 
-required_master_nodes=$(grep -m 1 required_master_nodes '/usr/local/bin/start-cluster-installation.sh' | awk -F"=" '{ print $2 }')
-required_worker_nodes=$(grep -m 1 required_worker_nodes '/usr/local/bin/start-cluster-installation.sh' | awk -F"=" '{ print $2 }')
-total_required_nodes=$(( required_master_nodes+required_worker_nodes ))
+total_required_nodes=$(( REQUIRED_MASTER_NODES + REQUIRED_WORKER_NODES ))
 
 declare host_ids
 while [[ "${num_of_hosts}" != "${total_required_nodes}" ]]

@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	assetignition "github.com/openshift/installer/pkg/asset/ignition"
+	ignasset "github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
@@ -31,7 +32,7 @@ var (
 	}
 
 	installScripts = []string{
-		"start-local-registry.sh",
+		"setup-local-registry.sh",
 	}
 )
 
@@ -103,6 +104,11 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	registriesFile := assetignition.FileFromBytes(registriesConfFilePath,
 		"root", 0600, registryConf.File.Data)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registriesFile)
+
+	// Add registry.env file
+	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall))
+	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add grub menu item
 	if err := i.addRecoveryGrubMenuItem(envConfig.TempDir); err != nil {

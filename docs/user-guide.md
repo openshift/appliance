@@ -112,7 +112,6 @@ imageRegistry:
   port: port
 ```
 * Modify it based on your needs. Note that:
-  * The preferred version is 4.12.z until `openshift-install` bug [OCPBUGS-14900](https://issues.redhat.com/browse/OCPBUGS-14900 ) gets resolved.
   * `diskSizeGB`: Must be set according to the actual server disk size. If you have several server specs, you need an appliance image per each spec.
   * `ocpRelease.channel`: OCP release [update channel](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/updating_clusters/understanding-upgrade-channels-releases#understanding-upgrade-channels_understanding-upgrade-channels-releases) (stable|fast|eus|candidate)
   * `pullSecret`: May be obtained from https://console.redhat.com/openshift/install/pull-secret (requires registration).
@@ -186,7 +185,7 @@ podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE clean
 ### Download `openshift-install`
 * So far, the generated image has been completely generic. To install the cluster, the installer will need cluster-specific configuration.
 * The `openshift-install` version mentioned above does not include the config-image API. This API is available starting from version `4.14`.
-* Download a custom build of openshift-install binary (for linux/x86_64) from https://drive.google.com/file/d/1BwtEnmUmCPtQoOXhMjfn0qseT7rITzjh/view?usp=drive_link
+* Download a custom build of openshift-install binary (for linux/x86_64) from https://drive.google.com/file/d/1DVPWEAq0G5I7TAdmpVJ2vxdK-WcaINMi/view?usp=drive_link
 
 ### Generate a Cluster Configuration Image
 * Create a configuration directory
@@ -200,7 +199,7 @@ podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE clean
 * Find examples in:
   * [Appliance README](../README.md#examples)
   * [OpenShift Documentation](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#installation-bare-metal-agent-installer-config-yaml_preparing-to-install-with-agent-based-installer)
-  * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#stat), currently blocked by [OCPBUGS-15637](https://issues.redhat.com/browse/OCPBUGS-15637)
+  * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#stat)
 * When ready, generate the config-iso.
 
   :warning: The following command will delete the `install-config.yaml` and `agent-config.yaml` files - back them up first.

@@ -34,6 +34,11 @@ const (
 	RegistryFilePath  = "registry/registry.tar"
 	RegistryPort      = 5005
 
+	// Local registry env file
+	RegistryEnvPath       = "/etc/assisted/registry.env"
+	RegistryDataBootstrap = "/tmp/registry"
+	RegistryDataInstall   = "/mnt/agentdata/oc-mirror/install"
+
 	// AI images
 	// TODO: remove when official images are updates
 	AssistedInstallerAgentImage = "quay.io/edge-infrastructure/assisted-installer-agent:latest"

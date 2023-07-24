@@ -29,21 +29,6 @@ echo "0.0.0.0 {{.RegistryDomain}}" >> /etc/hosts
 
 if [ {{.IsBootstrapStep}} = true ]; then
   # Copy registry data to RAM
-  registry_data=/tmp/registry
-  cp -r {{.RegistryDataPath}} $registry_data
+  cp -r {{.RegistryDataPath}} /tmp/registry
   umount /mnt/agentdata
-else
-  # Use registry data from source
-  registry_data={{.RegistryDataPath}}
 fi
-
-# Run local registry image
-podman rm registry --force
-podman run --net=host --privileged -d --name registry \
-    -p 5000:5000 -p 5443:5000 \
-    -v $registry_data:/var/lib/registry --restart=always \
-    -v /tmp/certs:/certs \
-    -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 \
-    -e REGISTRY_HTTP_TLS_CERTIFICATE=certs/domain.crt \
-    -e REGISTRY_HTTP_TLS_KEY=certs/domain.key \
-    {{.RegistryImage}}
