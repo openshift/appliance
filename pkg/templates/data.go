@@ -143,6 +143,12 @@ func GetInstallIgnitionTemplateData(registryDataPath string) interface{} {
 	}
 }
 
+func GetRegistryEnv(registryData string) string {
+	return fmt.Sprintf(`REGISTRY_IMAGE=%s
+REGISTRY_DATA=%s
+`, consts.RegistryImage, registryData)
+}
+
 // Returns version in major.minor format
 func toMajorMinor(openshiftVersion string) string {
 	v, _ := version.NewVersion(openshiftVersion)

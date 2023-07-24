@@ -5,6 +5,9 @@ import (
 	"fmt"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
+	ignasset "github.com/openshift/installer/pkg/asset/ignition"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/consts"
@@ -13,13 +16,13 @@ import (
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/openshift/installer/pkg/asset/password"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (
 	bootstrapRegistryDataPath = "/mnt/agentdata/oc-mirror/bootstrap"
 	registriesConfFilePath    = "/etc/containers/registries.conf"
 	manifestPath              = "/etc/assisted/manifests"
+	corePassOverrideFilePath  = "/etc/assisted/appliance-override-password-set"
 )
 
 var (
@@ -32,7 +35,7 @@ var (
 	}
 
 	bootstrapScripts = []string{
-		"start-local-registry.sh",
+		"setup-local-registry.sh",
 		"set-env-files.sh",
 		"pre-install.sh",
 		"release-image-download.sh",
@@ -133,9 +136,24 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		}
 		pwdHash := string(passBytes)
 		passwdUser.PasswordHash = &pwdHash
+
+		// Add 'appliance-override-password-set' file
+		// (needed as an indication that the appliance override the core pass)
+		registryEnvFile := ignasset.FileFromString(
+			corePassOverrideFilePath, "root", 0644, "")
+		i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 	}
+
+	// Add registry.env file
+	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataBootstrap))
+	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
+
 	// Add public ssh key
 	if applianceConfig.Config.SshKey != nil {
+		passwdUser := igntypes.PasswdUser{
+			Name: "core",
+		}
 		passwdUser.SSHAuthorizedKeys = []igntypes.SSHAuthorizedKey{
 			igntypes.SSHAuthorizedKey(*applianceConfig.Config.SshKey),
 		}
