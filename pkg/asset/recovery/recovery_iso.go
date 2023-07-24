@@ -10,10 +10,14 @@ import (
 	"github.com/openshift/appliance/pkg/asset/ignition"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/coreos"
-	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/log"
+	"github.com/openshift/assisted-image-service/pkg/isoeditor"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	recoveryIsoDirName = "recovery_iso"
 )
 
 // RecoveryISO is an asset that generates the bootable ISO copied
@@ -46,6 +50,7 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	coreosIsoFileName := fmt.Sprintf(coreosIsoName, applianceConfig.GetCpuArchitecture())
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
 	recoveryIsoPath := filepath.Join(envConfig.CacheDir, consts.RecoveryIsoFileName)
+	recoveryIsoDirPath := filepath.Join(envConfig.TempDir, recoveryIsoDirName)
 
 	var spinner *log.Spinner
 
@@ -60,10 +65,20 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 			"Failed to generate recovery CoreOS ISO",
 			envConfig,
 		)
+		spinner.FileToMonitor = consts.RecoveryIsoFileName
 
-		// Copy base ISO file
-		if err := fileutil.CopyFile(coreosIsoPath, recoveryIsoPath); err != nil {
-			return log.StopSpinner(spinner, err)
+		// Extracting the base ISO and generating the recovery ISO with a different volume label ('agentboot').
+		if err := os.MkdirAll(recoveryIsoDirPath, os.ModePerm); err != nil {
+			logrus.Errorf("Failed to create dir: %s", recoveryIsoDirPath)
+			return err
+		}
+		if err := isoeditor.Extract(coreosIsoPath, recoveryIsoDirPath); err != nil {
+			logrus.Errorf("Failed to extract ISO: %s", err.Error())
+			return err
+		}
+		if err := isoeditor.Create(recoveryIsoPath, recoveryIsoDirPath, consts.RecoveryPartitionName); err != nil {
+			logrus.Errorf("Failed to create ISO: %s", err.Error())
+			return err
 		}
 	}
 

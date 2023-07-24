@@ -16,6 +16,7 @@ const (
 	ApplianceFileName           = "appliance.raw"
 	RecoveryIsoFileName         = "recovery.iso"
 	DataIsoFileName             = "data.iso"
+	CoreosImagePattern          = "rhcos-*%s.raw"
 
 	// ImageSetTemplateFile imageset.yaml.template
 	ImageSetTemplateFile = "scripts/mirror/imageset.yaml.template"

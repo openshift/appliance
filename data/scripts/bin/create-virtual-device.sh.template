@@ -1,0 +1,14 @@
+# Create a sparse-raw file for the boot sector
+dd if=/dev/zero of=/tmp/boot.raw bs=1M seek=1 count=0
+
+# Configure a loop device for boot.raw
+losetup /dev/loop2 /tmp/boot.raw
+
+# Create a virtual device for passing to coreos-installer
+dmsetup create agent <<.
+0 2048 linear /dev/loop2 0
+{{.Partition0.StartSector}} {{.Partition0.Size}} linear /dev/disk/by-partlabel/BIOS-BOOT  0
+{{.Partition1.StartSector}} {{.Partition1.Size}} linear /dev/disk/by-partlabel/EFI-SYSTEM  0
+{{.Partition2.StartSector}} {{.Partition2.Size}} linear /dev/disk/by-partlabel/boot  0
+{{.Partition3.StartSector}} {{.Partition3.Size}} linear /dev/disk/by-partlabel/root  0
+.

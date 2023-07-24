@@ -2,10 +2,12 @@ package ignition
 
 import (
 	"encoding/json"
+	"fmt"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
@@ -36,6 +38,7 @@ var (
 		"release-image-download.sh",
 		"release-image.sh",
 		"update-hosts.sh",
+		"create-virtual-device.sh",
 
 		// TODO: remove (needed for using custom agent image)
 		"get-container-images.sh",
@@ -100,9 +103,16 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
+	// Get base image path
+	coreosImagePattern := fmt.Sprintf(consts.CoreosImagePattern, applianceConfig.GetCpuArchitecture())
+	coreosImagePath := envConfig.FindInCache(coreosImagePattern)
+
 	// Add bootstrap scripts to ignition
 	templateData := templates.GetBootstrapIgnitionTemplateData(
-		applianceConfig.Config.OcpRelease, bootstrapRegistryDataPath, string(installIgnitionConfig))
+		applianceConfig.Config.OcpRelease,
+		bootstrapRegistryDataPath,
+		string(installIgnitionConfig),
+		coreosImagePath)
 	for _, script := range bootstrapScripts {
 		if err := bootstrap.AddStorageFiles(&i.Config,
 			"/usr/local/bin/"+script,

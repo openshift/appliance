@@ -7,3 +7,6 @@ printf '\\e{yellow}Preparing to start installation\\e{reset}' | set_issue "${iss
 
 # Set assisted-service.env/images.env files
 /usr/local/bin/set-env-files.sh
+
+# Create a virtual device for coreos-installer
+/usr/local/bin/create-virtual-device.sh
