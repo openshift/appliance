@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	config "github.com/openshift/appliance/pkg/asset/config"
 )
 
 // MockRelease is a mock of Release interface.
@@ -65,29 +64,29 @@ func (mr *MockReleaseMockRecorder) GetImageFromRelease(imageName interface{}) *g
 }
 
 // MirrorBootstrapImages mocks base method.
-func (m *MockRelease) MirrorBootstrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
+func (m *MockRelease) MirrorBootstrapImages() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MirrorBootstrapImages", envConfig, applianceConfig)
+	ret := m.ctrl.Call(m, "MirrorBootstrapImages")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // MirrorBootstrapImages indicates an expected call of MirrorBootstrapImages.
-func (mr *MockReleaseMockRecorder) MirrorBootstrapImages(envConfig, applianceConfig interface{}) *gomock.Call {
+func (mr *MockReleaseMockRecorder) MirrorBootstrapImages() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MirrorBootstrapImages", reflect.TypeOf((*MockRelease)(nil).MirrorBootstrapImages), envConfig, applianceConfig)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MirrorBootstrapImages", reflect.TypeOf((*MockRelease)(nil).MirrorBootstrapImages))
 }
 
 // MirrorReleaseImages mocks base method.
-func (m *MockRelease) MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
+func (m *MockRelease) MirrorReleaseImages() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MirrorReleaseImages", envConfig, applianceConfig)
+	ret := m.ctrl.Call(m, "MirrorReleaseImages")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // MirrorReleaseImages indicates an expected call of MirrorReleaseImages.
-func (mr *MockReleaseMockRecorder) MirrorReleaseImages(envConfig, applianceConfig interface{}) *gomock.Call {
+func (mr *MockReleaseMockRecorder) MirrorReleaseImages() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MirrorReleaseImages", reflect.TypeOf((*MockRelease)(nil).MirrorReleaseImages), envConfig, applianceConfig)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MirrorReleaseImages", reflect.TypeOf((*MockRelease)(nil).MirrorReleaseImages))
 }

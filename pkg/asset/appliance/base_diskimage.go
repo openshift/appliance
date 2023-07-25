@@ -3,7 +3,6 @@ package appliance
 import (
 	"fmt"
 
-	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/coreos"
 	"github.com/openshift/appliance/pkg/fileutil"
@@ -54,9 +53,8 @@ func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	)
 	spinner.FileToMonitor = coreos.CoreOsDiskImageGz
 	coreOSConfig := coreos.CoreOSConfig{
-		EnvConfig:    envConfig,
-		ReleaseImage: swag.StringValue(applianceConfig.Config.OcpRelease.URL),
-		PullSecret:   applianceConfig.Config.PullSecret,
+		ApplianceConfig: applianceConfig,
+		EnvConfig:       envConfig,
 	}
 
 	c := coreos.NewCoreOS(coreOSConfig)

@@ -32,12 +32,10 @@ type CoreOS interface {
 }
 
 type CoreOSConfig struct {
-	Executer     executer.Executer
-	EnvConfig    *config.EnvConfig
-	Release      release.Release
-	ReleaseImage string
-	CpuArch      string
-	PullSecret   string
+	Executer        executer.Executer
+	EnvConfig       *config.EnvConfig
+	Release         release.Release
+	ApplianceConfig *config.ApplianceConfig
 }
 
 type coreos struct {
@@ -49,8 +47,11 @@ func NewCoreOS(config CoreOSConfig) CoreOS {
 		config.Executer = executer.NewExecuter()
 	}
 	if config.Release == nil {
-		config.Release = release.NewRelease(
-			config.ReleaseImage, config.PullSecret, config.EnvConfig)
+		releaseConfig := release.ReleaseConfig{
+			ApplianceConfig: config.ApplianceConfig,
+			EnvConfig:       config.EnvConfig,
+		}
+		config.Release = release.NewRelease(releaseConfig)
 	}
 
 	return &coreos{
@@ -84,7 +85,7 @@ func (c *coreos) DownloadDiskImage() (string, error) {
 }
 
 func (c *coreos) DownloadISO() (string, error) {
-	fileName := fmt.Sprintf(coreOsFileName, c.CpuArch)
+	fileName := fmt.Sprintf(coreOsFileName, c.ApplianceConfig.GetCpuArchitecture())
 	return c.Release.ExtractFile(machineOsImageName, fileName)
 }
 

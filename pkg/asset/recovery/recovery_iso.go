@@ -68,7 +68,10 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	}
 
 	// Embed ignition in ISO
-	coreOSConfig := coreos.CoreOSConfig{EnvConfig: envConfig}
+	coreOSConfig := coreos.CoreOSConfig{
+		ApplianceConfig: applianceConfig,
+		EnvConfig:       envConfig,
+	}
 	c := coreos.NewCoreOS(coreOSConfig)
 	ignitionBytes, err := json.Marshal(recoveryIgnition.Config)
 	if err != nil {

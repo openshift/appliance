@@ -3,6 +3,8 @@ package coreos
 import (
 	"errors"
 	"fmt"
+	"github.com/go-openapi/swag"
+	"github.com/openshift/appliance/pkg/types"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -26,11 +28,17 @@ var _ = Describe("Test CoreOS", func() {
 		mockExecuter = executer.NewMockExecuter(ctrl)
 		mockRelease = release.NewMockRelease(ctrl)
 		coreOSConfig := CoreOSConfig{
-			Release:    mockRelease,
-			Executer:   mockExecuter,
-			EnvConfig:  &config.EnvConfig{},
-			CpuArch:    config.CpuArchitectureX86,
-			PullSecret: "'{\"auths\":{\"\":{\"auth\":\"dXNlcjpwYXNz\"}}}'",
+			ApplianceConfig: &config.ApplianceConfig{
+				Config: &types.ApplianceConfig{
+					PullSecret: "'{\"auths\":{\"\":{\"auth\":\"dXNlcjpwYXNz\"}}}'",
+					OcpRelease: types.ReleaseImage{
+						CpuArchitecture: swag.String(config.CpuArchitectureX86),
+					},
+				},
+			},
+			Release:   mockRelease,
+			Executer:  mockExecuter,
+			EnvConfig: &config.EnvConfig{},
 		}
 		testCoreOs = NewCoreOS(coreOSConfig)
 	})

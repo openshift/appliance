@@ -3,7 +3,6 @@ package recovery
 import (
 	"fmt"
 
-	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/coreos"
 	"github.com/openshift/appliance/pkg/log"
@@ -59,10 +58,8 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	spinner.FileToMonitor = filePattern
 
 	coreOSConfig := coreos.CoreOSConfig{
-		EnvConfig:    envConfig,
-		ReleaseImage: swag.StringValue(applianceConfig.Config.OcpRelease.URL),
-		CpuArch:      applianceConfig.GetCpuArchitecture(),
-		PullSecret:   applianceConfig.Config.PullSecret,
+		ApplianceConfig: applianceConfig,
+		EnvConfig:       envConfig,
 	}
 	c := coreos.NewCoreOS(coreOSConfig)
 	fileName, err := c.DownloadISO()
