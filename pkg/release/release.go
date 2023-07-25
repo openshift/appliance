@@ -41,27 +41,31 @@ const (
 //go:generate mockgen -source=release.go -package=release -destination=mock_release.go
 type Release interface {
 	ExtractFile(image, filename string) (string, error)
-	MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
-	MirrorBootstrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
+	MirrorReleaseImages() error
+	MirrorBootstrapImages() error
 	GetImageFromRelease(imageName string) (string, error)
 }
 
+type ReleaseConfig struct {
+	Executer        executer.Executer
+	EnvConfig       *config.EnvConfig
+	ApplianceConfig *config.ApplianceConfig
+}
+
 type release struct {
-	executer                  executer.Executer
-	envConfig                 *config.EnvConfig
-	releaseImage              string
-	pullSecret                string
+	ReleaseConfig
 	blockedBootstrapImages    map[string]bool
 	additionalBootstrapImages map[string]bool
 }
 
 // NewRelease is used to set up the executor to run oc commands
-func NewRelease(releaseImage, pullSecret string, envConfig *config.EnvConfig) Release {
+func NewRelease(config ReleaseConfig) Release {
+	if config.Executer == nil {
+		config.Executer = executer.NewExecuter()
+	}
+
 	return &release{
-		executer:                  executer.NewExecuter(),
-		envConfig:                 envConfig,
-		releaseImage:              releaseImage,
-		pullSecret:                pullSecret,
+		ReleaseConfig:             config,
 		blockedBootstrapImages:    initBlockedBootstrapImagesInfo(),
 		additionalBootstrapImages: initAdditionalImagesInfo(),
 	}
@@ -110,7 +114,7 @@ func (r *release) ExtractFile(image string, filename string) (string, error) {
 		return "", err
 	}
 
-	path, err := r.extractFileFromImage(imagePullSpec, filename, r.envConfig.CacheDir)
+	path, err := r.extractFileFromImage(imagePullSpec, filename, r.EnvConfig.CacheDir)
 	if err != nil {
 		return "", err
 	}
@@ -118,10 +122,10 @@ func (r *release) ExtractFile(image string, filename string) (string, error) {
 }
 
 func (r *release) GetImageFromRelease(imageName string) (string, error) {
-	cmd := fmt.Sprintf(templateGetImage, imageName, true, r.releaseImage)
+	cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
 
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
-	image, err := r.execute(r.executer, r.pullSecret, cmd)
+	image, err := r.execute(r.Executer, r.ApplianceConfig.Config.PullSecret, cmd)
 	if err != nil {
 		return "", err
 	}
@@ -133,7 +137,7 @@ func (r *release) extractFileFromImage(image, file, outputDir string) (string, e
 	cmd := fmt.Sprintf(templateImageExtract, file, outputDir, image)
 
 	logrus.Debugf("extracting %s to %s, %s", file, outputDir, cmd)
-	_, err := retry.Do(OcDefaultTries, OcDefaultRetryDelay, r.execute, r.executer, r.pullSecret, cmd)
+	_, err := retry.Do(OcDefaultTries, OcDefaultRetryDelay, r.execute, r.Executer, r.ApplianceConfig.Config.PullSecret, cmd)
 	if err != nil {
 		return "", err
 	}
@@ -150,7 +154,7 @@ func (r *release) extractFileFromImage(image, file, outputDir string) (string, e
 func (r *release) execute(executer executer.Executer, pullSecret, command string) (string, error) {
 	executeCommand := command
 	if pullSecret != "" {
-		ps, err := executer.TempFile(r.envConfig.TempDir, "registry-config")
+		ps, err := executer.TempFile(r.EnvConfig.TempDir, "registry-config")
 		if err != nil {
 			return "", err
 		}
@@ -196,40 +200,39 @@ func (r *release) setDockerConfig() error {
 		return err
 	}
 
-	if err = os.WriteFile(configPath, []byte(r.pullSecret), os.ModePerm); err != nil {
+	if err = os.WriteFile(configPath, []byte(r.ApplianceConfig.Config.PullSecret), os.ModePerm); err != nil {
 		return errors.Wrap(err, "failed to write file")
 	}
 	return nil
 }
 
-func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig,
-	templateFile string, blockedImages string, additionalImages string) error {
+func (r *release) mirrorImages(templateFile string, blockedImages string, additionalImages string) error {
 	if err := templates.RenderTemplateFile(
 		templateFile,
-		templates.GetImageSetTemplateData(applianceConfig, blockedImages, additionalImages),
-		envConfig.TempDir); err != nil {
+		templates.GetImageSetTemplateData(r.ApplianceConfig, blockedImages, additionalImages),
+		r.EnvConfig.TempDir); err != nil {
 		return err
 	}
 
-	absPath, err := filepath.Abs(templates.GetFilePathByTemplate(templateFile, envConfig.TempDir))
+	absPath, err := filepath.Abs(templates.GetFilePathByTemplate(templateFile, r.EnvConfig.TempDir))
 	if err != nil {
 		return err
 	}
 
-	tempDir, err := os.MkdirTemp(envConfig.TempDir, "oc-mirror")
+	tempDir, err := os.MkdirTemp(r.EnvConfig.TempDir, "oc-mirror")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(tempDir)
 
-	cmd := fmt.Sprintf(ocMirrorAndUpload, absPath, swag.IntValue(applianceConfig.Config.ImageRegistry.Port), tempDir)
+	cmd := fmt.Sprintf(ocMirrorAndUpload, absPath, swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port), tempDir)
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 
 	if err = r.setDockerConfig(); err != nil {
 		return err
 	}
 
-	result, err := r.execute(r.executer, "", cmd)
+	result, err := r.execute(r.Executer, "", cmd)
 	logrus.Debugf("mirroring result: %s", result)
 	if err != nil {
 		return err
@@ -237,8 +240,9 @@ func (r *release) mirrorImages(envConfig *config.EnvConfig, applianceConfig *con
 
 	return err
 }
-func (r *release) MirrorReleaseImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
-	return r.mirrorImages(envConfig, applianceConfig, consts.ImageSetTemplateFile, "", "")
+
+func (r *release) MirrorReleaseImages() error {
+	return r.mirrorImages(consts.ImageSetTemplateFile, "", "")
 }
 
 func (r *release) shouldBlockImage(imageName string) bool {
@@ -257,17 +261,17 @@ func (r *release) getImageInfo(v any) (string, string) {
 	return imageName, rawImageInfo[1]
 }
 
-func (r *release) generateBlockedImagesList(applianceConfig *config.ApplianceConfig) (string, error) {
+func (r *release) generateBlockedImagesList() (string, error) {
 	var releaseInfo map[string]any
 	var result strings.Builder
 
 	cmd := fmt.Sprintf(
 		ocAdmReleaseInfo,
-		applianceConfig.Config.OcpRelease.Version,
-		swag.StringValue(applianceConfig.Config.OcpRelease.CpuArchitecture),
+		r.ApplianceConfig.Config.OcpRelease.Version,
+		swag.StringValue(r.ApplianceConfig.Config.OcpRelease.CpuArchitecture),
 	)
 
-	out, err := r.execute(r.executer, r.pullSecret, cmd)
+	out, err := r.execute(r.Executer, r.ApplianceConfig.Config.PullSecret, cmd)
 	if err != nil {
 		return "", err
 	}
@@ -322,15 +326,13 @@ func (r *release) imagesListWithCustomImages() map[string]bool {
 	return additionalImages
 }
 
-func (r *release) MirrorBootstrapImages(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
-	blockedImages, err := r.generateBlockedImagesList(applianceConfig)
+func (r *release) MirrorBootstrapImages() error {
+	blockedImages, err := r.generateBlockedImagesList()
 	if err != nil {
 		return err
 	}
 
 	return r.mirrorImages(
-		envConfig,
-		applianceConfig,
 		consts.ImageSetTemplateFile,
 		blockedImages,
 		r.generateAdditionalImagesList(r.imagesListWithCustomImages()),

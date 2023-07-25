@@ -55,7 +55,11 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return a.updateAsset(envConfig)
 	}
 
-	r := release.NewRelease(*applianceConfig.Config.OcpRelease.URL, applianceConfig.Config.PullSecret, envConfig)
+	releaseConfig := release.ReleaseConfig{
+		ApplianceConfig: applianceConfig,
+		EnvConfig:       envConfig,
+	}
+	r := release.NewRelease(releaseConfig)
 
 	dataDirPath := filepath.Join(envConfig.TempDir, dataDir)
 	if err := os.MkdirAll(dataDirPath, os.ModePerm); err != nil {
@@ -100,7 +104,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	if err = bootstrapImageRegistry.StartRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err = r.MirrorBootstrapImages(envConfig, applianceConfig); err != nil {
+	if err = r.MirrorBootstrapImages(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	if err = log.StopSpinner(spinner, nil); err != nil {
@@ -132,7 +136,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	if err = releaseImageRegistry.StartRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err = r.MirrorReleaseImages(envConfig, applianceConfig); err != nil {
+	if err = r.MirrorReleaseImages(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	if err = releaseImageRegistry.StopRegistry(); err != nil {
