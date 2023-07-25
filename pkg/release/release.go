@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
+	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -50,6 +51,7 @@ type ReleaseConfig struct {
 	Executer        executer.Executer
 	EnvConfig       *config.EnvConfig
 	ApplianceConfig *config.ApplianceConfig
+	OSInterface     fileutil.OSInterface
 }
 
 type release struct {
@@ -62,6 +64,9 @@ type release struct {
 func NewRelease(config ReleaseConfig) Release {
 	if config.Executer == nil {
 		config.Executer = executer.NewExecuter()
+	}
+	if config.OSInterface == nil {
+		config.OSInterface = &fileutil.OSFS{}
 	}
 
 	return &release{
@@ -125,7 +130,7 @@ func (r *release) GetImageFromRelease(imageName string) (string, error) {
 	cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
 
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
-	image, err := r.execute(r.Executer, r.ApplianceConfig.Config.PullSecret, cmd)
+	image, err := r.execute(r.ApplianceConfig.Config.PullSecret, cmd)
 	if err != nil {
 		return "", err
 	}
@@ -137,13 +142,13 @@ func (r *release) extractFileFromImage(image, file, outputDir string) (string, e
 	cmd := fmt.Sprintf(templateImageExtract, file, outputDir, image)
 
 	logrus.Debugf("extracting %s to %s, %s", file, outputDir, cmd)
-	_, err := retry.Do(OcDefaultTries, OcDefaultRetryDelay, r.execute, r.Executer, r.ApplianceConfig.Config.PullSecret, cmd)
+	_, err := retry.Do(OcDefaultTries, OcDefaultRetryDelay, r.execute, r.ApplianceConfig.Config.PullSecret, cmd)
 	if err != nil {
 		return "", err
 	}
 	// Make sure file exists after extraction
 	p := filepath.Join(outputDir, path.Base(file))
-	if _, err = os.Stat(p); err != nil {
+	if _, err = r.OSInterface.Stat(p); err != nil {
 		logrus.Debugf("File %s was not found, err %s", file, err.Error())
 		return "", err
 	}
@@ -151,19 +156,19 @@ func (r *release) extractFileFromImage(image, file, outputDir string) (string, e
 	return p, nil
 }
 
-func (r *release) execute(executer executer.Executer, pullSecret, command string) (string, error) {
+func (r *release) execute(pullSecret, command string) (string, error) {
 	executeCommand := command
 	if pullSecret != "" {
-		ps, err := executer.TempFile(r.EnvConfig.TempDir, "registry-config")
+		ps, err := r.Executer.TempFile(r.EnvConfig.TempDir, "registry-config")
 		if err != nil {
 			return "", err
 		}
 		logrus.Debugf("Created a temporary file: %s", ps.Name())
 		defer func() {
 			ps.Close()
-			os.Remove(ps.Name())
+			_ = r.OSInterface.Remove(ps.Name())
 		}()
-		_, err = ps.Write([]byte(pullSecret))
+		_, err = ps.Write([]byte(r.ApplianceConfig.Config.PullSecret))
 		if err != nil {
 			logrus.Errorf("Failed to write pull-secret data into %s: %s", ps.Name(), err.Error())
 			return "", err
@@ -173,7 +178,8 @@ func (r *release) execute(executer executer.Executer, pullSecret, command string
 		executeCommand = command[:] + " --registry-config=" + ps.Name()
 	}
 
-	stdout, err := executer.Execute(executeCommand)
+	stdout, err := r.Executer.Execute(executeCommand)
+
 	if err == nil {
 		return strings.TrimSpace(stdout), nil
 	}
@@ -182,22 +188,22 @@ func (r *release) execute(executer executer.Executer, pullSecret, command string
 }
 
 func (r *release) setDockerConfig() error {
-	homeDir, err := os.UserHomeDir()
+	homeDir, err := r.OSInterface.UserHomeDir()
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get home directory")
 	}
 
 	configPath := filepath.Join(homeDir, ".docker", "config.json")
-	if _, err := os.Stat(configPath); err == nil {
+	if _, err = r.OSInterface.Stat(configPath); err == nil {
 		logrus.Debugf("Using pull secret from: %s", configPath)
 		return nil
 	}
 
-	if err = os.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
+	if err = r.OSInterface.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
 		return err
 	}
 
-	if err = os.WriteFile(configPath, []byte(r.ApplianceConfig.Config.PullSecret), os.ModePerm); err != nil {
+	if err = r.OSInterface.WriteFile(configPath, []byte(r.ApplianceConfig.Config.PullSecret), os.ModePerm); err != nil {
 		return errors.Wrap(err, "failed to write file")
 	}
 	return nil
@@ -216,11 +222,13 @@ func (r *release) mirrorImages(templateFile string, blockedImages string, additi
 		return err
 	}
 
-	tempDir, err := os.MkdirTemp(r.EnvConfig.TempDir, "oc-mirror")
+	tempDir, err := r.OSInterface.MkdirTemp(r.EnvConfig.TempDir, "oc-mirror")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = r.OSInterface.RemoveAll(tempDir)
+	}()
 
 	cmd := fmt.Sprintf(ocMirrorAndUpload, absPath, swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port), tempDir)
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
@@ -229,7 +237,7 @@ func (r *release) mirrorImages(templateFile string, blockedImages string, additi
 		return err
 	}
 
-	result, err := r.execute(r.Executer, "", cmd)
+	result, err := r.execute("", cmd)
 	logrus.Debugf("mirroring result: %s", result)
 	if err != nil {
 		return err
@@ -268,7 +276,7 @@ func (r *release) generateBlockedImagesList() (string, error) {
 		swag.StringValue(r.ApplianceConfig.Config.OcpRelease.CpuArchitecture),
 	)
 
-	out, err := r.execute(r.Executer, r.ApplianceConfig.Config.PullSecret, cmd)
+	out, err := r.execute(r.ApplianceConfig.Config.PullSecret, cmd)
 	if err != nil {
 		return "", err
 	}
