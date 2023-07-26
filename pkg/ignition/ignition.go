@@ -3,9 +3,7 @@ package ignitionutil
 import (
 	"encoding/json"
 
-	ignitionConfigPrevVersion "github.com/coreos/ignition/v2/config/v3_1"
 	ignitionConfig "github.com/coreos/ignition/v2/config/v3_2"
-	"github.com/coreos/ignition/v2/config/v3_2/translate"
 	"github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/coreos/ignition/v2/config/validate"
 	"github.com/openshift/appliance/pkg/fileutil"
@@ -42,25 +40,8 @@ func (i *ignition) ParseIgnitionFile(path string) (*types.Config, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "error reading file %s", path)
 	}
-	config, err := i.parseToLatest(configBytes)
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
-}
-
-// ParseIgnitionFile reads an ignition config from a given path on disk
-func (i *ignition) parseToLatest(content []byte) (*types.Config, error) {
-	configLatest, _, err := ignitionConfig.Parse(content)
-	if err != nil {
-		configvPrev, _, err1 := ignitionConfigPrevVersion.Parse(content)
-		if err != nil {
-			return nil, errors.Wrap(err1, "error parsing ignition")
-		}
-		configLatest = translate.Translate(configvPrev)
-	}
-
-	return &configLatest, nil
+	configLatest, _, err := ignitionConfig.Parse(configBytes)
+	return &configLatest, err
 }
 
 // WriteIgnitionFile writes an ignition config to a given path on disk

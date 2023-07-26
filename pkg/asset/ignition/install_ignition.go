@@ -156,7 +156,7 @@ func (i *InstallIgnition) PersistToFile(directory string) error {
 	}
 
 	configPath := filepath.Join(directory, InstallIgnitionPath)
-	if err := os.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
+	if err = os.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
 		return err
 	}
 	return ignition.WriteIgnitionFile(configPath, config)
