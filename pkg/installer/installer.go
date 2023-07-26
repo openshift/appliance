@@ -73,8 +73,7 @@ func (i *installer) CreateUnconfiguredIgnition() (string, error) {
 	}
 
 	createCmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, openshiftInstallFilePath, i.EnvConfig.TempDir)
-	command, formattedArgs := executer.FormatCommand(createCmd)
-	_, err = i.Executer.Execute(command, formattedArgs...)
+	_, err = i.Executer.Execute(createCmd)
 	return filepath.Join(i.EnvConfig.TempDir, unconfiguredIgnitionFileName), err
 }
 

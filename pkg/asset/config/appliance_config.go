@@ -269,8 +269,7 @@ func (a *ApplianceConfig) validateImageRegistry() field.ErrorList {
 	if a.Config.ImageRegistry.URI != nil {
 		cmd := fmt.Sprintf(PodmanPull, swag.StringValue(a.Config.ImageRegistry.URI))
 		logrus.Debugf("Running uri validation cmd: %s", cmd)
-		args := strings.Split(cmd, " ")
-		if _, err := executer.NewExecuter().Execute(args[0], args[1:]...); err != nil {
+		if _, err := executer.NewExecuter().Execute(cmd); err != nil {
 			allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("imageRegistry.uri"),
 				swag.StringValue(a.Config.ImageRegistry.URI),
 				fmt.Sprintf("Invalid uri: %s", err.Error()))}...)

@@ -12,7 +12,7 @@ import (
 
 //go:generate mockgen -source=executer.go -package=executer -destination=mock_executer.go
 type Executer interface {
-	Execute(command string, args ...string) (string, error)
+	Execute(command string) (string, error)
 	TempFile(dir, pattern string) (f *os.File, err error)
 }
 
@@ -23,10 +23,12 @@ func NewExecuter() Executer {
 	return &executer{}
 }
 
-func (e *executer) Execute(command string, args ...string) (string, error) {
+func (e *executer) Execute(command string) (string, error) {
 	var stdoutBytes, stderrBytes bytes.Buffer
-	logrus.Debugf("Running cmd: %s %s", command, strings.Join(args[:], " "))
-	cmd := exec.Command(command, args...)
+
+	formattedCmd, args := e.formatCommand(command)
+	logrus.Debugf("Running cmd: %s %s", formattedCmd, strings.Join(args[:], " "))
+	cmd := exec.Command(formattedCmd, args...)
 	cmd.Stdout = &stdoutBytes
 	cmd.Stderr = &stderrBytes
 	err := cmd.Run()
@@ -41,7 +43,7 @@ func (e *executer) TempFile(dir, pattern string) (f *os.File, err error) {
 	return os.CreateTemp(dir, pattern)
 }
 
-func FormatCommand(command string) (string, []string) {
+func (e *executer) formatCommand(command string) (string, []string) {
 	formattedCmd := strings.Split(command, " ")
 	return formattedCmd[0], formattedCmd[1:]
 }

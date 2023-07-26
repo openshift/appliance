@@ -173,10 +173,7 @@ func (r *release) execute(executer executer.Executer, pullSecret, command string
 		executeCommand = command[:] + " --registry-config=" + ps.Name()
 	}
 
-	logrus.Debugf("Executing command: %s", executeCommand)
-	args := strings.Split(executeCommand, " ")
-
-	stdout, err := executer.Execute(args[0], args[1:]...)
+	stdout, err := executer.Execute(executeCommand)
 	if err == nil {
 		return strings.TrimSpace(stdout), nil
 	}

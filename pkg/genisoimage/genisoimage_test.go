@@ -33,15 +33,15 @@ var _ = Describe("Test GenIsoImage", func() {
 		fakeDataPath := "/path/to/data"
 		fakeImageName := "testdata.iso"
 
-		copyCmd, copyCmdrgs := executer.FormatCommand(fmt.Sprintf(genDataImageCmd, fakeCachePath, fakeImageName, fakeDataPath))
-		mockExecuter.EXPECT().Execute(copyCmd, copyCmdrgs).Return("", nil).Times(1)
+		cmd := fmt.Sprintf(genDataImageCmd, fakeCachePath, fakeImageName, fakeDataPath)
+		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
 
 		err := testGenIsoImage.GenerateImage(fakeCachePath, fakeImageName, fakeDataPath)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("genisoimage GenerateImage - failure", func() {
-		mockExecuter.EXPECT().Execute(gomock.Any(), gomock.Any()).Return("", errors.New("some error")).Times(1)
+		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(1)
 
 		err := testGenIsoImage.GenerateImage(fakeCachePath, fakeImageName, fakeDataPath)
 		Expect(err).To(HaveOccurred())

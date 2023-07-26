@@ -108,8 +108,7 @@ func (c *coreos) EmbedIgnition(ignition []byte, isoPath string) error {
 
 	// Invoke embed ignition command
 	embedCmd := fmt.Sprintf(templateEmbedIgnition, ignitionFile.Name(), isoPath)
-	command, formattedArgs := executer.FormatCommand(embedCmd)
-	_, err = c.Executer.Execute(command, formattedArgs...)
+	_, err = c.Executer.Execute(embedCmd)
 	return err
 }
 

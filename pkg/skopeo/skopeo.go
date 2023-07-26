@@ -35,7 +35,6 @@ func (s *skopeo) CopyToFile(imageUrl, imageName, filePath string) error {
 		return err
 	}
 
-	command, formattedArgs := executer.FormatCommand(fmt.Sprintf(templateCopyToFile, imageUrl, filePath, imageName))
-	_, err := s.executer.Execute(command, formattedArgs...)
+	_, err := s.executer.Execute(fmt.Sprintf(templateCopyToFile, imageUrl, filePath, imageName))
 	return err
 }
