@@ -50,6 +50,7 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataIsoSize int64
 
 func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedImages string, additionalImages string) interface{} {
 	version := applianceConfig.Config.OcpRelease.Version
+	channel := *applianceConfig.Config.OcpRelease.Channel
 	return struct {
 		Architectures    string
 		ChannelName      string
@@ -59,7 +60,7 @@ func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedIma
 		AdditionalImages string
 	}{
 		Architectures:    config.GetReleaseArchitectureByCPU(applianceConfig.GetCpuArchitecture()),
-		ChannelName:      fmt.Sprintf("%s-%s", swag.StringValue(applianceConfig.Config.OcpRelease.Channel), toMajorMinor(version)),
+		ChannelName:      fmt.Sprintf("%s-%s", channel, toMajorMinor(version)),
 		MinVersion:       version,
 		MaxVersion:       version,
 		BlockedImages:    blockedImages,

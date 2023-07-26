@@ -29,7 +29,7 @@ var _ = Describe("Test Installer", func() {
 
 	It("GetInstallerDownloadURL - x86_64 stable", func() {
 		version := "4.13.1"
-		channel := swag.String(string(graph.ReleaseChannelStable))
+		channel := graph.ReleaseChannelStable
 		cpuArc := swag.String(config.CpuArchitectureX86)
 		installerConfig := InstallerConfig{
 			Executer:  mockExecuter,
@@ -38,7 +38,7 @@ var _ = Describe("Test Installer", func() {
 				Config: &types.ApplianceConfig{
 					OcpRelease: types.ReleaseImage{
 						Version:         version,
-						Channel:         channel,
+						Channel:         &channel,
 						CpuArchitecture: cpuArc,
 					},
 				},
@@ -53,7 +53,7 @@ var _ = Describe("Test Installer", func() {
 
 	It("GetInstallerDownloadURL - aarch64 candidate", func() {
 		version := "4.13.2"
-		channel := swag.String(string(graph.ReleaseChannelCandidate))
+		channel := graph.ReleaseChannelCandidate
 		cpuArc := swag.String(config.CpuArchitectureAARCH64)
 		installerConfig := InstallerConfig{
 			Executer:  mockExecuter,
@@ -62,7 +62,7 @@ var _ = Describe("Test Installer", func() {
 				Config: &types.ApplianceConfig{
 					OcpRelease: types.ReleaseImage{
 						Version:         version,
-						Channel:         channel,
+						Channel:         &channel,
 						CpuArchitecture: cpuArc,
 					},
 				},
@@ -77,7 +77,7 @@ var _ = Describe("Test Installer", func() {
 
 	It("CreateUnconfiguredIgnition - DebugBaseIgnition: false", func() {
 		version := "4.13.1"
-		channel := swag.String(string(graph.ReleaseChannelStable))
+		channel := graph.ReleaseChannelStable
 		cpuArc := swag.String(config.CpuArchitectureX86)
 		installerConfig := InstallerConfig{
 			Executer: mockExecuter,
@@ -88,7 +88,7 @@ var _ = Describe("Test Installer", func() {
 				Config: &types.ApplianceConfig{
 					OcpRelease: types.ReleaseImage{
 						Version:         version,
-						Channel:         channel,
+						Channel:         &channel,
 						CpuArchitecture: cpuArc,
 					},
 				},
@@ -103,7 +103,7 @@ var _ = Describe("Test Installer", func() {
 
 	It("CreateUnconfiguredIgnition - DebugBaseIgnition: true", func() {
 		version := "4.13.1"
-		channel := swag.String(string(graph.ReleaseChannelStable))
+		channel := graph.ReleaseChannelStable
 		cpuArc := swag.String(config.CpuArchitectureX86)
 		tmpDir := "/path/to/tempdir"
 
@@ -120,7 +120,7 @@ var _ = Describe("Test Installer", func() {
 				Config: &types.ApplianceConfig{
 					OcpRelease: types.ReleaseImage{
 						Version:         version,
-						Channel:         channel,
+						Channel:         &channel,
 						CpuArchitecture: cpuArc,
 					},
 				},

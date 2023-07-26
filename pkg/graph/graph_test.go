@@ -72,10 +72,11 @@ var _ = Describe("Test Graph", func() {
 	)
 
 	BeforeEach(func() {
+		channel := ReleaseChannelStable
 		graphConfig = GraphConfig{
 			HTTPClient: &ClientMock{},
 			Arch:       "amd64",
-			Channel:    swag.String(string(ReleaseChannelStable)),
+			Channel:    &channel,
 		}
 	})
 
