@@ -35,23 +35,18 @@ func (m *MockExecuter) EXPECT() *MockExecuterMockRecorder {
 }
 
 // Execute mocks base method.
-func (m *MockExecuter) Execute(command string, args ...string) (string, error) {
+func (m *MockExecuter) Execute(command string) (string, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{command}
-	for _, a := range args {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Execute", varargs...)
+	ret := m.ctrl.Call(m, "Execute", command)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Execute indicates an expected call of Execute.
-func (mr *MockExecuterMockRecorder) Execute(command interface{}, args ...interface{}) *gomock.Call {
+func (mr *MockExecuterMockRecorder) Execute(command interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{command}, args...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockExecuter)(nil).Execute), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockExecuter)(nil).Execute), command)
 }
 
 // TempFile mocks base method.

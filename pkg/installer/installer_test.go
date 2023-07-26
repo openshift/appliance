@@ -107,8 +107,8 @@ var _ = Describe("Test Installer", func() {
 		cpuArc := swag.String(config.CpuArchitectureX86)
 		tmpDir := "/path/to/tempdir"
 
-		cmd, cmdArgs := executer.FormatCommand(fmt.Sprintf(templateUnconfiguredIgnitionBinary, installerBinaryName, tmpDir))
-		mockExecuter.EXPECT().Execute(cmd, cmdArgs).Return("", nil).Times(1)
+		cmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, installerBinaryName, tmpDir)
+		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
 
 		installerConfig := InstallerConfig{
 			Executer: mockExecuter,

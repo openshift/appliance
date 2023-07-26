@@ -29,7 +29,6 @@ func NewGenIsoImage(exec executer.Executer) GenIsoImage {
 }
 
 func (s *genisoimage) GenerateImage(imagePath, imageName, dirPath string) error {
-	command, formattedArgs := executer.FormatCommand(fmt.Sprintf(genDataImageCmd, imagePath, imageName, dirPath))
-	_, err := s.executer.Execute(command, formattedArgs...)
+	_, err := s.executer.Execute(fmt.Sprintf(genDataImageCmd, imagePath, imageName, dirPath))
 	return err
 }

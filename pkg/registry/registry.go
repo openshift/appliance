@@ -85,9 +85,7 @@ func (r *registry) StartRegistry() error {
 		return err
 	}
 
-	command := fmt.Sprintf(registryStartCmd, r.DataDirPath, r.Port, r.URI)
-	command, formattedArgs := executer.FormatCommand(command)
-	_, err = r.Executer.Execute(command, formattedArgs...)
+	_, err = r.Executer.Execute(fmt.Sprintf(registryStartCmd, r.DataDirPath, r.Port, r.URI))
 	if err != nil {
 		return errors.Wrapf(err, "registry start failure")
 	}
@@ -100,8 +98,7 @@ func (r *registry) StartRegistry() error {
 
 func (r *registry) StopRegistry() error {
 	logrus.Debug("Stopping registry container")
-	command, formattedArgs := executer.FormatCommand(registryStopCmd)
-	_, err := r.Executer.Execute(command, formattedArgs...)
+	_, err := r.Executer.Execute(registryStopCmd)
 	if err != nil {
 		return errors.Wrapf(err, "registry stop failure")
 
