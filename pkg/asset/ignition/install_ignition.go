@@ -141,7 +141,7 @@ func (i *InstallIgnition) addRecoveryGrubMenuItem(tempDir string) error {
 }
 
 func (i *InstallIgnition) PersistToFile(directory string) error {
-	ignition := ignitionutil.NewIgnition()
+	ignition := ignitionutil.NewIgnition(ignitionutil.IgnitionConfig{})
 
 	// Merge with base ignition if exists
 	baseConfigPath := filepath.Join(directory, baseIgnitionPath)
