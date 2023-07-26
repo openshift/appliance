@@ -68,7 +68,7 @@ type GraphConfig struct {
 	Arch              string
 	Version           string
 	CincinnatiAddress *string
-	Channel           *string
+	Channel           *ReleaseChannel
 }
 
 type graph struct {
@@ -87,7 +87,8 @@ func NewGraph(config GraphConfig) Graph {
 	}
 
 	if config.Channel == nil {
-		config.Channel = swag.String(string(ReleaseChannelStable))
+		channel := ReleaseChannelStable
+		config.Channel = &channel
 	}
 	return &graph{
 		GraphConfig: config,

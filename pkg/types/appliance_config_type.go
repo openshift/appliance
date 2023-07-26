@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/openshift/appliance/pkg/graph"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,10 +21,10 @@ type ApplianceConfig struct {
 }
 
 type ReleaseImage struct {
-	Version         string  `json:"version"`
-	Channel         *string `json:"channel"`
-	CpuArchitecture *string `json:"cpuArchitecture"`
-	URL             *string `json:"url"`
+	Version         string                `json:"version"`
+	Channel         *graph.ReleaseChannel `json:"channel"`
+	CpuArchitecture *string               `json:"cpuArchitecture"`
+	URL             *string               `json:"url"`
 }
 
 type ImageRegistry struct {
