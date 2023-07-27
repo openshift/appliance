@@ -7,6 +7,51 @@ import (
 	"path/filepath"
 )
 
+type OSInterface interface {
+	MkdirTemp(dir, prefix string) (string, error)
+	Stat(name string) (os.FileInfo, error)
+	Remove(name string) error
+	UserHomeDir() (string, error)
+	MkdirAll(path string, perm os.FileMode) error
+	WriteFile(name string, data []byte, perm os.FileMode) error
+	ReadFile(name string) ([]byte, error)
+	RemoveAll(path string) error
+}
+
+type OSFS struct{}
+
+func (OSFS) MkdirTemp(dir, prefix string) (string, error) {
+	return os.MkdirTemp(dir, prefix)
+}
+
+func (OSFS) Stat(name string) (os.FileInfo, error) {
+	return os.Stat(name)
+}
+
+func (OSFS) Remove(name string) error {
+	return os.Remove(name)
+}
+
+func (OSFS) UserHomeDir() (string, error) {
+	return os.UserHomeDir()
+}
+
+func (OSFS) MkdirAll(path string, perm os.FileMode) error {
+	return os.MkdirAll(path, perm)
+}
+
+func (OSFS) WriteFile(name string, data []byte, perm os.FileMode) error {
+	return os.WriteFile(name, data, perm)
+}
+
+func (OSFS) ReadFile(name string) ([]byte, error) {
+	return os.ReadFile(name)
+}
+
+func (OSFS) RemoveAll(path string) error {
+	return os.RemoveAll(path)
+}
+
 func CopyFile(source, dest string) error {
 	// Read source file
 	bytesRead, err := os.ReadFile(source)
