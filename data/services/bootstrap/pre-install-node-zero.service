@@ -1,0 +1,13 @@
+[Unit]
+Description=Agent-based installer preparation service
+Wants=network.target node-zero.service
+After=network-online.target node-zero.service
+ConditionPathExists=/etc/assisted/node0
+
+[Service]
+ExecStart=/usr/local/bin/pre-install-node-zero.sh
+Type=oneshot
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target
