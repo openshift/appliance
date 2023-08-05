@@ -31,6 +31,7 @@ var (
 		"assisted-service.service",
 		"create-cluster-and-infraenv.service",
 		"pre-install.service",
+		"pre-install-node-zero.service",
 		"update-hosts.service",
 	}
 
@@ -38,6 +39,7 @@ var (
 		"setup-local-registry.sh",
 		"set-env-files.sh",
 		"pre-install.sh",
+		"pre-install-node-zero.sh",
 		"release-image-download.sh",
 		"release-image.sh",
 		"update-hosts.sh",
