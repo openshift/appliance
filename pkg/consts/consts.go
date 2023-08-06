@@ -39,6 +39,8 @@ const (
 	RegistryDataBootstrap = "/tmp/registry"
 	RegistryDataInstall   = "/mnt/agentdata/oc-mirror/install"
 
+	RegistryMirrorByDigestOnly = true
+
 	// AI images
 	// TODO: remove when official images are updates
 	AssistedInstallerAgentImage = "quay.io/edge-infrastructure/assisted-installer-agent:latest"

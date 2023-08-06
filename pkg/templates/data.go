@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-openapi/swag"
 	"github.com/hashicorp/go-version"
+
 	"github.com/openshift/appliance/pkg/asset/config"
-	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/sirupsen/logrus"
@@ -115,7 +115,7 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 
 		// Registry
 		RegistryDataPath: registryDataPath,
-		RegistryDomain:   registry.RegistryDomain,
+		RegistryDomain:   config.RegistryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
 
@@ -137,7 +137,7 @@ func GetInstallIgnitionTemplateData(registryDataPath string) interface{} {
 
 		// Registry
 		RegistryDataPath: registryDataPath,
-		RegistryDomain:   registry.RegistryDomain,
+		RegistryDomain:   config.RegistryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
 	}

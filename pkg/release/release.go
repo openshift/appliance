@@ -11,14 +11,17 @@ import (
 
 	"github.com/go-openapi/swag"
 	"github.com/itchyny/gojq"
+	"github.com/pelletier/go-toml"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"github.com/thedevsaddam/retry"
+
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/templates"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	"github.com/thedevsaddam/retry"
+	"github.com/openshift/appliance/pkg/types"
 )
 
 const (
@@ -27,7 +30,9 @@ const (
 	// OcDefaultRetryDelay is the time between retries
 	OcDefaultRetryDelay = time.Second * 5
 	// QueryPattern formats the image names for a given release
-	QueryPattern = ".references.spec.tags[] | .name + \" \" + .from.name"
+	QueryPattern            = ".references.spec.tags[] | .name + \" \" + .from.name"
+	registriesConfDirectory = "/etc/containers/registries.conf.d"
+	registriesConfFileName  = "999-appliance-registry-mirror.conf"
 )
 
 const (
@@ -187,6 +192,30 @@ func (r *release) execute(pullSecret, command string) (string, error) {
 	return "", errors.Wrapf(err, "Failed to execute cmd (%s): %s", executeCommand, err)
 }
 
+func (r *release) setMirrorConfig() error {
+	if len(r.ApplianceConfig.Config.ImageDigestSources) == 0 {
+		logrus.Debug("no ImageDigestSources configuration found")
+		return nil
+	}
+
+	registries := types.ConvertToTOMLRegistries(r.ApplianceConfig.Config.ImageDigestSources)
+	data, err := toml.Marshal(registries)
+	if err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(registriesConfDirectory, registriesConfFileName)
+	if _, err = r.OSInterface.Stat(configPath); err == nil {
+		logrus.Debugf("Reusing registry configuration: %s", configPath)
+	}
+
+	if err = r.OSInterface.WriteFile(configPath, data, os.ModePerm); err != nil {
+		return errors.Wrap(err, "failed to write registry conf file")
+	}
+
+	return nil
+}
+
 func (r *release) setDockerConfig() error {
 	homeDir, err := r.OSInterface.UserHomeDir()
 	if err != nil {
@@ -232,6 +261,10 @@ func (r *release) mirrorImages(templateFile string, blockedImages string, additi
 
 	cmd := fmt.Sprintf(ocMirrorAndUpload, absPath, swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port), tempDir)
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
+
+	if err = r.setMirrorConfig(); err != nil {
+		return err
+	}
 
 	if err = r.setDockerConfig(); err != nil {
 		return err

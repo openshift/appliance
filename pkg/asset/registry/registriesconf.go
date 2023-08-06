@@ -6,14 +6,13 @@ import (
 	"path/filepath"
 
 	"github.com/containers/image/pkg/sysregistriesv2"
-	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/installer/pkg/asset"
+	installerTypes "github.com/openshift/installer/pkg/types"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-)
 
-const (
-	RegistryDomain = "registry.appliance.com"
+	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/types"
 )
 
 var (
@@ -41,48 +40,16 @@ func (*RegistriesConf) Dependencies() []asset.Asset {
 	}
 }
 
-// Generate generates the registries.conf file from install-config.
 func (i *RegistriesConf) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	dependencies.Get(envConfig)
 
-	registries := &sysregistriesv2.V2RegistriesConf{
-		Registries: []sysregistriesv2.Registry{
-			{
-				Endpoint: sysregistriesv2.Endpoint{
-					Location: "quay.io/openshift-release-dev/ocp-release",
-				},
-				Mirrors: []sysregistriesv2.Endpoint{
-					{
-						Location: fmt.Sprintf("%s:5000/openshift/release-images", RegistryDomain),
-					},
-				},
-			},
-			{
-				Endpoint: sysregistriesv2.Endpoint{
-					Location: "quay.io/openshift-release-dev/ocp-v4.0-art-dev",
-				},
-				Mirrors: []sysregistriesv2.Endpoint{
-					{
-						Location: fmt.Sprintf("%s:5000/openshift/release", RegistryDomain),
-					},
-				},
-			},
-			// TODO: remove once not using custom AGENT_DOCKER_IMAGE from quay.io
-			{
-				Endpoint: sysregistriesv2.Endpoint{
-					Location: "quay.io",
-				},
-				Mirrors: []sysregistriesv2.Endpoint{
-					{
-						Location: fmt.Sprintf("%s:5000", RegistryDomain),
-					},
-				},
-			},
-		},
-	}
+	mirrorSources := GetDefaultOCPDigestMirrorSources()
+	// TODO(MGMT-14412): Implement a logic to ensure additional image sources are served via local registry.
+	// Merge applianceConfig.ImageDigestSources into mirrorSources
+	tomlRegistries := types.ConvertToTOMLRegistries(mirrorSources)
 
-	registriesData, err := toml.Marshal(registries)
+	registriesData, err := toml.Marshal(tomlRegistries)
 	if err != nil {
 		return err
 	}
@@ -105,7 +72,7 @@ func (i *RegistriesConf) Load(f asset.FileFetcher) (bool, error) {
 	}
 
 	registriesConf := &sysregistriesv2.V2RegistriesConf{}
-	if err := toml.Unmarshal(file.Data, registriesConf); err != nil {
+	if err = toml.Unmarshal(file.Data, registriesConf); err != nil {
 		return false, errors.Wrapf(err, "failed to unmarshal %s", registriesConfFilename)
 	}
 
@@ -120,4 +87,29 @@ func (i *RegistriesConf) Files() []*asset.File {
 		return []*asset.File{i.File}
 	}
 	return []*asset.File{}
+}
+
+func GetDefaultOCPDigestMirrorSources() []installerTypes.ImageDigestSource {
+	return []installerTypes.ImageDigestSource{
+		{
+			Source: config.OcpReleaseSource,
+			Mirrors: []string{
+				fmt.Sprintf("%s:5000/openshift/release-images", config.RegistryDomain),
+			},
+		},
+		{
+			Source: config.OcpArtDevSource,
+			Mirrors: []string{
+				fmt.Sprintf("%s:5000/openshift/release-images", config.RegistryDomain),
+			},
+		},
+
+		// TODO: remove once not using custom AGENT_DOCKER_IMAGE from quay.io
+		{
+			Source: "quay.io",
+			Mirrors: []string{
+				fmt.Sprintf("%s:5000", config.RegistryDomain),
+			},
+		},
+	}
 }

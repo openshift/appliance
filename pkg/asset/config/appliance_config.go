@@ -2,16 +2,13 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-openapi/swag"
 	"github.com/hashicorp/go-version"
-	"github.com/openshift/appliance/pkg/consts"
-	"github.com/openshift/appliance/pkg/executer"
-	"github.com/openshift/appliance/pkg/graph"
-	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/validate"
 	"github.com/pkg/errors"
@@ -19,10 +16,18 @@ import (
 	"github.com/thoas/go-funk"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/yaml"
+
+	"github.com/openshift/appliance/pkg/consts"
+	"github.com/openshift/appliance/pkg/executer"
+	"github.com/openshift/appliance/pkg/graph"
+	"github.com/openshift/appliance/pkg/types"
 )
 
 const (
 	ApplianceConfigFilename = "appliance-config.yaml"
+	RegistryDomain          = "registry.appliance.com"
+	OcpReleaseSource        = "quay.io/openshift-release-dev/ocp-release"
+	OcpArtDevSource         = "quay.io/openshift-release-dev/ocp-v4.0-art-dev"
 
 	// CPU architectures
 	CpuArchitectureX86     = "x86_64"
@@ -110,11 +115,25 @@ imageRegistry:
   # Default: %d
   # [Optional]
   port: port
+# ImageDigestSources lists sources/repositories for the release-image content.
+# [Optional]
+imageDigestSources:
+  # Mirrors is one or more repositories that may also contain the same images.
+  - mirrors:
+    - registry.example.com/openshift-release-dev/ocp-release
+    # Source is the repository that users refer to, e.g. in image pull specifications.
+    source: %s
+  # Mirrors is one or more repositories that may also contain the same images.
+  - mirrors:
+    - registry.example.com/openshift-release-dev/ocp-v4.0-art-dev
+    # Source is the repository that users refer to, e.g. in image pull specifications.
+    source: %s
 `
 	a.Template = fmt.Sprintf(
 		applianceConfigTemplate,
 		types.ApplianceConfigApiVersion, graph.ReleaseChannelStable, CpuArchitectureX86,
-		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort)
+		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort,
+		OcpReleaseSource, OcpArtDevSource)
 
 	return nil
 }
@@ -154,13 +173,13 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	}
 
 	config := &types.ApplianceConfig{}
-	if err := yaml.UnmarshalStrict(file.Data, config); err != nil {
+	if err = yaml.UnmarshalStrict(file.Data, config); err != nil {
 		return false, errors.Wrapf(err, "failed to unmarshal %s", ApplianceConfigFilename)
 	}
 
 	a.File, a.Config = file, config
 
-	if err := a.validateConfig().ToAggregate(); err != nil {
+	if err = a.validateConfig().ToAggregate(); err != nil {
 		return false, errors.Wrapf(err, "invalid Appliance Config configuration")
 	}
 
@@ -254,6 +273,11 @@ func (a *ApplianceConfig) validateConfig() field.ErrorList {
 		if err := validate.SSHPublicKey(*a.Config.SshKey); err != nil {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("sshKey"), *a.Config.SshKey, err.Error()))
 		}
+	}
+
+	// Validate registries mirror config
+	if err := a.validateImageDigestSources(); err != nil {
+		allErrs = append(allErrs, err...)
 	}
 
 	return allErrs
@@ -359,4 +383,38 @@ func (a *ApplianceConfig) validateDiskSize() error {
 		return fmt.Errorf("diskSizeGB must be at least %d GiB", MinDiskSize)
 	}
 	return nil
+}
+
+func (a *ApplianceConfig) validateImageDigestSources() field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if a.Config.ImageDigestSources == nil {
+		return nil
+	}
+
+	for i, imageDigestSource := range a.Config.ImageDigestSources {
+		if imageDigestSource.Source == "" {
+			allErrs = append(allErrs, field.ErrorList{field.Required(field.NewPath(fmt.Sprintf("imageDigestSources[%d].source", i)),
+				fmt.Sprintf("imageDigestSources[%d].source cannot be set to an empty value", i))}...)
+
+		} else if _, err := url.Parse(imageDigestSource.Source); err != nil {
+			allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath(fmt.Sprintf("imageDigestSources[%d].source", i)),
+				a.Config.ImageDigestSources[i].Source,
+				fmt.Sprintf("Failed parsing source URL %q", err))}...)
+		}
+		if len(a.Config.ImageDigestSources[i].Mirrors) == 0 {
+			allErrs = append(allErrs, field.ErrorList{field.Required(field.NewPath(fmt.Sprintf("imageDigestSources[%d].mirrors", i)),
+				fmt.Sprintf("mirrors list for source %s cannot be empty. Either fill at least one mirror or remove the imageDigestSource.",
+					a.Config.ImageDigestSources[i].Source))}...)
+			continue
+		}
+		for j, mirror := range a.Config.ImageDigestSources[i].Mirrors {
+			if _, err := url.Parse(mirror); err != nil {
+				allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath(fmt.Sprintf("imageDigestSources[%d].mirrors[%d]", i, j)),
+					a.Config.ImageDigestSources[i].Mirrors[i],
+					fmt.Sprintf("Failed parsing mirror URL %q", err))}...)
+			}
+		}
+	}
+	return allErrs
 }
