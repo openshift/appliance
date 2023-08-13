@@ -30,7 +30,7 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataIsoSize int64
 
 	return struct {
 		ApplianceFile, RecoveryIsoFile, DataIsoFile, CoreOSImage, RecoveryPartitionName, DataPartitionName, ReservedPartitionGUID, CfgFile string
-		DiskSize, RecoveryStartSector, RecoveryEndSector, DataStartSector, DataEndSector, RootEndSector                                    int64
+		DiskSize, RecoveryStartSector, RecoveryEndSector, DataStartSector, DataEndSector, RootStartSector, RootEndSector                   int64
 	}{
 		ApplianceFile:         applianceImageFile,
 		RecoveryIsoFile:       recoveryIsoFile,
@@ -41,7 +41,8 @@ func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataIsoSize int64
 		RecoveryEndSector:     partitionsInfo.RecoveryPartition.EndSector,
 		DataStartSector:       partitionsInfo.DataPartition.StartSector,
 		DataEndSector:         partitionsInfo.DataPartition.EndSector,
-		RootEndSector:         partitionsInfo.RecoveryPartition.StartSector - 1,
+		RootStartSector:       partitionsInfo.RootPartition.StartSector,
+		RootEndSector:         partitionsInfo.RootPartition.EndSector,
 		RecoveryPartitionName: consts.RecoveryPartitionName,
 		DataPartitionName:     consts.DataPartitionName,
 		ReservedPartitionGUID: consts.ReservedPartitionGUID,

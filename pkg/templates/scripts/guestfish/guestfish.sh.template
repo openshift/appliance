@@ -12,6 +12,16 @@ copy-device-to-device /dev/sdb /dev/sda
 # Move backup GPT data structures to the end of the disk
 part-expand-gpt /dev/sda
 
+# Remove the root partition
+# Note: we don't need CoreOS root partition as we boot from recovery partition.
+part-del /dev/sda 4
+
+# Create an empty root partition (for resizing when cloning the disk image)
+part-add /dev/sda p {{.RootStartSector}} {{.RootEndSector}}
+
+# Set root partition name
+part-set-name /dev/sda 4 root
+
 # Create recovery partition
 part-add /dev/sda p {{.RecoveryStartSector}} {{.RecoveryEndSector}}
 
@@ -31,12 +41,6 @@ part-set-name /dev/sda 6 {{.DataPartitionName}}
 # Set partition as Linux reserved partition
 part-set-gpt-type /dev/sda 5 {{.ReservedPartitionGUID}}
 part-set-gpt-type /dev/sda 6 {{.ReservedPartitionGUID}}
-
-# Resize the root partition (needed for coreos-installer)
-part-resize /dev/sda 4 {{.RootEndSector}}
-
-# Format root partition (content is redundant as we boot from recovery)
-mkfs xfs /dev/sda4
 
 # Handle GRUB
 mount /dev/sda3 /

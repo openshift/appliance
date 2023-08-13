@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/templates"
+	"github.com/openshift/assisted-service/pkg/conversions"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -59,10 +60,11 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	}
 
 	// Render guestfish.sh
-	diskSize := int64(applianceConfig.Config.DiskSizeGB)
 	recoveryIsoSize := recoveryISO.Size
 	dataIsoSize := dataISO.Size
 	baseImageFile := baseDiskImage.File.Filename
+	diskSize := a.getDiskSize(applianceConfig.Config.DiskSizeGB, baseImageFile, recoveryIsoSize, dataIsoSize)
+
 	applianceImageFile := filepath.Join(envConfig.AssetsDir, consts.ApplianceFileName)
 	recoveryIsoFile := filepath.Join(envConfig.CacheDir, consts.RecoveryIsoFileName)
 	dataIsoFile := filepath.Join(envConfig.CacheDir, consts.DataIsoFileName)
@@ -93,4 +95,24 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 // Name returns the human-friendly name of the asset.
 func (a *ApplianceDiskImage) Name() string {
 	return "Appliance disk image"
+}
+
+func (a *ApplianceDiskImage) getDiskSize(diskSizeGB *int, baseImageFile string, recoveryIsoSize, dataIsoSize int64) int64 {
+	if diskSizeGB != nil {
+		return int64(*diskSizeGB)
+	}
+
+	partitions, err := templates.NewPartitions().GetCoreOSPartitions(baseImageFile)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	// Calc base disk image size in bytes (including an additional overhead for root partition and alignment)
+	baseDiskSize := partitions[0].Size + partitions[1].Size + partitions[2].Size + conversions.MibToBytes(1)
+
+	// Calc appliance disk image size in bytes
+	diskSize := baseDiskSize + recoveryIsoSize + dataIsoSize
+
+	// Convert size to GiB (rounded up)
+	return conversions.BytesToGiB(diskSize) + 1
 }
