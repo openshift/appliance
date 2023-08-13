@@ -89,7 +89,10 @@ ocpRelease:
   # Default: %s
   # [Optional]
   cpuArchitecture: cpu-architecture
-# Virtual size of the appliance disk image (at least %dGiB)
+# If specified, should be at least %dGiB.
+# If not specified, the disk image should be resized when 
+# cloning to a device (e.g. using virt-resize tool).
+# [Optional]
 diskSizeGB: disk-size
 # PullSecret required for mirroring the OCP release payload
 pullSecret: pull-secret
@@ -355,7 +358,10 @@ func (a *ApplianceConfig) validateOcpRelease() field.ErrorList {
 }
 
 func (a *ApplianceConfig) validateDiskSize() error {
-	if a.Config.DiskSizeGB < MinDiskSize {
+	if a.Config.DiskSizeGB == nil {
+		return nil
+	}
+	if *a.Config.DiskSizeGB < MinDiskSize {
 		return fmt.Errorf("diskSizeGB must be at least %d GiB", MinDiskSize)
 	}
 	return nil

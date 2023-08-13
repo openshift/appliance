@@ -59,7 +59,7 @@ OpenShift Appliance is available for download at: https://quay.io/edge-infrastru
 ### Generate a template of the appliance config
 A configuration file named `appliance-config.yaml` is required for running `openshift-appliance`.
   ```shell
-  podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE generate-config
+  podman run --rm -it --pull newer -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE generate-config
   ```
 Result:
 ```shell
@@ -89,7 +89,11 @@ ocpRelease:
   # Default: x86_64
   # [Optional]
   cpuArchitecture: cpu-architecture
-# Virtual size of the appliance disk image (at least 150GiB)
+# Virtual size of the appliance disk image.
+# If specified, should be at least 150GiB.
+# If not specified, the disk image should be resized when 
+# cloning to a device (e.g. using virt-resize tool).
+# [Optional]
 diskSizeGB: disk-size
 # PullSecret required for mirroring the OCP release payload
 pullSecret: pull-secret
@@ -138,7 +142,7 @@ userCorePass: <redacted>
 * The option `--privileged` is used because the `openshift-appliance` container needs to use `guestfish` to build the image.
 * The option `--net=host` is used because the `openshift-appliance` container needs to use the host networking for the image registry container it runs as a part of the build process.
 ```shell
-sudo podman run --rm -it --privileged --net=host -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build
+sudo podman run --rm -it --pull newer --privileged --net=host -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build
 ```
 
 Result
@@ -172,13 +176,31 @@ podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE clean
 [![asciicast](https://asciinema.org/a/591871.svg)](https://asciinema.org/a/591871)
 
 ## Copy Appliance Image to Disk - Factory
-* Baremetal servers: use a tool like `dd` to clone the disk image.
-  * E.g.
-    ```shell
-    dd if=appliance.raw of=/dev/sdX bs=1M status=progress
-    ```
-    This will copy the appliance disk image to sdX. To initiate the cluster installation, boot the machine from the sdX device.
-* Virtual Machines: configure the disk to use `/path/to/appliance.raw`
+### Baremetal servers
+
+#### Clone disk image as-is (when 'diskSizeGB' is specified in appliance-config)
+Use a tool like `dd` to clone the disk image.
+E.g.
+```shell
+dd if=appliance.raw of=/dev/sdX bs=1M status=progress
+```
+This will clone the appliance disk image onto sdX. To initiate the cluster installation, boot the machine from the sdX device.
+
+#### Resize and clone disk image (when 'diskSizeGB' is not specified in appliance-config)
+Use virt-resize tool to resize and clone the disk image.
+E.g.
+```shell
+export APPLIANCE_IMAGE="quay.io/edge-infrastructure/openshift-appliance"
+export APPLIANCE_ASSETS="/home/test/appliance_assets"
+export TARGET_DEVICE="/dev/sda"
+sudo podman run --rm -it --privileged --net=host -v $APPLIANCE_ASSETS:/assets --entrypoint virt-resize $APPLIANCE_IMAGE --expand /dev/sda4 /assets/appliance.raw $TARGET_DEVICE
+```
+This will resize and clone the disk image onto the specified `TARGET_DEVICE`. To initiate the cluster installation, boot the machine from the `TARGET_DEVICE`.
+
+:warning: Note: the target device should be empty (zeroed) before cloning. Otherwise, add `--no-sparse` flag to the `virt-resize` command (the cloning could be much slower).
+
+### Virtual Machines
+Configure the disk to use `/path/to/appliance.raw`
 
 ## OpenShift Cluster Install - User Site
 

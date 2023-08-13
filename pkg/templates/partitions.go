@@ -26,7 +26,7 @@ type Partition struct {
 }
 
 type AgentPartitions struct {
-	RecoveryPartition, DataPartition *Partition
+	RecoveryPartition, DataPartition, RootPartition *Partition
 }
 
 type partitions struct {
@@ -48,9 +48,16 @@ func (p *partitions) GetAgentPartitions(diskSize, recoveryIsoSize, dataIsoSize i
 	recoveryStartSector := recoveryEndSector - (recoveryPartitionSize / sectorSize)
 	recoveryStartSector = roundToNearestSector(recoveryStartSector, sectorAlignmentFactor)
 
+	// Calc root partition start/end sectors
+	rootPartitionSize := sectorSize64K
+	rootEndSector := recoveryStartSector - sectorAlignmentFactor
+	rootStartSector := rootEndSector - (rootPartitionSize / sectorSize)
+	rootStartSector = roundToNearestSector(rootStartSector, sectorAlignmentFactor)
+
 	return &AgentPartitions{
 		RecoveryPartition: &Partition{StartSector: recoveryStartSector, EndSector: recoveryEndSector},
 		DataPartition:     &Partition{StartSector: dataStartSector, EndSector: dataEndSector},
+		RootPartition:     &Partition{StartSector: rootStartSector, EndSector: rootEndSector},
 	}
 }
 
@@ -74,7 +81,7 @@ func (p *partitions) GetCoreOSPartitions(coreosImagePath string) ([]Partition, e
 		})
 	}
 
-	// Root partition should be at least 8GiB 
+	// Root partition should be at least 8GiB
 	// (https://docs.fedoraproject.org/en-US/fedora-coreos/storage/)
 	partitionsInfo[3].Size = conversions.GibToBytes(8) / sectorSize
 
