@@ -15,7 +15,7 @@ do
         for id in ${host_ids}; do
             ((num_of_hosts+=1))
         done
-        echo "Discoverd ${num_of_hosts} hosts"
+        echo "Discovered ${num_of_hosts} hosts"
     fi
     sleep 2
 done
