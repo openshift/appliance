@@ -153,9 +153,6 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 
 	// Add public ssh key
 	if applianceConfig.Config.SshKey != nil {
-		passwdUser := igntypes.PasswdUser{
-			Name: "core",
-		}
 		passwdUser.SSHAuthorizedKeys = []igntypes.SSHAuthorizedKey{
 			igntypes.SSHAuthorizedKey(*applianceConfig.Config.SshKey),
 		}
