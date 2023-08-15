@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/diskfs/go-diskfs"
+	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/assisted-service/pkg/conversions"
 )
 
@@ -43,13 +44,12 @@ func (p *partitions) GetAgentPartitions(diskSize, recoveryIsoSize, dataIsoSize i
 	dataStartSector = roundToNearestSector(dataStartSector, sectorAlignmentFactor)
 
 	// Calc recovery partition start/end sectors
-	recoveryPartitionSize := int64(float64(recoveryIsoSize))
 	recoveryEndSector := dataStartSector - sectorAlignmentFactor
-	recoveryStartSector := recoveryEndSector - (recoveryPartitionSize / sectorSize)
+	recoveryStartSector := recoveryEndSector - (recoveryIsoSize / sectorSize)
 	recoveryStartSector = roundToNearestSector(recoveryStartSector, sectorAlignmentFactor)
 
 	// Calc root partition start/end sectors
-	rootPartitionSize := sectorSize64K
+	rootPartitionSize := p.getRootPartitionSize(diskSize)
 	rootEndSector := recoveryStartSector - sectorAlignmentFactor
 	rootStartSector := rootEndSector - (rootPartitionSize / sectorSize)
 	rootStartSector = roundToNearestSector(rootStartSector, sectorAlignmentFactor)
@@ -86,6 +86,16 @@ func (p *partitions) GetCoreOSPartitions(coreosImagePath string) ([]Partition, e
 	partitionsInfo[3].Size = conversions.GibToBytes(8) / sectorSize
 
 	return partitionsInfo, nil
+}
+
+func (p *partitions) getRootPartitionSize(diskSize int64) int64 {
+	if diskSize < config.MinDiskSize {
+		// When using a compact disk image, the root partition is resized during cloning
+		return sectorSize64K
+	}
+
+	// CoreOS root partition should be at least 8GiB
+	return conversions.GibToBytes(8)
 }
 
 // Returns the nearest (and lowest) sector according to a specified alignment factor
