@@ -34,6 +34,8 @@ const (
 	RegistryFilePath  = "registry/registry.tar"
 	RegistryPort      = 5005
 
+	CustomClusterManifests = false
+
 	// Local registry env file
 	RegistryEnvPath       = "/etc/assisted/registry.env"
 	RegistryDataBootstrap = "/tmp/registry"

@@ -3,10 +3,17 @@ package ignition
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/coreos/ignition/v2/config/util"
+	"github.com/pkg/errors"
+	"path/filepath"
+	"strings"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
+	agentManifests "github.com/openshift/installer/pkg/asset/agent/manifests"
+	"github.com/openshift/installer/pkg/asset/ignition"
 	ignasset "github.com/openshift/installer/pkg/asset/ignition"
 	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/yaml.v2"
 
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
@@ -23,6 +30,7 @@ const (
 	registriesConfFilePath    = "/etc/containers/registries.conf"
 	manifestPath              = "/etc/assisted/manifests"
 	corePassOverrideFilePath  = "/etc/assisted/appliance-override-password-set"
+	extraManifestPath         = "/etc/assisted/extra-manifests"
 )
 
 var (
@@ -69,6 +77,7 @@ func (i *BootstrapIgnition) Dependencies() []asset.Asset {
 		&config.ApplianceConfig{},
 		&password.KubeadminPassword{},
 		&manifests.ClusterImageSet{},
+		&agentManifests.ExtraManifests{},
 		&InstallIgnition{},
 	}
 }
@@ -77,9 +86,10 @@ func (i *BootstrapIgnition) Dependencies() []asset.Asset {
 func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
+	extraManifests := &agentManifests.ExtraManifests{}
 	pwd := &password.KubeadminPassword{}
 	installIgnition := &InstallIgnition{}
-	dependencies.Get(envConfig, applianceConfig, pwd, installIgnition)
+	dependencies.Get(envConfig, applianceConfig, extraManifests, pwd, installIgnition)
 
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -159,7 +169,60 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	}
 	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
 
+	err = addExtraManifests(&i.Config, extraManifests)
+	if err != nil {
+		return err
+	}
+
 	logrus.Debug("Successfully generated bootstrap ignition")
+
+	return nil
+}
+
+// addExtraManifests is a non-exportable function copy-over from openshift/installer/pkg/asset/agent/image/ignition.go
+func addExtraManifests(config *igntypes.Config, extraManifests *agentManifests.ExtraManifests) error {
+
+	user := "root"
+	mode := 0644
+
+	config.Storage.Directories = append(config.Storage.Directories, igntypes.Directory{
+		Node: igntypes.Node{
+			Path: extraManifestPath,
+			User: igntypes.NodeUser{
+				Name: &user,
+			},
+			Overwrite: util.BoolToPtr(true),
+		},
+		DirectoryEmbedded1: igntypes.DirectoryEmbedded1{
+			Mode: &mode,
+		},
+	})
+
+	for _, file := range extraManifests.FileList {
+
+		type unstructured map[string]interface{}
+
+		yamlList, err := agentManifests.GetMultipleYamls[unstructured](file.Data)
+		if err != nil {
+			return errors.Wrapf(err, "could not decode YAML for %s", file.Filename)
+		}
+
+		for n, manifest := range yamlList {
+			m, err := yaml.Marshal(manifest)
+			if err != nil {
+				return err
+			}
+
+			base := filepath.Base(file.Filename)
+			ext := filepath.Ext(file.Filename)
+			baseWithoutExt := strings.TrimSuffix(base, ext)
+			baseFileName := filepath.Join(extraManifestPath, baseWithoutExt)
+			fileName := fmt.Sprintf("%s-%d%s", baseFileName, n, ext)
+
+			extraFile := ignition.FileFromBytes(fileName, user, mode, m)
+			config.Storage.Files = append(config.Storage.Files, extraFile)
+		}
+	}
 
 	return nil
 }
