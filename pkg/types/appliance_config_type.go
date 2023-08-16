@@ -12,12 +12,13 @@ type ApplianceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	OcpRelease    ReleaseImage   `json:"ocpRelease"`
-	DiskSizeGB    *int           `json:"diskSizeGb"`
-	PullSecret    string         `json:"pullSecret"`
-	SshKey        *string        `json:"sshKey"`
-	UserCorePass  *string        `json:"userCorePass"`
-	ImageRegistry *ImageRegistry `json:"imageRegistry"`
+	OcpRelease             ReleaseImage   `json:"ocpRelease"`
+	DiskSizeGB             *int           `json:"diskSizeGb"`
+	PullSecret             string         `json:"pullSecret"`
+	SshKey                 *string        `json:"sshKey"`
+	UserCorePass           *string        `json:"userCorePass"`
+	ImageRegistry          *ImageRegistry `json:"imageRegistry"`
+	CustomClusterManifests *bool          `json:"customClusterManifests"`
 }
 
 type ReleaseImage struct {

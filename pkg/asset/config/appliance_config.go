@@ -8,21 +8,25 @@ import (
 
 	"github.com/go-openapi/swag"
 	"github.com/hashicorp/go-version"
-	"github.com/openshift/appliance/pkg/consts"
-	"github.com/openshift/appliance/pkg/executer"
-	"github.com/openshift/appliance/pkg/graph"
-	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/validate"
+	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/thoas/go-funk"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/yaml"
+
+	"github.com/openshift/appliance/pkg/consts"
+	"github.com/openshift/appliance/pkg/executer"
+	"github.com/openshift/appliance/pkg/graph"
+	"github.com/openshift/appliance/pkg/types"
 )
 
 const (
-	ApplianceConfigFilename = "appliance-config.yaml"
+	ApplianceConfigFilename       = "appliance-config.yaml"
+	CustomClusterManifestsDir     = "openshift"
+	CustomClusterManifestsPattern = "*.yaml"
 
 	// CPU architectures
 	CpuArchitectureX86     = "x86_64"
@@ -113,11 +117,16 @@ imageRegistry:
   # Default: %d
   # [Optional]
   port: port
+
+# Apply custom cluster manifests YAML files that are located in assets/openshift folder.
+# Default: false
+# [Optional]
+customClusterManifests: %t
 `
 	a.Template = fmt.Sprintf(
 		applianceConfigTemplate,
 		types.ApplianceConfigApiVersion, graph.ReleaseChannelStable, CpuArchitectureX86,
-		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort)
+		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort, consts.CustomClusterManifests)
 
 	return nil
 }
@@ -157,13 +166,13 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	}
 
 	config := &types.ApplianceConfig{}
-	if err := yaml.UnmarshalStrict(file.Data, config); err != nil {
+	if err = yaml.UnmarshalStrict(file.Data, config); err != nil {
 		return false, errors.Wrapf(err, "failed to unmarshal %s", ApplianceConfigFilename)
 	}
 
 	a.File, a.Config = file, config
 
-	if err := a.validateConfig().ToAggregate(); err != nil {
+	if err = a.validateConfig(f).ToAggregate(); err != nil {
 		return false, errors.Wrapf(err, "invalid Appliance Config configuration")
 	}
 
@@ -205,6 +214,10 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 		}
 	}
 
+	if config.CustomClusterManifests == nil {
+		config.CustomClusterManifests = swag.Bool(false)
+	}
+
 	return true, nil
 }
 
@@ -224,7 +237,7 @@ func GetReleaseArchitectureByCPU(arch string) string {
 	}
 }
 
-func (a *ApplianceConfig) validateConfig() field.ErrorList {
+func (a *ApplianceConfig) validateConfig(f asset.FileFetcher) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Validate apiVersion
@@ -259,6 +272,10 @@ func (a *ApplianceConfig) validateConfig() field.ErrorList {
 		}
 	}
 
+	// Validate CustomClusterManifests
+	if err := a.validateCustomClusterManifests(f); err != nil {
+		allErrs = append(allErrs, err...)
+	}
 	return allErrs
 }
 
@@ -365,4 +382,33 @@ func (a *ApplianceConfig) validateDiskSize() error {
 		return fmt.Errorf("diskSizeGB must be at least %d GiB", MinDiskSize)
 	}
 	return nil
+}
+
+func (a *ApplianceConfig) validateCustomClusterManifests(f asset.FileFetcher) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if !swag.BoolValue(a.Config.CustomClusterManifests) {
+		return nil
+	}
+
+	files, err := f.FetchByPattern(filepath.Join(CustomClusterManifestsDir, CustomClusterManifestsPattern))
+	if err != nil {
+		allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("customClusterManifests"),
+			a.Config.CustomClusterManifests,
+			fmt.Sprintf("Failed to load custom cluster manifest files: %s", err.Error()))}...)
+		return allErrs
+	}
+
+	logrus.Debugf("Detected %d custom cluster manifest files", len(files))
+	for _, file := range files {
+
+		logrus.Debugf("Validating file: %s", file.Filename)
+		s := mcfgv1.MachineConfig{}
+		if err = yaml.Unmarshal(file.Data, &s); err != nil {
+			allErrs = append(allErrs, field.ErrorList{field.InternalError(
+				field.NewPath("customClusterManifests"),
+				errors.Wrapf(err, "Failed to unmarshal %s", file.Filename))}...)
+		}
+	}
+	return allErrs
 }
