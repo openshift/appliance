@@ -63,14 +63,15 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	recoveryIsoSize := recoveryISO.Size
 	dataIsoSize := dataISO.Size
 	baseImageFile := baseDiskImage.File.Filename
-	diskSize := a.getDiskSize(applianceConfig.Config.DiskSizeGB, baseImageFile, recoveryIsoSize, dataIsoSize)
+	baseIsoSize := a.getBootPartitionsSize(baseImageFile)
+	diskSize := a.getDiskSize(applianceConfig.Config.DiskSizeGB, baseIsoSize, recoveryIsoSize, dataIsoSize)
 
 	applianceImageFile := filepath.Join(envConfig.AssetsDir, consts.ApplianceFileName)
 	recoveryIsoFile := filepath.Join(envConfig.CacheDir, consts.RecoveryIsoFileName)
 	dataIsoFile := filepath.Join(envConfig.CacheDir, consts.DataIsoFileName)
 	cfgFile := templates.GetFilePathByTemplate(consts.UserCfgTemplateFile, envConfig.TempDir)
 	gfTemplateData := templates.GetGuestfishScriptTemplateData(
-		diskSize, recoveryIsoSize, dataIsoSize, baseImageFile,
+		diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize, baseImageFile,
 		applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile)
 	if err := templates.RenderTemplateFile(
 		consts.GuestfishScriptTemplateFile,
@@ -97,22 +98,24 @@ func (a *ApplianceDiskImage) Name() string {
 	return "Appliance disk image"
 }
 
-func (a *ApplianceDiskImage) getDiskSize(diskSizeGB *int, baseImageFile string, recoveryIsoSize, dataIsoSize int64) int64 {
+func (a *ApplianceDiskImage) getDiskSize(diskSizeGB *int, baseIsoSize, recoveryIsoSize, dataIsoSize int64) int64 {
 	if diskSizeGB != nil {
 		return int64(*diskSizeGB)
 	}
 
+	// Calc appliance disk image size in bytes
+	diskSize := baseIsoSize + recoveryIsoSize + dataIsoSize
+
+	// Convert size to GiB (rounded up)
+	return conversions.BytesToGiB(diskSize) + 1
+}
+
+func (a *ApplianceDiskImage) getBootPartitionsSize(baseImageFile string) int64 {
 	partitions, err := templates.NewPartitions().GetCoreOSPartitions(baseImageFile)
 	if err != nil {
 		logrus.Fatal(err)
 	}
 
-	// Calc base disk image size in bytes (including an additional overhead for root partition and alignment)
-	baseDiskSize := partitions[0].Size + partitions[1].Size + partitions[2].Size + conversions.MibToBytes(1)
-
-	// Calc appliance disk image size in bytes
-	diskSize := baseDiskSize + recoveryIsoSize + dataIsoSize
-
-	// Convert size to GiB (rounded up)
-	return conversions.BytesToGiB(diskSize) + 1
+	// Calc base disk image size in bytes (including an additional overhead for alignment)
+	return partitions[0].Size + partitions[1].Size + partitions[2].Size + conversions.MibToBytes(1)
 }
