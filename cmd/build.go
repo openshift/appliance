@@ -3,7 +3,9 @@ package main
 import (
 	"github.com/openshift/appliance/pkg/asset/appliance"
 	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/asset/deploy"
 	"github.com/openshift/appliance/pkg/asset/installer"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
@@ -18,6 +20,9 @@ var (
 		debugBootstrap    bool
 		debugBaseIgnition bool
 	}
+
+	envConfig    config.EnvConfig
+	deployConfig *config.DeployConfig
 )
 
 func NewBuildCmd() *cobra.Command {
@@ -27,6 +32,7 @@ func NewBuildCmd() *cobra.Command {
 		PreRun: preRunBuild,
 		Run:    runBuild,
 	}
+	cmd.AddCommand(getBuildISOCmd())
 	cmd.Flags().BoolVar(&buildOpts.debugBootstrap, "debug-bootstrap", false, "")
 	cmd.Flags().BoolVar(&buildOpts.debugBaseIgnition, "debug-base-ignition", false, "")
 	if err := cmd.Flags().MarkHidden("debug-bootstrap"); err != nil {
@@ -35,6 +41,23 @@ func NewBuildCmd() *cobra.Command {
 	if err := cmd.Flags().MarkHidden("debug-base-ignition"); err != nil {
 		logrus.Fatal(err)
 	}
+	return cmd
+}
+
+func getBuildISOCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:    "iso",
+		Short:  "Build a bootable appliance deployment ISO",
+		PreRun: preRunBuild,
+		Run:    runBuildISO,
+	}
+
+	deployConfig = &config.DeployConfig{}
+	cmd.Flags().StringVar(&deployConfig.TargetDevice, "target-device", "/dev/sda", "Target device name to clone the appliance into")
+	cmd.Flags().StringVar(&deployConfig.PostScript, "post-script", "", "Script file to invoke on completion (should be under assets directory)")
+	cmd.Flags().BoolVar(&deployConfig.SparseClone, "sparse-clone", false, "Use sparse cloning - requires an empty (zeroed) device")
+	cmd.Flags().BoolVar(&deployConfig.DryRun, "dry-run", false, "Skip appliance cloning (useful for getting the target device name)")
+
 	return cmd
 }
 
@@ -75,14 +98,43 @@ func runBuild(cmd *cobra.Command, args []string) {
 	logrus.Infof("Download openshift-install from: %s", installerBinary.URL)
 }
 
+func runBuildISO(cmd *cobra.Command, args []string) {
+	cleanup := log.SetupFileHook(rootOpts.dir)
+	defer cleanup()
+
+	// Generate DeployISO asset
+	deployISO := deploy.DeployISO{}
+	if err := getAssetStore().Fetch(&deployISO); err != nil {
+		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", deployISO.Name()))
+	}
+
+	// Remove state file (cleanup)
+	if err := deleteStateFile(rootOpts.dir); err != nil {
+		logrus.Fatal(err)
+	}
+
+	logrus.Info()
+	logrus.Infof("Appliance deployment ISO is available in assets directory: %s", consts.DeployIsoName)
+	logrus.Infof("Boot a machine from the ISO to initiate the deployment")
+}
+
 func preRunBuild(cmd *cobra.Command, args []string) {
-	// Generate EnvConfig asset
-	if err := getAssetStore().Fetch(&config.EnvConfig{
+	envConfig = config.EnvConfig{
 		AssetsDir:         rootOpts.dir,
 		DebugBootstrap:    buildOpts.debugBootstrap,
 		DebugBaseIgnition: buildOpts.debugBaseIgnition,
-	}); err != nil {
+	}
+
+	// Generate EnvConfig asset
+	if err := getAssetStore().Fetch(&envConfig); err != nil {
 		logrus.Fatal(err)
+	}
+
+	if deployConfig != nil {
+		// Generate DeployConfig asset
+		if err := getAssetStore().Fetch(deployConfig); err != nil {
+			logrus.Fatal(err)
+		}
 	}
 }
 

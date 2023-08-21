@@ -145,6 +145,22 @@ func GetInstallIgnitionTemplateData(registryDataPath, corePassHash string) inter
 	}
 }
 
+func GetDeployIgnitionTemplateData(targetDevice, postScript string, sparseClone, dryRun bool) interface{} {
+	return struct {
+		ApplianceFileName, ApplianceImageName, ApplianceImageTar string
+		TargetDevice, PostScript                                 string
+		SparseClone, DryRun                                      bool
+	}{
+		ApplianceFileName:  consts.ApplianceFileName,
+		ApplianceImageName: consts.ApplianceImageName,
+		ApplianceImageTar:  consts.ApplianceImageTar,
+		TargetDevice:       targetDevice,
+		PostScript:         postScript,
+		SparseClone:        sparseClone,
+		DryRun:             dryRun,
+	}
+}
+
 func GetRegistryEnv(registryData string) string {
 	return fmt.Sprintf(`REGISTRY_IMAGE=%s
 REGISTRY_DATA=%s
