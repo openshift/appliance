@@ -13,8 +13,6 @@ var (
 	rootOpts struct {
 		dir               string
 		logLevel          string
-		debugBootstrap    bool
-		debugBaseIgnition bool
 	}
 )
 

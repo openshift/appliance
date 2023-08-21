@@ -13,6 +13,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	buildOpts struct {
+		debugBootstrap    bool
+		debugBaseIgnition bool
+	}
+)
+
 func NewBuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "build",
@@ -20,8 +27,8 @@ func NewBuildCmd() *cobra.Command {
 		PreRun: preRunBuild,
 		Run:    runBuild,
 	}
-	cmd.Flags().BoolVar(&rootOpts.debugBootstrap, "debug-bootstrap", false, "")
-	cmd.Flags().BoolVar(&rootOpts.debugBaseIgnition, "debug-base-ignition", false, "")
+	cmd.Flags().BoolVar(&buildOpts.debugBootstrap, "debug-bootstrap", false, "")
+	cmd.Flags().BoolVar(&buildOpts.debugBaseIgnition, "debug-base-ignition", false, "")
 	if err := cmd.Flags().MarkHidden("debug-bootstrap"); err != nil {
 		logrus.Fatal(err)
 	}
@@ -72,8 +79,8 @@ func preRunBuild(cmd *cobra.Command, args []string) {
 	// Generate EnvConfig asset
 	if err := getAssetStore().Fetch(&config.EnvConfig{
 		AssetsDir:         rootOpts.dir,
-		DebugBootstrap:    rootOpts.debugBootstrap,
-		DebugBaseIgnition: rootOpts.debugBaseIgnition,
+		DebugBootstrap:    buildOpts.debugBootstrap,
+		DebugBaseIgnition: buildOpts.debugBaseIgnition,
 	}); err != nil {
 		logrus.Fatal(err)
 	}
