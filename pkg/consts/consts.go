@@ -43,4 +43,12 @@ const (
 	RegistryEnvPath       = "/etc/assisted/registry.env"
 	RegistryDataBootstrap = "/tmp/registry"
 	RegistryDataInstall   = "/mnt/agentdata/oc-mirror/install"
+
+	// Deployment ISO
+	CoreosIsoName      = "coreos-%s.iso"
+	DeployIsoName      = "appliance.iso"
+	DeployDir          = "deploy"
+	ApplianceImageName = "appliance"
+	ApplianceImageTar  = "appliance.tar"
+	ApplianceImage     = "quay.io/edge-infrastructure/openshift-appliance:latest"
 )

@@ -170,7 +170,7 @@ spec:
           overwrite: true
 ```
 
-### Build the image
+### Build the disk image
 * Make sure you have enough free disk space.
   * The amount of space needed is defined by the configured `diskSizeGB` value mentioned above, which is at least 150GiB.
 * Building the image may take several minutes.
@@ -210,7 +210,8 @@ podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE clean
 #### Demo
 [![asciicast](https://asciinema.org/a/591871.svg)](https://asciinema.org/a/591871)
 
-## Copy Appliance Image to Disk - Factory
+## Clone appliance disk image to a device (Factory)
+
 ### Baremetal servers
 
 #### Clone disk image as-is (when 'diskSizeGB' is specified in appliance-config)
@@ -228,16 +229,20 @@ E.g.
 export APPLIANCE_IMAGE="quay.io/edge-infrastructure/openshift-appliance"
 export APPLIANCE_ASSETS="/home/test/appliance_assets"
 export TARGET_DEVICE="/dev/sda"
-sudo podman run --rm -it --privileged --net=host -v $APPLIANCE_ASSETS:/assets --entrypoint virt-resize $APPLIANCE_IMAGE --expand /dev/sda4 /assets/appliance.raw $TARGET_DEVICE
+sudo podman run --rm -it --privileged --net=host -v $APPLIANCE_ASSETS:/assets --entrypoint virt-resize $APPLIANCE_IMAGE --expand /dev/sda4 /assets/appliance.raw $TARGET_DEVICE --no-sparse
 ```
 This will resize and clone the disk image onto the specified `TARGET_DEVICE`. To initiate the cluster installation, boot the machine from the `TARGET_DEVICE`.
 
-:warning: Note: the target device should be empty (zeroed) before cloning. Otherwise, add `--no-sparse` flag to the `virt-resize` command (the cloning could be much slower).
+:warning: Note: if the target device is empty (zeroed) before cloning, the `--no-sparse` flag can be removed (which will improve the cloning speed).
 
-### Virtual Machines
+#### Boot from deployment ISO
+
+As an alternative to manually cloning the disk image, see [Deployment ISO](#deployment-iso) section for instructions to generate an ISO that automates the flow.
+
+### Virtual machines
 Configure the disk to use `/path/to/appliance.raw`
 
-## OpenShift Cluster Install - User Site
+## OpenShift cluster installation (User Site)
 
 ### Download `openshift-install`
 * So far, the generated image has been completely generic. To install the cluster, the installer will need cluster-specific configuration.
@@ -339,3 +344,55 @@ oc get clusteroperator
 ### Recovery / Reinstall
 * To reinstall the cluster using the above-mentioned `agentboot` partition, reboot all the nodes and select the `Recovery: Agent-Based Installer` option.
 ![grub.png](images%2Fgrub.png)
+
+## Deployment ISO
+
+To simplify the deployment process of the appliance disk image (appliance.raw), the deployment ISO can be used. Upon booting a machine with this ISO, the appliance disk image would be automatically cloned into the specified target device.
+
+To build the ISO, appliance.raw disk image should be available under `assets` directory. I.e. the appliance disk image should be first built.
+
+:warning: Note: the appliance.raw should be built without specifying `diskSizeGB` property in appliance-config.yaml
+
+### Build
+
+Use the 'build iso' command for generating the ISO:
+```shell
+export APPLIANCE_IMAGE="quay.io/edge-infrastructure/openshift-appliance"
+export APPLIANCE_ASSETS="/home/test/appliance_assets"
+sudo podman run --rm -it --privileged -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build iso --target-device /dev/sda
+```
+
+The result should be an appliance.iso file under `assets` directory. To initiate the deployment, attach/mount the ISO to the machine and boot it. After the deployment is completed, boot from the target device to start cluster installation.
+
+
+The command supports the following flags:
+```
+--target-device string    Target device name to clone the appliance into (default "/dev/sda")
+--post-script string      Script file to invoke on completion (should be under assets directory)
+--sparse-clone            Use sparse cloning - requires an empty (zeroed) device
+--dry-run                 Skip appliance cloning (useful for getting the target device name)
+```
+
+### Examples
+
+#### --post-script
+
+To perform post deployment operations create a bash script file under assets directory.
+
+E.g. shutting down the machine post deployment
+
+```bash
+cat $APPLIANCE_ASSETS/post.sh
+
+#!/bin/bash
+echo Shutting down the machine...
+shutdown -a
+```
+
+```bash
+sudo podman run --rm -it --privileged -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build iso --post-script post.sh
+```
+
+### Demo
+
+![deploy-iso.gif](images/deploy-iso.gif)

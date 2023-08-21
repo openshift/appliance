@@ -2,9 +2,16 @@ package fileutil
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/openshift/appliance/pkg/executer"
+)
+
+const (
+	splitCmd = "split %s %s -b %s"
 )
 
 type OSInterface interface {
@@ -100,4 +107,10 @@ func ExtractCompressedFile(source, target string) (string, error) {
 
 	_, err = io.Copy(writer, archive)
 	return target, err
+}
+
+func SplitFile(filePath, destPath, partSize string) error {
+	exec := executer.NewExecuter()
+	_, err := exec.Execute(fmt.Sprintf(splitCmd, filePath, destPath, partSize))
+	return err
 }

@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -o pipefail
+
+prepare_issue=/etc/issue.d/40_prepare.issue
+start_issue=/etc/issue.d/50_start.issue
+clone_issue=/etc/issue.d/60_clone.issue
+done_issue=/etc/issue.d/70_done.issue
+post_issue=/etc/issue.d/80_post.issue
+output_issue=/etc/issue.d/90_output.issue
+
+# Reload agetty in background to monitor progress
+(
+  while true; do
+    agetty --reload
+    sleep 1
+  done
+) &
+
+printf '\\e{yellow}Preparing to start appliance disk image cloning...\\e{reset}\n' | tee $prepare_issue
+
+# Load appliance image
+podman load -q -i /run/media/iso/deploy/{{.ApplianceImageTar}}
+
+# Create a loop device for each appliance part
+APPLIANCE_FILES="/run/media/iso/deploy/{{.ApplianceFileName}}*"
+loop_sizes=()
+for f in $APPLIANCE_FILES
+do
+  device=$(losetup --find)
+  losetup $device $f
+  loop_sizes+=($device)
+done
+
+# Create a device map using the loop devices
+(
+  start=0
+  for device in "${loop_sizes[@]}"
+  do
+    size=`blockdev --getsz $device`
+    echo "$start $size linear $device 0"
+    ((start+=$size))
+  done
+) | dmsetup create appliance
+
+rm -rf $prepare_issue
+printf '\\e{cyan}Cloning appliance disk image to {{.TargetDevice}}...\\e{reset}\n' | tee $start_issue
+
+# Run virt-resize
+sparse="--no-sparse"
+if [ "{{.SparseClone}}" = "true" ]; then
+  sparse=""
+fi
+podman run --rm -t --privileged --entrypoint virt-resize {{.ApplianceImageName}} --expand /dev/sda4 /dev/dm-0 {{.TargetDevice}} $sparse 2>&1 | tee $clone_issue
+
+# Handle clone failure/success
+if [ "$?" -eq 0 ]; then
+  printf '\\e{lightgreen}\nAppliance disk image cloning is done!\\e{reset}\n' | tee $done_issue
+
+  # Run post script
+  if [ "{{.PostScript}}" != "" ]; then
+    printf '\\e{lightblue}\nExecuting post deployment script: {{.PostScript}}\\e{reset}\n' | tee $post_issue
+    "/usr/local/bin/{{.PostScript}}" | tee $output_issue
+  fi
+else
+  printf '\\e{red}\nAppliance disk image cloning failed.\\e{reset}\n' | tee $done_issue
+fi
+
+agetty --reload
