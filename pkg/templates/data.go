@@ -25,8 +25,8 @@ func GetUserCfgTemplateData(grubMenuEntryName string, grubDefault int) interface
 	}
 }
 
-func GetGuestfishScriptTemplateData(diskSize, recoveryIsoSize, dataIsoSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile string) interface{} {
-	partitionsInfo := NewPartitions().GetAgentPartitions(diskSize, recoveryIsoSize, dataIsoSize)
+func GetGuestfishScriptTemplateData(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile string) interface{} {
+	partitionsInfo := NewPartitions().GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize)
 
 	return struct {
 		ApplianceFile, RecoveryIsoFile, DataIsoFile, CoreOSImage, RecoveryPartitionName, DataPartitionName, ReservedPartitionGUID, CfgFile string

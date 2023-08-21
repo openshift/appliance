@@ -8,15 +8,16 @@ import (
 
 var _ = Describe("Test Partitions", func() {
 	var (
-		testPartitions                         *AgentPartitions
-		diskSize, recoveryIsoSize, dataIsoSize int64
+		testPartitions                                      *AgentPartitions
+		diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64
 	)
 
 	BeforeEach(func() {
 		diskSize = 200
+		baseIsoSize = conversions.GibToBytes(2)
 		recoveryIsoSize = conversions.GibToBytes(5)
 		dataIsoSize = conversions.GibToBytes(30)
-		testPartitions = NewPartitions().GetAgentPartitions(diskSize, recoveryIsoSize, dataIsoSize)
+		testPartitions = NewPartitions().GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize)
 	})
 
 	It("partitions are aligned to 4K", func() {

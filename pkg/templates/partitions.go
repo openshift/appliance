@@ -18,7 +18,7 @@ const (
 )
 
 type Partitions interface {
-	GetAgentPartitions(diskSize, recoveryIsoSize, dataIsoSize int64) *AgentPartitions
+	GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64) *AgentPartitions
 	GetCoreOSPartitions(coreosImagePath string) ([]Partition, error)
 }
 
@@ -37,7 +37,7 @@ func NewPartitions() Partitions {
 	return &partitions{}
 }
 
-func (p *partitions) GetAgentPartitions(diskSize, recoveryIsoSize, dataIsoSize int64) *AgentPartitions {
+func (p *partitions) GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64) *AgentPartitions {
 	// Calc data partition start/end sectors
 	dataEndSector := (conversions.GibToBytes(diskSize) - conversions.MibToBytes(1)) / sectorSize
 	dataStartSector := dataEndSector - (dataIsoSize / sectorSize)
@@ -49,7 +49,7 @@ func (p *partitions) GetAgentPartitions(diskSize, recoveryIsoSize, dataIsoSize i
 	recoveryStartSector = roundToNearestSector(recoveryStartSector, sectorAlignmentFactor)
 
 	// Calc root partition start/end sectors
-	rootPartitionSize := p.getRootPartitionSize(diskSize)
+	rootPartitionSize := p.getRootPartitionSize(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize)
 	rootEndSector := recoveryStartSector - sectorAlignmentFactor
 	rootStartSector := rootEndSector - (rootPartitionSize / sectorSize)
 	rootStartSector = roundToNearestSector(rootStartSector, sectorAlignmentFactor)
@@ -88,14 +88,14 @@ func (p *partitions) GetCoreOSPartitions(coreosImagePath string) ([]Partition, e
 	return partitionsInfo, nil
 }
 
-func (p *partitions) getRootPartitionSize(diskSize int64) int64 {
+func (p *partitions) getRootPartitionSize(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64) int64 {
 	if diskSize < config.MinDiskSize {
 		// When using a compact disk image, the root partition is resized during cloning
 		return sectorSize64K
 	}
 
-	// CoreOS root partition should be at least 8GiB
-	return conversions.GibToBytes(8)
+	// Calc root partition size
+	return conversions.GbToBytes(diskSize) - (baseIsoSize + recoveryIsoSize + dataIsoSize)
 }
 
 // Returns the nearest (and lowest) sector according to a specified alignment factor
