@@ -210,6 +210,9 @@ Configure the disk to use `/path/to/appliance.raw`
 * Download a custom build of openshift-install binary (for linux/x86_64) from https://drive.google.com/file/d/1DVPWEAq0G5I7TAdmpVJ2vxdK-WcaINMi/view?usp=drive_link
 
 ### Generate a Cluster Configuration Image
+
+#### Create config yamls
+
 * Create a configuration directory
 
 **:warning: Use absolute directory paths.**
@@ -222,14 +225,18 @@ Configure the disk to use `/path/to/appliance.raw`
   * [Appliance README](../README.md#examples)
   * [OpenShift Documentation](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#installation-bare-metal-agent-installer-config-yaml_preparing-to-install-with-agent-based-installer)
   * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#stat)
-* When ready, generate the config-iso.
+
+Note: for disconnected environments, specify a dummy pull-secret in install-config.yaml (e.g. `'{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'`).
+
+#### Generate config-image
+
+When ready, generate the config ISO.
 
   :warning: The following command will delete the `install-config.yaml` and `agent-config.yaml` files - back them up first.
 
   ```shell
   ./openshift-install agent create config-image --dir $CLUSTER_CONFIG
   ```
-* Note: The config ISO contains configurations and cannot be used as a bootable ISO.
 
 The content of `cluster_config` directory should be
   ```shell
@@ -238,6 +245,8 @@ The content of `cluster_config` directory should be
   │   ├── kubeadmin-password
   │   └── kubeconfig
   ```
+
+Note: The config ISO contains configurations and cannot be used as a bootable ISO.
 
 ### Mount
 **:warning: Ensure nodes have sufficient vCPUs and memory, see [requirements](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#recommended-resources-for-topologies).**
