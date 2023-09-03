@@ -3,17 +3,17 @@ package ignition
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/coreos/ignition/v2/config/util"
-	"github.com/pkg/errors"
 	"path/filepath"
 	"strings"
 
+	"github.com/coreos/ignition/v2/config/util"
+	"github.com/pkg/errors"
+
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	agentManifests "github.com/openshift/installer/pkg/asset/agent/manifests"
-	"github.com/openshift/installer/pkg/asset/ignition"
 	ignasset "github.com/openshift/installer/pkg/asset/ignition"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
@@ -151,9 +151,9 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 
 		// Add 'appliance-override-password-set' file
 		// (needed as an indication that the appliance override the core pass)
-		registryEnvFile := ignasset.FileFromString(
+		overridePassFile := ignasset.FileFromString(
 			corePassOverrideFilePath, "root", 0644, "")
-		i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
+		i.Config.Storage.Files = append(i.Config.Storage.Files, overridePassFile)
 	}
 
 	// Add registry.env file
@@ -169,7 +169,7 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	}
 	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
 
-	err = addExtraManifests(&i.Config, extraManifests)
+	err = i.addExtraManifests(&i.Config, extraManifests)
 	if err != nil {
 		return err
 	}
@@ -180,8 +180,7 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 }
 
 // addExtraManifests is a non-exportable function copy-over from openshift/installer/pkg/asset/agent/image/ignition.go
-func addExtraManifests(config *igntypes.Config, extraManifests *agentManifests.ExtraManifests) error {
-
+func (i *BootstrapIgnition) addExtraManifests(config *igntypes.Config, extraManifests *agentManifests.ExtraManifests) error {
 	user := "root"
 	mode := 0644
 
@@ -219,7 +218,7 @@ func addExtraManifests(config *igntypes.Config, extraManifests *agentManifests.E
 			baseFileName := filepath.Join(extraManifestPath, baseWithoutExt)
 			fileName := fmt.Sprintf("%s-%d%s", baseFileName, n, ext)
 
-			extraFile := ignition.FileFromBytes(fileName, user, mode, m)
+			extraFile := ignasset.FileFromBytes(fileName, user, mode, m)
 			config.Storage.Files = append(config.Storage.Files, extraFile)
 		}
 	}
