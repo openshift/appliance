@@ -135,6 +135,39 @@ sshKey: <redacted>
 userCorePass: <redacted>
 ```
 
+### Add custom manifests (Optional)
+* Note that any manifest added here will apply to **any** of the clusters installed using this image.
+* Find more details and additional examples in OpenShift documentation: 
+  * [Customizing nodes](https://docs.openshift.com/container-platform/4.13/installing/install_config/installing-customizing.html)
+  * [Using MachineConfig objects to configure nodes](https://docs.openshift.com/container-platform/4.13/post_installation_configuration/machine-configuration-tasks.html#using-machineconfigs-to-change-machines)
+
+1. Create the openshift manifests directory
+```shell
+mkdir $APPLIANCE_ASSETS:/openshift
+```
+
+2. Add one or more custom manifests under `$APPLIANCE_ASSETS:/openshift`.
+#### MachineConfig example:
+```yaml
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: master
+  name: 50-master-custom-file-factory
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    storage:
+      files:
+        - contents:
+            source: data:text/plain;charset=utf-8;base64,dGhpcyBjb250ZW50IGNhbWUgZnJvbSBidWlsZGluZyB0aGUgYXBwbGlhbmNlIGltYWdlCg==
+          mode: 420
+          path: /etc/custom_factory1.txt
+          overwrite: true
+```
+
 ### Build the image
 * Make sure you have enough free disk space.
   * The amount of space needed is defined by the configured `diskSizeGB` value mentioned above, which is at least 150GiB.
@@ -227,6 +260,18 @@ Configure the disk to use `/path/to/appliance.raw`
   * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#stat)
 
 Note: for disconnected environments, specify a dummy pull-secret in install-config.yaml (e.g. `'{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'`).
+
+#### Add custom manifests (Optional)
+* Note that any manifest added here will apply **only** to the cluster installed using this config-iso.
+* Find more details and additional examples in OpenShift documentation:
+  * [Customizing nodes](https://docs.openshift.com/container-platform/4.13/installing/install_config/installing-customizing.html)
+  * [Using MachineConfig objects to configure nodes](https://docs.openshift.com/container-platform/4.13/post_installation_configuration/machine-configuration-tasks.html#using-machineconfigs-to-change-machines)
+1. Create the openshift manifests directory
+```shell
+mkdir $APPLIANCE_ASSETS:/openshift
+```
+
+2. Add one or more custom manifests under `$CLUSTER_CONFIG:/openshift`. Same as in [this MachineConfig example](user-guide.md#MachineConfig-example)
 
 #### Generate config-image
 
