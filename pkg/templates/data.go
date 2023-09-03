@@ -128,11 +128,11 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 	}
 }
 
-func GetInstallIgnitionTemplateData(registryDataPath string) interface{} {
+func GetInstallIgnitionTemplateData(registryDataPath, corePassHash string) interface{} {
 	return struct {
 		IsBootstrapStep bool
 
-		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
+		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage, CorePassHash string
 	}{
 		IsBootstrapStep: false,
 
@@ -141,6 +141,7 @@ func GetInstallIgnitionTemplateData(registryDataPath string) interface{} {
 		RegistryDomain:   registry.RegistryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
+		CorePassHash:     corePassHash,
 	}
 }
 

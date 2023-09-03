@@ -11,7 +11,6 @@ import (
 	ignitionutil "github.com/openshift/appliance/pkg/ignition"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
-	assetignition "github.com/openshift/installer/pkg/asset/ignition"
 	ignasset "github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/sirupsen/logrus"
@@ -34,6 +33,8 @@ var (
 	installScripts = []string{
 		"setup-local-registry.sh",
 	}
+
+	corePassHash string
 )
 
 // InstallIgnition generates the ignition file for cluster installation phase
@@ -70,27 +71,31 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 		},
 	}
 
-	// Add user 'core' password if required
 	if applianceConfig.Config.UserCorePass != nil {
+		installServices = append(installServices, "set-core-pass.service")
+
+		// Generate core pass hash
 		passBytes, err := bcrypt.GenerateFromPassword([]byte(*applianceConfig.Config.UserCorePass), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
-		pwdHash := string(passBytes)
-		passwdUser := igntypes.PasswdUser{
-			Name:         "core",
-			PasswordHash: &pwdHash,
-		}
-		i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
+		corePassHash = string(passBytes)
 	}
 
+	// Create install template data
+	templateData := templates.GetInstallIgnitionTemplateData(installRegistryDataPath, corePassHash)
+
 	// Add services common for bootstrap and install
-	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", nil, installServices); err != nil {
+	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", templateData, installServices); err != nil {
+		return err
+	}
+
+	// Add services exclusive for install
+	if err := bootstrap.AddSystemdUnits(&i.Config, "services/install", templateData, installServices); err != nil {
 		return err
 	}
 
 	// Add install scripts to ignition
-	templateData := templates.GetInstallIgnitionTemplateData(installRegistryDataPath)
 	for _, script := range installScripts {
 		if err := bootstrap.AddStorageFiles(&i.Config,
 			"/usr/local/bin/"+script,
@@ -101,7 +106,7 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	}
 
 	// Add registries.conf
-	registriesFile := assetignition.FileFromBytes(registriesConfFilePath,
+	registriesFile := ignasset.FileFromBytes(registriesConfFilePath,
 		"root", 0600, registryConf.File.Data)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registriesFile)
 
@@ -132,7 +137,7 @@ func (i *InstallIgnition) addRecoveryGrubMenuItem(tempDir string) error {
 	if err != nil {
 		return err
 	}
-	cfgFile := assetignition.FileFromBytes(consts.UserCfgFilePath,
+	cfgFile := ignasset.FileFromBytes(consts.UserCfgFilePath,
 		"root", 0644, cfgFileBytes)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, cfgFile)
 	format := "ext4"
