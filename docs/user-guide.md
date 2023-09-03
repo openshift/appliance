@@ -68,6 +68,7 @@ INFO Generated config file in assets directory: appliance-config.yaml
 
 ### Set `appliance-config`
 * Initially, the template will include comments about each option and will look as follows:
+* Check the [appliance-config](./appliance-config.md) details on how to set each parameter.
 
 ```yaml
 #
