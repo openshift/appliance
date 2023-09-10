@@ -2,6 +2,7 @@ package installer
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/cavaliergopher/grab/v3"
@@ -51,13 +52,6 @@ func (i *installer) CreateUnconfiguredIgnition() (string, error) {
 	var err error
 
 	if !i.EnvConfig.DebugBaseIgnition {
-		// TODO: remove once the API is ready (see below)
-		if true {
-			return "pkg/asset/ignition/unconfigured.ign", nil
-		}
-
-		// TODO: use logic below once the API is ready ('agent create unconfigured-ignition')
-		//       see: https://issues.redhat.com/browse/AGENT-574
 		if fileName := i.EnvConfig.FindInCache(installerBinaryName); fileName != "" {
 			logrus.Info("Reusing openshift-install binary from cache")
 			openshiftInstallFilePath = fileName
@@ -113,5 +107,11 @@ func (i *installer) downloadInstallerBinary() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(i.EnvConfig.CacheDir, installerBinaryName), nil
+
+	installerBinaryPath := filepath.Join(i.EnvConfig.CacheDir, installerBinaryName)
+	err = os.Chmod(installerBinaryPath, 0755)
+	if err != nil {
+		return "", err
+	}
+	return installerBinaryPath, nil
 }

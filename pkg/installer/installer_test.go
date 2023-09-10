@@ -2,11 +2,12 @@ package installer
 
 import (
 	"fmt"
+	"path/filepath"
+	"testing"
+
 	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/graph"
 	"github.com/openshift/appliance/pkg/types"
-	"path/filepath"
-	"testing"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2/dsl/core"
@@ -79,10 +80,17 @@ var _ = Describe("Test Installer", func() {
 		version := "4.13.1"
 		channel := graph.ReleaseChannelStable
 		cpuArc := swag.String(config.CpuArchitectureX86)
+
+		tmpDir, err := filepath.Abs("")
+		Expect(err).ToNot(HaveOccurred())
+		cmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, installerBinaryName, tmpDir)
+		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
+
 		installerConfig := InstallerConfig{
 			Executer: mockExecuter,
 			EnvConfig: &config.EnvConfig{
 				DebugBaseIgnition: false,
+				TempDir:           tmpDir,
 			},
 			ApplianceConfig: &config.ApplianceConfig{
 				Config: &types.ApplianceConfig{
@@ -98,7 +106,7 @@ var _ = Describe("Test Installer", func() {
 
 		res, err := testInstaller.CreateUnconfiguredIgnition()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal("pkg/asset/ignition/unconfigured.ign"))
+		Expect(res).To(Equal(fmt.Sprintf("%s/unconfigured-agent.ign", tmpDir)))
 	})
 
 	It("CreateUnconfiguredIgnition - DebugBaseIgnition: true", func() {

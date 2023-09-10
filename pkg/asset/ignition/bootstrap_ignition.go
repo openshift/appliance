@@ -52,9 +52,6 @@ var (
 		"release-image.sh",
 		"update-hosts.sh",
 		"create-virtual-device.sh",
-
-		// TODO: remove (needed for using custom agent image)
-		"get-container-images.sh",
 	}
 )
 

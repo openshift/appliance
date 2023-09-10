@@ -2,7 +2,7 @@ package consts
 
 const (
 	MaxOcpVersion = "4.14" // Latest supported version (update on each release)
-	MinOcpVersion = "4.12" // TODO: update to supported version when ready
+	MinOcpVersion = "4.14.0-rc.0"
 
 	// user.cfg template
 	UserCfgTemplateFile = "scripts/grub/user.cfg.template"
@@ -43,8 +43,4 @@ const (
 	RegistryEnvPath       = "/etc/assisted/registry.env"
 	RegistryDataBootstrap = "/tmp/registry"
 	RegistryDataInstall   = "/mnt/agentdata/oc-mirror/install"
-
-	// AI images
-	// TODO: remove when official images are updates
-	AssistedInstallerAgentImage = "quay.io/edge-infrastructure/assisted-installer-agent:latest"
 )

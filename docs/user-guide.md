@@ -128,8 +128,8 @@ imageRegistry:
 apiVersion: v1beta1
 kind: ApplianceConfig
 ocpRelease:
-  version: 4.12.10
-  channel: stable
+  version: 4.14
+  channel: candidate
   cpuArchitecture: x86_64
 diskSizeGB: 200
 pullSecret: '{"auths":{<redacted>}}'
@@ -185,8 +185,8 @@ Result
 INFO Successfully downloaded CoreOS ISO
 INFO Successfully generated recovery CoreOS ISO
 INFO Successfully pulled container registry image
-INFO Successfully pulled OpenShift 4.12.10 release images required for bootstrap
-INFO Successfully pulled OpenShift 4.12.10 release images required for installation
+INFO Successfully pulled OpenShift 4.14.0-rc.0 release images required for bootstrap
+INFO Successfully pulled OpenShift 4.14.0-rc.0 release images required for installation
 INFO Successfully generated data ISO
 INFO Successfully downloaded appliance base disk image
 INFO Successfully extracted appliance base disk image
@@ -196,7 +196,7 @@ INFO
 INFO Appliance disk image was successfully created in assets directory: assets/appliance.raw
 INFO
 INFO Create configuration ISO using: openshift-install agent create config-image
-INFO Download openshift-install from: https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.12.10/openshift-install-linux.tar.gz
+INFO Download openshift-install from: https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.0-rc.0/openshift-install-linux.tar.gz
 ```
 
 ### Rebuild
@@ -241,8 +241,9 @@ Configure the disk to use `/path/to/appliance.raw`
 
 ### Download `openshift-install`
 * So far, the generated image has been completely generic. To install the cluster, the installer will need cluster-specific configuration.
-* The `openshift-install` version mentioned above does not include the config-image API. This API is available starting from version `4.14`.
-* Download a custom build of openshift-install binary (for linux/x86_64) from https://drive.google.com/file/d/1DVPWEAq0G5I7TAdmpVJ2vxdK-WcaINMi/view?usp=drive_link
+* In order to generate the configuration image using `openshift-install`, download the binary from the URL specified in build output.
+E.g. for `4.14.0-rc.0`
+https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.0-rc.0/openshift-install-linux.tar.gz
 
 ### Generate a Cluster Configuration Image
 
