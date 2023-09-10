@@ -327,7 +327,6 @@ func (r *release) imagesListWithCustomImages() map[string]bool {
 	for key, value := range r.additionalBootstrapImages {
 		additionalImages[key] = value
 	}
-	additionalImages[consts.AssistedInstallerAgentImage] = true
 	return additionalImages
 }
 
