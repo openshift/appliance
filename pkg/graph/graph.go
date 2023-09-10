@@ -13,6 +13,8 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/go-openapi/swag"
+	"github.com/openshift/appliance/pkg/consts"
+	"github.com/sirupsen/logrus"
 )
 
 // Response is what Cincinnati sends us when querying for releases in a channel
@@ -104,6 +106,16 @@ func (g *graph) GetReleaseImage() (string, string, error) {
 
 	payload, version, err := g.resolvePullSpec(*g.CincinnatiAddress, release)
 	if err != nil {
+		if g.Version != consts.MaxOcpVersion {
+			// Trying to fallback to latest supported version
+			logrus.Warnf("OCP %s is not available, fallback to latest supported version: %s", release.Version, consts.MaxOcpVersion)
+			g.Version = consts.MaxOcpVersion
+			payload, version, err := g.GetReleaseImage()
+			if err != nil {
+				return "", "", err
+			}
+			return payload, version, nil
+		}
 		return "", "", err
 	}
 

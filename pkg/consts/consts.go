@@ -1,6 +1,9 @@
 package consts
 
 const (
+	MaxOcpVersion = "4.14" // Latest supported version (update on each release)
+	MinOcpVersion = "4.12" // TODO: update to supported version when ready
+
 	// user.cfg template
 	UserCfgTemplateFile = "scripts/grub/user.cfg.template"
 	GrubTimeout         = 10

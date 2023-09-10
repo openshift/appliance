@@ -40,7 +40,6 @@ const (
 
 	// Validation values
 	MinDiskSize     = 150
-	MinOcpVersion   = "4.12" // TODO: update to supported version when ready
 	RegistryMinPort = 1024
 	RegistryMaxPort = 65535
 
@@ -49,7 +48,8 @@ const (
 )
 
 var (
-	cpuArchitectures = []string{CpuArchitectureX86, CpuArchitectureAARCH64, CpuArchitecturePPC64le}
+	cpuArchitectures             = []string{CpuArchitectureX86, CpuArchitectureAARCH64, CpuArchitecturePPC64le}
+	releaseImage, releaseVersion string
 )
 
 // ApplianceConfig reads the appliance-config.yaml file.
@@ -84,6 +84,7 @@ kind: ApplianceConfig
 ocpRelease:
   # OCP release version in major.minor or major.minor.patch format
   # (in case of major.minor - latest patch version will be used)
+  # If the specified version is not yet available, the latest supported version will be used.
   version: ocp-release-version
   # OCP release update channel: stable|fast|eus|candidate
   # Default: %s
@@ -187,13 +188,7 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	}
 	config.OcpRelease.CpuArchitecture = swag.String(cpuArch)
 
-	graphConfig := graph.GraphConfig{
-		Arch:    GetReleaseArchitectureByCPU(cpuArch),
-		Version: config.OcpRelease.Version,
-		Channel: config.OcpRelease.Channel,
-	}
-	g := graph.NewGraph(graphConfig)
-	releaseImage, releaseVersion, err := g.GetReleaseImage()
+	releaseImage, releaseVersion, err = a.getRelease()
 	if err != nil {
 		return false, err
 	}
@@ -235,6 +230,26 @@ func GetReleaseArchitectureByCPU(arch string) string {
 	default:
 		return arch
 	}
+}
+
+func (a *ApplianceConfig) getRelease() (string, string, error) {
+	if releaseImage != "" && releaseVersion != "" {
+		// Return cached values
+		return releaseImage, releaseVersion, nil
+	}
+
+	graphConfig := graph.GraphConfig{
+		Arch:    GetReleaseArchitectureByCPU(*a.Config.OcpRelease.CpuArchitecture),
+		Version: a.Config.OcpRelease.Version,
+		Channel: a.Config.OcpRelease.Channel,
+	}
+
+	g := graph.NewGraph(graphConfig)
+	releaseImage, releaseVersion, err := g.GetReleaseImage()
+	if err != nil {
+		return "", "", err
+	}
+	return releaseImage, releaseVersion, nil
 }
 
 func (a *ApplianceConfig) validateConfig(f asset.FileFetcher) field.ErrorList {
@@ -329,7 +344,7 @@ func (a *ApplianceConfig) validateOcpRelease() field.ErrorList {
 		allErrs = append(allErrs, field.ErrorList{field.Required(field.NewPath("ocpRelease.version"),
 			"ocpRelease version is required")}...)
 	}
-	minOcpVer, _ := version.NewVersion(MinOcpVersion)
+	minOcpVer, _ := version.NewVersion(consts.MinOcpVersion)
 	ocpVer, err := version.NewVersion(a.Config.OcpRelease.Version)
 	if err != nil {
 		allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("ocpRelease.version"),
@@ -338,7 +353,7 @@ func (a *ApplianceConfig) validateOcpRelease() field.ErrorList {
 	} else if ocpVer.LessThan(minOcpVer) {
 		allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("ocpRelease.version"),
 			a.Config.OcpRelease.Version,
-			fmt.Sprintf("OCP release version must be at least %s", MinOcpVersion))}...)
+			fmt.Sprintf("OCP release version must be at least %s", consts.MinOcpVersion))}...)
 	}
 
 	// Validate ocpRelease.channel

@@ -81,6 +81,7 @@ kind: ApplianceConfig
 ocpRelease:
   # OCP release version in major.minor or major.minor.patch format
   # (in case of major.minor - latest patch version will be used)
+  # If the specified version is not yet available, the latest supported version will be used.
   version: ocp-release-version
   # OCP release update channel: stable|fast|eus|candidate
   # Default: stable
