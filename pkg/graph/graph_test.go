@@ -13,6 +13,7 @@ import (
 	"github.com/go-openapi/swag"
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
+	"github.com/openshift/appliance/pkg/consts"
 )
 
 const (
@@ -37,6 +38,10 @@ func (c *ClientMock) Do(req *http.Request) (*http.Response, error) {
 				{
 					Version: "4.13.3",
 					Payload: fmt.Sprintf("%s:foobar3", cincinnatiPartialResponse),
+				},
+				{
+					Version: fmt.Sprintf("%s.0", consts.MaxOcpVersion),
+					Payload: fmt.Sprintf("%s:foobar4", cincinnatiPartialResponse),
 				},
 			},
 		}
@@ -91,12 +96,14 @@ var _ = Describe("Test Graph", func() {
 		Expect(verResponse).To(Equal(version))
 	})
 
-	It("GetReleaseImage - Invalid version", func() {
-		graphConfig.Version = "4.13.100"
+	It("GetReleaseImage - missing version", func() {
+		graphConfig.Version = "4.99"
 
 		testGraph = NewGraph(graphConfig)
-		_, _, err := testGraph.GetReleaseImage()
-		Expect(err).To(HaveOccurred())
+		cincinnatiResponse, verResponse, err := testGraph.GetReleaseImage()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(cincinnatiResponse).To(ContainSubstring(cincinnatiPartialResponse))
+		Expect(verResponse).To(Equal(fmt.Sprintf("%s.0", consts.MaxOcpVersion)))
 	})
 
 	It("GetReleaseImage - Cincinnati returns 404", func() {
