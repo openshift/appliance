@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-openapi/swag"
@@ -168,7 +169,17 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 
 	config := &types.ApplianceConfig{}
 	if err = yaml.UnmarshalStrict(file.Data, config); err != nil {
-		return false, errors.Wrapf(err, "failed to unmarshal %s", ApplianceConfigFilename)
+		// Log full error only on debug level
+		logrus.Debug(err)
+
+		// Search for failed to parse field
+		r := regexp.MustCompile(`field .\S*`)
+		field := r.FindString(err.Error())
+		if field != "" {
+			field = fmt.Sprintf(" (error in %s)", field)
+		}
+		
+		return false, errors.New(fmt.Sprintf("can't parse %s. Ensure the config file is configured correctly%s. For additional info add '--log-level debug'.", ApplianceConfigFilename, field))
 	}
 
 	a.File, a.Config = file, config
