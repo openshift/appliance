@@ -276,10 +276,10 @@ Note: for disconnected environments, specify a dummy pull-secret in install-conf
   * [Using MachineConfig objects to configure nodes](https://docs.openshift.com/container-platform/4.13/post_installation_configuration/machine-configuration-tasks.html#using-machineconfigs-to-change-machines)
 1. Create the openshift manifests directory
 ```shell
-mkdir $APPLIANCE_ASSETS:/openshift
+mkdir $CLUSTER_CONFIG/openshift
 ```
 
-2. Add one or more custom manifests under `$CLUSTER_CONFIG:/openshift`. Same as in [this MachineConfig example](user-guide.md#MachineConfig-example)
+2. Add one or more custom manifests under `$CLUSTER_CONFIG/openshift`. Same as in [this MachineConfig example](user-guide.md#MachineConfig-example)
 
 #### Generate config-image
 
