@@ -102,6 +102,11 @@ func runBuildISO(cmd *cobra.Command, args []string) {
 	cleanup := log.SetupFileHook(rootOpts.dir)
 	defer cleanup()
 
+	// Generate DeployConfig asset
+	if err := getAssetStore().Fetch(deployConfig); err != nil {
+		logrus.Fatal(err)
+	}
+
 	// Generate DeployISO asset
 	deployISO := deploy.DeployISO{}
 	if err := getAssetStore().Fetch(&deployISO); err != nil {
@@ -128,13 +133,6 @@ func preRunBuild(cmd *cobra.Command, args []string) {
 	// Generate EnvConfig asset
 	if err := getAssetStore().Fetch(&envConfig); err != nil {
 		logrus.Fatal(err)
-	}
-
-	if deployConfig != nil {
-		// Generate DeployConfig asset
-		if err := getAssetStore().Fetch(deployConfig); err != nil {
-			logrus.Fatal(err)
-		}
 	}
 }
 
