@@ -6,6 +6,7 @@ import (
 	"github.com/diskfs/go-diskfs"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/assisted-service/pkg/conversions"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -20,6 +21,7 @@ const (
 type Partitions interface {
 	GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64) *AgentPartitions
 	GetCoreOSPartitions(coreosImagePath string) ([]Partition, error)
+	GetBootPartitionsSize(baseImageFile string) int64
 }
 
 type Partition struct {
@@ -86,6 +88,16 @@ func (p *partitions) GetCoreOSPartitions(coreosImagePath string) ([]Partition, e
 	partitionsInfo[3].Size = conversions.GibToBytes(8) / sectorSize
 
 	return partitionsInfo, nil
+}
+
+func (p *partitions) GetBootPartitionsSize(baseImageFile string) int64 {
+	partitions, err := p.GetCoreOSPartitions(baseImageFile)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	// Calc base disk image size in bytes (including an additional overhead for alignment)
+	return sectorSize*(partitions[0].Size+partitions[1].Size+partitions[2].Size) + conversions.MibToBytes(1)
 }
 
 func (p *partitions) getRootPartitionSize(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64) int64 {

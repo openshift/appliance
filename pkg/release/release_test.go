@@ -96,17 +96,17 @@ var _ = Describe("Test Release", func() {
 		testRelease = NewRelease(coreOSConfig)
 	})
 
-	It("MirrorReleaseImages - success", func() {
+	It("MirrorInstallImages - success", func() {
 		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", nil).Times(1)
 
-		err = testRelease.MirrorReleaseImages()
+		err = testRelease.MirrorInstallImages()
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("MirrorReleaseImages - fail oc mirror", func() {
+	It("MirrorInstallImages - fail oc mirror", func() {
 		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(1)
 
-		err = testRelease.MirrorReleaseImages()
+		err = testRelease.MirrorInstallImages()
 		Expect(err).To(HaveOccurred())
 	})
 

@@ -6,7 +6,6 @@ import (
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/openshift/appliance/pkg/asset/config"
-	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/consts"
 	ignitionutil "github.com/openshift/appliance/pkg/ignition"
 	"github.com/openshift/appliance/pkg/templates"
@@ -23,6 +22,9 @@ const (
 	bootDevice              = "/dev/disk/by-partlabel/boot"
 	bootMountPath           = "/boot"
 	installRegistryDataPath = "/mnt/agentdata/oc-mirror/install"
+	catalogSourcePattern    = "catalogSource-*.yaml"
+	extraManifestsPath      = "/etc/assisted/extra-manifests"
+	icspFileName            = "imageContentSourcePolicy.yaml"
 )
 
 var (
@@ -54,7 +56,6 @@ func (i *InstallIgnition) Dependencies() []asset.Asset {
 	return []asset.Asset{
 		&config.EnvConfig{},
 		&config.ApplianceConfig{},
-		&registry.RegistriesConf{},
 	}
 }
 
@@ -62,8 +63,7 @@ func (i *InstallIgnition) Dependencies() []asset.Asset {
 func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
-	registryConf := &registry.RegistriesConf{}
-	dependencies.Get(envConfig, applianceConfig, registryConf)
+	dependencies.Get(envConfig, applianceConfig)
 
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -104,11 +104,6 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 			return err
 		}
 	}
-
-	// Add registries.conf
-	registriesFile := ignasset.FileFromBytes(registriesConfFilePath,
-		"root", 0600, registryConf.File.Data)
-	i.Config.Storage.Files = append(i.Config.Storage.Files, registriesFile)
 
 	// Add registry.env file
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,

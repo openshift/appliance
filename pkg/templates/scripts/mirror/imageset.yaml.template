@@ -14,3 +14,5 @@ mirror:
 {{.AdditionalImages}}{{end}}
 {{if .BlockedImages}}  blockedImages:
 {{.BlockedImages}}{{end}}
+{{if .Operators}}  operators:
+{{.Operators}}{{end}}

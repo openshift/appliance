@@ -105,6 +105,7 @@ sshKey: ssh-key
 # Password of user 'core' for connecting from console
 # [Optional]
 userCorePass: user-core-pass
+# Local image registry details (used when building the appliance)
 # [Optional]
 imageRegistry:
   # The URI for the image
@@ -116,6 +117,24 @@ imageRegistry:
   # Default: 5005
   # [Optional]
   port: port
+# Enable all default CatalogSources (on openshift-marketplace namespace).
+# Should be disabled for disconnected environments.
+# Default: false
+# [Optional]
+enableDefaultSources: enable-default-sources
+# Additional images to be included in the appliance disk image.
+# [Optional]
+additionalImages:
+   - name: image-url
+# Operators to be included in the appliance disk image.
+# See examples in https://github.com/openshift/oc-mirror/blob/main/docs/imageset-config-ref.yaml.
+# [Optional]
+operators:
+  - catalog: catalog-uri
+    packages:
+      - name: package-name
+        channels:
+          - name: channel-name
 ```
 * Modify it based on your needs. Note that:
   * `diskSizeGB`: Must be set according to the actual server disk size. If you have several server specs, you need an appliance image per each spec.
@@ -146,6 +165,82 @@ userCorePass: <redacted>
 1. Create the openshift manifests directory
 ```shell
 mkdir $APPLIANCE_ASSETS:/openshift
+```
+
+### Include additional images (Optional)
+
+Add any additional images that should be included as part of the appliance disk image.
+These images will be pulled during the oc-mirror procedure that downloads the release images.
+
+E.g. Use the `additionalImages` array in `appliance-config.yaml` as follows:
+```shell
+additionalImages:
+  - name: quay.io/openshift/origin-cli
+``` 
+
+After installing the cluster, images should be available for pulling using the image digest.
+E.g.
+```shell
+podman pull quay.io/openshift/origin-cli@sha256:b66f4289061afa26a686f77da47e2b81420959d71b21b22617a2e6a3226f6ae86ae8
+```
+
+### Include and install operators (Optional)
+
+#### Include operators in the appliance
+
+Operators packages can be included in the appliance disk image using the `operators` property in `appliance-config.yaml`. The relevant images will be pulled during the oc-mirror procedure, and the appropriate CatalogSources and ImageContentSourcePolicies will be automatically created in the installed cluster.
+
+E.g. To include elasticsearch-operator from `redhat-operators` catalog:
+```shell
+operators:
+  - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.14
+    packages:
+      - name: elasticsearch-operator
+        channels:
+          - name: stable
+```
+
+#### Install operators in cluster
+
+To automatically install the included operators during cluster installation, add the relevant custom manifests to $APPLIANCE_ASSETS:/openshift.
+
+E.g. Cluster manifests to install OpenShift Elasticsearch Operator:
+
+*openshift/namespace.yaml*
+```shell
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: operators
+  labels:
+    name: operators
+```
+
+*openshift/operatorgroup.yaml*
+```shell
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: operator-group
+  namespace: operators
+spec:
+  targetNamespaces:
+  - operators
+```
+
+*openshift/subscription.yaml*
+```shell
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: elasticsearch
+  namespace: operators
+spec:
+  installPlanApproval: Automatic
+  name: elasticsearch-operator
+  source: redhat-operator-index
+  channel: stable
+  sourceNamespace: openshift-marketplace
 ```
 
 2. Add one or more custom manifests under `$APPLIANCE_ASSETS:/openshift`.

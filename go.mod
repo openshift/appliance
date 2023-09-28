@@ -13,6 +13,7 @@ require (
 	github.com/go-openapi/swag v0.22.3
 	github.com/itchyny/gojq v0.12.12
 	github.com/onsi/ginkgo/v2 v2.9.1
+	github.com/openconfig/goyang v1.4.2
 	github.com/openshift/assisted-image-service v0.0.0-20220506122314-2f689a1084b8
 	github.com/openshift/assisted-service v0.0.0-20220928142635-a40422bdea61
 	github.com/openshift/assisted-service/api v0.0.0
@@ -162,13 +163,13 @@ require (
 	github.com/onsi/gomega v1.27.4
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20211202193544-a5463b7f9c84 // indirect
-	github.com/openshift/api v3.9.1-0.20191111211345-a27ff30ebf09+incompatible // indirect
+	github.com/openshift/api v3.9.1-0.20191111211345-a27ff30ebf09+incompatible
 	github.com/openshift/cloud-credential-operator v0.0.0-20200316201045-d10080b52c9e // indirect
 	github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e // indirect
 	github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20230308152226-83c0473d4429 // indirect
 	github.com/openshift/cluster-api-provider-ovirt v0.1.1-0.20220323121149-e3f2850dd519 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
-	github.com/openshift/machine-config-operator v0.0.0 // indirect
+	github.com/openshift/machine-config-operator v0.0.0
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/ovirt/go-ovirt v0.0.0-20210809163552-d4276e35d3db // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
@@ -194,7 +195,7 @@ require (
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/go-playground/validator.v9 v9.31.0 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apiextensions-apiserver v0.25.2 // indirect
 	k8s.io/client-go v12.0.0+incompatible // indirect
 	k8s.io/klog v1.0.0 // indirect

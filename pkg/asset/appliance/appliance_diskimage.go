@@ -29,8 +29,8 @@ func (a *ApplianceDiskImage) Dependencies() []asset.Asset {
 		&config.EnvConfig{},
 		&config.ApplianceConfig{},
 		&BaseDiskImage{},
-		&recovery.RecoveryISO{},
 		&data.DataISO{},
+		&recovery.RecoveryISO{},
 	}
 }
 
@@ -63,7 +63,7 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	recoveryIsoSize := recoveryISO.Size
 	dataIsoSize := dataISO.Size
 	baseImageFile := baseDiskImage.File.Filename
-	baseIsoSize := a.getBootPartitionsSize(baseImageFile)
+	baseIsoSize := templates.NewPartitions().GetBootPartitionsSize(baseImageFile)
 	diskSize := a.getDiskSize(applianceConfig.Config.DiskSizeGB, baseIsoSize, recoveryIsoSize, dataIsoSize)
 
 	applianceImageFile := filepath.Join(envConfig.AssetsDir, consts.ApplianceFileName)
@@ -108,14 +108,4 @@ func (a *ApplianceDiskImage) getDiskSize(diskSizeGB *int, baseIsoSize, recoveryI
 
 	// Convert size to GiB (rounded up)
 	return conversions.BytesToGiB(diskSize) + 1
-}
-
-func (a *ApplianceDiskImage) getBootPartitionsSize(baseImageFile string) int64 {
-	partitions, err := templates.NewPartitions().GetCoreOSPartitions(baseImageFile)
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	// Calc base disk image size in bytes (including an additional overhead for alignment)
-	return partitions[0].Size + partitions[1].Size + partitions[2].Size + conversions.MibToBytes(1)
 }
