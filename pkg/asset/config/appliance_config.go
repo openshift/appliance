@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/validate"
-	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/thoas/go-funk"
@@ -108,6 +107,7 @@ sshKey: ssh-key
 # Password of user 'core' for connecting from console
 # [Optional]
 userCorePass: user-core-pass
+# Local image registry details (used when building the appliance)
 # [Optional]
 imageRegistry:
   # The URI for the image
@@ -119,16 +119,29 @@ imageRegistry:
   # Default: %d
   # [Optional]
   port: port
-
-# Apply custom cluster manifests YAML files that are located in assets/openshift folder.
+# Enable all default CatalogSources (on openshift-marketplace namespace).
+# Should be disabled for disconnected environments.
 # Default: false
 # [Optional]
-customClusterManifests: %t
+enableDefaultSources: %t
+# Additional images to be included in the appliance disk image.
+# [Optional]
+# additionalImages:
+#   - name: image-url
+# Operators to be included in the appliance disk image.
+# See examples in https://github.com/openshift/oc-mirror/blob/main/docs/imageset-config-ref.yaml.
+# [Optional]
+# operators:
+# - catalog: catalog-uri
+#   packages:
+#     - name: package-name
+#       channels:
+#         - name: channel-name
 `
 	a.Template = fmt.Sprintf(
 		applianceConfigTemplate,
 		types.ApplianceConfigApiVersion, graph.ReleaseChannelStable, CpuArchitectureX86,
-		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort, consts.CustomClusterManifests)
+		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort, consts.EnableDefaultSources)
 
 	return nil
 }
@@ -178,7 +191,7 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 		if field != "" {
 			field = fmt.Sprintf(" (error in %s)", field)
 		}
-		
+
 		return false, errors.New(fmt.Sprintf("can't parse %s. Ensure the config file is configured correctly%s. For additional info add '--log-level debug'.", ApplianceConfigFilename, field))
 	}
 
@@ -218,10 +231,6 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 		if config.ImageRegistry.Port == nil {
 			config.ImageRegistry.Port = swag.Int(consts.RegistryPort)
 		}
-	}
-
-	if config.CustomClusterManifests == nil {
-		config.CustomClusterManifests = swag.Bool(false)
 	}
 
 	return true, nil
@@ -298,10 +307,6 @@ func (a *ApplianceConfig) validateConfig(f asset.FileFetcher) field.ErrorList {
 		}
 	}
 
-	// Validate CustomClusterManifests
-	if err := a.validateCustomClusterManifests(f); err != nil {
-		allErrs = append(allErrs, err...)
-	}
 	return allErrs
 }
 
@@ -408,33 +413,4 @@ func (a *ApplianceConfig) validateDiskSize() error {
 		return fmt.Errorf("diskSizeGB must be at least %d GiB", MinDiskSize)
 	}
 	return nil
-}
-
-func (a *ApplianceConfig) validateCustomClusterManifests(f asset.FileFetcher) field.ErrorList {
-	allErrs := field.ErrorList{}
-
-	if !swag.BoolValue(a.Config.CustomClusterManifests) {
-		return nil
-	}
-
-	files, err := f.FetchByPattern(filepath.Join(CustomClusterManifestsDir, CustomClusterManifestsPattern))
-	if err != nil {
-		allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("customClusterManifests"),
-			a.Config.CustomClusterManifests,
-			fmt.Sprintf("Failed to load custom cluster manifest files: %s", err.Error()))}...)
-		return allErrs
-	}
-
-	logrus.Debugf("Detected %d custom cluster manifest files", len(files))
-	for _, file := range files {
-
-		logrus.Debugf("Validating file: %s", file.Filename)
-		s := mcfgv1.MachineConfig{}
-		if err = yaml.Unmarshal(file.Data, &s); err != nil {
-			allErrs = append(allErrs, field.ErrorList{field.InternalError(
-				field.NewPath("customClusterManifests"),
-				errors.Wrapf(err, "Failed to unmarshal %s", file.Filename))}...)
-		}
-	}
-	return allErrs
 }

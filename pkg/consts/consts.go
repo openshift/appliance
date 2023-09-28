@@ -37,8 +37,6 @@ const (
 	RegistryFilePath  = "registry/registry.tar"
 	RegistryPort      = 5005
 
-	CustomClusterManifests = false
-
 	// Local registry env file
 	RegistryEnvPath       = "/etc/assisted/registry.env"
 	RegistryDataBootstrap = "/tmp/registry"
@@ -51,4 +49,7 @@ const (
 	ApplianceImageName = "appliance"
 	ApplianceImageTar  = "appliance.tar"
 	ApplianceImage     = "quay.io/edge-infrastructure/openshift-appliance:latest"
+
+	// Appliance config flags (default values)
+	EnableDefaultSources = false
 )

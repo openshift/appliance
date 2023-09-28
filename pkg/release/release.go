@@ -11,14 +11,18 @@ import (
 
 	"github.com/go-openapi/swag"
 	"github.com/itchyny/gojq"
+	"github.com/openconfig/goyang/pkg/indent"
 	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/templates"
+	"github.com/openshift/appliance/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/thedevsaddam/retry"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -33,7 +37,7 @@ const (
 const (
 	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
-	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:%d --dest-skip-tls --dir %s"
+	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:%d --dir %s --dest-use-http"
 	ocAdmReleaseInfo     = "oc adm release info quay.io/openshift-release-dev/ocp-release:%s-%s -o json"
 )
 
@@ -42,7 +46,7 @@ const (
 //go:generate mockgen -source=release.go -package=release -destination=mock_release.go
 type Release interface {
 	ExtractFile(image, filename string) (string, error)
-	MirrorReleaseImages() error
+	MirrorInstallImages() error
 	MirrorBootstrapImages() error
 	GetImageFromRelease(imageName string) (string, error)
 }
@@ -56,8 +60,7 @@ type ReleaseConfig struct {
 
 type release struct {
 	ReleaseConfig
-	blockedBootstrapImages    map[string]bool
-	additionalBootstrapImages map[string]bool
+	blockedBootstrapImages map[string]bool
 }
 
 // NewRelease is used to set up the executor to run oc commands
@@ -70,9 +73,8 @@ func NewRelease(config ReleaseConfig) Release {
 	}
 
 	return &release{
-		ReleaseConfig:             config,
-		blockedBootstrapImages:    initBlockedBootstrapImagesInfo(),
-		additionalBootstrapImages: initAdditionalImagesInfo(),
+		ReleaseConfig:          config,
+		blockedBootstrapImages: initBlockedBootstrapImagesInfo(),
 	}
 }
 
@@ -103,12 +105,6 @@ func initBlockedBootstrapImagesInfo() map[string]bool {
 		"cluster-kube-controller-manager-operator": true,
 		"cluster-version-operator":                 true,
 		"cluster-node-tuning-operator":             true,
-	}
-}
-
-func initAdditionalImagesInfo() map[string]bool {
-	return map[string]bool{
-		"registry.redhat.io/ubi8/ubi:latest": true,
 	}
 }
 
@@ -209,15 +205,15 @@ func (r *release) setDockerConfig() error {
 	return nil
 }
 
-func (r *release) mirrorImages(templateFile string, blockedImages string, additionalImages string) error {
+func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, operators string) error {
 	if err := templates.RenderTemplateFile(
-		templateFile,
-		templates.GetImageSetTemplateData(r.ApplianceConfig, blockedImages, additionalImages),
+		imageSetFile,
+		templates.GetImageSetTemplateData(r.ApplianceConfig, blockedImages, additionalImages, operators),
 		r.EnvConfig.TempDir); err != nil {
 		return err
 	}
 
-	absPath, err := filepath.Abs(templates.GetFilePathByTemplate(templateFile, r.EnvConfig.TempDir))
+	imageSetFilePath, err := filepath.Abs(templates.GetFilePathByTemplate(imageSetFile, r.EnvConfig.TempDir))
 	if err != nil {
 		return err
 	}
@@ -226,11 +222,9 @@ func (r *release) mirrorImages(templateFile string, blockedImages string, additi
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = r.OSInterface.RemoveAll(tempDir)
-	}()
 
-	cmd := fmt.Sprintf(ocMirrorAndUpload, absPath, swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port), tempDir)
+	registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
+	cmd := fmt.Sprintf(ocMirrorAndUpload, imageSetFilePath, registryPort, tempDir)
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 
 	if err = r.setDockerConfig(); err != nil {
@@ -243,11 +237,38 @@ func (r *release) mirrorImages(templateFile string, blockedImages string, additi
 		return err
 	}
 
+	// Copy yaml files (imageContentSourcePolicy and catalogSource) to cache dir
+	if err := r.copyOutputYamls(tempDir); err != nil {
+		return err
+	}
+
 	return err
 }
 
-func (r *release) MirrorReleaseImages() error {
-	return r.mirrorImages(consts.ImageSetTemplateFile, "", "")
+func (r *release) copyOutputYamls(ocMirrorDir string) error {
+	yamlPaths, err := filepath.Glob(filepath.Join(ocMirrorDir, "results-*/*.yaml"))
+	if err != nil {
+		return err
+	}
+	for _, yamlPath := range yamlPaths {
+		logrus.Debugf(fmt.Sprintf("Copying ymals from oc-mirror output: %s", yamlPath))
+		yamlBytes, err := r.OSInterface.ReadFile(yamlPath)
+		if err != nil {
+			return err
+		}
+
+		// Replace registry URI with "registry.appliance.com:5000"
+		buildRegistryURI := fmt.Sprintf("127.0.0.1:%d", swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port))
+		internalRegistryURI := fmt.Sprintf("%s:%d", registry.RegistryDomain, registry.RegistryPort)
+		newYaml := strings.ReplaceAll(string(yamlBytes), buildRegistryURI, internalRegistryURI)
+
+		// Write edited yamls to cache
+		destYamlPath := filepath.Join(r.EnvConfig.CacheDir, filepath.Base(yamlPath))
+		if err = r.OSInterface.WriteFile(destYamlPath, []byte(newYaml), os.ModePerm); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *release) shouldBlockImage(imageName string) bool {
@@ -307,27 +328,31 @@ func (r *release) generateBlockedImagesList() (string, error) {
 	return result.String(), nil
 }
 
-func (r *release) generateAdditionalImagesList(imagesMap map[string]bool) string {
-	var result strings.Builder
-	var i int
-
-	for imageURL := range imagesMap {
-		result.WriteString(fmt.Sprintf("    - name: \"%s\"", imageURL))
-		if i != len(r.additionalBootstrapImages) {
-			result.WriteString("\n")
-		}
-		i++
+func (r *release) generateAdditionalImagesList(images *[]types.Image) string {
+	if images == nil {
+		return ""
 	}
+
+	var result strings.Builder
+	obj, err := yaml.Marshal(images)
+	if err != nil {
+		return ""
+	}
+	result.WriteString(indent.String("    ", string(obj)))
 	return result.String()
 }
 
-func (r *release) imagesListWithCustomImages() map[string]bool {
-	// TODO(MGMT-14548): Remove when no longer needed to use unofficial images.
-	additionalImages := make(map[string]bool)
-	for key, value := range r.additionalBootstrapImages {
-		additionalImages[key] = value
+func (r *release) generateOperatorsList(operators *[]types.Operator) string {
+	if operators == nil {
+		return ""
 	}
-	return additionalImages
+	var result strings.Builder
+	obj, err := yaml.Marshal(operators)
+	if err != nil {
+		return ""
+	}
+	result.WriteString(indent.String("    ", string(obj)))
+	return result.String()
 }
 
 func (r *release) MirrorBootstrapImages() error {
@@ -339,6 +364,16 @@ func (r *release) MirrorBootstrapImages() error {
 	return r.mirrorImages(
 		consts.ImageSetTemplateFile,
 		blockedImages,
-		r.generateAdditionalImagesList(r.imagesListWithCustomImages()),
+		"",
+		"",
+	)
+}
+
+func (r *release) MirrorInstallImages() error {
+	return r.mirrorImages(
+		consts.ImageSetTemplateFile,
+		"",
+		r.generateAdditionalImagesList(r.ApplianceConfig.Config.AdditionalImages),
+		r.generateOperatorsList(r.ApplianceConfig.Config.Operators),
 	)
 }

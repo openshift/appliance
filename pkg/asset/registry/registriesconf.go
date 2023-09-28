@@ -14,6 +14,7 @@ import (
 
 const (
 	RegistryDomain = "registry.appliance.com"
+	RegistryPort   = 5000
 )
 
 var (
@@ -54,7 +55,7 @@ func (i *RegistriesConf) Generate(dependencies asset.Parents) error {
 				},
 				Mirrors: []sysregistriesv2.Endpoint{
 					{
-						Location: fmt.Sprintf("%s:5000/openshift/release-images", RegistryDomain),
+						Location: fmt.Sprintf("%s:%d/openshift/release-images", RegistryDomain, RegistryPort),
 					},
 				},
 			},
@@ -64,18 +65,7 @@ func (i *RegistriesConf) Generate(dependencies asset.Parents) error {
 				},
 				Mirrors: []sysregistriesv2.Endpoint{
 					{
-						Location: fmt.Sprintf("%s:5000/openshift/release", RegistryDomain),
-					},
-				},
-			},
-			// TODO: remove once not using custom AGENT_DOCKER_IMAGE from quay.io
-			{
-				Endpoint: sysregistriesv2.Endpoint{
-					Location: "quay.io",
-				},
-				Mirrors: []sysregistriesv2.Endpoint{
-					{
-						Location: fmt.Sprintf("%s:5000", RegistryDomain),
+						Location: fmt.Sprintf("%s:%d/openshift/release", RegistryDomain, RegistryPort),
 					},
 				},
 			},

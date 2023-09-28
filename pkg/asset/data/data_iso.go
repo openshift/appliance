@@ -136,7 +136,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	if err = releaseImageRegistry.StartRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err = r.MirrorReleaseImages(); err != nil {
+	if err = r.MirrorInstallImages(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	if err = releaseImageRegistry.StopRegistry(); err != nil {
