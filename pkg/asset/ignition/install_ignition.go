@@ -72,8 +72,6 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	}
 
 	if applianceConfig.Config.UserCorePass != nil {
-		installServices = append(installServices, "set-core-pass.service")
-
 		// Generate core pass hash
 		passBytes, err := bcrypt.GenerateFromPassword([]byte(*applianceConfig.Config.UserCorePass), bcrypt.DefaultCost)
 		if err != nil {
@@ -87,11 +85,6 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 
 	// Add services common for bootstrap and install
 	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", templateData, installServices); err != nil {
-		return err
-	}
-
-	// Add services exclusive for install
-	if err := bootstrap.AddSystemdUnits(&i.Config, "services/install", templateData, installServices); err != nil {
 		return err
 	}
 

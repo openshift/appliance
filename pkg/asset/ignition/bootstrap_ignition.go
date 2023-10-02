@@ -25,6 +25,7 @@ import (
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/openshift/installer/pkg/asset/password"
+	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -88,9 +89,8 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	extraManifests := &agentManifests.ExtraManifests{}
-	pwd := &password.KubeadminPassword{}
 	installIgnition := &InstallIgnition{}
-	dependencies.Get(envConfig, applianceConfig, extraManifests, pwd, installIgnition)
+	dependencies.Get(envConfig, applianceConfig, extraManifests, installIgnition)
 
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -155,6 +155,14 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		overridePassFile := ignasset.FileFromString(
 			corePassOverrideFilePath, "root", 0644, "")
 		i.Config.Storage.Files = append(i.Config.Storage.Files, overridePassFile)
+
+		// Add MachineConfigs to set core password post installation
+		if err = i.setCoreUserPass("master", pwdHash); err != nil {
+			return err
+		}
+		if err = i.setCoreUserPass("worker", pwdHash); err != nil {
+			return err
+		}
 	}
 
 	// Add registry.env file
@@ -310,6 +318,52 @@ func (i *BootstrapIgnition) disableDefaultCatalogSources() error {
 		return err
 	}
 	manifestPath := fmt.Sprintf("%s/operatorhub-%s.yaml", extraManifestsPath, operatorHub.Name)
+	manifestFile := ignasset.FileFromBytes(manifestPath, "root", 0644, manifestBytes)
+	i.Config.Storage.Files = append(i.Config.Storage.Files, manifestFile)
+
+	return nil
+}
+
+func (i *BootstrapIgnition) setCoreUserPass(role, pwdHash string) error {
+	// Generate ignition config with user core pass
+	ignConfig := igntypes.Config{
+		Ignition: igntypes.Ignition{
+			Version: igntypes.MaxVersion.String(),
+		},
+		Passwd: igntypes.Passwd{
+			Users: []igntypes.PasswdUser{{
+				Name: "core", PasswordHash: &pwdHash,
+			}},
+		},
+	}
+	ignitionRawExt, err := ignasset.ConvertToRawExtension(ignConfig)
+	if err != nil {
+		return err
+	}
+
+	// Generate the MachineConfig with ignition config
+	machineConfig := &mcfgv1.MachineConfig{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: mcfgv1.SchemeGroupVersion.String(),
+			Kind:       "MachineConfig",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("99-%s-set-core-pass", role),
+			Labels: map[string]string{
+				"machineconfiguration.openshift.io/role": role,
+			},
+		},
+		Spec: mcfgv1.MachineConfigSpec{
+			Config: ignitionRawExt,
+		},
+	}
+
+	// Add the MachineConfig manifest to extra-manifests dir
+	manifestBytes, err := yaml.Marshal(machineConfig)
+	if err != nil {
+		return err
+	}
+	manifestPath := fmt.Sprintf("%s/%s.yaml", extraManifestsPath, machineConfig.Name)
 	manifestFile := ignasset.FileFromBytes(manifestPath, "root", 0644, manifestBytes)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, manifestFile)
 
