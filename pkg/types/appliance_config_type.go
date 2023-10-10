@@ -12,15 +12,16 @@ type ApplianceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	OcpRelease             ReleaseImage   `json:"ocpRelease"`
-	DiskSizeGB             *int           `json:"diskSizeGb"`
-	PullSecret             string         `json:"pullSecret"`
-	SshKey                 *string        `json:"sshKey"`
-	UserCorePass           *string        `json:"userCorePass"`
-	ImageRegistry          *ImageRegistry `json:"imageRegistry"`
-	EnableDefaultSources   *bool          `json:"enableDefaultSources"`
-	AdditionalImages       *[]Image       `json:"additionalImages,omitempty"`
-	Operators              *[]Operator    `json:"operators,omitempty"`
+	OcpRelease           ReleaseImage   `json:"ocpRelease"`
+	DiskSizeGB           *int           `json:"diskSizeGb"`
+	PullSecret           string         `json:"pullSecret"`
+	SshKey               *string        `json:"sshKey"`
+	UserCorePass         *string        `json:"userCorePass"`
+	ImageRegistry        *ImageRegistry `json:"imageRegistry"`
+	EnableDefaultSources *bool          `json:"enableDefaultSources"`
+	StopLocalRegistry    *bool          `json:"stopLocalRegistry"`
+	AdditionalImages     *[]Image       `json:"additionalImages,omitempty"`
+	Operators            *[]Operator    `json:"operators,omitempty"`
 }
 
 type ReleaseImage struct {
@@ -34,7 +35,6 @@ type ImageRegistry struct {
 	URI  *string `json:"uri"`
 	Port *int    `json:"port"`
 }
-
 
 // Structs copied from oc-mirror: https://github.com/openshift/oc-mirror/blob/main/v2/pkg/api/v1alpha2/types_config.go
 

@@ -122,6 +122,11 @@ imageRegistry:
 # Default: false
 # [Optional]
 enableDefaultSources: enable-default-sources
+# Stop the local registry post cluster installation.
+# Note that additional images and operators won't be available when stopped.
+# Default: false
+# [Optional]
+stopLocalRegistry: stop-local-registry
 # Additional images to be included in the appliance disk image.
 # [Optional]
 additionalImages:

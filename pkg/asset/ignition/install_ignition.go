@@ -80,6 +80,11 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 		corePassHash = string(passBytes)
 	}
 
+	if applianceConfig.Config.StopLocalRegistry != nil {
+		installServices = append(installServices, "stop-local-registry.service")
+		installScripts = append(installScripts, "stop-local-registry.sh")
+	}
+
 	// Create install template data
 	templateData := templates.GetInstallIgnitionTemplateData(installRegistryDataPath, corePassHash)
 

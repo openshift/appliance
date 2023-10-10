@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# Wait for cluster to be ready
+kubeconfig=/etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/node-kubeconfigs/localhost.kubeconfig
+until [ "$(sudo oc get clusterversion --kubeconfig "${kubeconfig}" -o jsonpath='{.items[*].status.conditions[?(@.type=="Available")].status}')" == "True" ];
+do
+  echo "Waiting for the cluster to be ready..."
+  sleep 60
+done
+
+# Stop local registry
+echo "Stopping the local registry..."
+sudo systemctl stop start-local-registry.service

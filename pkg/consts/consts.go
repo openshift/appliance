@@ -52,4 +52,5 @@ const (
 
 	// Appliance config flags (default values)
 	EnableDefaultSources = false
+	StopLocalRegistry    = false
 )
