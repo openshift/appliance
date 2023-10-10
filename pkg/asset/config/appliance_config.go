@@ -124,6 +124,11 @@ imageRegistry:
 # Default: false
 # [Optional]
 enableDefaultSources: %t
+# Stop the local registry post cluster installation.
+# Note that additional images and operators won't be available when stopped.
+# Default: false
+# [Optional]
+stopLocalRegistry: %t
 # Additional images to be included in the appliance disk image.
 # [Optional]
 # additionalImages:
@@ -141,7 +146,8 @@ enableDefaultSources: %t
 	a.Template = fmt.Sprintf(
 		applianceConfigTemplate,
 		types.ApplianceConfigApiVersion, graph.ReleaseChannelStable, CpuArchitectureX86,
-		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort, consts.EnableDefaultSources)
+		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort,
+			consts.EnableDefaultSources, consts.StopLocalRegistry)
 
 	return nil
 }

@@ -13,7 +13,8 @@ ExecStopPost=/usr/bin/podman rm -f --ignore --cidfile=%t/%n.ctr-id
 
 Restart=on-failure
 RestartSec=10
-RemainAfterExit=true
+TimeoutStartSec=500
+TimeoutStopSec=300
 
 [Install]
 WantedBy=multi-user.target
