@@ -304,7 +304,7 @@ INFO Download openshift-install from: https://mirror.openshift.com/pub/openshift
 Before rebuilding the appliance, e.g. for changing `diskSizeGB` or `ocpRelease`, use the `clean` command. This command removes the temp folder and prepares the `assets` folder for a rebuild. 
 Note: the command keeps the `cache` folder under `assets` intact.
 ```shell
-podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE clean
+sudo podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE clean
 ```
 
 #### Demo
