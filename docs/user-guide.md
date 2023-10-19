@@ -14,7 +14,7 @@ OpenShift Appliance is available for download at: https://quay.io/edge-infrastru
 
 ### Lab
 * This is where `openshift-appliance` gets used to create a raw sparse disk image.
-  * **raw:** so it can be copied as-is to multiple servers. 
+  * **raw:** so it can be copied as-is to multiple servers.
   * **sparse:** to minimize the physical size.
 * The end result is a generic disk image with a partition layout as follows:
   ``` bash
@@ -41,7 +41,7 @@ OpenShift Appliance is available for download at: https://quay.io/edge-infrastru
 * The user boots the machine and mounts the configuration ISO (cluster configuration).
 * The OpenShift installation will run until completion.
 
-## Disk Image Build - Lab 
+## Disk Image Build - Lab
 
 ### Set Environment
 
@@ -93,7 +93,7 @@ ocpRelease:
   cpuArchitecture: cpu-architecture
 # Virtual size of the appliance disk image.
 # If specified, should be at least 150GiB.
-# If not specified, the disk image should be resized when 
+# If not specified, the disk image should be resized when
 # cloning to a device (e.g. using virt-resize tool).
 # [Optional]
 diskSizeGB: disk-size
@@ -146,7 +146,7 @@ operators:
   * `ocpRelease.channel`: OCP release [update channel](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/updating_clusters/understanding-upgrade-channels-releases#understanding-upgrade-channels_understanding-upgrade-channels-releases) (stable|fast|eus|candidate)
   * `pullSecret`: May be obtained from https://console.redhat.com/openshift/install/pull-secret (requires registration).
   * `imageRegistry.uri`: Change it only if needed, otherwise the default should work.
-  * `imageRegistry.port`: Change the port number in case another app uses TCP 5005. 
+  * `imageRegistry.port`: Change the port number in case another app uses TCP 5005.
 #### `appliance-config.yaml` Example:
 ```yaml
 apiVersion: v1beta1
@@ -163,7 +163,7 @@ userCorePass: <redacted>
 
 ### Add custom manifests (Optional)
 * Note that any manifest added here will apply to **any** of the clusters installed using this image.
-* Find more details and additional examples in OpenShift documentation: 
+* Find more details and additional examples in OpenShift documentation:
   * [Customizing nodes](https://docs.openshift.com/container-platform/4.13/installing/install_config/installing-customizing.html)
   * [Using MachineConfig objects to configure nodes](https://docs.openshift.com/container-platform/4.13/post_installation_configuration/machine-configuration-tasks.html#using-machineconfigs-to-change-machines)
 
@@ -181,7 +181,7 @@ E.g. Use the `additionalImages` array in `appliance-config.yaml` as follows:
 ```shell
 additionalImages:
   - name: quay.io/openshift/origin-cli
-``` 
+```
 
 After installing the cluster, images should be available for pulling using the image digest.
 E.g.
@@ -301,7 +301,7 @@ INFO Download openshift-install from: https://mirror.openshift.com/pub/openshift
 
 ### Rebuild
 
-Before rebuilding the appliance, e.g. for changing `diskSizeGB` or `ocpRelease`, use the `clean` command. This command removes the temp folder and prepares the `assets` folder for a rebuild. 
+Before rebuilding the appliance, e.g. for changing `diskSizeGB` or `ocpRelease`, use the `clean` command. This command removes the temp folder and prepares the `assets` folder for a rebuild.
 Note: the command keeps the `cache` folder under `assets` intact.
 ```shell
 podman run --rm -it -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE clean
@@ -364,8 +364,9 @@ https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.0-rc.0/ope
 * Place both `install-config.yaml` and `agent-config.yaml` files in that directory.
 * Find examples in:
   * [Appliance README](../README.md#examples)
-  * [OpenShift Documentation](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#installation-bare-metal-agent-installer-config-yaml_preparing-to-install-with-agent-based-installer)
-  * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#static-networking)
+  * [Preparing to install with the Agent-based installer](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#installation-bare-metal-agent-installer-config-yaml_preparing-to-install-with-agent-based-installer)
+    * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#static-networking)
+  * [Installing an OpenShift Container Platform cluster with the Agent-based Installer](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/installing-with-agent-based-installer.html)
 
 Note: for disconnected environments, specify a dummy pull-secret in install-config.yaml (e.g. `'{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'`).
 
