@@ -172,6 +172,28 @@ userCorePass: <redacted>
 mkdir $APPLIANCE_ASSETS:/openshift
 ```
 
+2. Add one or more custom manifests under `$APPLIANCE_ASSETS:/openshift`.
+#### MachineConfig example:
+```yaml
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: master
+  name: 50-master-custom-file-factory
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    storage:
+      files:
+        - contents:
+            source: data:text/plain;charset=utf-8;base64,dGhpcyBjb250ZW50IGNhbWUgZnJvbSBidWlsZGluZyB0aGUgYXBwbGlhbmNlIGltYWdlCg==
+          mode: 420
+          path: /etc/custom_factory1.txt
+          overwrite: true
+```
+
 ### Include additional images (Optional)
 
 Add any additional images that should be included as part of the appliance disk image.
@@ -246,28 +268,6 @@ spec:
   source: redhat-operator-index
   channel: stable
   sourceNamespace: openshift-marketplace
-```
-
-2. Add one or more custom manifests under `$APPLIANCE_ASSETS:/openshift`.
-#### MachineConfig example:
-```yaml
-apiVersion: machineconfiguration.openshift.io/v1
-kind: MachineConfig
-metadata:
-  labels:
-    machineconfiguration.openshift.io/role: master
-  name: 50-master-custom-file-factory
-spec:
-  config:
-    ignition:
-      version: 3.2.0
-    storage:
-      files:
-        - contents:
-            source: data:text/plain;charset=utf-8;base64,dGhpcyBjb250ZW50IGNhbWUgZnJvbSBidWlsZGluZyB0aGUgYXBwbGlhbmNlIGltYWdlCg==
-          mode: 420
-          path: /etc/custom_factory1.txt
-          overwrite: true
 ```
 
 ### Build the disk image
