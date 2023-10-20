@@ -375,6 +375,7 @@ Note: for disconnected environments, specify a dummy pull-secret in install-conf
 * Find more details and additional examples in OpenShift documentation:
   * [Customizing nodes](https://docs.openshift.com/container-platform/4.13/installing/install_config/installing-customizing.html)
   * [Using MachineConfig objects to configure nodes](https://docs.openshift.com/container-platform/4.13/post_installation_configuration/machine-configuration-tasks.html#using-machineconfigs-to-change-machines)
+  * [Using ZTP manifests](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/installing-with-agent-based-installer.html#installing-ocp-agent-ztp_installing-with-agent-based-installer)
 1. Create the openshift manifests directory
 ```shell
 mkdir $CLUSTER_CONFIG/openshift
