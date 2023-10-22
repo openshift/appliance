@@ -218,7 +218,7 @@ podman pull quay.io/openshift/origin-cli@sha256:b66f4289061afa26a686f77da47e2b81
 Operators packages can be included in the appliance disk image using the `operators` property in `appliance-config.yaml`. The relevant images will be pulled during the oc-mirror procedure, and the appropriate CatalogSources and ImageContentSourcePolicies will be automatically created in the installed cluster.
 
 E.g. To include elasticsearch-operator from `redhat-operators` catalog:
-```shell
+```yaml
 operators:
   - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.14
     packages:
@@ -234,7 +234,7 @@ To automatically install the included operators during cluster installation, add
 E.g. Cluster manifests to install OpenShift Elasticsearch Operator:
 
 *openshift/namespace.yaml*
-```shell
+```yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -244,7 +244,7 @@ metadata:
 ```
 
 *openshift/operatorgroup.yaml*
-```shell
+```yaml
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
@@ -256,7 +256,7 @@ spec:
 ```
 
 *openshift/subscription.yaml*
-```shell
+```yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
