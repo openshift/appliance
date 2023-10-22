@@ -4,6 +4,8 @@
 The primary use-case of the appliance is to support a fully disconnected installation
 of an OpenShift cluster. Thus, all required images are included in the appliance disk image.
 
+***Note: this README is intended for developers, usage details are available in the [User Guide](docs/user-guide.md)***
+
 ## Quick Start
 
 ### Build (binary or container image)
@@ -63,14 +65,14 @@ A configuration file named `appliance-config.yaml` is required for running the t
 
 Using binary:
 ``` bash
-./bin/openshift-appliance generate-config --dir <assets-dir>
+./build/openshift-appliance generate-config --dir assets
 ```
 
 Using container image:
 ``` bash
 export IMAGE=<image_url>
 export CMD=generate-config
-export ASSETS=<assets-dir>
+export ASSETS=<assets-absolute-dir-path>
 
 make run
 ```
@@ -81,8 +83,8 @@ make run
 apiVersion: v1beta1
 kind: ApplianceConfig
 ocpRelease:
-  version: 4.12.10
-  channel: stable
+  version: 4.14
+  channel: candidate
   cpuArchitecture: x86_64
 diskSizeGB: 200
 pullSecret: ...
@@ -96,14 +98,14 @@ Using binary:
 ``` bash
 export LIBGUESTFS_BACKEND=direct
 
-./bin/openshift-appliance build --dir <assets-dir> --log-level info
+./build/openshift-appliance build --dir assets --log-level info
 ```
 
 Using container image:
 ``` bash
 export IMAGE=<image_url>
 export CMD=build
-export ASSETS=<assets-dir>
+export ASSETS=<assets-absolute-dir-path>
 export LOG_LEVEL=info/debug/error
 
 make run
@@ -194,7 +196,7 @@ Name       Type        VFS      Label       Size  Parent
 /dev/sda2  filesystem  vfat     EFI-SYSTEM  127M  -
 /dev/sda3  filesystem  ext4     boot        350M  -
 /dev/sda4  filesystem  xfs      root        180G  -
-/dev/sda5  filesystem  ext4     agentboot   1.2G  -
+/dev/sda5  filesystem  iso9660  agentboot   1.2G  -
 /dev/sda6  filesystem  iso9660  agentdata   18G   -
 ```
 
