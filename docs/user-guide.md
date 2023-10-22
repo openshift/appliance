@@ -202,13 +202,24 @@ These images will be pulled during the oc-mirror procedure that downloads the re
 E.g. Use the `additionalImages` array in `appliance-config.yaml` as follows:
 ```shell
 additionalImages:
+  - name: quay.io/fedora/httpd-24
   - name: quay.io/openshift/origin-cli
 ```
 
 After installing the cluster, images should be available for pulling using the image digest.
 E.g.
 ```shell
-podman pull quay.io/openshift/origin-cli@sha256:b66f4289061afa26a686f77da47e2b81420959d71b21b22617a2e6a3226f6ae86ae8
+podman pull quay.io/fedora/httpd-24@sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04
+```
+
+For example, the image can be used for creating a new application:
+```shell
+oc --kubeconfig auth/kubeconfig new-app --name httpd --image quay.io/fedora/httpd-24@sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04 --allow-missing-images
+```
+```shell
+oc --kubeconfig auth/kubeconfig get deployment
+NAME    READY   UP-TO-DATE   AVAILABLE
+httpd   1/1     1            1
 ```
 
 ### Include and install operators (Optional)
