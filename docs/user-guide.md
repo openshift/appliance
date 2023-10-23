@@ -169,10 +169,10 @@ userCorePass: <redacted>
 
 1. Create the openshift manifests directory
 ```shell
-mkdir $APPLIANCE_ASSETS:/openshift
+mkdir ${APPLIANCE_ASSETS}/openshift
 ```
 
-2. Add one or more custom manifests under `$APPLIANCE_ASSETS:/openshift`.
+2. Add one or more custom manifests under `${APPLIANCE_ASSETS}/openshift`.
 #### MachineConfig example:
 ```yaml
 apiVersion: machineconfiguration.openshift.io/v1
@@ -240,7 +240,7 @@ operators:
 
 #### Install operators in cluster
 
-To automatically install the included operators during cluster installation, add the relevant custom manifests to $APPLIANCE_ASSETS:/openshift.
+To automatically install the included operators during cluster installation, add the relevant custom manifests to `${APPLIANCE_ASSETS}/openshift`.
 
 E.g. Cluster manifests to install OpenShift Elasticsearch Operator:
 
