@@ -23,7 +23,6 @@ const (
 	bootMountPath           = "/boot"
 	installRegistryDataPath = "/mnt/agentdata/oc-mirror/install"
 	catalogSourcePattern    = "catalogSource-*.yaml"
-	extraManifestsPath      = "/etc/assisted/extra-manifests"
 	icspFileName            = "imageContentSourcePolicy.yaml"
 )
 
