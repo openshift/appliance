@@ -242,6 +242,8 @@ operators:
 
 To automatically install the included operators during cluster installation, add the relevant custom manifests to $APPLIANCE_ASSETS:/openshift.
 
+Note: these manifests will deploy the operators for any cluster installation. I.e. the manifests will be incorporated in the appliance disk image.
+
 E.g. Cluster manifests to install OpenShift Elasticsearch Operator:
 
 *openshift/namespace.yaml*
@@ -280,6 +282,8 @@ spec:
   channel: stable
   sourceNamespace: openshift-marketplace
 ```
+
+Note: each file should contain a single object.
 
 ### Build the disk image
 * Make sure you have enough free disk space.
@@ -393,6 +397,12 @@ mkdir $CLUSTER_CONFIG/openshift
 ```
 
 2. Add one or more custom manifests under `$CLUSTER_CONFIG/openshift`. Same as in [this MachineConfig example](user-guide.md#MachineConfig-example)
+
+#### Install operators in cluster (Optional)
+
+To automatically install operators during cluster installation, add the relevant custom manifests (see [example](#install-operators-in-cluster)) to `$CLUSTER_CONFIG/openshift`.
+
+Note: for disconnected environment, the operators should be [included](#include-and-install-operators-optional) in the appliance.
 
 #### Generate config-image
 
