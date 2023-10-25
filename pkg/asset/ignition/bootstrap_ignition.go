@@ -35,7 +35,7 @@ const (
 	registriesConfFilePath    = "/etc/containers/registries.conf"
 	manifestPath              = "/etc/assisted/manifests"
 	corePassOverrideFilePath  = "/etc/assisted/appliance-override-password-set"
-	extraManifestPath         = "/etc/assisted/extra-manifests"
+	extraManifestsPath        = "/etc/assisted/extra-manifests"
 )
 
 var (
@@ -213,7 +213,7 @@ func (i *BootstrapIgnition) addExtraManifests(config *igntypes.Config, extraMani
 
 	config.Storage.Directories = append(config.Storage.Directories, igntypes.Directory{
 		Node: igntypes.Node{
-			Path: extraManifestPath,
+			Path: extraManifestsPath,
 			User: igntypes.NodeUser{
 				Name: &user,
 			},
@@ -242,7 +242,7 @@ func (i *BootstrapIgnition) addExtraManifests(config *igntypes.Config, extraMani
 			base := filepath.Base(file.Filename)
 			ext := filepath.Ext(file.Filename)
 			baseWithoutExt := strings.TrimSuffix(base, ext)
-			baseFileName := filepath.Join(extraManifestPath, baseWithoutExt)
+			baseFileName := filepath.Join(extraManifestsPath, baseWithoutExt)
 			fileName := fmt.Sprintf("%s-%d%s", baseFileName, n, ext)
 
 			extraFile := ignasset.FileFromBytes(fileName, user, mode, m)
