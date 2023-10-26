@@ -276,7 +276,7 @@ metadata:
 spec:
   installPlanApproval: Automatic
   name: elasticsearch-operator
-  source: redhat-operator-index
+  source: cs-redhat-operator-index
   channel: stable
   sourceNamespace: openshift-marketplace
 ```
