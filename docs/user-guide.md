@@ -207,12 +207,17 @@ additionalImages:
 ```
 
 After installing the cluster, images should be available for pulling using the image digest.
+To fetch the digest, use skopeo from inside the node.
 E.g.
+```shell
+skopeo inspect docker://registry.appliance.com:5000/fedora/httpd-24 | jq .Digest
+"sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04"
+```
 ```shell
 podman pull quay.io/fedora/httpd-24@sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04
 ```
 
-For example, the image can be used for creating a new application:
+The image can be used, for example, to create a new application:
 ```shell
 oc --kubeconfig auth/kubeconfig new-app --name httpd --image quay.io/fedora/httpd-24@sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04 --allow-missing-images
 ```
