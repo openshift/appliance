@@ -233,14 +233,19 @@ httpd   1/1     1            1
 
 Operators packages can be included in the appliance disk image using the `operators` property in `appliance-config.yaml`. The relevant images will be pulled during the oc-mirror procedure, and the appropriate CatalogSources and ImageContentSourcePolicies will be automatically created in the installed cluster.
 
-E.g. To include elasticsearch-operator from `redhat-operators` catalog:
+E.g. To include the `elasticsearch-operator` from `redhat-operators` catalog:
 ```yaml
 operators:
   - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.14
     packages:
       - name: elasticsearch-operator
         channels:
-          - name: stable
+          - name: stable-5.8
+```
+
+Note: for each operator, ensure the name and channel are correct by listing the available operators in catalog:
+```bash
+oc-mirror list operators --catalog=registry.redhat.io/redhat/redhat-operator-index:v4.14
 ```
 
 #### Install operators in cluster
