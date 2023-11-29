@@ -28,7 +28,7 @@ OpenShift Appliance is available for download at: https://quay.io/edge-infrastru
 * The two additional partitions:
   * `agentboot`: Agent-based installer ISO:
     * Allows a first boot.
-    * Used as a recovery / re-install partition (with an added GRUB manu entry).
+    * Used as a recovery / re-install partition (with an added GRUB menu entry).
   * `agentdata`: OCP release images payload.
 * Note that sizes may change, depending on the configured `diskSizeGB` and the selected OpenShift version configured in `appliance-config.yaml` (described below).
 
