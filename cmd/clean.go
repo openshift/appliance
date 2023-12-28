@@ -14,6 +14,10 @@ import (
 	assetstore "github.com/openshift/installer/pkg/asset/store"
 )
 
+var (
+	cleanCache bool
+)
+
 func NewCleanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clean",
@@ -38,9 +42,17 @@ func NewCleanCmd() *cobra.Command {
 				logrus.Fatal(err)
 			}
 
+			if cleanCache {
+				// Remove cache dir
+				if err := os.RemoveAll(filepath.Join(rootOpts.dir, config.CacheDir)); err != nil {
+					logrus.Fatal(err)
+				}
+			}
+
 			logrus.Infof("Cleanup complete")
 		},
 	}
+	cmd.Flags().BoolVar(&cleanCache, "cache", false, "Clean also the builder cache directory")
 	return cmd
 }
 
