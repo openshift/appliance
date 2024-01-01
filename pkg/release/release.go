@@ -89,6 +89,7 @@ func initBlockedBootstrapImagesInfo() map[string]bool {
 		"cloud-credential-operator":                true,
 		"cluster-policy-controller":                true,
 		"pod":                                      true,
+		"cluster-config-api":                       true,
 		"cluster-config-operator":                  true,
 		"cluster-etcd-operator":                    true,
 		"cluster-kube-scheduler-operator":          true,
