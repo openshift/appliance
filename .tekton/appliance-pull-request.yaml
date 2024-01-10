@@ -15,17 +15,17 @@ metadata:
     appstudio.openshift.io/component: appliance
     pipelines.appstudio.openshift.io/type: build
   name: appliance-on-pull-request
-  namespace: derez-tenant
+  namespace: crt-nshift-appliance-tenant
 spec:
   params:
   - name: dockerfile
-    value: https://raw.githubusercontent.com/devfile-samples/devfile-sample-go-basic/main/docker/Dockerfile
+    value: Dockerfile.openshift-appliance
   - name: git-url
     value: '{{repo_url}}'
   - name: image-expires-after
     value: 5d
   - name: output-image
-    value: quay.io/redhat-user-workloads/derez-tenant/appliance/appliance:on-pr-{{revision}}
+    value: quay.io/redhat-user-workloads/crt-nshift-appliance-tenant/appliance/appliance:on-pr-{{revision}}
   - name: path-context
     value: .
   - name: revision
