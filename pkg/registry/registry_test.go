@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -36,9 +38,9 @@ var _ = Describe("Test Image Registry", func() {
 	})
 
 	It("Start Registry - Valid Config", func() {
-		dataDirPath, err := GetRegistryDataPath("/fake/path", "/data")
-		Expect(err).NotTo(HaveOccurred())
-
+		pwd, err := os.Getwd()
+        Expect(err).NotTo(HaveOccurred())
+		dataDirPath := filepath.Join(pwd, "/fake/path", "/data")
 		mockExecuter.EXPECT().Execute(fmt.Sprintf(registryStartCmd, dataDirPath, port, uri)).Return("", nil).Times(1)
 		mockExecuter.EXPECT().Execute(registryStopCmd).Return("", nil).Times(1)
 
@@ -56,9 +58,9 @@ var _ = Describe("Test Image Registry", func() {
 	})
 
 	It("Start Registry - fail to start", func() {
-		dataDirPath, err := GetRegistryDataPath("/fake/path", "/data")
-		Expect(err).NotTo(HaveOccurred())
-
+		pwd, err := os.Getwd()
+        Expect(err).NotTo(HaveOccurred())
+		dataDirPath := filepath.Join(pwd, "/fake/path", "/data")
 		startCmd := fmt.Sprintf(registryStartCmd, dataDirPath, port, uri)
 
 		mockExecuter.EXPECT().Execute(registryStopCmd).Return("", nil).Times(1)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/openshift/appliance/pkg/executer"
@@ -104,12 +103,4 @@ func (r *registry) StopRegistry() error {
 
 	}
 	return nil
-}
-
-func GetRegistryDataPath(directory, subDirectory string) (string, error) {
-	pwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(pwd, directory, subDirectory), nil
 }

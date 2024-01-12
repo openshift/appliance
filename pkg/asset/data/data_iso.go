@@ -90,10 +90,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 			applianceConfig.Config.OcpRelease.Version),
 		envConfig,
 	)
-	registryDir, err := registry.GetRegistryDataPath(envConfig.TempDir, bootstrapMirrorDir)
-	if err != nil {
-		return log.StopSpinner(spinner, err)
-	}
+	registryDir := filepath.Join(envConfig.TempDir, bootstrapMirrorDir)
 	spinner.DirToMonitor = registryDir
 	bootstrapImageRegistry := registry.NewRegistry(
 		registry.RegistryConfig{
@@ -101,13 +98,13 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 			URI:         swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
 			Port:        swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
 		})
-	if err = bootstrapImageRegistry.StartRegistry(); err != nil {
+	if err := bootstrapImageRegistry.StartRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err = r.MirrorBootstrapImages(); err != nil {
+	if err := r.MirrorBootstrapImages(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err = log.StopSpinner(spinner, nil); err != nil {
+	if err := log.StopSpinner(spinner, nil); err != nil {
 		return err
 	}
 
@@ -121,10 +118,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 			applianceConfig.Config.OcpRelease.Version),
 		envConfig,
 	)
-	registryDir, err = registry.GetRegistryDataPath(envConfig.TempDir, installMirrorDir)
-	if err != nil {
-		return log.StopSpinner(spinner, err)
-	}
+	registryDir = filepath.Join(envConfig.TempDir, installMirrorDir)
 	spinner.DirToMonitor = registryDir
 	releaseImageRegistry := registry.NewRegistry(
 		registry.RegistryConfig{
@@ -133,16 +127,16 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 			Port:        swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
 		})
 
-	if err = releaseImageRegistry.StartRegistry(); err != nil {
+	if err := releaseImageRegistry.StartRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err = r.MirrorInstallImages(); err != nil {
+	if err := r.MirrorInstallImages(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err = releaseImageRegistry.StopRegistry(); err != nil {
+	if err := releaseImageRegistry.StopRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err = log.StopSpinner(spinner, nil); err != nil {
+	if err := log.StopSpinner(spinner, nil); err != nil {
 		return err
 	}
 
@@ -154,7 +148,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	)
 	spinner.FileToMonitor = dataIsoName
 	imageGen := genisoimage.NewGenIsoImage(nil)
-	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir)); err != nil {
+	if err := imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir)); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	return log.StopSpinner(spinner, a.updateAsset(envConfig))
