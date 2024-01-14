@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/openshift/appliance/pkg/executer"
@@ -110,6 +111,11 @@ func GetRegistryDataPath(directory, subDirectory string) (string, error) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return "", err
+	}
+	if strings.HasPrefix(directory, pwd) {
+		// Removes the working directory if already exists
+		// (happens when using the openshift-appliance binary flow)
+		directory = strings.ReplaceAll(directory, pwd, "")
 	}
 	return filepath.Join(pwd, directory, subDirectory), nil
 }
