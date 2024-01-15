@@ -1,13 +1,13 @@
 # Build appliance
-FROM registry.ci.openshift.org/openshift/release:golang-1.19 as builder
+FROM registry.access.redhat.com/ubi8/go-toolset:1.19 as builder
 COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
 COPY . .
-RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" go build -o /build/openshift-appliance
+RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" go build -o /usr/bin/openshift-appliance
 
 # Create final image
-FROM quay.io/centos/centos:stream8
+FROM registry.access.redhat.com/ubi8/ubi:latest
 
 # Create/Mount assets 
 ARG ASSETS_DIR=/assets
@@ -15,21 +15,42 @@ RUN mkdir $ASSETS_DIR && chmod 775 $ASSETS_DIR
 VOLUME $ASSETS_DIR
 ENV ASSETS_DIR=$ASSETS_DIR
 
+# Install skopeo and podman
+RUN dnf -y install skopeo podman && dnf clean all
+
+# Add repos
+RUN dnf install -y yum-utils
+RUN yum-config-manager --add-repo http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/
+RUN yum-config-manager --add-repo http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/
+RUN rpm --import https://centos.org/keys/RPM-GPG-KEY-CentOS-Official
+
 # Install and config libguestfs
-RUN dnf -y install libguestfs-tools coreos-installer skopeo podman && dnf clean all
+RUN dnf repolist
+RUN dnf -y install libguestfs-tools genisoimage coreos-installer && dnf clean all
 ENV LIBGUESTFS_BACKEND=direct
 
 # Download oc-mirror
-RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview/latest/oc-mirror.tar.gz \
+RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/oc-mirror.tar.gz \
     | tar xvzf - -C /usr/local/bin && \
     chmod +x /usr/local/bin/oc-mirror
 
-# Copy binaries
-COPY --from=quay.io/openshift/origin-cli:latest /usr/bin/oc /usr/bin/kubectl /usr/bin/
-COPY --from=builder /build/openshift-appliance /openshift-appliance
+# Download oc
+RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz \
+    | tar xvzf - -C /usr/local/bin && \
+    chmod +x /usr/local/bin/oc
+
+# Copy openshift-appliance binary
+COPY --from=builder /usr/bin/openshift-appliance /openshift-appliance
 
 # Copy
 RUN mkdir -p data
 COPY /data data
 
 ENTRYPOINT ["/openshift-appliance", "--dir", "assets"]
+
+LABEL summary="OpenShift-based Appliance Builder" \
+      description="A utility for building a disk image that orchestrates OpenShift installation using the Agent-based installer." \
+      io.k8s.description="A utility for building a disk image that orchestrates OpenShift installation using the Agent-based installer." \
+      io.k8s.display-name="OpenShift-based Appliance Builder" \
+      io.openshift.tags="openshift,appliance,installer,agent"
+      

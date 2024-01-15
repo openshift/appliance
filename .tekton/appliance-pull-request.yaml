@@ -30,6 +30,10 @@ spec:
     value: .
   - name: revision
     value: '{{revision}}'
+  - name: build-source-image
+    value: 'true'
+  - name: hermetic
+    value: 'false'
   pipelineSpec:
     finally:
     - name: show-sbom
@@ -117,6 +121,9 @@ spec:
       description: Build a source image.
       name: build-source-image
       type: string
+    - default: "snyk-secret"
+      description: Snyk Token Secret Name
+      name: snyk-secret
     results:
     - description: ""
       name: IMAGE_URL
