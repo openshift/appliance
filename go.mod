@@ -69,7 +69,7 @@ require (
 	github.com/pkg/xattr v0.4.1 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.22.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/tools v0.17.0 // indirect
@@ -197,7 +197,7 @@ require (
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/onsi/gomega v1.27.10
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
+	github.com/opencontainers/image-spec v1.1.0-rc6 // indirect
 	github.com/openshift/api v3.9.1-0.20191111211345-a27ff30ebf09+incompatible
 	github.com/openshift/cloud-credential-operator v0.0.0-20200316201045-d10080b52c9e // indirect
 	github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e // indirect
