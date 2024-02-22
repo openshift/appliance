@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/graph"
+	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/appliance/pkg/types"
 
 	"github.com/golang/mock/gomock"
@@ -20,12 +21,14 @@ var _ = Describe("Test Installer", func() {
 	var (
 		ctrl          *gomock.Controller
 		mockExecuter  *executer.MockExecuter
+		mockRelease   *release.MockRelease
 		testInstaller Installer
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockExecuter = executer.NewMockExecuter(ctrl)
+		mockRelease = release.NewMockRelease(ctrl)
 	})
 
 	It("GetInstallerDownloadURL - x86_64 stable", func() {
@@ -34,6 +37,7 @@ var _ = Describe("Test Installer", func() {
 		cpuArc := swag.String(config.CpuArchitectureX86)
 		installerConfig := InstallerConfig{
 			Executer:  mockExecuter,
+			Release:   mockRelease,
 			EnvConfig: &config.EnvConfig{},
 			ApplianceConfig: &config.ApplianceConfig{
 				Config: &types.ApplianceConfig{
@@ -58,6 +62,7 @@ var _ = Describe("Test Installer", func() {
 		cpuArc := swag.String(config.CpuArchitectureAARCH64)
 		installerConfig := InstallerConfig{
 			Executer:  mockExecuter,
+			Release:   mockRelease,
 			EnvConfig: &config.EnvConfig{},
 			ApplianceConfig: &config.ApplianceConfig{
 				Config: &types.ApplianceConfig{
@@ -88,6 +93,7 @@ var _ = Describe("Test Installer", func() {
 
 		installerConfig := InstallerConfig{
 			Executer: mockExecuter,
+			Release:  mockRelease,
 			EnvConfig: &config.EnvConfig{
 				DebugBaseIgnition: false,
 				TempDir:           tmpDir,
@@ -120,6 +126,7 @@ var _ = Describe("Test Installer", func() {
 
 		installerConfig := InstallerConfig{
 			Executer: mockExecuter,
+			Release:  mockRelease,
 			EnvConfig: &config.EnvConfig{
 				DebugBaseIgnition: true,
 				TempDir:           tmpDir,
