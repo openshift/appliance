@@ -39,6 +39,7 @@ const (
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
 	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:%d --dir %s --dest-use-http"
 	ocAdmReleaseInfo     = "oc adm release info quay.io/openshift-release-dev/ocp-release:%s-%s -o json"
+	templateExtractCmd   = "oc adm release extract --command=%s --to=%s %s"
 )
 
 // Release is the interface to use the oc command to the get image info
@@ -49,6 +50,7 @@ type Release interface {
 	MirrorInstallImages() error
 	MirrorBootstrapImages() error
 	GetImageFromRelease(imageName string) (string, error)
+	ExtractCommand(command string, dest string) (string, error)
 }
 
 type ReleaseConfig struct {
@@ -151,6 +153,16 @@ func (r *release) extractFileFromImage(image, file, outputDir string) (string, e
 	}
 
 	return p, nil
+}
+
+func (r *release) ExtractCommand(command string, dest string) (string, error) {
+	cmd := fmt.Sprintf(templateExtractCmd, command, dest, *r.ApplianceConfig.Config.OcpRelease.URL)
+	logrus.Debugf("extracting %s to %s, %s", command, dest, cmd)
+	stdout, err := r.execute(r.ApplianceConfig.Config.PullSecret, cmd)
+	if err != nil {
+		return "", err
+	}
+	return stdout, nil
 }
 
 func (r *release) execute(pullSecret, command string) (string, error) {

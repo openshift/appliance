@@ -5,13 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cavaliergopher/grab/v3"
 	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/log"
+	"github.com/openshift/appliance/pkg/release"
 	"github.com/sirupsen/logrus"
-	"github.com/walle/targz"
 )
 
 const (
@@ -30,6 +29,7 @@ type Installer interface {
 type InstallerConfig struct {
 	Executer        executer.Executer
 	EnvConfig       *config.EnvConfig
+	Release         release.Release
 	ApplianceConfig *config.ApplianceConfig
 }
 
@@ -40,6 +40,14 @@ type installer struct {
 func NewInstaller(config InstallerConfig) Installer {
 	if config.Executer == nil {
 		config.Executer = executer.NewExecuter()
+	}
+
+	if config.Release == nil {
+		releaseConfig := release.ReleaseConfig{
+			ApplianceConfig: config.ApplianceConfig,
+			EnvConfig:       config.EnvConfig,
+		}
+		config.Release = release.NewRelease(releaseConfig)
 	}
 
 	return &installer{
@@ -90,19 +98,13 @@ func (i *installer) downloadInstallerBinary() (string, error) {
 		i.EnvConfig,
 	)
 
-	logrus.Debugf("Fetch openshift-install binary from mirror.openshift.com")
-	installerDownloadURL, err := i.GetInstallerDownloadURL()
+	logrus.Debugf("Fetch openshift-install binary from release payload %s", *i.ApplianceConfig.Config.OcpRelease.URL)
+	stdout, err := i.Release.ExtractCommand(installerBinaryName, i.EnvConfig.CacheDir)
 	if err != nil {
+		logrus.Errorf("%s", stdout)
 		return "", log.StopSpinner(spinner, err)
 	}
-	compressed := filepath.Join(i.EnvConfig.TempDir, installerBinaryGZ)
-	_, err = grab.Get(compressed, installerDownloadURL)
-	if err != nil {
-		return "", log.StopSpinner(spinner, err)
-	}
-	if err = targz.Extract(compressed, i.EnvConfig.CacheDir); err != nil {
-		return "", log.StopSpinner(spinner, err)
-	}
+
 	err = log.StopSpinner(spinner, nil)
 	if err != nil {
 		return "", err
