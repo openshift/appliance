@@ -90,7 +90,7 @@ var _ = Describe("Test Installer", func() {
 		Expect(err).ToNot(HaveOccurred())
 		cmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, installerBinaryName, tmpDir)
 		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
-		mockRelease.EXPECT().ExtractCommand(installerBinaryName, "").Return("", nil).Times(1)
+		
 
 		installerConfig := InstallerConfig{
 			Executer: mockExecuter,
@@ -110,6 +110,7 @@ var _ = Describe("Test Installer", func() {
 			},
 		}
 		testInstaller = NewInstaller(installerConfig)
+		mockRelease.EXPECT().ExtractCommand(installerBinaryName, installerConfig.EnvConfig.CacheDir).Return("", nil).Times(1)
 
 		res, err := testInstaller.CreateUnconfiguredIgnition()
 		Expect(err).ToNot(HaveOccurred())
