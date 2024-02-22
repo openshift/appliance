@@ -56,6 +56,11 @@ func (m *MockRelease) ExtractCommand(command string, dest string) (string, error
 	return ret0, ret1
 }
 
+func (mr *MockReleaseMockRecorder) ExtractCommand(command string, dest string) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractCommand", reflect.TypeOf((*MockRelease)(nil).ExtractCommand), command, dest)
+}
+
 // GetImageFromRelease mocks base method.
 func (m *MockRelease) GetImageFromRelease(imageName string) (string, error) {
 	m.ctrl.T.Helper()
