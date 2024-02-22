@@ -98,7 +98,7 @@ func (i *installer) downloadInstallerBinary() (string, error) {
 		i.EnvConfig,
 	)
 
-	logrus.Debugf("Fetch openshift-install binary from release payload %s", *i.ApplianceConfig.Config.OcpRelease.URL)
+	logrus.Debugf("Fetch openshift-install binary from release payload")
 	stdout, err := i.Release.ExtractCommand(installerBinaryName, i.EnvConfig.CacheDir)
 	if err != nil {
 		logrus.Errorf("%s", stdout)
@@ -113,7 +113,8 @@ func (i *installer) downloadInstallerBinary() (string, error) {
 	installerBinaryPath := filepath.Join(i.EnvConfig.CacheDir, installerBinaryName)
 	err = os.Chmod(installerBinaryPath, 0755)
 	if err != nil {
-		return "", err
+		// return "", err
+		logrus.Warnf("%s", err)
 	}
 	return installerBinaryPath, nil
 }
