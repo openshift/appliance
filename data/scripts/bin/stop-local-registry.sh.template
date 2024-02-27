@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
+export KUBECONFIG="/etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/node-kubeconfigs/localhost.kubeconfig"
+
 # Wait for cluster to be ready
-kubeconfig=/etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/node-kubeconfigs/localhost.kubeconfig
-until [ "$(sudo oc get clusterversion --kubeconfig "${kubeconfig}" -o jsonpath='{.items[*].status.conditions[?(@.type=="Available")].status}')" == "True" ];
+until [ "$(sudo -E oc get clusterversion -o jsonpath='{.items[*].status.conditions[?(@.type=="Available")].status}')" == "True" ];
 do
   echo "Waiting for the cluster to be ready..."
   sleep 60
@@ -11,3 +12,13 @@ done
 # Stop local registry
 echo "Stopping the local registry..."
 sudo systemctl stop start-local-registry.service
+
+# Remove selector label set in 99-(master|worker)-generated-registries
+# This will delete mirror configuration in /etc/containers/registries.conf
+for role in master worker
+do
+  sudo -E oc label mc "99-${role}-generated-registries" machineconfiguration.openshift.io/role-
+  # Pause and resume the machineconfigpool to force a reconciliation
+  sudo -E oc patch --type=merge --patch='{"spec":{"paused":true}}' "machineconfigpool/${role}"
+  sudo -E oc patch --type=merge --patch='{"spec":{"paused":false}}' "machineconfigpool/${role}"
+done
