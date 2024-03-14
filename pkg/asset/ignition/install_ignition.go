@@ -35,8 +35,6 @@ var (
 	installScripts = []string{
 		"setup-local-registry.sh",
 	}
-
-	corePassHash string
 )
 
 // InstallIgnition generates the ignition file for cluster installation phase
@@ -71,14 +69,28 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 		},
 	}
 
+	passwdUser := igntypes.PasswdUser{
+		Name: "core",
+	}
+
 	if applianceConfig.Config.UserCorePass != nil {
-		// Generate core pass hash
+		// Add user 'core' password
 		passBytes, err := bcrypt.GenerateFromPassword([]byte(*applianceConfig.Config.UserCorePass), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
-		corePassHash = string(passBytes)
+		pwdHash := string(passBytes)
+		passwdUser.PasswordHash = &pwdHash
 	}
+
+	// Add public ssh key
+	if applianceConfig.Config.SshKey != nil {
+		passwdUser.SSHAuthorizedKeys = []igntypes.SSHAuthorizedKey{
+			igntypes.SSHAuthorizedKey(*applianceConfig.Config.SshKey),
+		}
+	}
+	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
+
 
 	if swag.BoolValue(applianceConfig.Config.StopLocalRegistry) {
 		installServices = append(installServices, "stop-local-registry.service")
@@ -86,7 +98,7 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	}
 
 	// Create install template data
-	templateData := templates.GetInstallIgnitionTemplateData(installRegistryDataPath, corePassHash)
+	templateData := templates.GetInstallIgnitionTemplateData(installRegistryDataPath)
 
 	// Add services common for bootstrap and install
 	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", templateData, installServices); err != nil {

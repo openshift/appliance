@@ -156,13 +156,6 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 			corePassOverrideFilePath, "root", 0644, "")
 		i.Config.Storage.Files = append(i.Config.Storage.Files, overridePassFile)
 
-		// Add MachineConfigs to set core password post installation
-		if err = i.setCoreUserPass("master", pwdHash); err != nil {
-			return err
-		}
-		if err = i.setCoreUserPass("worker", pwdHash); err != nil {
-			return err
-		}
 	}
 
 	// Add registry.env file
@@ -177,6 +170,16 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		}
 	}
 	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
+
+	if applianceConfig.Config.UserCorePass != nil || applianceConfig.Config.SshKey != nil {
+		// Add MachineConfigs to set core user properties post installation
+		if err = i.setCoreUser("master", passwdUser); err != nil {
+			return err
+		}
+		if err = i.setCoreUser("worker", passwdUser); err != nil {
+			return err
+		}
+	}
 
 	if err = i.addExtraManifests(&i.Config, extraManifests); err != nil {
 		return err
@@ -324,18 +327,17 @@ func (i *BootstrapIgnition) disableDefaultCatalogSources() error {
 	return nil
 }
 
-func (i *BootstrapIgnition) setCoreUserPass(role, pwdHash string) error {
-	// Generate ignition config with user core pass
+func (i *BootstrapIgnition) setCoreUser(role string, passwdUser igntypes.PasswdUser) error {
+	// Generate ignition config
 	ignConfig := igntypes.Config{
 		Ignition: igntypes.Ignition{
 			Version: igntypes.MaxVersion.String(),
 		},
-		Passwd: igntypes.Passwd{
-			Users: []igntypes.PasswdUser{{
-				Name: "core", PasswordHash: &pwdHash,
-			}},
-		},
 	}
+
+	// Add user to ignition config
+	ignConfig.Passwd.Users = append(ignConfig.Passwd.Users, passwdUser)
+
 	ignitionRawExt, err := ignasset.ConvertToRawExtension(ignConfig)
 	if err != nil {
 		return err
