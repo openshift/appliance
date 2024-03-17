@@ -397,7 +397,9 @@ https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.0-rc.0/ope
     * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#static-networking)
   * [Installing an OpenShift Container Platform cluster with the Agent-based Installer](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/installing-with-agent-based-installer.html)
 
-Note: for disconnected environments, specify a dummy pull-secret in install-config.yaml (e.g. `'{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'`).
+Notes:
+* For disconnected environments, specify a dummy pull-secret in install-config.yaml (e.g. `'{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'`).
+* The SSH public key for `core` user can be specified in install-config.yaml under `sshKey` property. It can be used for logging in to the machines post cluster installation.
 
 #### Add custom manifests (Optional)
 * Note that any manifest added here will apply **only** to the cluster installed using this config-iso.
