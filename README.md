@@ -248,6 +248,7 @@ networking:
 platform:
   none: {}
 pullSecret: '{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'
+sshKey: 'ssh-rsa ...'
 ```
 
 #### Creating a multi-node cluster
@@ -283,4 +284,5 @@ platform:
     ingressVIPs:
     - 192.168.122.201
 pullSecret: '{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'
+sshKey: 'ssh-rsa ...'
 ```
