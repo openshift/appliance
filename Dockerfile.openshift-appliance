@@ -30,7 +30,7 @@ RUN dnf -y install libguestfs-tools genisoimage coreos-installer && dnf clean al
 ENV LIBGUESTFS_BACKEND=direct
 
 # Download oc-mirror
-RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/oc-mirror.tar.gz \
+RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-4.14/oc-mirror.tar.gz \
     | tar xvzf - -C /usr/local/bin && \
     chmod +x /usr/local/bin/oc-mirror
 
