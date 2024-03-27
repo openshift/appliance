@@ -27,7 +27,7 @@ RUN rpm --import https://centos.org/keys/RPM-GPG-KEY-CentOS-Official
 
 # Install and config libguestfs
 RUN dnf repolist
-RUN dnf -y --allowerasing install libguestfs-tools genisoimage coreos-installer && dnf clean all
+RUN dnf -y --allowerasing install guestfs-tools genisoimage coreos-installer && dnf clean all
 ENV LIBGUESTFS_BACKEND=direct
 
 # Download oc-mirror
