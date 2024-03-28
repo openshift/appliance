@@ -147,7 +147,7 @@ stopLocalRegistry: %t
 		applianceConfigTemplate,
 		types.ApplianceConfigApiVersion, graph.ReleaseChannelStable, CpuArchitectureX86,
 		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort,
-			consts.EnableDefaultSources, consts.StopLocalRegistry)
+		consts.EnableDefaultSources, consts.StopLocalRegistry)
 
 	return nil
 }
