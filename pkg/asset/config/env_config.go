@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hashicorp/go-version"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -40,6 +42,11 @@ func (e *EnvConfig) Generate(dependencies asset.Parents) error {
 
 	if applianceConfig.File == nil {
 		return errors.Errorf("Missing config file in assets directory: %s/%s", e.AssetsDir, ApplianceConfigFilename)
+	}
+
+	// Check whether the specified version is supported
+	if err := e.validateOcpReleaseVersion(applianceConfig.Config.OcpRelease.Version); err != nil {
+		return err
 	}
 
 	// Cache dir in 'version-arch' format
@@ -87,6 +94,27 @@ func (e *EnvConfig) isValidFileSize(file string) bool {
 		return false
 	}
 	return f.Size() != 0
+}
+
+func (e *EnvConfig) validateOcpReleaseVersion(releaseVersion string) error {
+	maxOcpVer, err := version.NewVersion(consts.MaxOcpVersion)
+	if err != nil {
+		return err
+	}
+	ocpVer, err := version.NewVersion(releaseVersion)
+	if err != nil {
+		return err
+	}
+	majorMinor, err := version.NewVersion(fmt.Sprintf("%d.%d", ocpVer.Segments()[0], ocpVer.Segments()[1]))
+	if err != nil {
+		return err
+	}
+
+	if majorMinor.GreaterThan(maxOcpVer) {
+		logrus.Warn(fmt.Sprintf("OCP release version %s is not supported. Latest supported version: %s.",
+			releaseVersion, consts.MaxOcpVersion))
+	}
+	return nil
 }
 
 func (e *EnvConfig) FindInCache(filePattern string) string {
