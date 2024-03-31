@@ -53,7 +53,7 @@ var _ = Describe("Test Installer", func() {
 
 		res, err := testInstaller.GetInstallerDownloadURL()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", swag.StringValue(cpuArc), version)))
+		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", swag.StringValue(cpuArc), "ocp", version)))
 	})
 
 	It("GetInstallerDownloadURL - aarch64 candidate", func() {
@@ -78,7 +78,32 @@ var _ = Describe("Test Installer", func() {
 
 		res, err := testInstaller.GetInstallerDownloadURL()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", swag.StringValue(cpuArc), version)))
+		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", swag.StringValue(cpuArc), "ocp", version)))
+	})
+
+	It("GetInstallerDownloadURL - x86_64 preview", func() {
+		version := "4.16.0-ec.0"
+		channel := graph.ReleaseChannelCandidate
+		cpuArc := swag.String(config.CpuArchitectureX86)
+		installerConfig := InstallerConfig{
+			Executer:  mockExecuter,
+			Release:   mockRelease,
+			EnvConfig: &config.EnvConfig{},
+			ApplianceConfig: &config.ApplianceConfig{
+				Config: &types.ApplianceConfig{
+					OcpRelease: types.ReleaseImage{
+						Version:         version,
+						Channel:         &channel,
+						CpuArchitecture: cpuArc,
+					},
+				},
+			},
+		}
+		testInstaller = NewInstaller(installerConfig)
+
+		res, err := testInstaller.GetInstallerDownloadURL()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", swag.StringValue(cpuArc), "ocp-dev-preview", version)))
 	})
 
 	It("CreateUnconfiguredIgnition - DebugBaseIgnition: false", func() {
@@ -90,7 +115,6 @@ var _ = Describe("Test Installer", func() {
 		Expect(err).ToNot(HaveOccurred())
 		cmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, installerBinaryName, tmpDir)
 		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
-		
 
 		installerConfig := InstallerConfig{
 			Executer: mockExecuter,

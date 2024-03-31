@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -17,7 +18,7 @@ const (
 	installerBinaryName                = "openshift-install"
 	installerBinaryGZ                  = "openshift-install-linux.tar.gz"
 	templateUnconfiguredIgnitionBinary = "%s agent create unconfigured-ignition --dir %s"
-	templateInstallerDownloadURL       = "https://mirror.openshift.com/pub/openshift-v%s/%s/clients/ocp/%s/openshift-install-linux.tar.gz"
+	templateInstallerDownloadURL       = "https://mirror.openshift.com/pub/openshift-v%s/%s/clients/%s/%s/openshift-install-linux.tar.gz"
 	unconfiguredIgnitionFileName       = "unconfigured-agent.ign"
 )
 
@@ -87,7 +88,12 @@ func (i *installer) GetInstallerDownloadURL() (string, error) {
 	majorVersion := fmt.Sprint(releaseVersion.Segments()[0])
 	cpuArch := i.ApplianceConfig.GetCpuArchitecture()
 
-	return fmt.Sprintf(templateInstallerDownloadURL, majorVersion, cpuArch, releaseVersion), nil
+	ocpClient := "ocp"
+	if strings.Contains(releaseVersion.String(), "-ec") {
+		ocpClient = "ocp-dev-preview"
+	}
+
+	return fmt.Sprintf(templateInstallerDownloadURL, majorVersion, cpuArch, ocpClient, releaseVersion), nil
 }
 
 func (i *installer) downloadInstallerBinary() (string, error) {
