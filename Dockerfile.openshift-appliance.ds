@@ -9,6 +9,12 @@ RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/openshift
 # Build registry
 RUN cd registry && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/registry
 
+# Set 'oc' image
+FROM registry.redhat.io/openshift4/ose-cli AS oc
+
+# Set 'oc-mirror' image
+FROM registry.redhat.io/openshift4/oc-mirror-plugin-rhel9 AS oc-mirror
+
 # Create final image
 FROM registry.access.redhat.com/ubi9/ubi:9.5
 
@@ -24,13 +30,11 @@ RUN dnf -y install skopeo podman guestfs-tools genisoimage coreos-installer sysl
 # Config libguestfs
 ENV LIBGUESTFS_BACKEND=direct
 
-# Download oc
-RUN curl -sL -o /tmp/openshift-client-linux.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.18.5/openshift-client-linux.tar.gz || true
-RUN tar xvzf /tmp/openshift-client-linux.tar.gz -C /usr/local/bin && chmod +x /usr/local/bin/oc
+# Copy oc binary
+COPY --from=oc /usr/bin/oc /usr/bin/oc
 
-# Download oc-mirror
-RUN curl -sL -o /tmp/oc-mirror.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.18.5/oc-mirror.tar.gz || true
-RUN tar xvzf /tmp/oc-mirror.tar.gz -C /usr/local/bin && chmod +x /usr/local/bin/oc-mirror
+# Copy oc-mirror binary
+COPY --from=oc-mirror /usr/bin/oc-mirror /usr/bin/oc-mirror
 
 # Copy openshift-appliance binary
 COPY --from=builder /tmp/openshift-appliance /openshift-appliance
