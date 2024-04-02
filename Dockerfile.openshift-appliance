@@ -6,6 +6,12 @@ RUN go mod download
 COPY . .
 RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" go build -o /usr/bin/openshift-appliance
 
+# Set 'oc' image
+FROM registry.redhat.io/openshift4/ose-cli as oc
+
+# Set 'oc-mirror' image
+FROM registry.redhat.io/openshift4/oc-mirror-plugin-rhel9 as oc-mirror
+
 # Create final image
 FROM registry.access.redhat.com/ubi9/ubi:latest
 
@@ -30,15 +36,11 @@ RUN dnf repolist
 RUN dnf -y --allowerasing install guestfs-tools genisoimage coreos-installer && dnf clean all
 ENV LIBGUESTFS_BACKEND=direct
 
-# Download oc-mirror
-RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/oc-mirror.tar.gz \
-    | tar xvzf - -C /usr/local/bin && \
-    chmod +x /usr/local/bin/oc-mirror
+# Copy oc binary
+COPY --from=oc /usr/bin/oc /usr/bin/oc
 
-# Download oc
-RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz \
-    | tar xvzf - -C /usr/local/bin && \
-    chmod +x /usr/local/bin/oc
+# Copy oc-mirror binary
+COPY --from=oc-mirror /usr/bin/oc-mirror /usr/bin/oc-mirror
 
 # Copy openshift-appliance binary
 COPY --from=builder /usr/bin/openshift-appliance /openshift-appliance
