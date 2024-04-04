@@ -304,11 +304,13 @@ func (r *release) generateBlockedImagesList() (string, error) {
 	var releaseInfo map[string]any
 	var result strings.Builder
 
-	cmd := fmt.Sprintf(
-		ocAdmReleaseInfo,
-		r.ApplianceConfig.Config.OcpRelease.Version,
-		swag.StringValue(r.ApplianceConfig.Config.OcpRelease.CpuArchitecture),
-	)
+	// cmd := fmt.Sprintf(
+	// 	ocAdmReleaseInfo,
+	// 	r.ApplianceConfig.Config.OcpRelease.Version,
+	// 	swag.StringValue(r.ApplianceConfig.Config.OcpRelease.CpuArchitecture),
+	// )
+
+	cmd := fmt.Sprintf("oc adm release info %s -o json", *r.ApplianceConfig.Config.OcpRelease.URL)
 
 	out, err := r.execute(r.ApplianceConfig.Config.PullSecret, cmd)
 	if err != nil {

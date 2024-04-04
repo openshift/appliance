@@ -6,9 +6,9 @@ mirror:
     architectures:
       - "{{.Architectures}}"
     channels:
-      - name: {{.ChannelName}}
-        minVersion: {{.MinVersion}}
-        maxVersion: {{.MaxVersion}}
+      - name: nightly-4.16
+        minVersion: 4.16.0-0.nightly-2024-04-02-182836
+        maxVersion: 4.16.0-0.nightly-2024-04-02-182836
         type: ocp
 {{if .AdditionalImages}}  additionalImages:
 {{.AdditionalImages}}{{end}}

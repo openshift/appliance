@@ -69,6 +69,16 @@ func (i *RegistriesConf) Generate(dependencies asset.Parents) error {
 					},
 				},
 			},
+			{
+				Endpoint: sysregistriesv2.Endpoint{
+					Location: "registry.ci.openshift.org/ocp/release",
+				},
+				Mirrors: []sysregistriesv2.Endpoint{
+					{
+						Location: fmt.Sprintf("%s:%d/openshift/release-images", RegistryDomain, RegistryPort),
+					},
+				},
+			},
 		},
 	}
 

@@ -47,6 +47,9 @@ COPY --from=builder /usr/bin/openshift-appliance /openshift-appliance
 RUN mkdir -p data
 COPY /data data
 
+ENV UPDATE_URL_OVERRIDE=https://amd64.ocp.releases.ci.openshift.org/graph
+ENV VERSION_FILTER="4\.16\.\d+-\d+.ci"
+
 ENTRYPOINT ["/openshift-appliance", "--dir", "assets"]
 
 LABEL summary="OpenShift-based Appliance Builder" \

@@ -39,7 +39,7 @@ const (
 	ReleaseArchitecturePPC64le = "ppc64le"
 
 	// Validation values
-	MinDiskSize     = 150
+	MinDiskSize     = 100
 	RegistryMinPort = 1024
 	RegistryMaxPort = 65535
 
@@ -222,7 +222,8 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	config.OcpRelease.URL = &releaseImage
+	//config.OcpRelease.URL = &releaseImage
+	config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:4.16.0-0.nightly-2024-04-02-182836-x86_64")
 	config.OcpRelease.Version = releaseVersion
 
 	if config.ImageRegistry == nil {
