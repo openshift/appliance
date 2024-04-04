@@ -7,13 +7,10 @@ imagesEnvFile=/usr/local/share/assisted-service/images.env
 sed -i 's/PUBLIC_CONTAINER_REGISTRIES=.*/&,{{.RegistryDomain}}:5000/g' $assistedServiceEnvFile
 
 # Set RELEASE_IMAGES in assisted-service.env
-sed -i '/RELEASE_IMAGES=.*/d' $assistedServiceEnvFile
-echo 'RELEASE_IMAGES={{.ReleaseImages}}' >> $assistedServiceEnvFile
+sed -i '/^RELEASE_IMAGES/s|=.*$|={{.ReleaseImages}}|' $assistedServiceEnvFile
 
 # Set OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR in assisted-service.env
-sed -i '/OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR=.*/d' $assistedServiceEnvFile
-echo 'OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR={{.ReleaseImage}}' >> $assistedServiceEnvFile
+sed -i '/^OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR/s|=.*$|={{.ReleaseImage}}|' $assistedServiceEnvFile
 
 # Set OS_IMAGES in images.env
-sed -i '/OS_IMAGES=.*/d' $imagesEnvFile
-echo 'OS_IMAGES={{.OsImages}}' >> $imagesEnvFile
+sed -i '/^OS_IMAGES/s|=.*$|={{.OsImages}}|' $imagesEnvFile
