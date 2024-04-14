@@ -50,8 +50,10 @@ COPY /data data
 ENTRYPOINT ["/openshift-appliance", "--dir", "assets"]
 
 LABEL summary="OpenShift-based Appliance Builder" \
+      name="OpenShift-based Appliance Builder" \
       description="A utility for building a disk image that orchestrates OpenShift installation using the Agent-based installer." \
       io.k8s.description="A utility for building a disk image that orchestrates OpenShift installation using the Agent-based installer." \
       io.k8s.display-name="OpenShift-based Appliance Builder" \
-      io.openshift.tags="openshift,appliance,installer,agent"
+      io.openshift.tags="openshift,appliance,installer,agent" \
+      com.redhat.component="openshift-appliance"
       
