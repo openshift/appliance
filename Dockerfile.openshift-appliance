@@ -49,6 +49,7 @@ COPY /data data
 
 ENTRYPOINT ["/openshift-appliance", "--dir", "assets"]
 
+
 LABEL summary="OpenShift-based Appliance Builder" \
       name="OpenShift-based Appliance Builder" \
       description="A utility for building a disk image that orchestrates OpenShift installation using the Agent-based installer." \
