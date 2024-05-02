@@ -1,7 +1,7 @@
 The `openshift-appliance` utility enables self-contained OpenShift Container Platform cluster installations, meaning that it does not rely on internet connectivity or external registries. It is a container-based utility that builds a disk image that includes the [Agent-based Installer](https://cloud.redhat.com/blog/meet-the-new-agent-based-openshift-installer-1). The disk image can then be used to install multiple OpenShift Container Platform clusters.
 
 ## Downloading the OpenShift-based Appliance builder
-The OpenShift-based Appliance builder is available for download at: [http://registry.redhat.io/assisted/agent-preinstall-image-builder-rhel9](http://registry.redhat.io/assisted/agent-preinstall-image-builder-rhel9)
+The OpenShift-based Appliance builder is available for download at: [https://catalog.redhat.com/software/containers/assisted/agent-preinstall-image-builder-rhel9/65a55174031d94dbea7f2e00](https://catalog.redhat.com/software/containers/assisted/agent-preinstall-image-builder-rhel9/65a55174031d94dbea7f2e00)
 
 ## High level overview
 
@@ -46,7 +46,7 @@ This is where the cluster will be deployed. The user boots the machine and mount
   **Warning**: Use absolute directory paths.
 
   ```shell
-  $ export APPLIANCE_IMAGE="registry.redhat.io/assisted/agent-preinstall-image-builder-rhel9"
+  $ export APPLIANCE_IMAGE="catalog.redhat.com/software/containers/assisted/agent-preinstall-image-builder-rhel9/65a55174031d94dbea7f2e00"
   $ export APPLIANCE_ASSETS="/home/test/appliance_assets"
   ```
 
@@ -363,7 +363,7 @@ If 'diskSizeGB' is not specified in the `appliance-config.yaml` file, use virt-r
 
 Example commands:
 ```shell
-$ export APPLIANCE_IMAGE="registry.redhat.io/assisted/agent-preinstall-image-builder-rhel9"
+$ export APPLIANCE_IMAGE="catalog.redhat.com/software/containers/assisted/agent-preinstall-image-builder-rhel9/65a55174031d94dbea7f2e00"
 $ export APPLIANCE_ASSETS="/home/test/appliance_assets"
 $ export TARGET_DEVICE="/dev/sda"
 $ sudo podman run --rm -it --privileged --net=host -v $APPLIANCE_ASSETS:/assets --entrypoint virt-resize $APPLIANCE_IMAGE --expand /dev/sda4 /assets/appliance.raw $TARGET_DEVICE --no-sparse
@@ -534,7 +534,7 @@ To build the ISO, appliance.raw disk image should be available under the `assets
 1. Generate the ISO by running the following commands:
 
   ```shell
-  $ export APPLIANCE_IMAGE="registry.redhat.io/assisted/agent-preinstall-image-builder-rhel9"
+  $ export APPLIANCE_IMAGE="catalog.redhat.com/software/containers/assisted/agent-preinstall-image-builder-rhel9/65a55174031d94dbea7f2e00"
   $ export APPLIANCE_ASSETS="/home/test/appliance_assets"
   $ sudo podman run --rm -it --privileged -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build iso --target-device /dev/sda
   ```
