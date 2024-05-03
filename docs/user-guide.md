@@ -214,12 +214,12 @@ skopeo inspect docker://registry.appliance.com:5000/fedora/httpd-24 | jq .Digest
 "sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04"
 ```
 ```shell
-podman pull quay.io/fedora/httpd-24@sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04
+podman pull registry.appliance.com:5000/fedora/httpd-24@sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04
 ```
 
 The image can be used, for example, to create a new application:
 ```shell
-oc --kubeconfig auth/kubeconfig new-app --name httpd --image quay.io/fedora/httpd-24@sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04 --allow-missing-images
+oc --kubeconfig auth/kubeconfig new-app --name httpd --image registry.appliance.com:5000/fedora/httpd-24@sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04 --allow-missing-images
 ```
 ```shell
 oc --kubeconfig auth/kubeconfig get deployment
