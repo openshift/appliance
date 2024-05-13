@@ -13,13 +13,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetUserCfgTemplateData(grubMenuEntryName string, grubDefault int) interface{} {
+func GetUserCfgTemplateData(grubMenuEntryName string) interface{} {
 	return struct {
-		GrubTimeout, GrubDefault                 int
+		GrubTimeout                              int
 		GrubMenuEntryName, RecoveryPartitionName string
 	}{
 		GrubTimeout:           consts.GrubTimeout,
-		GrubDefault:           grubDefault,
 		GrubMenuEntryName:     grubMenuEntryName,
 		RecoveryPartitionName: consts.RecoveryPartitionName,
 	}

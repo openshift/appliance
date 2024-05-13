@@ -1,5 +1,4 @@
 set timeout={{.GrubTimeout}}
-set default={{.GrubDefault}}
 menuentry '{{.GrubMenuEntryName}}' --class gnu-linux --class gnu --class os {
   search --set=root --label {{.RecoveryPartitionName}}
   linux /images/pxeboot/vmlinuz coreos.liveiso={{.RecoveryPartitionName}} random.trust_cpu=on console=tty0 console=ttyS0,115200n8 ignition.firstboot ignition.platform.id=metal
