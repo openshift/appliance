@@ -7,12 +7,10 @@ const (
 	// user.cfg template
 	UserCfgTemplateFile = "scripts/grub/user.cfg.template"
 	GrubTimeout         = 10
-	GrubDefault         = 0
 	GrubMenuEntryName   = "Agent-Based Installer"
 	// For installation ignition
 	GrubMenuEntryNameRecovery = "Recovery: Agent-Based Installer (Reinstall Cluster)"
-	GrubDefaultRecovery       = 1
-	UserCfgFilePath           = "/boot/grub2/user.cfg"
+	GrubCfgFilePath           = "/boot/grub2/grub.cfg"
 
 	// guestfish.sh template
 	GuestfishScriptTemplateFile = "scripts/guestfish/guestfish.sh.template"

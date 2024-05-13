@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
+	ignutil "github.com/coreos/ignition/v2/config/util"
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -14,6 +15,7 @@ import (
 	ignasset "github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/sirupsen/logrus"
+	"github.com/vincent-petithory/dataurl"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -126,7 +128,7 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 func (i *InstallIgnition) addRecoveryGrubMenuItem(tempDir string) error {
 	if err := templates.RenderTemplateFile(
 		consts.UserCfgTemplateFile,
-		templates.GetUserCfgTemplateData(consts.GrubMenuEntryNameRecovery, consts.GrubDefaultRecovery),
+		templates.GetUserCfgTemplateData(consts.GrubMenuEntryNameRecovery),
 		tempDir); err != nil {
 		return err
 	}
@@ -135,15 +137,23 @@ func (i *InstallIgnition) addRecoveryGrubMenuItem(tempDir string) error {
 	if err != nil {
 		return err
 	}
-	cfgFile := ignasset.FileFromBytes(consts.UserCfgFilePath,
-		"root", 0644, cfgFileBytes)
-	i.Config.Storage.Files = append(i.Config.Storage.Files, cfgFile)
-	format := "ext4"
-	path := bootMountPath
+
+	// Append the content of user.cfg to grub.cfg in order to prevent duplicate menu entries.
+	// For details see:
+	// * https://github.com/coreos/fedora-coreos-tracker/issues/805
+	// * https://github.com/coreos/fedora-coreos-config/blob/5c1ac4e7d4a596efac69a3eb78061dc2f59e94fb/overlay.d/40grub/usr/lib/bootupd/grub2-static/configs.d/70_coreos-user.cfg
+	grubCfgFile := igntypes.File{
+		Node: igntypes.Node{Path: "/boot/grub2/grub.cfg",
+			User: igntypes.NodeUser{Name: swag.String("root")}},
+		FileEmbedded1: igntypes.FileEmbedded1{Mode: swag.Int(0644),
+			Append: []igntypes.Resource{{Source: ignutil.StrToPtr(dataurl.EncodeBytes(cfgFileBytes))}},
+		},
+	}
+	i.Config.Storage.Files = append(i.Config.Storage.Files, grubCfgFile)
 	i.Config.Storage.Filesystems = append(i.Config.Storage.Filesystems, igntypes.Filesystem{
 		Device: bootDevice,
-		Format: &format,
-		Path:   &path,
+		Format: swag.String("ext4"),
+		Path:   swag.String(bootMountPath),
 	})
 
 	return nil
