@@ -15,6 +15,7 @@ type ApplianceConfig struct {
 	OcpRelease           ReleaseImage   `json:"ocpRelease"`
 	DiskSizeGB           *int           `json:"diskSizeGb"`
 	PullSecret           string         `json:"pullSecret"`
+	PullSecrets          []PullSecret   `json:"pullSecrets"`
 	SshKey               *string        `json:"sshKey"`
 	UserCorePass         *string        `json:"userCorePass"`
 	ImageRegistry        *ImageRegistry `json:"imageRegistry"`
@@ -36,13 +37,19 @@ type ImageRegistry struct {
 	Port *int    `json:"port"`
 }
 
+type PullSecret struct {
+	Name   string `json:"name"`
+	Secret string `json:"secret"`
+}
+
 // Structs copied from oc-mirror: https://github.com/openshift/oc-mirror/blob/main/v2/pkg/api/v1alpha2/types_config.go
 
 // Image contains image pull information.
 type Image struct {
 	// Name of the image. This should be an exact image pin (registry/namespace/name@sha256:<hash>)
 	// but is not required to be.
-	Name string `json:"name"`
+	Name           string `json:"name"`
+	PullSecretName string `json:"pullSecretName,omitempty"`
 }
 
 // Operator defines the configuration for operator catalog mirroring.

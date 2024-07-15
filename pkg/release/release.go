@@ -196,32 +196,39 @@ func (r *release) execute(pullSecret, command string) (string, error) {
 	return "", errors.Wrapf(err, "Failed to execute cmd (%s): %s", executeCommand, err)
 }
 
-func (r *release) setDockerConfig() error {
+func (r *release) setDockerConfig(pullSecret string) error {
 	homeDir, err := r.OSInterface.UserHomeDir()
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get home directory")
 	}
 
 	configPath := filepath.Join(homeDir, ".docker", "config.json")
-	if _, err = r.OSInterface.Stat(configPath); err == nil {
-		logrus.Debugf("Using pull secret from: %s", configPath)
-		return nil
-	}
+	// Doing this so that we can write the pullsecret everytime so it can be modified
+
+	// if _, err = r.OSInterface.Stat(configPath); err == nil {
+	// 	logrus.Debugf("Using pull secret from: %s", configPath)
+	// 	return nil
+	// }
 
 	if err = r.OSInterface.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
 		return err
 	}
 
-	if err = r.OSInterface.WriteFile(configPath, []byte(r.ApplianceConfig.Config.PullSecret), os.ModePerm); err != nil {
+	pullSecretData := []byte(r.ApplianceConfig.Config.PullSecret)
+	if pullSecret != "" {
+		pullSecretData = []byte(pullSecret)
+	}
+
+	if err = r.OSInterface.WriteFile(configPath, pullSecretData, os.ModePerm); err != nil {
 		return errors.Wrap(err, "failed to write file")
 	}
 	return nil
 }
 
-func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, operators string) error {
+func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, operators, pullSecret string, platform bool) error {
 	if err := templates.RenderTemplateFile(
 		imageSetFile,
-		templates.GetImageSetTemplateData(r.ApplianceConfig, blockedImages, additionalImages, operators),
+		templates.GetImageSetTemplateData(r.ApplianceConfig, blockedImages, additionalImages, operators, platform),
 		r.EnvConfig.TempDir); err != nil {
 		return err
 	}
@@ -240,7 +247,7 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 	cmd := fmt.Sprintf(ocMirrorAndUpload, imageSetFilePath, registryPort, tempDir)
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 
-	if err = r.setDockerConfig(); err != nil {
+	if err = r.setDockerConfig(pullSecret); err != nil {
 		return err
 	}
 
@@ -379,14 +386,60 @@ func (r *release) MirrorBootstrapImages() error {
 		blockedImages,
 		"",
 		"",
+		"",
+		true,
 	)
 }
 
 func (r *release) MirrorInstallImages() error {
-	return r.mirrorImages(
+	additionalImageGroup := map[string][]types.Image{}
+	additionalPullSecrets := map[string]string{}
+	defaultAdditionalImageGroup := []types.Image{}
+
+	if r.ApplianceConfig.Config != nil && r.ApplianceConfig.Config.AdditionalImages != nil {
+		for _, image := range *r.ApplianceConfig.Config.AdditionalImages {
+			var name string
+			if image.PullSecretName == "" {
+				defaultAdditionalImageGroup = append(defaultAdditionalImageGroup, types.Image{Name: image.Name})
+			} else {
+				name = image.PullSecretName
+				additionalImageGroup[name] = append(additionalImageGroup[name], types.Image{Name: image.Name})
+			}
+
+		}
+	}
+
+	for _, secret := range r.ApplianceConfig.Config.PullSecrets {
+		additionalPullSecrets[secret.Name] = secret.Secret
+	}
+
+	for secretName, group := range additionalImageGroup {
+		err := r.mirrorImages(
+			consts.ImageSetTemplateFile,
+			"",
+			r.generateAdditionalImagesList(&group),
+			"",
+			additionalPullSecrets[secretName],
+			false,
+		)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	err := r.mirrorImages(
 		consts.ImageSetTemplateFile,
 		"",
-		r.generateAdditionalImagesList(r.ApplianceConfig.Config.AdditionalImages),
+		r.generateAdditionalImagesList(&defaultAdditionalImageGroup),
 		r.generateOperatorsList(r.ApplianceConfig.Config.Operators),
+		"",
+		true,
 	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
