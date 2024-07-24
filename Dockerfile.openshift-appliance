@@ -1,5 +1,5 @@
 # Build appliance
-FROM registry.access.redhat.com/ubi9/go-toolset:1.20 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:1.21.11-7 as builder
 COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
