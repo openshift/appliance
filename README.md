@@ -124,7 +124,7 @@ skipper make test
 
 ### Running lint
 ```bash
-make lint
+skipper make lint
 ```
 
 ### Debug
