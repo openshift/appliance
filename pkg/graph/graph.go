@@ -100,7 +100,7 @@ func NewGraph(config GraphConfig) Graph {
 func (g *graph) GetReleaseImage() (string, string, error) {
 	release := OcpRelease{
 		Version:      g.Version,
-		Channel:      ReleaseChannel(*g.Channel),
+		Channel:      *g.Channel,
 		Architecture: g.Arch,
 	}
 
@@ -110,7 +110,7 @@ func (g *graph) GetReleaseImage() (string, string, error) {
 			// Trying to fallback to latest supported version
 			logrus.Warnf("OCP %s is not available, fallback to latest supported version: %s", release.Version, consts.MaxOcpVersion)
 			g.Version = consts.MaxOcpVersion
-			payload, version, err := g.GetReleaseImage()
+			payload, version, err = g.GetReleaseImage()
 			if err != nil {
 				return "", "", err
 			}

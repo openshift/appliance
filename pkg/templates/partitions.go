@@ -15,7 +15,7 @@ const (
 
 	// We align the partitions to block size of 64K, as suggested for best performance:
 	// https://libguestfs.org/virt-alignment-scan.1.html
-	sectorAlignmentFactor = int64(sectorSize64K / sectorSize)
+	sectorAlignmentFactor = sectorSize64K / sectorSize
 )
 
 type Partitions interface {

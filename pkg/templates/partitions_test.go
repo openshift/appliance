@@ -40,7 +40,7 @@ var _ = Describe("Test Partitions", func() {
 	})
 
 	It("end of disk image has an empty 1MiB", func() {
-		diskSizeInSectors := int64(conversions.GibToBytes(diskSize) / sectorSize)
+		diskSizeInSectors := conversions.GibToBytes(diskSize) / sectorSize
 		emptyBytes := (diskSizeInSectors - testPartitions.DataPartition.EndSector) * sectorSize
 		Expect(emptyBytes).To(Equal(conversions.MibToBytes(1)))
 	})

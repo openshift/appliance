@@ -160,7 +160,7 @@ func (a *ApplianceConfig) PersistToFile(directory string) error {
 
 	templatePath := filepath.Join(directory, ApplianceConfigFilename)
 	templateByte := []byte(a.Template)
-	err := os.WriteFile(templatePath, templateByte, 0644)
+	err := os.WriteFile(templatePath, templateByte, 0644) // #nosec G306
 	if err != nil {
 		return err
 	}

@@ -3,9 +3,10 @@ package coreos
 import (
 	"errors"
 	"fmt"
+	"testing"
+
 	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/types"
-	"testing"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2/dsl/core"

@@ -251,7 +251,7 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 	}
 
 	// Copy yaml files (imageContentSourcePolicy and catalogSource) to cache dir
-	if err := r.copyOutputYamls(tempDir); err != nil {
+	if err = r.copyOutputYamls(tempDir); err != nil {
 		return err
 	}
 

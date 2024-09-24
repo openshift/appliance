@@ -3,6 +3,9 @@ package coreos
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/cavaliergopher/grab/v3"
 	"github.com/itchyny/gojq"
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -10,8 +13,6 @@ import (
 	"github.com/openshift/appliance/pkg/release"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"os"
-	"path/filepath"
 )
 
 const (

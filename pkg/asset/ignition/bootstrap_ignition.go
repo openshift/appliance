@@ -34,7 +34,7 @@ const (
 	bootstrapRegistryDataPath = "/mnt/agentdata/oc-mirror/bootstrap"
 	registriesConfFilePath    = "/etc/containers/registries.conf"
 	manifestPath              = "/etc/assisted/manifests"
-	corePassOverrideFilePath  = "/etc/assisted/appliance-override-password-set"
+	corePassOverrideFilePath  = "/etc/assisted/appliance-override-password-set" // #nosec G101
 	extraManifestsPath        = "/etc/assisted/extra-manifests"
 )
 
@@ -130,7 +130,7 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		string(installIgnitionConfig),
 		coreosImagePath)
 	for _, script := range bootstrapScripts {
-		if err := bootstrap.AddStorageFiles(&i.Config,
+		if err = bootstrap.AddStorageFiles(&i.Config,
 			"/usr/local/bin/"+script,
 			"scripts/bin/"+script+".template",
 			templateData); err != nil {
@@ -143,7 +143,8 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	}
 	// Add user 'core' password
 	if applianceConfig.Config.UserCorePass != nil {
-		passBytes, err := bcrypt.GenerateFromPassword([]byte(*applianceConfig.Config.UserCorePass), bcrypt.DefaultCost)
+		var passBytes []byte
+		passBytes, err = bcrypt.GenerateFromPassword([]byte(*applianceConfig.Config.UserCorePass), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}

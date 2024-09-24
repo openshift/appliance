@@ -11,8 +11,8 @@ import (
 
 var (
 	rootOpts struct {
-		dir               string
-		logLevel          string
+		dir      string
+		logLevel string
 	}
 )
 

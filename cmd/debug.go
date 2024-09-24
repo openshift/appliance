@@ -14,7 +14,7 @@ func NewGenerateInstallIgnitionCmd() *cobra.Command {
 		Hidden: true,
 		PreRun: func(cmd *cobra.Command, args []string) {
 			if err := getAssetStore().Fetch(&config.EnvConfig{
-				AssetsDir:    rootOpts.dir,
+				AssetsDir: rootOpts.dir,
 			}); err != nil {
 				logrus.Fatal(err)
 			}
