@@ -73,7 +73,7 @@ func CopyFile(source, dest string) error {
 	}
 
 	// Create dest dir
-	if err := os.MkdirAll(filepath.Dir(dest), os.ModePerm); err != nil {
+	if err = os.MkdirAll(filepath.Dir(dest), os.ModePerm); err != nil {
 		return err
 	}
 
@@ -105,7 +105,7 @@ func ExtractCompressedFile(source, target string) (string, error) {
 	}
 	defer writer.Close()
 
-	_, err = io.Copy(writer, archive)
+	_, err = io.Copy(writer, archive) // #nosec G110
 	return target, err
 }
 

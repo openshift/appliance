@@ -15,8 +15,7 @@ var _ asset.Asset = (*DeployConfig)(nil)
 
 // Dependencies returns no dependencies.
 func (e *DeployConfig) Dependencies() []asset.Asset {
-	return []asset.Asset{
-	}
+	return []asset.Asset{}
 }
 
 // Generate EnvConfig asset

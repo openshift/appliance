@@ -99,7 +99,7 @@ func (i *DeployISO) buildDeploymentIso(envConfig *config.EnvConfig, applianceCon
 
 	// Create deploy dir
 	deployDir := filepath.Join(deployIsoTempDir, consts.DeployDir)
-	if err := os.MkdirAll(deployDir, os.ModePerm); err != nil {
+	if err = os.MkdirAll(deployDir, os.ModePerm); err != nil {
 		logrus.Errorf("Failed to create dir: %s", deployDir)
 		return err
 	}
@@ -108,12 +108,12 @@ func (i *DeployISO) buildDeploymentIso(envConfig *config.EnvConfig, applianceCon
 	// (to bypass ISO9660 limitation for large files)
 	applianceImageFile := filepath.Join(envConfig.AssetsDir, consts.ApplianceFileName)
 	applianceSplitFile := filepath.Join(deployDir, consts.ApplianceFileName)
-	if err := fileutil.SplitFile(applianceImageFile, applianceSplitFile, "3G"); err != nil {
+	if err = fileutil.SplitFile(applianceImageFile, applianceSplitFile, "3G"); err != nil {
 		logrus.Error(err)
 		return err
 	}
 
-	if err := log.StopSpinner(spinner, nil); err != nil {
+	if err = log.StopSpinner(spinner, nil); err != nil {
 		return err
 	}
 
@@ -125,7 +125,7 @@ func (i *DeployISO) buildDeploymentIso(envConfig *config.EnvConfig, applianceCon
 		envConfig,
 	)
 	applianceTarFile := filepath.Join(deployDir, consts.ApplianceImageTar)
-	if err := skopeo.NewSkopeo(nil).CopyToFile(
+	if err = skopeo.NewSkopeo(nil).CopyToFile(
 		consts.ApplianceImage, consts.ApplianceImageName, applianceTarFile); err != nil {
 		return err
 	}
@@ -133,12 +133,12 @@ func (i *DeployISO) buildDeploymentIso(envConfig *config.EnvConfig, applianceCon
 	// Extract base ISO
 	coreosIsoFileName := fmt.Sprintf(consts.CoreosIsoName, applianceConfig.GetCpuArchitecture())
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
-	if err := isoeditor.Extract(coreosIsoPath, deployIsoTempDir); err != nil {
+	if err = isoeditor.Extract(coreosIsoPath, deployIsoTempDir); err != nil {
 		logrus.Errorf("Failed to extract ISO: %s", err.Error())
 		return err
 	}
 
-	if err := log.StopSpinner(spinner, nil); err != nil {
+	if err = log.StopSpinner(spinner, nil); err != nil {
 		return err
 	}
 

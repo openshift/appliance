@@ -3,8 +3,9 @@ package skopeo
 import (
 	"errors"
 	"fmt"
-	"github.com/openshift/appliance/pkg/consts"
 	"testing"
+
+	"github.com/openshift/appliance/pkg/consts"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2/dsl/core"

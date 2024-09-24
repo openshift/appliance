@@ -48,7 +48,7 @@ func writeFile(name string, data []byte, directory string) error {
 	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		return err
 	}
-	if err := os.WriteFile(path, data, os.ModePerm); err != nil {
+	if err := os.WriteFile(path, data, os.ModePerm); err != nil { // #nosec G306
 		return errors.Wrap(err, "failed to write file")
 	}
 

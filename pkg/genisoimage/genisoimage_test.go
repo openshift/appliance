@@ -29,9 +29,9 @@ var _ = Describe("Test GenIsoImage", func() {
 
 	It("genisoimage GenerateImage - success", func() {
 
-		fakeCachePath := "/path/to/cache"
-		fakeDataPath := "/path/to/data"
-		fakeImageName := "testdata.iso"
+		fakeCachePath = "/path/to/cache"
+		fakeDataPath = "/path/to/data"
+		fakeImageName = "testdata.iso"
 
 		cmd := fmt.Sprintf(genDataImageCmd, fakeCachePath, fakeImageName, fakeDataPath)
 		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
