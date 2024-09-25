@@ -22,8 +22,9 @@ type EnvConfig struct {
 	CacheDir  string
 	TempDir   string
 
-	DebugBootstrap    bool
-	DebugBaseIgnition bool
+	DebugBootstrap          bool
+	DebugBaseIgnition       bool
+	AllowUnsupportedVersion bool
 }
 
 var _ asset.Asset = (*EnvConfig)(nil)
@@ -111,8 +112,16 @@ func (e *EnvConfig) validateOcpReleaseVersion(releaseVersion string) error {
 	}
 
 	if majorMinor.GreaterThan(maxOcpVer) {
-		logrus.Warn(fmt.Sprintf("OCP release version %s is not supported. Latest supported version: %s.",
-			releaseVersion, consts.MaxOcpVersion))
+		msg := fmt.Sprintf("OCP release version %s is not supported.", releaseVersion)
+		if !e.AllowUnsupportedVersion {
+			logrus.Error(msg)
+			logrus.Errorf("Fallback to the latest supported version: %s.", consts.MaxOcpVersion)
+			logrus.Error("To override this validation use: --allow-unsupported-version")
+			return errors.New(msg)
+		} else {
+			logrus.Warn(msg)
+			logrus.Warnf("Latest supported version: %s.", consts.MaxOcpVersion)
+		}
 	}
 	return nil
 }

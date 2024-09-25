@@ -17,8 +17,9 @@ import (
 
 var (
 	buildOpts struct {
-		debugBootstrap    bool
-		debugBaseIgnition bool
+		debugBootstrap          bool
+		debugBaseIgnition       bool
+		allowUnsupportedVersion bool
 	}
 
 	envConfig    config.EnvConfig
@@ -35,6 +36,7 @@ func NewBuildCmd() *cobra.Command {
 	cmd.AddCommand(getBuildISOCmd())
 	cmd.Flags().BoolVar(&buildOpts.debugBootstrap, "debug-bootstrap", false, "")
 	cmd.Flags().BoolVar(&buildOpts.debugBaseIgnition, "debug-base-ignition", false, "")
+	cmd.Flags().BoolVar(&buildOpts.allowUnsupportedVersion, "allow-unsupported-version", false, "Ignore latest supported OCP version validation")
 	if err := cmd.Flags().MarkHidden("debug-bootstrap"); err != nil {
 		logrus.Fatal(err)
 	}
@@ -125,9 +127,10 @@ func runBuildISO(cmd *cobra.Command, args []string) {
 
 func preRunBuild(cmd *cobra.Command, args []string) {
 	envConfig = config.EnvConfig{
-		AssetsDir:         rootOpts.dir,
-		DebugBootstrap:    buildOpts.debugBootstrap,
-		DebugBaseIgnition: buildOpts.debugBaseIgnition,
+		AssetsDir:               rootOpts.dir,
+		DebugBootstrap:          buildOpts.debugBootstrap,
+		DebugBaseIgnition:       buildOpts.debugBaseIgnition,
+		AllowUnsupportedVersion: buildOpts.allowUnsupportedVersion,
 	}
 
 	// Generate EnvConfig asset
