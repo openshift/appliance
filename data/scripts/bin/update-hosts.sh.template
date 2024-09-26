@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 
-BASE_URL="${SERVICE_BASE_URL}api/assisted-install/v2"
+# shellcheck disable=SC1091
+source "common.sh"
 
 total_required_nodes=$(( REQUIRED_MASTER_NODES + REQUIRED_WORKER_NODES ))
 
@@ -9,7 +10,7 @@ declare host_ids
 while [[ "${num_of_hosts}" != "${total_required_nodes}" ]]
 do
     echo "Waiting for ${total_required_nodes} required hosts..." 1>&2
-    host_ids=$(curl -s -S "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts" | jq -r .[].id)
+    host_ids=$(curl_assisted_service "/infra-envs/${INFRA_ENV_ID}/hosts" | jq -r .[].id)
     if [[ -n ${host_ids} ]]; then
         num_of_hosts=0
         for id in ${host_ids}; do
@@ -25,14 +26,12 @@ if [[ -n ${host_ids} ]]; then
     for id in ${host_ids}; do
         args='["--save-partlabel", "agent*"]'
         # Update host's installer-args (for passing '--save-partlabel' to coreos-installer)
-        curl -s -S -X PATCH "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/installer-args" \
-            -H "Content-Type: application/json" \
-            -d '{"args": '"${args}"'}'
+        curl_assisted_service "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/installer-args" \
+            PATCH -d '{"args": '"${args}"'}'
 
         # Update host's ignition (used when booting from the installation disk after bootstrap)
-        curl -s -S -X PATCH "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/ignition" \
-            -H "Content-Type: application/json" \
-            -d '{"config": '"${ignition}"'}'
+        curl_assisted_service "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/ignition" \
+            PATCH -d '{"config": '"${ignition}"'}'
 
         echo "Updated installer-args and ignition of host with id: ${id}"
     done
