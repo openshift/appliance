@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/skopeo"
+	"github.com/openshift/appliance/pkg/syslinux"
 	"github.com/openshift/assisted-image-service/pkg/isoeditor"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
@@ -159,6 +160,11 @@ func (i *DeployISO) buildDeploymentIso(envConfig *config.EnvConfig, applianceCon
 	if err := isoeditor.Create(deployIsoFileName, deployIsoTempDir, volumeID); err != nil {
 		logrus.Errorf("Failed to create ISO: %s", err.Error())
 		return err
+	}
+
+	hybrid := syslinux.NewIsoHybrid(nil)
+	if err = hybrid.Convert(deployIsoFileName); err != nil {
+		logrus.Errorf("Error creating isohybrid: %s", err)
 	}
 
 	return log.StopSpinner(spinner, nil)
