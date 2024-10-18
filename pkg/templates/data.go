@@ -133,7 +133,8 @@ func GetInstallIgnitionTemplateData(registryDataPath, corePassHash string) inter
 	return struct {
 		IsBootstrapStep bool
 
-		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage, CorePassHash string
+		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
+		CorePassHash, GrubCfgFilePath, UserCfgFilePath                    string
 	}{
 		IsBootstrapStep: false,
 
@@ -142,6 +143,8 @@ func GetInstallIgnitionTemplateData(registryDataPath, corePassHash string) inter
 		RegistryDomain:   registry.RegistryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
+		GrubCfgFilePath:  consts.GrubCfgFilePath,
+		UserCfgFilePath:  consts.UserCfgFilePath,
 		CorePassHash:     corePassHash,
 	}
 }
