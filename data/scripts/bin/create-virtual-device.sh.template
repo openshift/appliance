@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Create a sparse-raw file for the boot sector
 dd if=/dev/zero of=/tmp/boot.raw bs=1M seek=1 count=0
 

@@ -57,7 +57,6 @@ var (
 		"release-image.sh",
 		"update-hosts.sh",
 		"create-virtual-device.sh",
-		"common.sh",
 	}
 )
 

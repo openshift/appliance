@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 
-	ignutil "github.com/coreos/ignition/v2/config/util"
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -15,7 +14,6 @@ import (
 	ignasset "github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/sirupsen/logrus"
-	"github.com/vincent-petithory/dataurl"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -32,10 +30,12 @@ const (
 var (
 	installServices = []string{
 		"start-local-registry.service",
+		"add-grub-menuitem.service",
 	}
 
 	installScripts = []string{
 		"setup-local-registry.sh",
+		"add-grub-menuitem.sh",
 	}
 
 	corePassHash string
@@ -115,8 +115,8 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
-	// Add grub menu item
-	if err := i.addRecoveryGrubMenuItem(envConfig.TempDir); err != nil {
+	// Add user.cfg file
+	if err := i.addRecoveryGrubConfigFile(envConfig.TempDir); err != nil {
 		return err
 	}
 
@@ -125,7 +125,8 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	return nil
 }
 
-func (i *InstallIgnition) addRecoveryGrubMenuItem(tempDir string) error {
+func (i *InstallIgnition) addRecoveryGrubConfigFile(tempDir string) error {
+	// Generate user.cfg
 	if err := templates.RenderTemplateFile(
 		consts.UserCfgTemplateFile,
 		templates.GetUserCfgTemplateData(consts.GrubMenuEntryNameRecovery),
@@ -137,24 +138,10 @@ func (i *InstallIgnition) addRecoveryGrubMenuItem(tempDir string) error {
 	if err != nil {
 		return err
 	}
+	cfgFile := ignasset.FileFromBytes(consts.UserCfgFilePath, "root", 0644, cfgFileBytes)
 
-	// Append the content of user.cfg to grub.cfg in order to prevent duplicate menu entries.
-	// For details see:
-	// * https://github.com/coreos/fedora-coreos-tracker/issues/805
-	// * https://github.com/coreos/fedora-coreos-config/blob/5c1ac4e7d4a596efac69a3eb78061dc2f59e94fb/overlay.d/40grub/usr/lib/bootupd/grub2-static/configs.d/70_coreos-user.cfg
-	grubCfgFile := igntypes.File{
-		Node: igntypes.Node{Path: "/boot/grub2/grub.cfg",
-			User: igntypes.NodeUser{Name: swag.String("root")}},
-		FileEmbedded1: igntypes.FileEmbedded1{Mode: swag.Int(0644),
-			Append: []igntypes.Resource{{Source: ignutil.StrToPtr(dataurl.EncodeBytes(cfgFileBytes))}},
-		},
-	}
-	i.Config.Storage.Files = append(i.Config.Storage.Files, grubCfgFile)
-	i.Config.Storage.Filesystems = append(i.Config.Storage.Filesystems, igntypes.Filesystem{
-		Device: bootDevice,
-		Format: swag.String("ext4"),
-		Path:   swag.String(bootMountPath),
-	})
+	// Append user.cfg to Files
+	i.Config.Storage.Files = append(i.Config.Storage.Files, cfgFile)
 
 	return nil
 }

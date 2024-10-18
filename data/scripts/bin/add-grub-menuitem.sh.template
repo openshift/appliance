@@ -1,0 +1,10 @@
+#!/bin/bash
+
+mount -o remount,rw /dev/disk/by-partlabel/boot /boot
+
+# Append the content of user.cfg to grub.cfg in order to prevent duplicate menu entries.
+# For details see:
+# * https://github.com/coreos/fedora-coreos-tracker/issues/805
+# * https://github.com/coreos/fedora-coreos-config/blob/5c1ac4e7d4a596efac69a3eb78061dc2f59e94fb/overlay.d/40grub/usr/lib/bootupd/grub2-static/configs.d/70_coreos-user.cfg
+cat {{.UserCfgFilePath}} >> {{.GrubCfgFilePath}}
+rm -rf {{.UserCfgFilePath}}

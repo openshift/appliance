@@ -1,0 +1,12 @@
+[Unit]
+Description=Add recovery GRUB menu item
+After=coreos-boot-edit.service coreos-ignition-firstboot-complete.service
+ConditionPathExists={{.UserCfgFilePath}}
+
+[Service]
+ExecStart=/usr/local/bin/add-grub-menuitem.sh
+Type=oneshot
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target
