@@ -107,5 +107,5 @@ func (a *ApplianceDiskImage) getDiskSize(diskSizeGB *int, baseIsoSize, recoveryI
 	diskSize := baseIsoSize + recoveryIsoSize + dataIsoSize
 
 	// Convert size to GiB (rounded up)
-	return conversions.BytesToGiB(diskSize) + 1
+	return conversions.BytesToGib(diskSize) + 1
 }
