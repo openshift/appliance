@@ -5,7 +5,7 @@ import (
 
 	"github.com/diskfs/go-diskfs"
 	"github.com/openshift/appliance/pkg/asset/config"
-	"github.com/openshift/assisted-service/pkg/conversions"
+	"github.com/openshift/appliance/pkg/conversions"
 	"github.com/sirupsen/logrus"
 )
 

@@ -3,7 +3,7 @@ package templates
 import (
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
-	"github.com/openshift/assisted-service/pkg/conversions"
+	"github.com/openshift/appliance/pkg/conversions"
 )
 
 var _ = Describe("Test Partitions", func() {

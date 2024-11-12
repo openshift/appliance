@@ -13,7 +13,7 @@ func NewGenerateInstallIgnitionCmd() *cobra.Command {
 		Args:   cobra.ExactArgs(0),
 		Hidden: true,
 		PreRun: func(cmd *cobra.Command, args []string) {
-			if err := getAssetStore().Fetch(&config.EnvConfig{
+			if err := getAssetStore().Fetch(cmd.Context(), &config.EnvConfig{
 				AssetsDir: rootOpts.dir,
 			}); err != nil {
 				logrus.Fatal(err)
@@ -21,7 +21,7 @@ func NewGenerateInstallIgnitionCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			installIgnition := ignition.InstallIgnition{}
-			if err := getAssetStore().Fetch(&installIgnition); err != nil {
+			if err := getAssetStore().Fetch(cmd.Context(), &installIgnition); err != nil {
 				logrus.Fatal(err)
 			}
 			if err := installIgnition.PersistToFile(rootOpts.dir); err != nil {

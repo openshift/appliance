@@ -1,6 +1,7 @@
 package ignition
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -85,7 +86,7 @@ func (i *BootstrapIgnition) Dependencies() []asset.Asset {
 }
 
 // Generate the base ISO.
-func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
+func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	extraManifests := &agentManifests.ExtraManifests{}

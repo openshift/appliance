@@ -78,13 +78,13 @@ func runBuild(cmd *cobra.Command, args []string) {
 	}
 
 	// Generate ApplianceDiskImage asset (including all of its dependencies)
-	if err := getAssetStore().Fetch(&applianceDiskImage); err != nil {
+	if err := getAssetStore().Fetch(cmd.Context(), &applianceDiskImage); err != nil {
 		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", applianceDiskImage.Name()))
 	}
 
 	// Generate openshift-install binary download URL
 	installerBinary := installer.InstallerBinary{}
-	if err := getAssetStore().Fetch(&installerBinary); err != nil {
+	if err := getAssetStore().Fetch(cmd.Context(), &installerBinary); err != nil {
 		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", installerBinary.Name()))
 	}
 
@@ -103,13 +103,13 @@ func runBuildISO(cmd *cobra.Command, args []string) {
 	defer cleanup()
 
 	// Generate DeployConfig asset
-	if err := getAssetStore().Fetch(deployConfig); err != nil {
+	if err := getAssetStore().Fetch(cmd.Context(), deployConfig); err != nil {
 		logrus.Fatal(err)
 	}
 
 	// Generate DeployISO asset
 	deployISO := deploy.DeployISO{}
-	if err := getAssetStore().Fetch(&deployISO); err != nil {
+	if err := getAssetStore().Fetch(cmd.Context(), &deployISO); err != nil {
 		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", deployISO.Name()))
 	}
 
@@ -131,7 +131,7 @@ func preRunBuild(cmd *cobra.Command, args []string) {
 	}
 
 	// Generate EnvConfig asset
-	if err := getAssetStore().Fetch(&envConfig); err != nil {
+	if err := getAssetStore().Fetch(cmd.Context(), &envConfig); err != nil {
 		logrus.Fatal(err)
 	}
 }
