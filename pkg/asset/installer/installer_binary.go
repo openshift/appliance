@@ -1,6 +1,8 @@
 package installer
 
 import (
+	"context"
+	
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/installer"
 	"github.com/openshift/installer/pkg/asset"
@@ -20,7 +22,7 @@ func (a *InstallerBinary) Dependencies() []asset.Asset {
 	}
 }
 
-func (a *InstallerBinary) Generate(dependencies asset.Parents) error {
+func (a *InstallerBinary) Generate(_ context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)

@@ -1,6 +1,7 @@
 package ignition
 
 import (
+	"context"
 	"os"
 
 	configv32 "github.com/coreos/ignition/v2/config/v3_2"
@@ -36,7 +37,7 @@ func (i *RecoveryIgnition) Dependencies() []asset.Asset {
 }
 
 // Generate the ignition embedded in the recovery ISO.
-func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
+func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	envConfig := &config.EnvConfig{}
 	bootstrapIgnition := &BootstrapIgnition{}

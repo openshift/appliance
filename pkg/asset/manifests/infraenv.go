@@ -1,6 +1,7 @@
 package manifests
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -46,7 +47,7 @@ func (*InfraEnv) Dependencies() []asset.Asset {
 }
 
 // Generate generates the InfraEnv manifest.
-func (i *InfraEnv) Generate(dependencies asset.Parents) error {
+func (i *InfraEnv) Generate(_ context.Context, dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(applianceConfig)
 

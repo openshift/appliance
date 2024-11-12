@@ -23,7 +23,7 @@ func NewGenerateConfigCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			configAppliance := config.ApplianceConfig{}
-			if err := getAssetStore().Fetch(&configAppliance); err != nil {
+			if err := getAssetStore().Fetch(cmd.Context(), &configAppliance); err != nil {
 				logrus.Fatal(err)
 			}
 			if err := configAppliance.PersistToFile(rootOpts.dir); err != nil {

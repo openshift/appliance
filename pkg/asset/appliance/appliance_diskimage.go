@@ -1,16 +1,17 @@
 package appliance
 
 import (
+	"context"
 	"path/filepath"
 
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/data"
 	"github.com/openshift/appliance/pkg/asset/recovery"
 	"github.com/openshift/appliance/pkg/consts"
+	"github.com/openshift/appliance/pkg/conversions"
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/templates"
-	"github.com/openshift/assisted-service/pkg/conversions"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -35,7 +36,7 @@ func (a *ApplianceDiskImage) Dependencies() []asset.Asset {
 }
 
 // Generate the appliance disk.
-func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
+func (a *ApplianceDiskImage) Generate(_ context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	recoveryISO := &recovery.RecoveryISO{}

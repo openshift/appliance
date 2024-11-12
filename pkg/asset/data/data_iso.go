@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -44,7 +45,7 @@ func (a *DataISO) Dependencies() []asset.Asset {
 }
 
 // Generate the recovery ISO.
-func (a *DataISO) Generate(dependencies asset.Parents) error {
+func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)

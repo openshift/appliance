@@ -1,10 +1,10 @@
 # Build appliance
-FROM registry.access.redhat.com/ubi9/go-toolset:1.21 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:9.5 as builder
 COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
 COPY . .
-RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" go build -o /usr/bin/openshift-appliance
+RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/openshift-appliance
 
 # Create final image
 FROM registry.access.redhat.com/ubi9/ubi:latest
@@ -41,7 +41,7 @@ RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/op
     chmod +x /usr/local/bin/oc
 
 # Copy openshift-appliance binary
-COPY --from=builder /usr/bin/openshift-appliance /openshift-appliance
+COPY --from=builder /tmp/openshift-appliance /openshift-appliance
 
 # Copy
 RUN mkdir -p data

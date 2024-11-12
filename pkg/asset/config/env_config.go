@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,7 +37,7 @@ func (e *EnvConfig) Dependencies() []asset.Asset {
 }
 
 // Generate EnvConfig asset
-func (e *EnvConfig) Generate(dependencies asset.Parents) error {
+func (e *EnvConfig) Generate(_ context.Context, dependencies asset.Parents) error {
 	applianceConfig := &ApplianceConfig{}
 	dependencies.Get(applianceConfig)
 
