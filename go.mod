@@ -272,7 +272,6 @@ require (
 )
 
 replace (
-	github.com/docker/docker => github.com/docker/docker v27.1.1+incompatible
 	github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20230831114549-1922eda29cf8
 	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20230831114549-1922eda29cf8
 	github.com/openshift/hive/apis => github.com/openshift/hive/apis v0.0.0-20220222213051-def9088fdb5a
