@@ -14,3 +14,6 @@ sed -i '/^OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR/s|=.*$|={{.ReleaseImage}}|' $as
 
 # Set OS_IMAGES in images.env
 sed -i '/^OS_IMAGES/s|=.*$|={{.OsImages}}|' $imagesEnvFile
+
+# Replace cluster-image-set file (generated in bootstrap_ignition)
+mv -f /etc/assisted/cluster-image-set.yaml /etc/assisted/manifests

@@ -13,6 +13,7 @@ import (
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	agentManifests "github.com/openshift/installer/pkg/asset/agent/manifests"
+	"github.com/openshift/installer/pkg/asset/ignition"
 	ignasset "github.com/openshift/installer/pkg/asset/ignition"
 	"golang.org/x/crypto/bcrypt"
 	"sigs.k8s.io/yaml"
@@ -180,6 +181,16 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	}
 	i.Config.Passwd.Users = append(i.Config.Passwd.Users, passwdUser)
 
+	// Add cluster-image-set file
+	clusterImageSet := &manifests.ClusterImageSet{}
+	if err = clusterImageSet.Generate(context.TODO(), dependencies); err != nil {
+		return err
+	}
+	clusterImageSetFile := ignition.FileFromBytes(filepath.Join("/etc/assisted", filepath.Base(clusterImageSet.File.Filename)),
+		"root", 0644, clusterImageSet.File.Data)
+	i.Config.Storage.Files = append(i.Config.Storage.Files, clusterImageSetFile)
+
+	// Add extra manifests files (from 'openshift' dir)
 	if err = i.addExtraManifests(&i.Config, extraManifests); err != nil {
 		return err
 	}
