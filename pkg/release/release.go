@@ -37,7 +37,7 @@ const (
 const (
 	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
-	ocMirrorAndUpload    = "oc mirror --config=%s docker://127.0.0.1:%d --dir %s --dest-use-http"
+	ocMirrorToDir        = "oc mirror --config=%s docker://127.0.0.1:%d --dir %s --dest-use-http"
 	ocAdmReleaseInfo     = "oc adm release info quay.io/openshift-release-dev/ocp-release:%s-%s -o json"
 	templateExtractCmd   = "oc adm release extract --command=%s --to=%s %s"
 )
@@ -237,7 +237,7 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 	}
 
 	registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
-	cmd := fmt.Sprintf(ocMirrorAndUpload, imageSetFilePath, registryPort, tempDir)
+	cmd := fmt.Sprintf(ocMirrorToDir, imageSetFilePath, registryPort, tempDir)
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 
 	if err = r.setDockerConfig(); err != nil {
@@ -264,7 +264,7 @@ func (r *release) copyOutputYamls(ocMirrorDir string) error {
 		return err
 	}
 	for _, yamlPath := range yamlPaths {
-		logrus.Debugf(fmt.Sprintf("Copying ymals from oc-mirror output: %s", yamlPath))
+		logrus.Debugf("Copying ymals from oc-mirror output: %s", yamlPath)
 		yamlBytes, err := r.OSInterface.ReadFile(yamlPath)
 		if err != nil {
 			return err
