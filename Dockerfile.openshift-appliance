@@ -15,6 +15,10 @@ RUN mkdir $ASSETS_DIR && chmod 775 $ASSETS_DIR
 VOLUME $ASSETS_DIR
 ENV ASSETS_DIR=$ASSETS_DIR
 
+# Replace mirror to vault, enabling baseurl
+RUN sed -i 's,mirror.centos.org,vault.centos.org,' /etc/yum.repos.d/CentOS-Stream-*.repo \
+    && sed -i 's,^#baseurl,baseurl,' /etc/yum.repos.d/CentOS-Stream-*.repo
+
 # Install and config libguestfs
 RUN dnf -y install libguestfs-tools coreos-installer skopeo podman && dnf clean all
 ENV LIBGUESTFS_BACKEND=direct
