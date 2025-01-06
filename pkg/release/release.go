@@ -255,7 +255,27 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 		return err
 	}
 
+	if err = r.copyMappingFile(tempDir); err != nil {
+		return err
+	}
+
 	return err
+}
+
+func (r *release) copyMappingFile(ocMirrorDir string) error {
+	mappingFiles, err := filepath.Glob(filepath.Join(ocMirrorDir, fmt.Sprintf("results-*/%s", consts.OcMirrorMappingFileName)))
+	if err != nil {
+		return err
+	}
+
+	// The slice returned from Glob will have a single filename when running the application, but it will be empty when running the unit-tests since they don't create the files "oc mirror" generates
+	for _, mappingFile := range mappingFiles {
+		if err := fileutil.CopyFile(mappingFile, filepath.Join(r.EnvConfig.CacheDir, consts.OcMirrorMappingFileName)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *release) copyOutputYamls(ocMirrorDir string) error {

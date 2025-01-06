@@ -127,6 +127,13 @@ enableDefaultSources: enable-default-sources
 # Default: false
 # [Optional]
 stopLocalRegistry: stop-local-registry
+# Create PinnedImageSets for both the master and worker MCPs.
+# The PinnedImageSets will include all the images included in the appliance disk image.
+# Required openshift version 4.16 or above.
+# **WARNING:** if PinnedImageSets is still not GA in the openshift version, then this will set the cluster to tech preview which means the cluster cannot be upgraded and should only be used for testing purposes.
+# Default: false
+# [Optional]
+createPinnedImageSets: create-pinned-image-sets
 # Additional images to be included in the appliance disk image.
 # [Optional]
 additionalImages:

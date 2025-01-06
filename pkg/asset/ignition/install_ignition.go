@@ -2,11 +2,14 @@ package ignition
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/go-openapi/swag"
+	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	ignitionutil "github.com/openshift/appliance/pkg/ignition"
@@ -91,6 +94,15 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	// Create install template data
 	templateData := templates.GetInstallIgnitionTemplateData(installRegistryDataPath, corePassHash)
 
+	if swag.BoolValue(applianceConfig.Config.CreatePinnedImageSets) && i.isOcpVersionCompatibleWithPinnedImageSet(applianceConfig) {
+		installServices = append(installServices, "create-pinned-image-sets.service")
+		installScripts = append(installScripts, "create-pinned-image-sets.sh")
+
+		if err := i.addPinnedImageSetConfigFiles(envConfig); err != nil {
+			return err
+		}
+	}
+
 	// Add services common for bootstrap and install
 	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", templateData, installServices); err != nil {
 		return err
@@ -122,6 +134,48 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	}
 
 	logrus.Debug("Successfully generated install ignition")
+
+	return nil
+}
+
+func (i *InstallIgnition) addPinnedImageSetConfigFiles(envConfig *config.EnvConfig) error {
+	mappingFile := envConfig.FindInCache(consts.OcMirrorMappingFileName)
+	if mappingFile == "" {
+		err := fmt.Errorf("unable to find %s in cache", consts.OcMirrorMappingFileName)
+		logrus.Error(err)
+		return err
+	}
+	mappingBytes, err := os.ReadFile(mappingFile)
+	if err != nil {
+		return err
+	}
+
+	var builder strings.Builder
+	for _, mapping := range strings.Split(string(mappingBytes), "\n") {
+		image := strings.Split(mapping, "=")[0]
+		if image != "" {
+			builder.WriteString(fmt.Sprintf("  - name: %s\n", image))
+		}
+	}
+	images := builder.String()
+
+	for _, role := range []string{"master", "worker"} {
+		outputDir := filepath.Join(envConfig.TempDir, role)
+		if err := templates.RenderTemplateFile(
+			consts.PinnedImageSetTemplateFile,
+			templates.GetPinnedImageSetTemplateData(images, role),
+			outputDir); err != nil {
+			return err
+		}
+
+		fileBytes, err := os.ReadFile(templates.GetFilePathByTemplate(consts.PinnedImageSetTemplateFile, outputDir))
+		if err != nil {
+			return err
+		}
+
+		fileIgnitionConfig := ignasset.FileFromBytes(fmt.Sprintf(consts.PinnedImageSetPattern, role), "root", 0644, fileBytes)
+		i.Config.Storage.Files = append(i.Config.Storage.Files, fileIgnitionConfig)
+	}
 
 	return nil
 }
@@ -167,4 +221,10 @@ func (i *InstallIgnition) PersistToFile(directory string) error {
 		return err
 	}
 	return ignition.WriteIgnitionFile(configPath, config)
+}
+
+func (i *InstallIgnition) isOcpVersionCompatibleWithPinnedImageSet(applianceConfig *config.ApplianceConfig) bool {
+	minOcpVer, _ := version.NewVersion(consts.MinOcpVersionForPinnedImageSet)
+	ocpVer, _ := version.NewVersion(applianceConfig.Config.OcpRelease.Version)
+	return ocpVer.GreaterThanOrEqual(minOcpVer)
 }

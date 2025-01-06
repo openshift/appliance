@@ -12,16 +12,17 @@ type ApplianceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	OcpRelease           ReleaseImage   `json:"ocpRelease"`
-	DiskSizeGB           *int           `json:"diskSizeGb"`
-	PullSecret           string         `json:"pullSecret"`
-	SshKey               *string        `json:"sshKey"`
-	UserCorePass         *string        `json:"userCorePass"`
-	ImageRegistry        *ImageRegistry `json:"imageRegistry"`
-	EnableDefaultSources *bool          `json:"enableDefaultSources"`
-	StopLocalRegistry    *bool          `json:"stopLocalRegistry"`
-	AdditionalImages     *[]Image       `json:"additionalImages,omitempty"`
-	Operators            *[]Operator    `json:"operators,omitempty"`
+	OcpRelease            ReleaseImage   `json:"ocpRelease"`
+	DiskSizeGB            *int           `json:"diskSizeGb"`
+	PullSecret            string         `json:"pullSecret"`
+	SshKey                *string        `json:"sshKey"`
+	UserCorePass          *string        `json:"userCorePass"`
+	ImageRegistry         *ImageRegistry `json:"imageRegistry"`
+	EnableDefaultSources  *bool          `json:"enableDefaultSources"`
+	StopLocalRegistry     *bool          `json:"stopLocalRegistry"`
+	CreatePinnedImageSets *bool          `json:"createPinnedImageSets"`
+	AdditionalImages      *[]Image       `json:"additionalImages,omitempty"`
+	Operators             *[]Operator    `json:"operators,omitempty"`
 }
 
 type ReleaseImage struct {

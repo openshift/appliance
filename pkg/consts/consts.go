@@ -23,6 +23,15 @@ const (
 	// ImageSetTemplateFile imageset.yaml.template
 	ImageSetTemplateFile = "scripts/mirror/imageset.yaml.template"
 
+	// PinnedImageSetTemplateFile template
+	PinnedImageSetTemplateFile = "scripts/mirror/pinned-image-set.yaml.template"
+	// PinnedImageSetPattern - for installation ignition
+	PinnedImageSetPattern = "/etc/assisted/%s-pinned-image-set.yaml"
+	// OcMirrorMappingFileName - name of the mapping file created by oc mirror
+	OcMirrorMappingFileName = "mapping.txt"
+	// MinOcpVersionForPinnedImageSet - minimum version that supports PinnedImageSet
+	MinOcpVersionForPinnedImageSet = "4.16"
+
 	// Recovery/Data partitions
 	RecoveryPartitionName = "agentboot"
 	DataPartitionName     = "agentdata"
@@ -50,6 +59,7 @@ const (
 	ApplianceImage     = "quay.io/edge-infrastructure/openshift-appliance:latest"
 
 	// Appliance config flags (default values)
-	EnableDefaultSources = false
-	StopLocalRegistry    = false
+	EnableDefaultSources  = false
+	StopLocalRegistry     = false
+	CreatePinnedImageSets = false
 )
