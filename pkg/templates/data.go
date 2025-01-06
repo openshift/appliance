@@ -71,6 +71,16 @@ func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedIma
 	}
 }
 
+func GetPinnedImageSetTemplateData(images, role string) interface{} {
+	return struct {
+		Role   string
+		Images string
+	}{
+		Role:   role,
+		Images: images,
+	}
+}
+
 func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig, coreosImagePath string) interface{} {
 	releaseImageArr := []map[string]any{
 		{

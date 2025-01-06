@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+export KUBECONFIG="/etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/node-kubeconfigs/localhost.kubeconfig"
+
+# Wait for cluster to be ready
+until [ "$(oc get clusterversion -o jsonpath='{.items[*].status.conditions[?(@.type=="Available")].status}')" == "True" ];
+do
+  echo "Waiting for the cluster to be ready..."
+  sleep 60
+done
+
+# If the PinnedImageSet crd doesn't exist, patch the cluster FeatureGate to be tech preview
+if [ "$(oc get crd/pinnedimagesets.machineconfiguration.openshift.io |& grep -iE "(no resources found|not found)")" ];
+then
+  oc patch featuregate cluster --type='merge' -p '{"spec": {"featureSet": "TechPreviewNoUpgrade"}}'
+fi
+
+# Wait for crd pinned image sets to exist
+until [ "$(oc get crd/pinnedimagesets.machineconfiguration.openshift.io |& grep -ivE "(no resources found|not found)")" ];
+do
+  echo "Waiting for crd PinnedImageSet to be created..."
+  sleep 60
+done
+
+echo "Waiting for crd PinnedImageSet to be enabled..."
+oc wait --for=condition=Established crd/pinnedimagesets.machineconfiguration.openshift.io
+
+# Create the pinned image sets
+oc apply -f /etc/assisted/master-pinned-image-set.yaml
+oc apply -f /etc/assisted/worker-pinned-image-set.yaml
+
+# Wait for pinned images file to be created (or until the node reboots)
+until [ -f /etc/crio/crio.conf.d/50-pinned-images ];
+do
+  echo "Waiting for the PinnedImageSet to be configured"
+  sleep 60
+done

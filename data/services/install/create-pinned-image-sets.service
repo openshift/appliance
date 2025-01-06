@@ -1,0 +1,14 @@
+[Unit]
+Description=Create PinnedImageSets service
+Wants=network.target
+After=network-online.target
+Before=stop-local-registry.service
+ConditionPathExists=!/etc/crio/crio.conf.d/50-pinned-images
+
+[Service]
+ExecStart=/usr/local/bin/create-pinned-image-sets.sh
+Type=oneshot
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

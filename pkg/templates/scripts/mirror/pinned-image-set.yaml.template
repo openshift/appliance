@@ -1,0 +1,9 @@
+apiVersion: machineconfiguration.openshift.io/v1alpha1
+kind: PinnedImageSet
+metadata:
+  name: {{.Role}}-pinned-image-set
+  labels:
+    machineconfiguration.openshift.io/role: {{.Role}}
+spec:
+  pinnedImages:
+{{.Images}}
