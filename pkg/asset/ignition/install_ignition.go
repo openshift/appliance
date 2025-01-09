@@ -44,6 +44,8 @@ var (
 		"setup-local-registry.sh",
 		"add-grub-menuitem.sh",
 		"set-node-zero.sh",
+		"setup-local-registry-upgrade.sh",
+		"start-cluster-upgrade.sh",
 	}
 
 	corePassHash string
@@ -127,9 +129,15 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 		}
 	}
 
+	// Add udev file
+	err := bootstrap.AddStorageFiles(&i.Config, "/etc/udev", "udev", nil)
+	if err != nil {
+		return err
+	}
+
 	// Add registry.env file
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
-		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall))
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall, consts.RegistryDataUpgrade))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add user.cfg file

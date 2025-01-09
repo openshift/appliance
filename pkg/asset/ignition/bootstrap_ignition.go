@@ -171,7 +171,7 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 
 	// Add registry.env file
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
-		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataBootstrap))
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataBootstrap, ""))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add public ssh key

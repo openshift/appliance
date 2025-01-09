@@ -25,6 +25,7 @@ const (
 	bootstrapMirrorDir = "data/oc-mirror/bootstrap"
 	installMirrorDir   = "data/oc-mirror/install"
 	dataIsoName        = "data.iso"
+	dataVolumeName     = "agentdata"
 )
 
 // DataISO is an asset that contains registry images
@@ -155,7 +156,7 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 	)
 	spinner.FileToMonitor = dataIsoName
 	imageGen := genisoimage.NewGenIsoImage(nil)
-	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir)); err != nil {
+	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir), dataVolumeName); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	return log.StopSpinner(spinner, a.updateAsset(envConfig))

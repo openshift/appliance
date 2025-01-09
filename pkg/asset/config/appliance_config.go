@@ -73,6 +73,11 @@ func (*ApplianceConfig) Dependencies() []asset.Asset {
 	return []asset.Asset{}
 }
 
+// GetConfigFilename returns the filename of the config file.
+func (a *ApplianceConfig) GetConfigFilename() string {
+	return ApplianceConfigFilename
+}
+
 // Generate generates the Agent Config manifest.
 func (a *ApplianceConfig) Generate(_ context.Context, dependencies asset.Parents) error {
 	applianceConfigTemplate := `#
@@ -186,7 +191,7 @@ func (a *ApplianceConfig) PersistToFile(directory string) error {
 		return nil
 	}
 
-	templatePath := filepath.Join(directory, ApplianceConfigFilename)
+	templatePath := filepath.Join(directory, a.GetConfigFilename())
 	templateByte := []byte(a.Template)
 	err := os.WriteFile(templatePath, templateByte, 0644) // #nosec G306
 	if err != nil {
@@ -206,12 +211,12 @@ func (a *ApplianceConfig) Files() []*asset.File {
 
 // Load returns agent config asset from the disk.
 func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
-	file, err := f.FetchByName(ApplianceConfigFilename)
+	file, err := f.FetchByName(a.GetConfigFilename())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, errors.Wrap(err, fmt.Sprintf("failed to load %s file", ApplianceConfigFilename))
+		return false, errors.Wrap(err, fmt.Sprintf("failed to load %s file", a.GetConfigFilename()))
 	}
 
 	config := &types.ApplianceConfig{}
@@ -226,7 +231,7 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 			field = fmt.Sprintf(" (error in %s)", field)
 		}
 
-		return false, errors.New(fmt.Sprintf("can't parse %s. Ensure the config file is configured correctly%s. For additional info add '--log-level debug'.", ApplianceConfigFilename, field))
+		return false, errors.New(fmt.Sprintf("can't parse %s. Ensure the config file is configured correctly%s. For additional info add '--log-level debug'.", a.GetConfigFilename(), field))
 	}
 
 	a.File, a.Config = file, config
@@ -246,7 +251,7 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	}
 	config.OcpRelease.CpuArchitecture = swag.String(cpuArch)
 
-	releaseImage, releaseVersion, err = a.getRelease()
+	releaseImage, releaseVersion, err = a.GetRelease()
 	if err != nil {
 		return false, err
 	}
@@ -286,7 +291,7 @@ func GetReleaseArchitectureByCPU(arch string) string {
 	}
 }
 
-func (a *ApplianceConfig) getRelease() (string, string, error) {
+func (a *ApplianceConfig) GetRelease() (string, string, error) {
 	if releaseImage != "" && releaseVersion != "" {
 		// Return cached values
 		return releaseImage, releaseVersion, nil

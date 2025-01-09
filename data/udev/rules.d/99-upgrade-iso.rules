@@ -1,0 +1,2 @@
+ACTION=="add|change", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="upgrade_*", ENV{SYSTEMD_WANTS}+="start-local-registry-upgrade@$devnode.service"
+ACTION=="remove", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="upgrade_*", RUN+="/usr/bin/systemctl stop start-local-registry-upgrade@$devnode.service"

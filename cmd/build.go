@@ -5,6 +5,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/deploy"
 	"github.com/openshift/appliance/pkg/asset/installer"
+	"github.com/openshift/appliance/pkg/asset/upgrade"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/installer/pkg/asset"
@@ -33,6 +34,7 @@ func NewBuildCmd() *cobra.Command {
 		Run:    runBuild,
 	}
 	cmd.AddCommand(getBuildISOCmd())
+	cmd.AddCommand(getBuildUpgradeISOCmd())
 	cmd.Flags().BoolVar(&buildOpts.debugBootstrap, "debug-bootstrap", false, "")
 	cmd.Flags().BoolVar(&buildOpts.debugBaseIgnition, "debug-base-ignition", false, "")
 	if err := cmd.Flags().MarkHidden("debug-bootstrap"); err != nil {
@@ -58,6 +60,16 @@ func getBuildISOCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&deployConfig.SparseClone, "sparse-clone", false, "Use sparse cloning - requires an empty (zeroed) device")
 	cmd.Flags().BoolVar(&deployConfig.DryRun, "dry-run", false, "Skip appliance cloning (useful for getting the target device name)")
 
+	return cmd
+}
+
+func getBuildUpgradeISOCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:    "upgrade-iso",
+		Short:  "Build an upgrade ISO",
+		PreRun: preRunBuild,
+		Run:    runBuildUpgradeISO,
+	}
 	return cmd
 }
 
@@ -122,6 +134,34 @@ func runBuildISO(cmd *cobra.Command, args []string) {
 	logrus.Info()
 	logrus.Infof("Appliance deployment ISO is available in assets directory: %s", consts.DeployIsoName)
 	logrus.Infof("Boot a machine from the ISO to initiate the deployment")
+}
+
+func runBuildUpgradeISO(cmd *cobra.Command, args []string) {
+	cleanup := log.SetupFileHook(rootOpts.dir)
+	defer cleanup()
+
+	// Generate UpgradeConfig asset
+	if err := getAssetStore().Fetch(cmd.Context(), deployConfig); err != nil {
+		logrus.Fatal(err)
+	}
+
+	// Generate UpgradeISO asset
+	upgradeISO := upgrade.UpgradeISO{}
+	if err := getAssetStore().Fetch(cmd.Context(), &upgradeISO); err != nil {
+		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", upgradeISO.Name()))
+	}
+
+	// Remove state file (cleanup)
+	if err := deleteStateFile(rootOpts.dir); err != nil {
+		logrus.Fatal(err)
+	}
+
+	logrus.Info()
+	logrus.Infof("Appliance upgrade ISO is available in assets directory: %s", upgradeISO.File.Filename)
+	logrus.Info()
+	logrus.Infof("To initiate the upgrade:")
+	logrus.Infof("1. Attach the ISO to each node")
+	logrus.Infof("2. oc apply assets/%s", upgradeISO.UpgradeManifestFileName)
 }
 
 func preRunBuild(cmd *cobra.Command, args []string) {

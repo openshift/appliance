@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# This script will be invoked by a udev rule when it detects a device with the correct label
+
+# Mount the device
+dev_name=$1
+mount_path=/media/upgrade
+systemd-mount --automount=yes --collect "$dev_name" "$mount_path"
+echo "Mounted $dev_name on $mount_path"
+
+# Create certificate for the local registry
+mkdir -p /tmp/certs
+openssl req -newkey rsa:4096 -nodes -sha256 -keyout /tmp/certs/domain.key \
+    -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN={{.RegistryDomain}}" \
+    -addext "subjectAltName=DNS:{{.RegistryDomain}},DNS:quay.io" \
+    -x509 -days 36500 -out /tmp/certs/domain.crt
+
+# Apply certificates
+mkdir -p /etc/docker/certs.d/{{.RegistryDomain}}:5001
+mkdir -p /etc/containers/certs.d/{{.RegistryDomain}}:5001
+cp /tmp/certs/domain.crt /etc/docker/certs.d/{{.RegistryDomain}}:5001
+cp /tmp/certs/domain.crt /etc/containers/certs.d/{{.RegistryDomain}}:5001
+cp /tmp/certs/domain.crt /etc/pki/ca-trust/source/anchors/
+update-ca-trust extract

@@ -1,0 +1,11 @@
+[Unit]
+Description=Start Cluster Upgrade
+ConditionPathExists=/etc/assisted/node0
+
+[Service]
+ExecStart=/usr/local/bin/start-cluster-upgrade.sh %I
+Type=oneshot
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

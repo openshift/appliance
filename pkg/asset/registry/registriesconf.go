@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	RegistryDomain = "registry.appliance.com"
-	RegistryPort   = 5000
+	RegistryDomain      = "registry.appliance.com"
+	RegistryPort        = 5000
+	RegistryPortUpgrade = 5001
 )
 
 var (
@@ -58,6 +59,10 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 					{
 						Location: fmt.Sprintf("%s:%d/openshift/release-images", RegistryDomain, RegistryPort),
 					},
+					// Mirror for the upgrade registry
+					{
+						Location: fmt.Sprintf("%s:%d/openshift/release-images", RegistryDomain, RegistryPortUpgrade),
+					},
 				},
 			},
 			{
@@ -67,6 +72,10 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 				Mirrors: []sysregistriesv2.Endpoint{
 					{
 						Location: fmt.Sprintf("%s:%d/openshift/release", RegistryDomain, RegistryPort),
+					},
+					// Mirror for the upgrade registry
+					{
+						Location: fmt.Sprintf("%s:%d/openshift/release", RegistryDomain, RegistryPortUpgrade),
 					},
 				},
 			},
