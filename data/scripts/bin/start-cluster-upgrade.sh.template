@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+export KUBECONFIG="/etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/node-kubeconfigs/localhost.kubeconfig"
+
+release_version=$1
+release_image_file="/media/upgrade/release.env"
+upgrade_release_file="/etc/assisted/upgrade_release_$release_version.env"
+
+# Check if the upgrade has already been performed
+if [ -f ${upgrade_release_file} ]; then
+  echo "Upgrade to $release_version has already been performed"
+  exit 0
+fi
+
+# Wait for cluster to be ready
+until [ "$(oc get clusterversion -o jsonpath='{.items[*].status.conditions[?(@.type=="Available")].status}')" == "True" ];
+do
+  echo "Waiting for the cluster to be ready..."
+  sleep 30
+done
+
+# Wait for the upgrade ISO to be mounted
+until [ -f ${release_image_file} ];
+do
+  echo "Waiting for the upgrade ISO to be mounted..."
+  sleep 10
+done
+
+# Get all MachineHealthCheck resources in the specified namespace
+mhc_list=$(oc get machinehealthchecks -n openshift-machine-api -o custom-columns=":metadata.name")
+
+# Loop through each MachineHealthCheck and pause it
+for mhc in $mhc_list; do
+  oc annotate machinehealthcheck "$mhc" -n openshift-machine-api "cluster.x-k8s.io/paused=true" --overwrite
+done
+
+# Upgrade the cluster
+source $release_image_file
+oc adm upgrade --allow-explicit-upgrade --to-image $RELEASE_IMAGE
+
+# Wait for the cluster to get upgraded
+until \
+  [[ "$(oc get clusterversion version -o=jsonpath='{.status.history[0].version}')" == $release_version ]] && \
+  [[ "$(oc get clusterversion version -o=jsonpath='{.status.history[0].state}')" == "Completed" ]]; \
+do
+  echo "Waiting for the cluster to get upgraded..."
+  sleep 120
+done
+
+# Unpause all MachineHealthChecks
+# Loop through each MachineHealthCheck and unpause it
+for mhc in $mhc_list; do
+  oc annotate machinehealthcheck "$mhc" -n openshift-machine-api "cluster.x-k8s.io/paused-" --overwrite
+done
+
+# Copy release image file (as an indication that the upgrade has been performed)
+cp $release_image_file /etc/assisted/$upgrade_release_file

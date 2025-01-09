@@ -19,6 +19,7 @@ var _ = Describe("Test GenIsoImage", func() {
 		fakeCachePath   = "/path/to/cache"
 		fakeDataPath    = "/path/to/data"
 		fakeImageName   = "testdata.iso"
+		fakeVolumeName  = "testvolume"
 	)
 
 	BeforeEach(func() {
@@ -33,17 +34,17 @@ var _ = Describe("Test GenIsoImage", func() {
 		fakeDataPath = "/path/to/data"
 		fakeImageName = "testdata.iso"
 
-		cmd := fmt.Sprintf(genDataImageCmd, fakeCachePath, fakeImageName, fakeDataPath)
+		cmd := fmt.Sprintf(genDataImageCmd, fakeVolumeName, fakeCachePath, fakeImageName, fakeDataPath)
 		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
 
-		err := testGenIsoImage.GenerateImage(fakeCachePath, fakeImageName, fakeDataPath)
+		err := testGenIsoImage.GenerateImage(fakeCachePath, fakeImageName, fakeDataPath, fakeVolumeName)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("genisoimage GenerateImage - failure", func() {
 		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(1)
 
-		err := testGenIsoImage.GenerateImage(fakeCachePath, fakeImageName, fakeDataPath)
+		err := testGenIsoImage.GenerateImage(fakeCachePath, fakeImageName, fakeDataPath, fakeVolumeName)
 		Expect(err).To(HaveOccurred())
 	})
 })

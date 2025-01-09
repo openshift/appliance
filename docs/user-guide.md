@@ -610,3 +610,57 @@ sudo podman run --rm -it --privileged -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_
 ### Demo
 
 ![deploy-iso.gif](images/deploy-iso.gif)
+
+## Upgrade ISO
+
+In order to upgrade a cluster without an external registry, the upgrade ISO flow can be used. An upgrade ISO includes the entire release payload of a specific OCP version, which allows upgrading clusters in disconnected environments.
+
+The process for upgrading a cluster is as follows:
+* Create an `appliance-config.yaml` file:
+  * Set the requested version under `ocpRelease`.
+  * Set `pullSecret`.
+* Generate an ISO using `build upgrade-iso` command.
+* Attach the ISO to each node in the cluster.
+* To start the upgrade, apply the generated MachineConfig yaml.
+
+**:warning: Limitations:**
+* This process is currently experimental.
+* After upgrading a cluster, the ISO should not be detached.
+  * This is required to allow pulling images post-upgrade (might be needed, in some scenarios, for images missing from CRI-O containers-storage).
+  * Will be resolved using [PinnedImageSet](https://github.com/openshift/enhancements/blob/master/enhancements/machine-config/pin-and-pre-load-images.md) in future versions (OCP > 4.18).
+
+### Set OCP version for Upgrade
+
+Specify the requested OCP version in `appliance-config.yaml`.
+E.g. for upgrading a cluster to the latest stable 4.17:
+```yaml
+apiVersion: v1beta1
+kind: ApplianceConfig
+ocpRelease:
+  version: 4.17
+  channel: stable
+  cpuArchitecture: x86_64
+pullSecret: '{"auths":{<redacted>}}'
+```
+
+### Build
+
+Use the 'build upgrade-iso' command for generating an Upgrade ISO:
+```shell
+export APPLIANCE_IMAGE="quay.io/edge-infrastructure/openshift-appliance"
+export APPLIANCE_ASSETS="/home/test/appliance_assets"
+sudo podman run --rm -it --privileged -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build upgrade-iso
+```
+
+The result should be the following two files:
+* An upgrade ISO: `upgrade-x.y.z.iso`
+* A MachineConfig yaml: `upgrade-machine-config-x.y.z.yaml`
+
+### Upgrade flow
+
+* Attach the ISO to each node.
+* Apply the MachineConfig to initiate the upgrade.
+
+### Demo
+
+![upgrade-iso.gif](images/upgrade-iso.gif)

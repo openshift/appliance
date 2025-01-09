@@ -177,10 +177,17 @@ func GetDeployIgnitionTemplateData(targetDevice, postScript string, sparseClone,
 	}
 }
 
-func GetRegistryEnv(registryData string) string {
+func GetRegistryEnv(registryData, registryUpgrade string) string {
 	return fmt.Sprintf(`REGISTRY_IMAGE=%s
 REGISTRY_DATA=%s
-`, consts.RegistryImage, registryData)
+REGISTRY_UPGRADE=%s
+`, consts.RegistryImage, registryData, registryUpgrade)
+}
+
+func GetUpgradeISOEnv(releaseImage, releaseVersion string) string {
+	return fmt.Sprintf(`RELEASE_IMAGE=%s
+RELEASE_VERSION=%s
+`, releaseImage, releaseVersion)
 }
 
 // Returns version in major.minor format
