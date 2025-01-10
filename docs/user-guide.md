@@ -51,11 +51,6 @@ OpenShift Appliance is available for download at: https://quay.io/edge-infrastru
   export APPLIANCE_ASSETS="/home/test/appliance_assets"
   ```
 
-### Get `openshift-appliance` container image:
-  ```shell
-  podman pull $APPLIANCE_IMAGE
-  ```
-
 ### Generate a template of the appliance config
 A configuration file named `appliance-config.yaml` is required for running `openshift-appliance`.
   ```shell
