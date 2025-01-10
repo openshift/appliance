@@ -82,65 +82,83 @@ func (a *ApplianceConfig) Generate(_ context.Context, dependencies asset.Parents
 #
 apiVersion: %s
 kind: ApplianceConfig
+
 ocpRelease:
   # OCP release version in major.minor or major.minor.patch format
-  # (in case of major.minor - latest patch version will be used)
+  # (in case of major.minor, latest patch version will be used)
   # If the specified version is not yet available, the latest supported version will be used.
+  # Supported versions: %s-%s
   version: ocp-release-version
   # OCP release update channel: stable|fast|eus|candidate
   # Default: %s
   # [Optional]
-  channel: ocp-release-channel
+  # channel: ocp-release-channel
   # OCP release CPU architecture: x86_64|aarch64|ppc64le
   # Default: %s
   # [Optional]
-  cpuArchitecture: cpu-architecture
+  # cpuArchitecture: cpu-architecture
+
+# Virtual size of the appliance disk image.
 # If specified, should be at least %dGiB.
 # If not specified, the disk image should be resized when 
 # cloning to a device (e.g. using virt-resize tool).
 # [Optional]
-diskSizeGB: disk-size
-# PullSecret required for mirroring the OCP release payload
+# diskSizeGB: disk-size
+
+# PullSecret is required for mirroring the OCP release payload
+# Can be obtained from: https://console.redhat.com/openshift/install/pull-secret
 pullSecret: pull-secret
+
 # Public SSH key for accessing the appliance during the bootstrap phase
 # [Optional]
-sshKey: ssh-key
+# sshKey: ssh-key
+
 # Password of user 'core' for connecting from console
 # [Optional]
-userCorePass: user-core-pass
+# userCorePass: user-core-pass
+
 # Local image registry details (used when building the appliance)
 # [Optional]
-imageRegistry:
+# imageRegistry:
   # The URI for the image
   # Default: %s
   # Alternative: quay.io/libpod/registry:2.8
   # [Optional]
-  uri: uri
+  # uri: uri
   # The image registry container TCP port to bind. A valid port number is between %d and %d.
   # Default: %d
   # [Optional]
-  port: port
+  # port: port
+
 # Enable all default CatalogSources (on openshift-marketplace namespace).
 # Should be disabled for disconnected environments.
 # Default: false
 # [Optional]
-enableDefaultSources: %t
+# enableDefaultSources: %t
+
 # Stop the local registry post cluster installation.
 # Note that additional images and operators won't be available when stopped.
 # Default: false
 # [Optional]
 stopLocalRegistry: %t
+
 # Create PinnedImageSets for both the master and worker MCPs.
 # The PinnedImageSets will include all the images included in the appliance disk image.
-# Required openshift version 4.16 or above.
-# **WARNING:** if PinnedImageSets is still not GA in the openshift version, then this will set the cluster to tech preview which means the cluster cannot be upgraded and should only be used for testing purposes.
+# Requires openshift version 4.16 or above.
+# WARNING: 
+# As of 4.18, PinnedImageSets feature is still not GA.
+# Thus, enabling it will set the cluster to tech preview,
+# which means the cluster cannot be upgraded
+# (i.e. should only be used for testing purposes).
 # Default: false
 # [Optional]
-createPinnedImageSets: %t
+# createPinnedImageSets: %t
+
 # Additional images to be included in the appliance disk image.
 # [Optional]
 # additionalImages:
 #   - name: image-url
+
 # Operators to be included in the appliance disk image.
 # See examples in https://github.com/openshift/oc-mirror/blob/main/docs/imageset-config-ref.yaml.
 # [Optional]
@@ -153,8 +171,10 @@ createPinnedImageSets: %t
 `
 	a.Template = fmt.Sprintf(
 		applianceConfigTemplate,
-		types.ApplianceConfigApiVersion, graph.ReleaseChannelStable, CpuArchitectureX86,
-		MinDiskSize, consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort,
+		types.ApplianceConfigApiVersion,
+		consts.MinOcpVersion, consts.MaxOcpVersion,
+		graph.ReleaseChannelStable, CpuArchitectureX86, MinDiskSize, 
+		consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort,
 		consts.EnableDefaultSources, consts.StopLocalRegistry, consts.CreatePinnedImageSets)
 
 	return nil

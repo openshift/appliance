@@ -97,7 +97,8 @@ ocpRelease:
 # cloning to a device (e.g. using virt-resize tool).
 # [Optional]
 diskSizeGB: disk-size
-# PullSecret required for mirroring the OCP release payload
+# PullSecret is required for mirroring the OCP release payload
+# Can be obtained from: https://console.redhat.com/openshift/install/pull-secret
 pullSecret: pull-secret
 # Public SSH key for accessing the appliance during the bootstrap phase
 # [Optional]
@@ -129,8 +130,12 @@ enableDefaultSources: enable-default-sources
 stopLocalRegistry: stop-local-registry
 # Create PinnedImageSets for both the master and worker MCPs.
 # The PinnedImageSets will include all the images included in the appliance disk image.
-# Required openshift version 4.16 or above.
-# **WARNING:** if PinnedImageSets is still not GA in the openshift version, then this will set the cluster to tech preview which means the cluster cannot be upgraded and should only be used for testing purposes.
+# Requires openshift version 4.16 or above.
+# WARNING: 
+# As of 4.18, PinnedImageSets feature is still not GA.
+# Thus, enabling it will set the cluster to tech preview,
+# which means the cluster cannot be upgraded
+# (i.e. should only be used for testing purposes).
 # Default: false
 # [Optional]
 createPinnedImageSets: create-pinned-image-sets
