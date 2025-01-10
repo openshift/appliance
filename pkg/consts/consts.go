@@ -2,7 +2,7 @@ package consts
 
 const (
 	MaxOcpVersion = "4.18" // Latest supported version (update on each release)
-	MinOcpVersion = "4.14.0-rc.0"
+	MinOcpVersion = "4.14"
 
 	// user.cfg template
 	UserCfgTemplateFile = "scripts/grub/user.cfg.template"
