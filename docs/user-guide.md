@@ -398,15 +398,83 @@ https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.0-rc.0/ope
   mkdir $CLUSTER_CONFIG && cd $CLUSTER_CONFIG
   ```
 * Place both `install-config.yaml` and `agent-config.yaml` files in that directory.
-* Find examples in:
-  * [Appliance README](../README.md#examples)
-  * [Preparing to install with the Agent-based installer](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#installation-bare-metal-agent-installer-config-yaml_preparing-to-install-with-agent-based-installer)
-    * [Static Networking](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#static-networking)
-  * [Installing an OpenShift Container Platform cluster with the Agent-based Installer](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/installing-with-agent-based-installer.html)
 
 Notes:
+* See details and examples in the ABI documentation: [Installing an OpenShift Container Platform cluster with the Agent-based Installer](https://docs.openshift.com/container-platform/4.17/installing/installing_with_agent_based_installer/installing-with-agent-based-installer.html)
 * For disconnected environments, specify a dummy pull-secret in install-config.yaml (e.g. `'{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'`).
-* The SSH public key for `core` user can be specified in install-config.yaml under `sshKey` property. It can be used for logging in to the machines post cluster installation.
+* The SSH public key for `core` user can be specified in install-config.yaml under `sshKey` property. It can be used for logging into the machines post cluster installation.
+
+##### Examples
+
+###### Creating an SNO cluster
+
+*agent-config.yaml*
+```yaml
+apiVersion: v1alpha1
+kind: AgentConfig
+rendezvousIP: 192.168.122.100
+```
+
+*install-config.yaml*
+```yaml
+apiVersion: v1
+metadata:
+  name: appliance
+baseDomain: appliance.com
+controlPlane:
+  name: master
+  replicas: 1
+compute:
+- name: worker
+  replicas: 0
+networking:
+  networkType: OVNKubernetes
+  machineNetwork:
+  - cidr: 192.168.122.0/24
+platform:
+  none: {}
+# Dummy pull-secret for disconnected environments
+pullSecret: '{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'
+# SSH public key for `core` user, can be used for logging into machine post cluster installation
+sshKey: 'ssh-rsa ...'
+```
+
+###### Creating a multi-node cluster
+
+*agent-config.yaml*
+```yaml
+apiVersion: v1alpha1
+kind: AgentConfig
+rendezvousIP: 192.168.122.100
+```
+
+*install-config.yaml*
+```yaml
+apiVersion: v1
+metadata:
+  name: appliance
+baseDomain: appliance.com
+controlPlane:
+  name: master
+  replicas: 3
+compute:
+- name: worker
+  replicas: 2
+networking:
+  networkType: OVNKubernetes
+  machineNetwork:
+  - cidr: 192.168.122.0/24
+platform:
+  baremetal:
+    apiVIPs:
+    - 192.168.122.200
+    ingressVIPs:
+    - 192.168.122.201
+# Dummy pull-secret for disconnected environments
+pullSecret: '{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'
+# SSH public key for `core` user, can be used for logging into machine post cluster installation
+sshKey: 'ssh-rsa ...'
+```
 
 #### Add custom manifests (Optional)
 * Note that any manifest added here will apply **only** to the cluster installed using this config-iso.
@@ -427,7 +495,7 @@ To automatically install operators during cluster installation, add the relevant
 
 Note: for disconnected environment, the operators should be [included](#include-and-install-operators-optional) in the appliance.
 
-#### Generate config-image
+#### Create the config-image
 
 When ready, generate the config ISO.
 
