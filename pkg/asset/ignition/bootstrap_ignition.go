@@ -130,7 +130,8 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 		applianceConfig.Config.OcpRelease,
 		bootstrapRegistryDataPath,
 		string(installIgnitionConfig),
-		coreosImagePath)
+		coreosImagePath,
+		rendezvousHostEnvPlaceholder)
 	for _, script := range bootstrapScripts {
 		if err = bootstrap.AddStorageFiles(&i.Config,
 			"/usr/local/bin/"+script,

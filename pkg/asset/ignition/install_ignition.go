@@ -22,24 +22,28 @@ import (
 )
 
 const (
-	InstallIgnitionPath     = "ignition/install/config.ign"
-	baseIgnitionPath        = "ignition/base/config.ign"
-	bootDevice              = "/dev/disk/by-partlabel/boot"
-	bootMountPath           = "/boot"
-	installRegistryDataPath = "/mnt/agentdata/oc-mirror/install"
-	catalogSourcePattern    = "catalogSource-*.yaml"
-	icspFileName            = "imageContentSourcePolicy.yaml"
+	InstallIgnitionPath          = "ignition/install/config.ign"
+	baseIgnitionPath             = "ignition/base/config.ign"
+	bootDevice                   = "/dev/disk/by-partlabel/boot"
+	bootMountPath                = "/boot"
+	installRegistryDataPath      = "/mnt/agentdata/oc-mirror/install"
+	catalogSourcePattern         = "catalogSource-*.yaml"
+	icspFileName                 = "imageContentSourcePolicy.yaml"
+	rendezvousHostEnvFilePath    = "/etc/assisted/rendezvous-host.env"
+	rendezvousHostEnvPlaceholder = "placeholder-content-for-rendezvous-host.env"
 )
 
 var (
 	installServices = []string{
 		"start-local-registry.service",
 		"add-grub-menuitem.service",
+		"set-node-zero.service",
 	}
 
 	installScripts = []string{
 		"setup-local-registry.sh",
 		"add-grub-menuitem.sh",
+		"set-node-zero.sh",
 	}
 
 	corePassHash string
@@ -132,6 +136,11 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	if err := i.addRecoveryGrubConfigFile(envConfig.TempDir); err != nil {
 		return err
 	}
+
+	// Add a placeholder for rendezvous-host.env file
+	rendezvousHostEnvFile := ignasset.FileFromString(rendezvousHostEnvFilePath,
+		"root", 0644, rendezvousHostEnvPlaceholder)
+	i.Config.Storage.Files = append(i.Config.Storage.Files, rendezvousHostEnvFile)
 
 	logrus.Debug("Successfully generated install ignition")
 
