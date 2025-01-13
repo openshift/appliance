@@ -1,0 +1,39 @@
+#!/bin/bash
+
+rendezvous_host_env="/etc/assisted/rendezvous-host.env"
+source "${rendezvous_host_env}"
+echo "NODE_ZERO_IP: $NODE_ZERO_IP"
+
+is_node_zero() {
+    local is_rendezvous_host
+    is_rendezvous_host=$(ip -j address | jq "[.[].addr_info] | flatten | map(.local==\"$NODE_ZERO_IP\") | any")
+    if [[ "${is_rendezvous_host}" == "true" ]]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
+if [[ $(is_node_zero) -eq 1 ]]; then
+    echo "Node 0 IP ${NODE_ZERO_IP} found on this host" 1>&2
+
+    NODE0_PATH=/etc/assisted/node0
+    mkdir -p "$(dirname "${NODE0_PATH}")"
+
+    NODE_ZERO_MAC=$(ip -j address | jq -r ".[] | select(.addr_info | map(select(.local == \"$NODE_ZERO_IP\")) | any).address")
+    echo "MAC Address for Node 0: ${NODE_ZERO_MAC}"
+
+    cat >"${NODE0_PATH}" <<EOF
+# This file exists if the agent-based installer has determined the host is node 0.
+# The host is determined to be node 0 when one of its network interfaces has an 
+# IP address matching NODE_ZERO_IP in /etc/assisted/rendezvous-host.env. 
+# The MAC address of the network interface matching NODE_ZERO_IP is noted below 
+# as BOOTSTRAP_HOST_MAC.
+#
+BOOTSTRAP_HOST_MAC=${NODE_ZERO_MAC}
+EOF
+    echo "Created file ${NODE0_PATH}"
+    echo 'This host (%s) is the rendezvous host.\n' "${NODE_ZERO_IP}"
+else
+    echo 'This host is not the rendezvous host. The rendezvous host is at %s.\n' "${NODE_ZERO_IP}"
+fi

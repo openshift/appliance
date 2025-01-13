@@ -24,9 +24,9 @@ curl_assisted_service() {
     curl "${headers[@]}" -X "${method}" "${additional_options[@]}" "${baseURL}${endpoint}"
 }
 
-total_required_nodes=$(( REQUIRED_MASTER_NODES + REQUIRED_WORKER_NODES ))
-
+# Wait for all required hosts to be discovered
 declare host_ids
+total_required_nodes=$(( REQUIRED_MASTER_NODES + REQUIRED_WORKER_NODES ))
 while [[ "${num_of_hosts}" != "${total_required_nodes}" ]]
 do
     echo "Waiting for ${total_required_nodes} required hosts..." 1>&2
@@ -41,7 +41,15 @@ do
     sleep 2
 done
 
+# Set install ignition config
 ignition=$(echo '{{.InstallIgnitionConfig}}' | jq -c --raw-input)
+
+# Set rendezvous-host.env file in the ignition 
+host_env_base64=$(base64 -w 0 /etc/assisted/rendezvous-host.env)
+placeholder_base64=$(echo -n '{{.RendezvousHostEnvPlaceholder}}' | base64)
+ignition="${ignition//$placeholder_base64/$host_env_base64}"
+
+# Update installer-args and ignition for each host
 if [[ -n ${host_ids} ]]; then
     for id in ${host_ids}; do
         args='["--save-partlabel", "agent*"]'

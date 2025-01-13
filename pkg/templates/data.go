@@ -81,7 +81,7 @@ func GetPinnedImageSetTemplateData(images, role string) interface{} {
 	}
 }
 
-func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig, coreosImagePath string) interface{} {
+func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string) interface{} {
 	releaseImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
@@ -109,16 +109,18 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 	}
 
 	return struct {
-		IsBootstrapStep       bool
-		InstallIgnitionConfig string
+		IsBootstrapStep              bool
+		InstallIgnitionConfig        string
+		RendezvousHostEnvPlaceholder string
 
 		ReleaseImages, ReleaseImage, OsImages                             string
 		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
 
 		Partition0, Partition1, Partition2, Partition3 Partition
 	}{
-		IsBootstrapStep:       true,
-		InstallIgnitionConfig: installIgnitionConfig,
+		IsBootstrapStep:              true,
+		InstallIgnitionConfig:        installIgnitionConfig,
+		RendezvousHostEnvPlaceholder: rendezvousHostEnvPlaceholder,
 
 		// Images
 		ReleaseImages: string(releaseImages),
