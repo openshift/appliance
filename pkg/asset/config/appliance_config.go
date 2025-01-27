@@ -159,6 +159,12 @@ stopLocalRegistry: %t
 # [Optional]
 # createPinnedImageSets: %t
 
+# Enable FIPS mode for the cluster.
+# Note: 'fips' should be enabled also in install-config.yaml.
+# Default: false
+# [Optional]
+# enableFips: %t
+
 # Additional images to be included in the appliance disk image.
 # [Optional]
 # additionalImages:
@@ -178,9 +184,9 @@ stopLocalRegistry: %t
 		applianceConfigTemplate,
 		types.ApplianceConfigApiVersion,
 		consts.MinOcpVersion, consts.MaxOcpVersion,
-		graph.ReleaseChannelStable, CpuArchitectureX86, MinDiskSize, 
+		graph.ReleaseChannelStable, CpuArchitectureX86, MinDiskSize,
 		consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort,
-		consts.EnableDefaultSources, consts.StopLocalRegistry, consts.CreatePinnedImageSets)
+		consts.EnableDefaultSources, consts.StopLocalRegistry, consts.CreatePinnedImageSets, consts.EnableFips)
 
 	return nil
 }

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-openapi/swag"
+
 	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/executer"
@@ -16,6 +18,7 @@ import (
 
 const (
 	installerBinaryName                = "openshift-install"
+	installerFipsBinaryName            = "openshift-install-fips"
 	installerBinaryGZ                  = "openshift-install-linux.tar.gz"
 	templateUnconfiguredIgnitionBinary = "%s agent create unconfigured-ignition --dir %s"
 	templateInstallerDownloadURL       = "https://mirror.openshift.com/pub/openshift-v%s/%s/clients/%s/%s/openshift-install-linux.tar.gz"
@@ -25,13 +28,15 @@ const (
 type Installer interface {
 	CreateUnconfiguredIgnition() (string, error)
 	GetInstallerDownloadURL() (string, error)
+	GetInstallerBinaryName() string
 }
 
 type InstallerConfig struct {
-	Executer        executer.Executer
-	EnvConfig       *config.EnvConfig
-	Release         release.Release
-	ApplianceConfig *config.ApplianceConfig
+	Executer            executer.Executer
+	EnvConfig           *config.EnvConfig
+	Release             release.Release
+	ApplianceConfig     *config.ApplianceConfig
+	InstallerBinaryName string
 }
 
 type installer struct {
@@ -51,9 +56,12 @@ func NewInstaller(config InstallerConfig) Installer {
 		config.Release = release.NewRelease(releaseConfig)
 	}
 
-	return &installer{
+	inst := &installer{
 		InstallerConfig: config,
 	}
+	inst.InstallerBinaryName = inst.GetInstallerBinaryName()
+
+	return inst
 }
 
 func (i *installer) CreateUnconfiguredIgnition() (string, error) {
@@ -61,8 +69,8 @@ func (i *installer) CreateUnconfiguredIgnition() (string, error) {
 	var err error
 
 	if !i.EnvConfig.DebugBaseIgnition {
-		if fileName := i.EnvConfig.FindInCache(installerBinaryName); fileName != "" {
-			logrus.Info("Reusing openshift-install binary from cache")
+		if fileName := i.EnvConfig.FindInCache(i.InstallerBinaryName); fileName != "" {
+			logrus.Infof("Reusing %s binary from cache", i.InstallerBinaryName)
 			openshiftInstallFilePath = fileName
 		} else {
 			openshiftInstallFilePath, err = i.downloadInstallerBinary()
@@ -72,7 +80,7 @@ func (i *installer) CreateUnconfiguredIgnition() (string, error) {
 		}
 	} else {
 		logrus.Debugf("Using openshift-install binary from assets dir to fetch unconfigured-ignition")
-		openshiftInstallFilePath = filepath.Join(i.EnvConfig.AssetsDir, installerBinaryName)
+		openshiftInstallFilePath = filepath.Join(i.EnvConfig.AssetsDir, i.InstallerBinaryName)
 	}
 
 	createCmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, openshiftInstallFilePath, i.EnvConfig.TempDir)
@@ -98,14 +106,14 @@ func (i *installer) GetInstallerDownloadURL() (string, error) {
 
 func (i *installer) downloadInstallerBinary() (string, error) {
 	spinner := log.NewSpinner(
-		"Fetching openshift-install binary...",
-		"Successfully fetched openshift-install binary",
-		"Failed to fetch openshift-install binary",
+		fmt.Sprintf("Fetching %s binary...", i.InstallerBinaryName),
+		fmt.Sprintf("Successfully fetched %s binary", i.InstallerBinaryName),
+		fmt.Sprintf("Failed to fetch %s binary", i.InstallerBinaryName),
 		i.EnvConfig,
 	)
 
-	logrus.Debugf("Fetch openshift-install binary from release payload")
-	stdout, err := i.Release.ExtractCommand(installerBinaryName, i.EnvConfig.CacheDir)
+	logrus.Debugf("Fetch %s binary from release payload", i.InstallerBinaryName)
+	stdout, err := i.Release.ExtractCommand(i.InstallerBinaryName, i.EnvConfig.CacheDir)
 	if err != nil {
 		logrus.Errorf("%s", stdout)
 		return "", log.StopSpinner(spinner, err)
@@ -116,11 +124,18 @@ func (i *installer) downloadInstallerBinary() (string, error) {
 		return "", err
 	}
 
-	installerBinaryPath := filepath.Join(i.EnvConfig.CacheDir, installerBinaryName)
+	installerBinaryPath := filepath.Join(i.EnvConfig.CacheDir, i.InstallerBinaryName)
 	err = os.Chmod(installerBinaryPath, 0755)
 	if err != nil {
 		// return "", err
 		logrus.Warnf("%s", err)
 	}
 	return installerBinaryPath, nil
+}
+
+func (i *installer) GetInstallerBinaryName() string {
+	if swag.BoolValue(i.ApplianceConfig.Config.EnableFips) {
+		return installerFipsBinaryName
+	}
+	return installerBinaryName
 }

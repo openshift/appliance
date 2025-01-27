@@ -66,4 +66,5 @@ const (
 	EnableDefaultSources  = false
 	StopLocalRegistry     = false
 	CreatePinnedImageSets = false
+	EnableFips            = false
 )

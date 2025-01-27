@@ -141,7 +141,7 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add user.cfg file
-	if err := i.addRecoveryGrubConfigFile(envConfig.TempDir); err != nil {
+	if err := i.addRecoveryGrubConfigFile(envConfig.TempDir, applianceConfig.Config.EnableFips); err != nil {
 		return err
 	}
 
@@ -197,11 +197,11 @@ func (i *InstallIgnition) addPinnedImageSetConfigFiles(envConfig *config.EnvConf
 	return nil
 }
 
-func (i *InstallIgnition) addRecoveryGrubConfigFile(tempDir string) error {
+func (i *InstallIgnition) addRecoveryGrubConfigFile(tempDir string, enableFips *bool) error {
 	// Generate user.cfg
 	if err := templates.RenderTemplateFile(
 		consts.UserCfgTemplateFile,
-		templates.GetUserCfgTemplateData(consts.GrubMenuEntryNameRecovery),
+		templates.GetUserCfgTemplateData(consts.GrubMenuEntryName, swag.BoolValue(enableFips)),
 		tempDir); err != nil {
 		return err
 	}

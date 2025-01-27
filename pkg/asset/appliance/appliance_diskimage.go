@@ -4,12 +4,15 @@ import (
 	"context"
 	"path/filepath"
 
+	"github.com/go-openapi/swag"
+
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/data"
 	"github.com/openshift/appliance/pkg/asset/recovery"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/conversions"
 	"github.com/openshift/appliance/pkg/executer"
+	"github.com/openshift/appliance/pkg/installer"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
@@ -19,7 +22,8 @@ import (
 
 // ApplianceDiskImage is an asset that generates the OpenShift-based appliance.
 type ApplianceDiskImage struct {
-	File *asset.File
+	File                *asset.File
+	InstallerBinaryName string
 }
 
 var _ asset.Asset = (*ApplianceDiskImage)(nil)
@@ -55,7 +59,9 @@ func (a *ApplianceDiskImage) Generate(_ context.Context, dependencies asset.Pare
 	// Render user.cfg
 	if err := templates.RenderTemplateFile(
 		consts.UserCfgTemplateFile,
-		templates.GetUserCfgTemplateData(consts.GrubMenuEntryName),
+		templates.GetUserCfgTemplateData(
+			consts.GrubMenuEntryName,
+			swag.BoolValue(applianceConfig.Config.EnableFips)),
 		envConfig.TempDir); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
@@ -90,6 +96,12 @@ func (a *ApplianceDiskImage) Generate(_ context.Context, dependencies asset.Pare
 	}
 
 	a.File = &asset.File{Filename: applianceImageFile}
+
+	installerConfig := installer.InstallerConfig{
+		EnvConfig:       envConfig,
+		ApplianceConfig: applianceConfig,
+	}
+	a.InstallerBinaryName = installer.NewInstaller(installerConfig).GetInstallerBinaryName()
 
 	return log.StopSpinner(spinner, nil)
 }
