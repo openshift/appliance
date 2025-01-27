@@ -134,6 +134,11 @@ stopLocalRegistry: stop-local-registry
 # Default: false
 # [Optional]
 createPinnedImageSets: create-pinned-image-sets
+# Enable FIPS mode for the cluster.
+# Note: 'fips' should be enabled also in install-config.yaml.
+# Default: false
+# [Optional]
+enableFips: enable-fips
 # Additional images to be included in the appliance disk image.
 # [Optional]
 additionalImages:

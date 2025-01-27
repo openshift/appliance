@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/openshift/appliance/pkg/asset/appliance"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/deploy"
@@ -100,15 +102,20 @@ func runBuild(cmd *cobra.Command, args []string) {
 		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", installerBinary.Name()))
 	}
 
+	// Get binary name (openshift-install or openshift-install-fips)
+	installerBinaryName := applianceDiskImage.InstallerBinaryName
+
 	timer.StopTimer(timer.TotalTimeElapsed)
 	timer.LogSummary()
 
 	logrus.Info()
 	logrus.Infof("Appliance disk image was successfully created in assets directory: %s", applianceDiskImage.File.Filename)
 	logrus.Info()
-	logrus.Infof("Create configuration ISO using: openshift-install agent create config-image")
-	logrus.Infof("Copy openshift-install from: %s/%s", envConfig.CacheDir, "openshift-install")
-	logrus.Infof("Download openshift-install from: %s", installerBinary.URL)
+	logrus.Infof("Create configuration ISO using: %s agent create config-image", installerBinaryName)
+	logrus.Infof("Copy %s from: %s/%s", installerBinaryName, envConfig.CacheDir, installerBinaryName)
+	if !strings.Contains(installerBinaryName, "fips") {
+		logrus.Infof("Download %s from: %s", installerBinaryName, installerBinary.URL)
+	}
 }
 
 func runBuildISO(cmd *cobra.Command, args []string) {

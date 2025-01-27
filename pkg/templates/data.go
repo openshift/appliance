@@ -14,14 +14,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetUserCfgTemplateData(grubMenuEntryName string) interface{} {
+func GetUserCfgTemplateData(grubMenuEntryName string, enableFips bool) interface{} {
+	boolToInt := map[bool]int{true: 1, false: 0}
+
 	return struct {
 		GrubTimeout                              int
 		GrubMenuEntryName, RecoveryPartitionName string
+		EnableFips                               int
 	}{
 		GrubTimeout:           consts.GrubTimeout,
 		GrubMenuEntryName:     grubMenuEntryName,
 		RecoveryPartitionName: consts.RecoveryPartitionName,
+		EnableFips:            boolToInt[enableFips],
 	}
 }
 

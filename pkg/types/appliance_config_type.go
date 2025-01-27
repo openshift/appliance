@@ -19,6 +19,7 @@ type ApplianceConfig struct {
 	UserCorePass          *string        `json:"userCorePass"`
 	ImageRegistry         *ImageRegistry `json:"imageRegistry"`
 	EnableDefaultSources  *bool          `json:"enableDefaultSources"`
+	EnableFips            *bool          `json:"enableFips"`
 	StopLocalRegistry     *bool          `json:"stopLocalRegistry"`
 	CreatePinnedImageSets *bool          `json:"createPinnedImageSets"`
 	AdditionalImages      *[]Image       `json:"additionalImages,omitempty"`
