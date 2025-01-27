@@ -3,6 +3,7 @@ package templates
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/go-openapi/swag"
 	"github.com/hashicorp/go-version"
@@ -24,12 +25,15 @@ func GetUserCfgTemplateData(grubMenuEntryName string) interface{} {
 	}
 }
 
-func GetGuestfishScriptTemplateData(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64, baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile string) interface{} {
+func GetGuestfishScriptTemplateData(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64,
+	baseImageFile, applianceImageFile, recoveryIsoFile, dataIsoFile, userCfgFile, grubCfgFile, tempDir string) interface{} {
+
 	partitionsInfo := NewPartitions().GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize)
 
 	return struct {
-		ApplianceFile, RecoveryIsoFile, DataIsoFile, CoreOSImage, RecoveryPartitionName, DataPartitionName, ReservedPartitionGUID, CfgFile string
-		DiskSize, RecoveryStartSector, RecoveryEndSector, DataStartSector, DataEndSector, RootStartSector, RootEndSector                   int64
+		ApplianceFile, RecoveryIsoFile, DataIsoFile, CoreOSImage, RecoveryPartitionName, DataPartitionName, ReservedPartitionGUID string
+		UserCfgFile, GrubCfgFile, GrubTempDir                                                                                     string
+		DiskSize, RecoveryStartSector, RecoveryEndSector, DataStartSector, DataEndSector, RootStartSector, RootEndSector          int64
 	}{
 		ApplianceFile:         applianceImageFile,
 		RecoveryIsoFile:       recoveryIsoFile,
@@ -45,7 +49,9 @@ func GetGuestfishScriptTemplateData(diskSize, baseIsoSize, recoveryIsoSize, data
 		RecoveryPartitionName: consts.RecoveryPartitionName,
 		DataPartitionName:     consts.DataPartitionName,
 		ReservedPartitionGUID: consts.ReservedPartitionGUID,
-		CfgFile:               cfgFile,
+		UserCfgFile:           userCfgFile,
+		GrubCfgFile:           grubCfgFile,
+		GrubTempDir:           filepath.Join(tempDir, "scripts/grub"),
 	}
 }
 

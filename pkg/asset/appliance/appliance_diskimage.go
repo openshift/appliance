@@ -70,10 +70,10 @@ func (a *ApplianceDiskImage) Generate(_ context.Context, dependencies asset.Pare
 	applianceImageFile := filepath.Join(envConfig.AssetsDir, consts.ApplianceFileName)
 	recoveryIsoFile := filepath.Join(envConfig.CacheDir, consts.RecoveryIsoFileName)
 	dataIsoFile := filepath.Join(envConfig.CacheDir, consts.DataIsoFileName)
-	cfgFile := templates.GetFilePathByTemplate(consts.UserCfgTemplateFile, envConfig.TempDir)
+	userCfgFile := templates.GetFilePathByTemplate(consts.UserCfgTemplateFile, envConfig.TempDir)
 	gfTemplateData := templates.GetGuestfishScriptTemplateData(
 		diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize, baseImageFile,
-		applianceImageFile, recoveryIsoFile, dataIsoFile, cfgFile)
+		applianceImageFile, recoveryIsoFile, dataIsoFile, userCfgFile, consts.GrubCfgFilePath, envConfig.TempDir)
 	if err := templates.RenderTemplateFile(
 		consts.GuestfishScriptTemplateFile,
 		gfTemplateData,
