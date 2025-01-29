@@ -52,11 +52,6 @@ ignition="${ignition//$placeholder_base64/$host_env_base64}"
 # Update installer-args and ignition for each host
 if [[ -n ${host_ids} ]]; then
     for id in ${host_ids}; do
-        args='["--save-partlabel", "agent*"]'
-        # Update host's installer-args (for passing '--save-partlabel' to coreos-installer)
-        curl_assisted_service "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/installer-args" \
-            PATCH -d '{"args": '"${args}"'}'
-
         # Update host's ignition (used when booting from the installation disk after bootstrap)
         curl_assisted_service "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/ignition" \
             PATCH -d '{"config": '"${ignition}"'}'
