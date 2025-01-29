@@ -26,9 +26,3 @@ update-ca-trust extract
 # TODO: check if worth exposing only locally and/or support IPv6
 sed -i '/0.0.0.0 {{.RegistryDomain}}/d' /etc/hosts
 echo "0.0.0.0 {{.RegistryDomain}}" >> /etc/hosts
-
-if [ {{.IsBootstrapStep}} = true ]; then
-  # Copy registry data to RAM
-  cp -r {{.RegistryDataPath}} /tmp/registry
-  umount /mnt/agentdata
-fi

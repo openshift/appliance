@@ -110,32 +110,6 @@ var _ = Describe("Test Release", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("MirrorBootstrapImages - success", func() {
-		mockExecuter.EXPECT().Execute(gomock.Any()).Return(fakeCincinnatiMetadata, nil).Times(1)
-		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", nil).Times(1)
-		mockExecuter.EXPECT().TempFile(gomock.Any(), "registry-config").Return(file, nil).Times(1)
-
-		err = testRelease.MirrorBootstrapImages()
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	It("MirrorBootstrapImages - fail to generate blocked images list", func() {
-		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(1)
-		mockExecuter.EXPECT().TempFile(gomock.Any(), "registry-config").Return(file, nil).Times(1)
-
-		err = testRelease.MirrorBootstrapImages()
-		Expect(err).To(HaveOccurred())
-	})
-
-	It("MirrorBootstrapImages - fail oc mirror", func() {
-		mockExecuter.EXPECT().Execute(gomock.Any()).Return(fakeCincinnatiMetadata, nil).Times(1)
-		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(1)
-		mockExecuter.EXPECT().TempFile(gomock.Any(), "registry-config").Return(file, nil).Times(1)
-
-		err = testRelease.MirrorBootstrapImages()
-		Expect(err).To(HaveOccurred())
-	})
-
 	It("GetImageFromRelease - success", func() {
 		imageName := "machine-os-images"
 		cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(applianceConfig.Config.OcpRelease.URL))

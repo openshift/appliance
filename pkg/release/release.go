@@ -1,7 +1,6 @@
 package release
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-openapi/swag"
-	"github.com/itchyny/gojq"
 	"github.com/openconfig/goyang/pkg/indent"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/registry"
@@ -48,7 +46,6 @@ const (
 type Release interface {
 	ExtractFile(image, filename string) (string, error)
 	MirrorInstallImages() error
-	MirrorBootstrapImages() error
 	GetImageFromRelease(imageName string) (string, error)
 	ExtractCommand(command string, dest string) (string, error)
 }
@@ -62,7 +59,6 @@ type ReleaseConfig struct {
 
 type release struct {
 	ReleaseConfig
-	blockedBootstrapImages map[string]bool
 }
 
 // NewRelease is used to set up the executor to run oc commands
@@ -75,39 +71,7 @@ func NewRelease(config ReleaseConfig) Release {
 	}
 
 	return &release{
-		ReleaseConfig:          config,
-		blockedBootstrapImages: initBlockedBootstrapImagesInfo(),
-	}
-}
-
-func initBlockedBootstrapImagesInfo() map[string]bool {
-	return map[string]bool{
-		"agent-installer-api-server":               true,
-		"agent-installer-csr-approver":             true,
-		"agent-installer-orchestrator":             true,
-		"agent-installer-node-agent":               true,
-		"must-gather":                              true,
-		"hyperkube":                                true,
-		"cloud-credential-operator":                true,
-		"cluster-policy-controller":                true,
-		"pod":                                      true,
-		"cluster-config-api":                       true,
-		"cluster-config-operator":                  true,
-		"cluster-etcd-operator":                    true,
-		"cluster-kube-scheduler-operator":          true,
-		"machine-config-operator":                  true,
-		"etcd":                                     true,
-		"cluster-bootstrap":                        true,
-		"cluster-ingress-operator":                 true,
-		"cluster-kube-apiserver-operator":          true,
-		"baremetal-installer":                      true,
-		"keepalived-ipfailover":                    true,
-		"baremetal-runtimecfg":                     true,
-		"coredns":                                  true,
-		"installer":                                true,
-		"cluster-kube-controller-manager-operator": true,
-		"cluster-version-operator":                 true,
-		"cluster-node-tuning-operator":             true,
+		ReleaseConfig: config,
 	}
 }
 
@@ -304,63 +268,6 @@ func (r *release) copyOutputYamls(ocMirrorDir string) error {
 	return nil
 }
 
-func (r *release) shouldBlockImage(imageName string) bool {
-	action := "not blocking"
-	_, found := r.blockedBootstrapImages[imageName]
-	if !found {
-		action = "blocking"
-	}
-	logrus.Debugf("%s image: %s", action, imageName)
-	return !found
-}
-
-func (r *release) getImageInfo(v any) (string, string) {
-	rawImageInfo := strings.Split(fmt.Sprintf("%#v", v), " ")
-	imageName := strings.Replace(rawImageInfo[0], "\"", "", -1)
-	return imageName, rawImageInfo[1]
-}
-
-func (r *release) generateBlockedImagesList() (string, error) {
-	var releaseInfo map[string]any
-	var result strings.Builder
-
-	cmd := fmt.Sprintf(
-		ocAdmReleaseInfo,
-		r.ApplianceConfig.Config.OcpRelease.Version,
-		swag.StringValue(r.ApplianceConfig.Config.OcpRelease.CpuArchitecture),
-	)
-
-	out, err := r.execute(r.ApplianceConfig.Config.PullSecret, cmd)
-	if err != nil {
-		return "", err
-	}
-	if err = json.Unmarshal([]byte(out), &releaseInfo); err != nil {
-		return "", err
-	}
-
-	query, err := gojq.Parse(QueryPattern)
-	if err != nil {
-		return "", err
-	}
-	iter := query.Run(releaseInfo)
-
-	for {
-		v, ok := iter.Next()
-		if !ok {
-			break
-		}
-		if err, ok = v.(error); ok {
-			return "", err
-		}
-
-		imageName, imageURL := r.getImageInfo(v)
-		if r.shouldBlockImage(imageName) {
-			result.WriteString(fmt.Sprintf("    - name: \"%s\n", imageURL))
-		}
-	}
-	return result.String(), nil
-}
-
 func (r *release) generateAdditionalImagesList(images *[]types.Image) string {
 	if images == nil {
 		return ""
@@ -386,20 +293,6 @@ func (r *release) generateOperatorsList(operators *[]types.Operator) string {
 	}
 	result.WriteString(indent.String("    ", string(obj)))
 	return result.String()
-}
-
-func (r *release) MirrorBootstrapImages() error {
-	blockedImages, err := r.generateBlockedImagesList()
-	if err != nil {
-		return err
-	}
-
-	return r.mirrorImages(
-		consts.ImageSetTemplateFile,
-		blockedImages,
-		"",
-		"",
-	)
 }
 
 func (r *release) MirrorInstallImages() error {

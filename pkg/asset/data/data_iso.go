@@ -82,37 +82,6 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 		return err
 	}
 
-	// Copying bootstrap images
-	spinner = log.NewSpinner(
-		fmt.Sprintf("Pulling OpenShift %s release images required for bootstrap...",
-			applianceConfig.Config.OcpRelease.Version),
-		fmt.Sprintf("Successfully pulled OpenShift %s release images required for bootstrap",
-			applianceConfig.Config.OcpRelease.Version),
-		fmt.Sprintf("Failed to pull OpenShift %s release images required for bootstrap",
-			applianceConfig.Config.OcpRelease.Version),
-		envConfig,
-	)
-	registryDir, err := registry.GetRegistryDataPath(envConfig.TempDir, bootstrapMirrorDir)
-	if err != nil {
-		return log.StopSpinner(spinner, err)
-	}
-	spinner.DirToMonitor = registryDir
-	bootstrapImageRegistry := registry.NewRegistry(
-		registry.RegistryConfig{
-			DataDirPath: registryDir,
-			URI:         swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
-			Port:        swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
-		})
-	if err = bootstrapImageRegistry.StartRegistry(); err != nil {
-		return log.StopSpinner(spinner, err)
-	}
-	if err = r.MirrorBootstrapImages(); err != nil {
-		return log.StopSpinner(spinner, err)
-	}
-	if err = log.StopSpinner(spinner, nil); err != nil {
-		return err
-	}
-
 	// Copying release images
 	spinner = log.NewSpinner(
 		fmt.Sprintf("Pulling OpenShift %s release images required for installation...",
@@ -123,7 +92,7 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 			applianceConfig.Config.OcpRelease.Version),
 		envConfig,
 	)
-	registryDir, err = registry.GetRegistryDataPath(envConfig.TempDir, installMirrorDir)
+	registryDir, err := registry.GetRegistryDataPath(envConfig.TempDir, installMirrorDir)
 	if err != nil {
 		return log.StopSpinner(spinner, err)
 	}

@@ -76,20 +76,6 @@ func (mr *MockReleaseMockRecorder) GetImageFromRelease(imageName interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImageFromRelease", reflect.TypeOf((*MockRelease)(nil).GetImageFromRelease), imageName)
 }
 
-// MirrorBootstrapImages mocks base method.
-func (m *MockRelease) MirrorBootstrapImages() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MirrorBootstrapImages")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MirrorBootstrapImages indicates an expected call of MirrorBootstrapImages.
-func (mr *MockReleaseMockRecorder) MirrorBootstrapImages() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MirrorBootstrapImages", reflect.TypeOf((*MockRelease)(nil).MirrorBootstrapImages))
-}
-
 // MirrorInstallImages mocks base method.
 func (m *MockRelease) MirrorInstallImages() error {
 	m.ctrl.T.Helper()
