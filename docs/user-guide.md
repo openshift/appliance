@@ -628,6 +628,7 @@ The process for upgrading a cluster is as follows:
 * After upgrading a cluster, the ISO should not be detached.
   * This is required to allow pulling images post-upgrade (might be needed, in some scenarios, for images missing from CRI-O containers-storage).
   * Will be resolved using [PinnedImageSet](https://github.com/openshift/enhancements/blob/master/enhancements/machine-config/pin-and-pre-load-images.md) in future versions (OCP > 4.18).
+* Upgrading an old existing cluster is not supported. I.e. only clusters created after the introduction of the `Upgrade ISO` functionality can be upgraded.
 
 ### Set OCP version for Upgrade
 
@@ -649,10 +650,10 @@ Use the 'build upgrade-iso' command for generating an Upgrade ISO:
 ```shell
 export APPLIANCE_IMAGE="quay.io/edge-infrastructure/openshift-appliance"
 export APPLIANCE_ASSETS="/home/test/appliance_assets"
-sudo podman run --rm -it --privileged -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build upgrade-iso
+sudo podman run --rm -it --pull newer --privileged -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build upgrade-iso
 ```
 
-The result should be the following two files:
+The result should be the following two files (under `APPLIANCE_ASSETS` dir):
 * An upgrade ISO: `upgrade-x.y.z.iso`
 * A MachineConfig yaml: `upgrade-machine-config-x.y.z.yaml`
 
