@@ -15,17 +15,19 @@ import (
 )
 
 func GetUserCfgTemplateData(grubMenuEntryName string, enableFips bool) interface{} {
-	boolToInt := map[bool]int{true: 1, false: 0}
+	var fipsArg string
+	if enableFips {
+		fipsArg = "fips=1"
+	}
 
 	return struct {
 		GrubTimeout                              int
 		GrubMenuEntryName, RecoveryPartitionName string
-		EnableFips                               int
+		FipsArg                                  string
 	}{
 		GrubTimeout:           consts.GrubTimeout,
-		GrubMenuEntryName:     grubMenuEntryName,
 		RecoveryPartitionName: consts.RecoveryPartitionName,
-		EnableFips:            boolToInt[enableFips],
+		FipsArg:               fipsArg,
 	}
 }
 
