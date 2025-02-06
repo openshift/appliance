@@ -632,7 +632,7 @@ The process for upgrading a cluster is as follows:
 * This process is currently experimental.
 * After upgrading a cluster, the ISO should not be detached.
   * This is required to allow pulling images post-upgrade (might be needed, in some scenarios, for images missing from CRI-O containers-storage).
-  * Will be resolved using [PinnedImageSet](https://github.com/openshift/enhancements/blob/master/enhancements/machine-config/pin-and-pre-load-images.md) in future versions (OCP > 4.18).
+  * Will be resolved using [PinnedImageSet](https://github.com/openshift/enhancements/blob/master/enhancements/machine-config/pin-and-pre-load-images.md) in a future version (probably OCP >= 4.19.0).
 * Upgrading an old existing cluster is not supported. I.e. only clusters created after the introduction of the `Upgrade ISO` functionality can be upgraded.
 
 ### Set OCP version for Upgrade
