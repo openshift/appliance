@@ -139,7 +139,7 @@ func (u *UpgradeISO) Generate(_ context.Context, dependencies asset.Parents) err
 		return err
 	}
 	machineConfigPath := filepath.Join(envConfig.AssetsDir, machineConfigFileName)
-	err = os.WriteFile(machineConfigPath, machineConfigBytes, 0600) // #nosec G306
+	err = os.WriteFile(machineConfigPath, machineConfigBytes, 0644)
 	if err != nil {
 		return err
 	}
