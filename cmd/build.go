@@ -169,7 +169,7 @@ func runBuildUpgradeISO(cmd *cobra.Command, args []string) {
 	logrus.Info()
 	logrus.Infof("To initiate the upgrade:")
 	logrus.Infof("1. Attach the ISO to each node")
-	logrus.Infof("2. oc apply assets/%s", upgradeISO.UpgradeManifestFileName)
+	logrus.Infof("2. oc apply %s", upgradeISO.UpgradeManifestFileName)
 }
 
 func preRunBuild(cmd *cobra.Command, args []string) {
