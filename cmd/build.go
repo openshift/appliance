@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/openshift/appliance/pkg/asset/appliance"
@@ -109,7 +110,7 @@ func runBuild(cmd *cobra.Command, args []string) {
 	timer.LogSummary()
 
 	logrus.Info()
-	logrus.Infof("Appliance disk image was successfully created in assets directory: %s", applianceDiskImage.File.Filename)
+	logrus.Infof("Appliance disk image was successfully created in the 'assets' directory: %s", filepath.Base(applianceDiskImage.File.Filename))
 	logrus.Info()
 	logrus.Infof("Create configuration ISO using: %s agent create config-image", installerBinaryName)
 	logrus.Infof("Copy %s from: %s/%s", installerBinaryName, envConfig.CacheDir, installerBinaryName)
@@ -139,7 +140,7 @@ func runBuildISO(cmd *cobra.Command, args []string) {
 	}
 
 	logrus.Info()
-	logrus.Infof("Appliance deployment ISO is available in assets directory: %s", consts.DeployIsoName)
+	logrus.Infof("Appliance deployment ISO is available in the 'assets' directory: %s", consts.DeployIsoName)
 	logrus.Infof("Boot a machine from the ISO to initiate the deployment")
 }
 
@@ -164,7 +165,7 @@ func runBuildUpgradeISO(cmd *cobra.Command, args []string) {
 	}
 
 	logrus.Info()
-	logrus.Infof("Appliance upgrade ISO is available in assets directory: %s", upgradeISO.File.Filename)
+	logrus.Infof("Appliance upgrade ISO is available in the 'assets' directory: %s", filepath.Base(upgradeISO.File.Filename))
 	logrus.Info()
 	logrus.Infof("To initiate the upgrade:")
 	logrus.Infof("1. Attach the ISO to each node")
