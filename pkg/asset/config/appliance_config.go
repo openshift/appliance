@@ -312,7 +312,7 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 	g := graph.NewGraph(graphConfig)
 	releaseImage, releaseVersion, err := g.GetReleaseImage()
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failure in getting the release image (error: %w).\nPlease retry to build", err)
 	}
 	return releaseImage, releaseVersion, nil
 }
