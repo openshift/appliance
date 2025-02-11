@@ -1,0 +1,14 @@
+---
+metadata:
+  version: "latest"
+artifacts:
+  - download_url: "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/oc-mirror.tar.gz"
+    checksum: "sha256:d113ab1cfa277ea611c0b25ce6b3d27058e61bd367c56e03f93957aa34ffcc17"
+    filename: "oc-mirror.tar.gz"
+---
+metadata:
+  version: "latest"
+artifacts:
+  - download_url: "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz"
+    checksum: "sha256:3d696605ef1ef33b49546ed7f6498458ff704935aad4fe9fcc3bab297b9ff80e"
+    filename: "openshift-client-linux.tar.gz"
