@@ -654,11 +654,15 @@ pullSecret: '{"auths":{<redacted>}}'
 Use the 'build upgrade-iso' command for generating an Upgrade ISO:
 ```shell
 export APPLIANCE_IMAGE="quay.io/edge-infrastructure/openshift-appliance"
-export APPLIANCE_ASSETS="/home/test/appliance_assets"
+export APPLIANCE_ASSETS="/home/test/upgrade_assets"
 sudo podman run --rm -it --pull newer --privileged -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build upgrade-iso
 ```
 
-The result should be the following two files (under `APPLIANCE_ASSETS` dir):
+Notes:
+* A configuration file named [appliance-config.yaml](#generate-a-template-of-the-appliance-config) is required in `APPLIANCE_ASSETS` dir for building.
+* Ensure the `APPLIANCE_ASSETS` dir is different from the one used for the disk image build.
+
+The result should be the following two files (in `APPLIANCE_ASSETS` dir):
 * An upgrade ISO: `upgrade-x.y.z.iso`
 * A MachineConfig yaml: `upgrade-machine-config-x.y.z.yaml`
 
