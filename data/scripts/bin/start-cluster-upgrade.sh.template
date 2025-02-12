@@ -36,7 +36,10 @@ done
 
 # Upgrade the cluster
 source $release_image_file
-oc adm upgrade --allow-explicit-upgrade --to-image $RELEASE_IMAGE
+oc adm upgrade --allow-explicit-upgrade --allow-upgrade-with-warnings --to-image $RELEASE_IMAGE
+
+# Force upgrade (override any blocking conditions to proceed if there are non-critical issues)
+oc patch clusterversion version --type=merge -p '{"spec": {"desiredUpdate": {"force": true, "image": "'$RELEASE_IMAGE'"}}}'
 
 # Wait for the cluster to get upgraded
 until \
