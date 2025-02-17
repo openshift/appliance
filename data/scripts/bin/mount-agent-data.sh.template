@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+mkdir -p /mnt/agentdata
+
+if [ "{{.IsLiveISO}}" = "true" ]; then
+    ISO_DIR=/run/media/iso
+
+    # Wait for mount
+    while ! mountpoint -q $ISO_DIR; do
+        echo "Waiting for $ISO_DIR to be fully mounted..."
+        sleep 5
+    done
+
+    # Create a loop device for each data file part
+    DATA_FILES="$ISO_DIR/data/data*"
+    loop_sizes=()
+    for f in $DATA_FILES
+    do
+        device=$(losetup --find)
+        losetup $device $f
+        loop_sizes+=($device)
+    done
+
+    # Create a device map using the loop devices
+    (
+        start=0
+        for device in "${loop_sizes[@]}"
+        do
+            size=`blockdev --getsz $device`
+            echo "$start $size linear $device 0"
+            ((start+=$size))
+        done
+    ) | dmsetup create data
+
+    # Mount data iso
+    mount -o ro /dev/dm-0 /mnt/agentdata
+else 
+    # Mount agentdata partition
+    mount -o ro /dev/disk/by-partlabel/agentdata /mnt/agentdata
+fi

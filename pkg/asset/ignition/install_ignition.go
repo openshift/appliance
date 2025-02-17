@@ -46,6 +46,7 @@ var (
 		"set-node-zero.sh",
 		"setup-local-registry-upgrade.sh",
 		"start-cluster-upgrade.sh",
+		"mount-agent-data.sh",
 	}
 
 	corePassHash string
@@ -98,7 +99,10 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	}
 
 	// Create install template data
-	templateData := templates.GetInstallIgnitionTemplateData(installRegistryDataPath, corePassHash)
+	templateData := templates.GetInstallIgnitionTemplateData(
+		envConfig.IsLiveISO,
+		installRegistryDataPath,
+		corePassHash)
 
 	if swag.BoolValue(applianceConfig.Config.CreatePinnedImageSets) && i.isOcpVersionCompatibleWithPinnedImageSet(applianceConfig) {
 		installServices = append(installServices, "create-pinned-image-sets.service")

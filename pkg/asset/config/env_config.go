@@ -23,6 +23,8 @@ type EnvConfig struct {
 	CacheDir  string
 	TempDir   string
 
+	IsLiveISO bool
+
 	DebugBootstrap    bool
 	DebugBaseIgnition bool
 }

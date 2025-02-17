@@ -1,0 +1,14 @@
+[Unit]
+Description=Mount CoreOS ISO
+Wants=network.target
+
+[Service]
+ExecStartPre=mkdir /media/iso
+ExecStart=systemd-mount --automount=yes --collect %I /media/iso
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=500
+TimeoutStopSec=300
+
+[Install]
+WantedBy=multi-user.target
