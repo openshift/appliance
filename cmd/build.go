@@ -23,6 +23,7 @@ var (
 	buildOpts struct {
 		debugBootstrap    bool
 		debugBaseIgnition bool
+		isLiveISO         bool
 	}
 
 	envConfig    config.EnvConfig
@@ -38,6 +39,7 @@ func NewBuildCmd() *cobra.Command {
 	}
 	cmd.AddCommand(getBuildISOCmd())
 	cmd.AddCommand(getBuildUpgradeISOCmd())
+	cmd.AddCommand(getBuildLiveISOCmd())
 	cmd.Flags().BoolVar(&buildOpts.debugBootstrap, "debug-bootstrap", false, "")
 	cmd.Flags().BoolVar(&buildOpts.debugBaseIgnition, "debug-base-ignition", false, "")
 	if err := cmd.Flags().MarkHidden("debug-bootstrap"); err != nil {
@@ -72,6 +74,16 @@ func getBuildUpgradeISOCmd() *cobra.Command {
 		Short:  "Build an upgrade ISO",
 		PreRun: preRunBuild,
 		Run:    runBuildUpgradeISO,
+	}
+	return cmd
+}
+
+func getBuildLiveISOCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:    "live-iso",
+		Short:  "Build an appliance live ISO",
+		PreRun: preRunBuildLiveISO,
+		Run:    runBuildLiveISO,
 	}
 	return cmd
 }
@@ -172,17 +184,66 @@ func runBuildUpgradeISO(cmd *cobra.Command, args []string) {
 	logrus.Infof("2. oc apply -f %s", upgradeISO.UpgradeManifestFileName)
 }
 
+func runBuildLiveISO(cmd *cobra.Command, args []string) {
+	timer.StartTimer(timer.TotalTimeElapsed)
+
+	cleanup := log.SetupFileHook(rootOpts.dir)
+	defer cleanup()
+
+	// Load ApplianceLiveISO asset to check whether a clean is required
+	applianceLiveISO := appliance.ApplianceLiveISO{}
+	if asset, err := getAssetStore().Load(&applianceLiveISO); err == nil && asset != nil {
+		if asset.(*appliance.ApplianceLiveISO).File != nil {
+			logrus.Infof("Appliance build flow has already been completed.")
+			logrus.Infof("Run 'clean' command before re-building the appliance.")
+			return
+		}
+	}
+
+	// Generate ApplianceLiveISO asset (including all of its dependencies)
+	if err := getAssetStore().Fetch(cmd.Context(), &applianceLiveISO); err != nil {
+		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", applianceLiveISO.Name()))
+	}
+
+	// Generate openshift-install binary download URL
+	installerBinary := installer.InstallerBinary{}
+	if err := getAssetStore().Fetch(cmd.Context(), &installerBinary); err != nil {
+		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", installerBinary.Name()))
+	}
+
+	// Get binary name (openshift-install or openshift-install-fips)
+	installerBinaryName := applianceLiveISO.InstallerBinaryName
+
+	timer.StopTimer(timer.TotalTimeElapsed)
+	timer.LogSummary()
+
+	logrus.Info()
+	logrus.Infof("Appliance live ISO was successfully created in the 'assets' directory: %s", filepath.Base(applianceLiveISO.File.Filename))
+	logrus.Info()
+	logrus.Infof("Create configuration ISO using: %s agent create config-image", installerBinaryName)
+	logrus.Infof("Copy %s from: %s/%s", installerBinaryName, envConfig.CacheDir, installerBinaryName)
+	if !strings.Contains(installerBinaryName, "fips") {
+		logrus.Infof("Download %s from: %s", installerBinaryName, installerBinary.URL)
+	}
+}
+
 func preRunBuild(cmd *cobra.Command, args []string) {
 	envConfig = config.EnvConfig{
 		AssetsDir:         rootOpts.dir,
 		DebugBootstrap:    buildOpts.debugBootstrap,
 		DebugBaseIgnition: buildOpts.debugBaseIgnition,
+		IsLiveISO:         buildOpts.isLiveISO,
 	}
 
 	// Generate EnvConfig asset
 	if err := getAssetStore().Fetch(cmd.Context(), &envConfig); err != nil {
 		logrus.Fatal(err)
 	}
+}
+
+func preRunBuildLiveISO(cmd *cobra.Command, args []string) {
+	buildOpts.isLiveISO = true
+	preRunBuild(cmd, args)
 }
 
 func getAssetStore() asset.Store {

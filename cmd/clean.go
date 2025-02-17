@@ -37,8 +37,11 @@ func NewCleanCmd() *cobra.Command {
 				logrus.Fatal(err)
 			}
 
-			// Remove appliance file
+			// Remove appliance files
 			if err := os.RemoveAll(filepath.Join(rootOpts.dir, consts.ApplianceFileName)); err != nil {
+				logrus.Fatal(err)
+			}
+			if err := os.RemoveAll(filepath.Join(rootOpts.dir, consts.ApplianceLiveIsoFileName)); err != nil {
 				logrus.Fatal(err)
 			}
 

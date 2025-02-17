@@ -59,6 +59,7 @@ var (
 		"release-image.sh",
 		"update-hosts.sh",
 		"create-virtual-device.sh",
+		"mount-agent-data.sh",
 	}
 )
 
@@ -127,6 +128,7 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 
 	// Add bootstrap scripts to ignition
 	templateData := templates.GetBootstrapIgnitionTemplateData(
+		envConfig.IsLiveISO,
 		applianceConfig.Config.OcpRelease,
 		bootstrapRegistryDataPath,
 		string(installIgnitionConfig),

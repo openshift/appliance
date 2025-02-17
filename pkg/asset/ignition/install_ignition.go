@@ -36,16 +36,15 @@ const (
 var (
 	installServices = []string{
 		"start-local-registry.service",
-		"add-grub-menuitem.service",
 		"set-node-zero.service",
 	}
 
 	installScripts = []string{
 		"setup-local-registry.sh",
-		"add-grub-menuitem.sh",
 		"set-node-zero.sh",
 		"setup-local-registry-upgrade.sh",
 		"start-cluster-upgrade.sh",
+		"mount-agent-data.sh",
 	}
 
 	corePassHash string
@@ -97,9 +96,6 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 		installScripts = append(installScripts, "stop-local-registry.sh")
 	}
 
-	// Create install template data
-	templateData := templates.GetInstallIgnitionTemplateData(installRegistryDataPath, corePassHash)
-
 	if swag.BoolValue(applianceConfig.Config.CreatePinnedImageSets) && i.isOcpVersionCompatibleWithPinnedImageSet(applianceConfig) {
 		installServices = append(installServices, "create-pinned-image-sets.service")
 		installScripts = append(installScripts, "create-pinned-image-sets.sh")
@@ -108,6 +104,22 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 			return err
 		}
 	}
+
+	if !envConfig.IsLiveISO {
+		installServices = append(installServices, "add-grub-menuitem.service")
+		installScripts = append(installScripts, "add-grub-menuitem.sh")
+
+		// Add user.cfg file
+		if err := i.addRecoveryGrubConfigFile(envConfig.TempDir, applianceConfig.Config.EnableFips); err != nil {
+			return err
+		}
+	}
+
+	// Create install template data
+	templateData := templates.GetInstallIgnitionTemplateData(
+		envConfig.IsLiveISO,
+		installRegistryDataPath,
+		corePassHash)
 
 	// Add services common for bootstrap and install
 	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", templateData, installServices); err != nil {
@@ -139,11 +151,6 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
 		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall, consts.RegistryDataUpgrade))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
-
-	// Add user.cfg file
-	if err := i.addRecoveryGrubConfigFile(envConfig.TempDir, applianceConfig.Config.EnableFips); err != nil {
-		return err
-	}
 
 	// Add a placeholder for rendezvous-host.env file
 	rendezvousHostEnvFile := ignasset.FileFromString(rendezvousHostEnvFilePath,
