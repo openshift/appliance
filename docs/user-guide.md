@@ -679,3 +679,32 @@ The result should be the following two files (in `APPLIANCE_ASSETS` dir):
 ### Demo
 
 ![upgrade-iso.gif](images/upgrade-iso.gif)
+
+## Live ISO
+
+As an alternative for building an appliance disk image (appliance.raw), a live ISO can be generated instead. The live ISO flow is useful for use cases in which cloning a disk image to a device is cumbersome or not applicable. Similarly to the disk image flow, generating a config-image is required as well. Note that a recovery grub item is not supported.
+
+### Build
+
+Use the 'build live-iso' command for generating the ISO:
+```shell
+export APPLIANCE_IMAGE="quay.io/edge-infrastructure/openshift-appliance"
+export APPLIANCE_ASSETS="/home/test/appliance_assets"
+sudo podman run --rm -it --pull newer --net=host -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build live-iso
+```
+
+The result should be an appliance.iso file under `assets` directory.
+To initiate the deployment:
+* Attach the [config ISO](#create-the-config-image).
+* Attach the generated appliance ISO.
+* Boot the machine.
+
+Notes:
+* The configuration file [appliance-config.yaml](#generate-a-template-of-the-appliance-config) is required in `APPLIANCE_ASSETS` dir for building - i.e. similar to the disk image flow.
+  * The `diskSizeGB` property is not required for the live ISO flow.
+* Ensure the target device is first in the boot order (i.e. the live ISO should be booted only once).
+
+**:warning: Limitations:**
+* This flow is currently experimental.
+* A [recovery grub item](#recovery--reinstall) is not available using this flow.
+* It's mandatory to keep the ISO attached during the cluster bootstrap.

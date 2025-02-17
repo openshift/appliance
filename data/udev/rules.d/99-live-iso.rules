@@ -1,0 +1,2 @@
+ACTION=="add|change", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="rhcos-*", ENV{SYSTEMD_WANTS}+="mount-live-iso@$devnode.service"
+ACTION=="remove", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="rhcos-*", RUN+="/bin/umount /media/iso"

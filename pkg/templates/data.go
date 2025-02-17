@@ -94,7 +94,7 @@ func GetPinnedImageSetTemplateData(images, role string) interface{} {
 	}
 }
 
-func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string) interface{} {
+func GetBootstrapIgnitionTemplateData(isLiveISO bool, ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string) interface{} {
 	releaseImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
@@ -115,14 +115,9 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 	}
 	osImages, _ := json.Marshal(osImageArr)
 
-	// Fetch base image partitions
-	partitions, err := NewPartitions().GetCoreOSPartitions(coreosImagePath)
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	return struct {
+	data := struct {
 		IsBootstrapStep              bool
+		IsLiveISO                    bool
 		InstallIgnitionConfig        string
 		RendezvousHostEnvPlaceholder string
 
@@ -132,6 +127,7 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 		Partition0, Partition1, Partition2, Partition3 Partition
 	}{
 		IsBootstrapStep:              true,
+		IsLiveISO:                    isLiveISO,
 		InstallIgnitionConfig:        installIgnitionConfig,
 		RendezvousHostEnvPlaceholder: rendezvousHostEnvPlaceholder,
 
@@ -145,23 +141,35 @@ func GetBootstrapIgnitionTemplateData(ocpReleaseImage types.ReleaseImage, regist
 		RegistryDomain:   registry.RegistryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
+	}
+
+	// Fetch base image partitions (Disk image mode)
+	if coreosImagePath != "" {
+		partitions, err := NewPartitions().GetCoreOSPartitions(coreosImagePath)
+		if err != nil {
+			logrus.Fatal(err)
+		}
 
 		// CoreOS Partitions
-		Partition0: partitions[0],
-		Partition1: partitions[1],
-		Partition2: partitions[2],
-		Partition3: partitions[3],
+		data.Partition0 = partitions[0]
+		data.Partition1 = partitions[1]
+		data.Partition2 = partitions[2]
+		data.Partition3 = partitions[3]
 	}
+
+	return data
 }
 
-func GetInstallIgnitionTemplateData(registryDataPath, corePassHash string) interface{} {
+func GetInstallIgnitionTemplateData(isLiveISO bool, registryDataPath, corePassHash string) interface{} {
 	return struct {
 		IsBootstrapStep bool
+		IsLiveISO       bool
 
 		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
 		CorePassHash, GrubCfgFilePath, UserCfgFilePath                    string
 	}{
 		IsBootstrapStep: false,
+		IsLiveISO:       isLiveISO,
 
 		// Registry
 		RegistryDataPath: registryDataPath,

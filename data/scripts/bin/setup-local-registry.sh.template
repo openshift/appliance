@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
-# Mount agendata partition
-mkdir -p /mnt/agentdata
-mount -o ro /dev/disk/by-partlabel/agentdata /mnt/agentdata
+source "mount-agent-data.sh"
 
 # Load registry image
 podman load -q -i /mnt/agentdata/images/{{.RegistryFilePath}}
