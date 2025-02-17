@@ -20,6 +20,9 @@ const (
 	DataIsoFileName             = "data.iso"
 	CoreosImagePattern          = "rhcos-*%s.raw"
 
+	// Appliance Live ISO
+	ApplianceLiveIsoFileName = "appliance.iso"
+
 	// ImageSetTemplateFile imageset.yaml.template
 	ImageSetTemplateFile = "scripts/mirror/imageset.yaml.template"
 

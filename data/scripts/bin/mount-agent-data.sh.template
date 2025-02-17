@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+ISO_DIR=/run/media/iso
+MNT_DIR=/mnt/agentdata
+
+create_data_device() {
+    # Create a loop device for each data file part
+    DATA_FILES="$ISO_DIR/data/data*"
+    loop_sizes=()
+    for f in $DATA_FILES
+    do
+        device=$(losetup --find)
+        losetup $device $f
+        loop_sizes+=($device)
+    done
+
+    # Create a device map using the loop devices
+    (
+        start=0
+        for device in "${loop_sizes[@]}"
+        do
+            size=`blockdev --getsz $device`
+            echo "$start $size linear $device 0"
+            ((start+=$size))
+        done
+    ) | dmsetup create data
+}
+
+mkdir -p $MNT_DIR
+
+if [ "{{.IsLiveISO}}" = "true" ]; then
+    # Wait for mount
+    while ! mountpoint -q $ISO_DIR; do
+        echo "Waiting for $ISO_DIR to be fully mounted..."
+        sleep 5
+    done
+
+    if [ "{{.IsBootstrapStep}}" = "true" ]; then
+        # Create virtual device for the registry data
+        create_data_device
+
+        # Mount data iso
+        mount -o ro /dev/dm-0 $MNT_DIR
+    else
+        registry_data_iso=/home/core/registry_data.iso
+        if [ ! -f "$registry_data_iso" ]; then
+            cat $ISO_DIR/data/data* > $registry_data_iso
+        fi
+        mount -o ro $registry_data_iso $MNT_DIR
+    fi
+else # Disk image mode
+    # Mount agentdata partition
+    mount -o ro /dev/disk/by-partlabel/agentdata $MNT_DIR
+fi
