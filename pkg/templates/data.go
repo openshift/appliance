@@ -27,6 +27,7 @@ func GetUserCfgTemplateData(grubMenuEntryName string, enableFips bool) interface
 	}{
 		GrubTimeout:           consts.GrubTimeout,
 		RecoveryPartitionName: consts.RecoveryPartitionName,
+		GrubMenuEntryName:     grubMenuEntryName,
 		FipsArg:               fipsArg,
 	}
 }
