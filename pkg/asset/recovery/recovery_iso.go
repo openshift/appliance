@@ -24,8 +24,9 @@ const (
 // RecoveryISO is an asset that generates the bootable ISO copied
 // to a recovery partition in the OpenShift-based appliance.
 type RecoveryISO struct {
-	File *asset.File
-	Size int64
+	File     *asset.File
+	Size     int64
+	Ignition *ignition.RecoveryIgnition
 }
 
 var _ asset.Asset = (*RecoveryISO)(nil)
@@ -99,7 +100,7 @@ func (a *RecoveryISO) Generate(_ context.Context, dependencies asset.Parents) er
 		return log.StopSpinner(spinner, err)
 	}
 
-	return log.StopSpinner(spinner, a.updateAsset(recoveryIsoPath))
+	return log.StopSpinner(spinner, a.updateAsset(recoveryIsoPath, recoveryIgnition))
 }
 
 // Name returns the human-friendly name of the asset.
@@ -107,13 +108,14 @@ func (a *RecoveryISO) Name() string {
 	return "Appliance Recovery ISO"
 }
 
-func (a *RecoveryISO) updateAsset(recoveryIsoPath string) error {
+func (a *RecoveryISO) updateAsset(recoveryIsoPath string, ignition *ignition.RecoveryIgnition) error {
 	a.File = &asset.File{Filename: recoveryIsoPath}
 	f, err := os.Stat(recoveryIsoPath)
 	if err != nil {
 		return err
 	}
 	a.Size = f.Size()
+	a.Ignition = ignition
 
 	return nil
 }
