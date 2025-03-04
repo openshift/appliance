@@ -165,6 +165,13 @@ stopLocalRegistry: %t
 # [Optional]
 # enableFips: %t
 
+# Enable the interactive installation flow.
+# Should be enabled to provide cluster configuration through the web UI
+# (i.e. instead of using a config-image).
+# Default: false
+# [Optional]
+# enableInteractiveFlow: %t
+
 # Additional images to be included in the appliance disk image.
 # [Optional]
 # additionalImages:
@@ -186,7 +193,8 @@ stopLocalRegistry: %t
 		consts.MinOcpVersion, consts.MaxOcpVersion,
 		graph.ReleaseChannelStable, CpuArchitectureX86, MinDiskSize,
 		consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort,
-		consts.EnableDefaultSources, consts.StopLocalRegistry, consts.CreatePinnedImageSets, consts.EnableFips)
+		consts.EnableDefaultSources, consts.StopLocalRegistry, consts.CreatePinnedImageSets,
+		consts.EnableFips, consts.EnableInteractiveFlow)
 
 	return nil
 }

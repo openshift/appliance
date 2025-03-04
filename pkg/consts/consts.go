@@ -70,4 +70,5 @@ const (
 	StopLocalRegistry     = false
 	CreatePinnedImageSets = false
 	EnableFips            = false
+	EnableInteractiveFlow = false
 )
