@@ -139,6 +139,12 @@ createPinnedImageSets: create-pinned-image-sets
 # Default: false
 # [Optional]
 enableFips: enable-fips
+# Enable the interactive installation flow.
+# Should be enabled to provide cluster configuration through the web UI
+# (i.e. instead of using a config-image).
+# Default: false
+# [Optional]
+enableInteractiveFlow: enable-interactive-flow
 # Additional images to be included in the appliance disk image.
 # [Optional]
 additionalImages:
