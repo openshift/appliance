@@ -174,6 +174,33 @@ var _ = Describe("Test Installer", func() {
 		Expect(res).To(Equal(filepath.Join(tmpDir, unconfiguredIgnitionFileName)))
 	})
 
+	It("CreateUnconfiguredIgnition - interactive flow enabled", func() {
+		tmpDir, err := filepath.Abs("")
+		Expect(err).ToNot(HaveOccurred())
+		cmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, installerBinaryName, tmpDir)
+		cmd = fmt.Sprintf("%s --interactive", cmd)
+		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
+
+		installerConfig := InstallerConfig{
+			Executer: mockExecuter,
+			Release:  mockRelease,
+			EnvConfig: &config.EnvConfig{
+				DebugBaseIgnition: false,
+				TempDir:           tmpDir,
+			},
+			ApplianceConfig: &config.ApplianceConfig{
+				Config: &types.ApplianceConfig{
+					EnableInteractiveFlow: swag.Bool(true),
+				},
+			},
+		}
+		testInstaller = NewInstaller(installerConfig)
+		mockRelease.EXPECT().ExtractCommand(installerBinaryName, installerConfig.EnvConfig.CacheDir).Return("", nil).Times(1)
+
+		res, err := testInstaller.CreateUnconfiguredIgnition()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).To(Equal(filepath.Join(tmpDir, unconfiguredIgnitionFileName)))
+	})
 })
 
 func TestInstaller(t *testing.T) {

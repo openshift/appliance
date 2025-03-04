@@ -84,6 +84,9 @@ func (i *installer) CreateUnconfiguredIgnition() (string, error) {
 	}
 
 	createCmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, openshiftInstallFilePath, i.EnvConfig.TempDir)
+	if swag.BoolValue(i.ApplianceConfig.Config.EnableInteractiveFlow) {
+		createCmd = fmt.Sprintf("%s --interactive", createCmd)
+	}
 	_, err = i.Executer.Execute(createCmd)
 	return filepath.Join(i.EnvConfig.TempDir, unconfiguredIgnitionFileName), err
 }
