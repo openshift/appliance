@@ -690,7 +690,7 @@ Use the 'build live-iso' command for generating the ISO:
 ```shell
 export APPLIANCE_IMAGE="quay.io/edge-infrastructure/openshift-appliance"
 export APPLIANCE_ASSETS="/home/test/appliance_assets"
-sudo podman run --rm -it --pull newer --net=host -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build live-iso
+sudo podman run --rm -it --pull newer --privileged --net=host -v $APPLIANCE_ASSETS:/assets:Z $APPLIANCE_IMAGE build live-iso
 ```
 
 The result should be an appliance.iso file under `assets` directory.
