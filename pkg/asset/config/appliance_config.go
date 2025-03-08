@@ -46,6 +46,10 @@ const (
 
 	// Validation commands
 	PodmanPull = "podman pull %s"
+
+	// Release
+	templateGetVersion = "oc adm release info %s -o template --template '{{.metadata.version}}'"
+	templateGetDigest  = "oc adm release info %s -o template --template '{{.digest}}'"
 )
 
 var (
@@ -94,14 +98,20 @@ ocpRelease:
   # If the specified version is not yet available, the latest supported version will be used.
   # Supported versions: %s-%s
   version: ocp-release-version
+
   # OCP release update channel: stable|fast|eus|candidate
   # Default: %s
   # [Optional]
   # channel: ocp-release-channel
+
   # OCP release CPU architecture: x86_64|aarch64|ppc64le
   # Default: %s
   # [Optional]
   # cpuArchitecture: cpu-architecture
+
+  # OCP release URL (use instead of channel/architecture)
+  # [Optional]
+  # url: ocp-release-url
 
 # Virtual size of the appliance disk image.
 # If specified, should be at least %dGiB.
@@ -268,6 +278,12 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 	}
 	config.OcpRelease.CpuArchitecture = swag.String(cpuArch)
 
+	// Store pull secret in a tmp file
+	if err = a.storePullSecret(); err != nil {
+		return false, err
+	}
+
+	// Get OCP release image URL and version
 	releaseImage, releaseVersion, err = a.GetRelease()
 	if err != nil {
 		return false, err
@@ -309,22 +325,51 @@ func GetReleaseArchitectureByCPU(arch string) string {
 }
 
 func (a *ApplianceConfig) GetRelease() (string, string, error) {
+	var err error
+
 	if releaseImage != "" && releaseVersion != "" {
 		// Return cached values
 		return releaseImage, releaseVersion, nil
 	}
 
-	graphConfig := graph.GraphConfig{
-		Arch:    GetReleaseArchitectureByCPU(*a.Config.OcpRelease.CpuArchitecture),
-		Version: a.Config.OcpRelease.Version,
-		Channel: a.Config.OcpRelease.Channel,
+	if a.Config.OcpRelease.URL == nil {
+		graphConfig := graph.GraphConfig{
+			Arch:    GetReleaseArchitectureByCPU(*a.Config.OcpRelease.CpuArchitecture),
+			Version: a.Config.OcpRelease.Version,
+			Channel: a.Config.OcpRelease.Channel,
+		}
+
+		g := graph.NewGraph(graphConfig)
+		releaseImage, releaseVersion, err = g.GetReleaseImage()
+	} else {
+		releaseImage = swag.StringValue(a.Config.OcpRelease.URL)
+
+		// Get version
+		cmd := fmt.Sprintf(templateGetVersion, releaseImage)
+		releaseVersion, err = executer.NewExecuter().Execute(cmd)
+		if err != nil {
+			return "", "", nil
+		}
+		releaseVersion = strings.Trim(releaseVersion, "'")
+		logrus.Debugf("Release version: %s", releaseVersion)
+
+		// Get image
+		if !strings.Contains(releaseImage, "@") {
+			cmd := fmt.Sprintf(templateGetDigest, releaseImage)
+			releaseDigest, err := executer.NewExecuter().Execute(cmd)
+			if err != nil {
+				return "", "", nil
+			}
+			releaseDigest = strings.Trim(releaseDigest, "'")
+			releaseImage = fmt.Sprintf("%s@%s", strings.Split(releaseImage, ":")[0], releaseDigest)
+		}
+		logrus.Debugf("Release image: %s", releaseImage)
 	}
 
-	g := graph.NewGraph(graphConfig)
-	releaseImage, releaseVersion, err := g.GetReleaseImage()
 	if err != nil {
 		return "", "", fmt.Errorf("failure in getting the release image (error: %w).\nPlease retry to build", err)
 	}
+
 	return releaseImage, releaseVersion, nil
 }
 
@@ -471,5 +516,26 @@ func (a *ApplianceConfig) validateDiskSize() error {
 	if *a.Config.DiskSizeGB < MinDiskSize {
 		return fmt.Errorf("diskSizeGB must be at least %d GiB", MinDiskSize)
 	}
+	return nil
+}
+
+func (a *ApplianceConfig) storePullSecret() error {
+	// Get home dir (~)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return errors.Wrapf(err, "failed to get home directory")
+	}
+
+	// Create sub dirs
+	configPath := filepath.Join(homeDir, ".docker", "config.json")
+	if err = os.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
+		return err
+	}
+
+	// Write pull secret
+	if err = os.WriteFile(configPath, []byte(a.Config.PullSecret), os.ModePerm); err != nil {
+		return errors.Wrap(err, "failed to write file")
+	}
+
 	return nil
 }

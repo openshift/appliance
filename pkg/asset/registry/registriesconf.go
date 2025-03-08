@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/containers/image/pkg/sysregistriesv2"
+	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pelletier/go-toml"
@@ -41,19 +43,23 @@ func (*RegistriesConf) Name() string {
 func (*RegistriesConf) Dependencies() []asset.Asset {
 	return []asset.Asset{
 		&config.EnvConfig{},
+		&config.ApplianceConfig{},
 	}
 }
 
 // Generate generates the registries.conf file from install-config.
 func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
-	dependencies.Get(envConfig)
+	applianceConfig := &config.ApplianceConfig{}
+	dependencies.Get(envConfig, applianceConfig)
 
+	releaseImage := swag.StringValue(applianceConfig.Config.OcpRelease.URL)
+	baseLocation := extractBaseURL(releaseImage)
 	registries := &sysregistriesv2.V2RegistriesConf{
 		Registries: []sysregistriesv2.Registry{
 			{
 				Endpoint: sysregistriesv2.Endpoint{
-					Location: "quay.io/openshift-release-dev/ocp-release",
+					Location: baseLocation, // "quay.io/openshift-release-dev/ocp-release"
 				},
 				Mirrors: []sysregistriesv2.Endpoint{
 					{
@@ -120,4 +126,15 @@ func (i *RegistriesConf) Files() []*asset.File {
 		return []*asset.File{i.File}
 	}
 	return []*asset.File{}
+}
+
+func extractBaseURL(releaseImage string) string {
+	// Split the string by ':' and '@' and take the first part
+	parts := strings.Split(releaseImage, ":")
+	if len(parts) > 1 {
+		// If the split resulted in more than one part, check for '@'
+		parts = strings.Split(parts[0], "@")
+	}
+	// Return the base URL part (the first part)
+	return parts[0]
 }

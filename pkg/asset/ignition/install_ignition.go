@@ -27,8 +27,6 @@ const (
 	bootDevice                   = "/dev/disk/by-partlabel/boot"
 	bootMountPath                = "/boot"
 	installRegistryDataPath      = "/mnt/agentdata/oc-mirror/install"
-	catalogSourcePattern         = "catalogSource-*.yaml"
-	icspFileName                 = "imageContentSourcePolicy.yaml"
 	rendezvousHostEnvFilePath    = "/etc/assisted/rendezvous-host.env"
 	rendezvousHostEnvPlaceholder = "placeholder-content-for-rendezvous-host.env"
 )

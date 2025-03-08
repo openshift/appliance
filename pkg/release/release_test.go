@@ -57,7 +57,6 @@ var _ = Describe("Test Release", func() {
 		mockExecuter    *executer.MockExecuter
 		applianceConfig *config.ApplianceConfig
 		testRelease     Release
-		file            *os.File
 		tempDir         string
 		err             error
 	)
@@ -67,13 +66,10 @@ var _ = Describe("Test Release", func() {
 		mockExecuter = executer.NewMockExecuter(ctrl)
 		tempDir, err = filepath.Abs("")
 		Expect(err).ToNot(HaveOccurred())
-		file, err = os.CreateTemp(tempDir, "registry-config")
-		Expect(err).ToNot(HaveOccurred())
 
 		channel := graph.ReleaseChannelStable
 		applianceConfig = &config.ApplianceConfig{
 			Config: &types.ApplianceConfig{
-				PullSecret: "'{\"auths\":{\"\":{\"auth\":\"dXNlcjpwYXNz\"}}}'",
 				OcpRelease: types.ReleaseImage{
 					CpuArchitecture: swag.String(config.CpuArchitectureX86),
 					Version:         "4.13.1",
@@ -113,10 +109,7 @@ var _ = Describe("Test Release", func() {
 	It("GetImageFromRelease - success", func() {
 		imageName := "machine-os-images"
 		cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
-		cmdWithRegConf := fmt.Sprintf("%s --registry-config=%s", cmd, file.Name())
-
-		mockExecuter.EXPECT().Execute(cmdWithRegConf).Return("", nil).Times(1)
-		mockExecuter.EXPECT().TempFile(gomock.Any(), "registry-config").Return(file, nil).Times(1)
+		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
 
 		_, err := testRelease.GetImageFromRelease(imageName)
 		Expect(err).NotTo(HaveOccurred())
@@ -125,15 +118,6 @@ var _ = Describe("Test Release", func() {
 	It("GetImageFromRelease - fail oc adm release info", func() {
 		imageName := "machine-os-images"
 		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(1)
-		mockExecuter.EXPECT().TempFile(gomock.Any(), "registry-config").Return(file, nil).Times(1)
-
-		_, err := testRelease.GetImageFromRelease(imageName)
-		Expect(err).To(HaveOccurred())
-	})
-
-	It("GetImageFromRelease - fail to create a pull secret file", func() {
-		imageName := "machine-os-images"
-		mockExecuter.EXPECT().TempFile(gomock.Any(), "registry-config").Return(nil, errors.New("some error")).Times(1)
 
 		_, err := testRelease.GetImageFromRelease(imageName)
 		Expect(err).To(HaveOccurred())
