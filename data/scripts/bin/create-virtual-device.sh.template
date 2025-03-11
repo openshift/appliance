@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "{{.IsLiveISO}}" = "true" ]; then
+    # A virtual device is not needed in Live ISO mode
+    exit 0
+fi
+
 # Create a sparse-raw file for the boot sector
 dd if=/dev/zero of=/tmp/boot.raw bs=1M seek=1 count=0
 
