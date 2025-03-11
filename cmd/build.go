@@ -40,12 +40,12 @@ func NewBuildCmd() *cobra.Command {
 	cmd.AddCommand(getBuildISOCmd())
 	cmd.AddCommand(getBuildUpgradeISOCmd())
 	cmd.AddCommand(getBuildLiveISOCmd())
-	cmd.Flags().BoolVar(&buildOpts.debugBootstrap, "debug-bootstrap", false, "")
-	cmd.Flags().BoolVar(&buildOpts.debugBaseIgnition, "debug-base-ignition", false, "")
-	if err := cmd.Flags().MarkHidden("debug-bootstrap"); err != nil {
+	cmd.PersistentFlags().BoolVar(&buildOpts.debugBootstrap, "debug-bootstrap", false, "")
+	cmd.PersistentFlags().BoolVar(&buildOpts.debugBaseIgnition, "debug-base-ignition", false, "")
+	if err := cmd.PersistentFlags().MarkHidden("debug-bootstrap"); err != nil {
 		logrus.Fatal(err)
 	}
-	if err := cmd.Flags().MarkHidden("debug-base-ignition"); err != nil {
+	if err := cmd.PersistentFlags().MarkHidden("debug-base-ignition"); err != nil {
 		logrus.Fatal(err)
 	}
 	return cmd
