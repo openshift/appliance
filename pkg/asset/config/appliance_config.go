@@ -123,11 +123,14 @@ pullSecret: pull-secret
 # userCorePass: user-core-pass
 
 # Local image registry details (used when building the appliance)
+# Note: building an image internally by default.
 # [Optional]
 # imageRegistry:
   # The URI for the image
-  # Default: %s
-  # Alternative: quay.io/libpod/registry:2.8
+  # Default: ""
+  # Examples: 
+  # - docker.io/library/registry:2
+  # - quay.io/libpod/registry:2.8
   # [Optional]
   # uri: uri
   # The image registry container TCP port to bind. A valid port number is between %d and %d.
@@ -192,7 +195,7 @@ stopLocalRegistry: %t
 		types.ApplianceConfigApiVersion,
 		consts.MinOcpVersion, consts.MaxOcpVersion,
 		graph.ReleaseChannelStable, CpuArchitectureX86, MinDiskSize,
-		consts.RegistryImage, RegistryMinPort, RegistryMaxPort, consts.RegistryPort,
+		RegistryMinPort, RegistryMaxPort, consts.RegistryPort,
 		consts.EnableDefaultSources, consts.StopLocalRegistry, consts.CreatePinnedImageSets,
 		consts.EnableFips, consts.EnableInteractiveFlow)
 
@@ -274,12 +277,12 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 
 	if config.ImageRegistry == nil {
 		config.ImageRegistry = &types.ImageRegistry{
-			URI:  swag.String(consts.RegistryImage),
+			URI:  swag.String(""),
 			Port: swag.Int(consts.RegistryPort),
 		}
 	} else {
 		if config.ImageRegistry.URI == nil {
-			config.ImageRegistry.URI = swag.String(consts.RegistryImage)
+			config.ImageRegistry.URI = swag.String("")
 		}
 		if config.ImageRegistry.Port == nil {
 			config.ImageRegistry.Port = swag.Int(consts.RegistryPort)
@@ -371,12 +374,15 @@ func (a *ApplianceConfig) validateImageRegistry() field.ErrorList {
 	}
 
 	if a.Config.ImageRegistry.URI != nil {
-		cmd := fmt.Sprintf(PodmanPull, swag.StringValue(a.Config.ImageRegistry.URI))
-		logrus.Debugf("Running uri validation cmd: %s", cmd)
-		if _, err := executer.NewExecuter().Execute(cmd); err != nil {
-			allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("imageRegistry.uri"),
-				swag.StringValue(a.Config.ImageRegistry.URI),
-				fmt.Sprintf("Invalid uri: %s", err.Error()))}...)
+		uri := swag.StringValue(a.Config.ImageRegistry.URI)
+		if uri != "" { // Building an image internally when the uri is empty
+			cmd := fmt.Sprintf(PodmanPull, swag.StringValue(a.Config.ImageRegistry.URI))
+			logrus.Debugf("Running uri validation cmd: %s", cmd)
+			if _, err := executer.NewExecuter().Execute(cmd); err != nil {
+				allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("imageRegistry.uri"),
+					swag.StringValue(a.Config.ImageRegistry.URI),
+					fmt.Sprintf("Invalid uri: %s", err.Error()))}...)
+			}
 		}
 	}
 

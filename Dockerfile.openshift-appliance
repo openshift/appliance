@@ -6,6 +6,9 @@ RUN go mod download
 COPY . .
 RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/openshift-appliance
 
+# Build registry
+RUN cd registry && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/registry
+
 # Create final image
 FROM registry.access.redhat.com/ubi9/ubi:latest
 
@@ -42,6 +45,11 @@ RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/op
 
 # Copy openshift-appliance binary
 COPY --from=builder /tmp/openshift-appliance /openshift-appliance
+
+# Copy registry files
+COPY --from=builder /tmp/registry /registry
+COPY /registry/config.yml /config.yml
+COPY /registry/Dockerfile.registry /Dockerfile.registry
 
 # Copy
 RUN mkdir -p data

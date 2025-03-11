@@ -102,11 +102,14 @@ sshKey: ssh-key
 # [Optional]
 userCorePass: user-core-pass
 # Local image registry details (used when building the appliance)
+# Note: building an image internally by default.
 # [Optional]
 imageRegistry:
   # The URI for the image
-  # Default: docker.io/library/registry:2
-  # Alternative: quay.io/libpod/registry:2.8
+  # Default: ""
+  # Examples: 
+  # - docker.io/library/registry:2
+  # - quay.io/libpod/registry:2.8
   # [Optional]
   uri: uri
   # The image registry container TCP port to bind. A valid port number is between 1024 and 65535.

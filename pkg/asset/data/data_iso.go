@@ -70,12 +70,13 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 	}
 
 	spinner := log.NewSpinner(
-		"Pulling container registry image...",
-		"Successfully pulled container registry image",
-		"Failed to pull container registry image",
+		"Generating container registry image...",
+		"Successfully generated container registry image",
+		"Failed to generate container registry image",
 		envConfig,
 	)
-	if err := a.copyRegistryImageIfNeeded(envConfig, applianceConfig); err != nil {
+	registryUri, err := a.copyRegistryImageIfNeeded(envConfig, applianceConfig)
+	if err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	if err := log.StopSpinner(spinner, nil); err != nil {
@@ -100,7 +101,7 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 	releaseImageRegistry := registry.NewRegistry(
 		registry.RegistryConfig{
 			DataDirPath: registryDir,
-			URI:         swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
+			URI:         registryUri,
 			Port:        swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
 		})
 
@@ -148,20 +149,34 @@ func (a *DataISO) updateAsset(envConfig *config.EnvConfig) error {
 	return nil
 }
 
-func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
+func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) (string, error) {
 	registryFilename := filepath.Base(consts.RegistryFilePath)
 	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
+	registryUri := swag.StringValue(applianceConfig.Config.ImageRegistry.URI)
+
+	if registryUri == "" {
+		// Use an internally built registry image
+		registryUri = consts.RegistryImage
+	}
 
 	// Search for registry image in cache dir
 	if fileName := envConfig.FindInCache(registryFilename); fileName != "" {
 		logrus.Debug("Reusing registry.tar from cache")
+		if err := registry.LoadRegistryImage(envConfig.CacheDir); err != nil {
+			return "", err
+		}
+	} else if registryUri == consts.RegistryImage {
+		// Build the registry image internally
+		if err := registry.BuildRegistryImage(envConfig.CacheDir); err != nil {
+			return "", err
+		}
 	} else {
-		// Copying registry image to cache
+		// Pulling the registry image and copying to cache
 		if err := skopeo.NewSkopeo(nil).CopyToFile(
-			swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
-			consts.RegistryImageName,
+			registryUri,
+			consts.RegistryImage,
 			fileInCachePath); err != nil {
-			return err
+			return registryUri, err
 		}
 	}
 
@@ -169,8 +184,8 @@ func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig, applian
 	fileInDataDir := filepath.Join(envConfig.TempDir, dataDir, imagesDir, consts.RegistryFilePath)
 	if err := fileutil.CopyFile(fileInCachePath, fileInDataDir); err != nil {
 		logrus.Error(err)
-		return err
+		return "", err
 	}
 
-	return nil
+	return registryUri, nil
 }
