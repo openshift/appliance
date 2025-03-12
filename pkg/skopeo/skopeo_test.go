@@ -29,10 +29,10 @@ var _ = Describe("Test Skopeo", func() {
 	It("skopeo CopyToFile - success", func() {
 
 		fakePath := "path/to/registry.tar"
-		cmd := fmt.Sprintf(templateCopyToFile, consts.RegistryImage, fakePath, consts.RegistryImageName)
+		cmd := fmt.Sprintf(templateCopyToFile, consts.RegistryImage, fakePath, consts.RegistryImage)
 		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
 
-		err := testSkopeo.CopyToFile(consts.RegistryImage, consts.RegistryImageName, fakePath)
+		err := testSkopeo.CopyToFile(consts.RegistryImage, consts.RegistryImage, fakePath)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -40,7 +40,7 @@ var _ = Describe("Test Skopeo", func() {
 		fakePath := "path/to/registry.tar"
 		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(1)
 
-		err := testSkopeo.CopyToFile(consts.RegistryImage, consts.RegistryImageName, fakePath)
+		err := testSkopeo.CopyToFile(consts.RegistryImage, consts.RegistryImage, fakePath)
 		Expect(err).To(HaveOccurred())
 	})
 })

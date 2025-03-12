@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -16,6 +17,9 @@ import (
 const (
 	registryStartCmd = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%d %s"
 	registryStopCmd  = "podman rm registry -f"
+	registryBuildCmd = "podman build -f Dockerfile.registry -t registry ."
+	registrySaveCmd  = "podman save -o %s/registry.tar %s"
+	registryLoadCmd  = "podman load -q -i %s/registry.tar"
 
 	registryAttempts             = 3
 	registrySleepBetweenAttempts = 5
@@ -118,4 +122,23 @@ func GetRegistryDataPath(directory, subDirectory string) (string, error) {
 		directory = strings.ReplaceAll(directory, pwd, "")
 	}
 	return filepath.Join(pwd, directory, subDirectory), nil
+}
+
+func BuildRegistryImage(destDir string) error {
+	exec := executer.NewExecuter()
+	// Build image
+	_, err := exec.Execute(registryBuildCmd)
+	if err != nil {
+		return err
+	}
+	// Store image
+	_, err = exec.Execute(fmt.Sprintf(registrySaveCmd, destDir, consts.RegistryImage))
+	return err
+}
+
+func LoadRegistryImage(cacheDir string) error {
+	exec := executer.NewExecuter()
+	// Load image
+	_, err := exec.Execute(fmt.Sprintf(registryLoadCmd, cacheDir))
+	return err
 }

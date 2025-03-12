@@ -43,8 +43,7 @@ const (
 	ReservedPartitionGUID = "8DA63339-0007-60C0-C436-083AC8230908"
 
 	// Local registry
-	RegistryImage     = "docker.io/library/registry:2"
-	RegistryImageName = "registry:2"
+	RegistryImage     = "localhost/registry:latest"
 	RegistryFilePath  = "registry/registry.tar"
 	RegistryPort      = 5005
 
