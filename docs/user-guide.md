@@ -86,6 +86,9 @@ ocpRelease:
   # Default: x86_64
   # [Optional]
   cpuArchitecture: cpu-architecture
+  # OCP release URL (use instead of channel/architecture)
+  # [Optional]
+  # url: oc-release-url
 # Virtual size of the appliance disk image.
 # If specified, should be at least 150GiB.
 # If not specified, the disk image should be resized when

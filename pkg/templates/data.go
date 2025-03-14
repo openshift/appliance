@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/go-openapi/swag"
-	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/consts"
@@ -63,21 +62,13 @@ func GetGuestfishScriptTemplateData(diskSize, baseIsoSize, recoveryIsoSize, data
 }
 
 func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedImages, additionalImages, operators string) interface{} {
-	version := applianceConfig.Config.OcpRelease.Version
-	channel := *applianceConfig.Config.OcpRelease.Channel
 	return struct {
-		Architectures    string
-		ChannelName      string
-		MinVersion       string
-		MaxVersion       string
+		ReleaseImage     string
 		BlockedImages    string
 		AdditionalImages string
 		Operators        string
 	}{
-		Architectures:    config.GetReleaseArchitectureByCPU(applianceConfig.GetCpuArchitecture()),
-		ChannelName:      fmt.Sprintf("%s-%s", channel, toMajorMinor(version)),
-		MinVersion:       version,
-		MaxVersion:       version,
+		ReleaseImage:     swag.StringValue(applianceConfig.Config.OcpRelease.URL),
 		BlockedImages:    blockedImages,
 		AdditionalImages: additionalImages,
 		Operators:        operators,
@@ -209,10 +200,4 @@ func GetUpgradeISOEnv(releaseImage, releaseVersion string) string {
 	return fmt.Sprintf(`RELEASE_IMAGE=%s
 RELEASE_VERSION=%s
 `, releaseImage, releaseVersion)
-}
-
-// Returns version in major.minor format
-func toMajorMinor(openshiftVersion string) string {
-	v, _ := version.NewVersion(openshiftVersion)
-	return fmt.Sprintf("%d.%d", v.Segments()[0], v.Segments()[1])
 }

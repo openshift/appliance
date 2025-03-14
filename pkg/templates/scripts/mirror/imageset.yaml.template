@@ -1,15 +1,9 @@
 kind: ImageSetConfiguration
-apiVersion: mirror.openshift.io/v1alpha2
+apiVersion: mirror.openshift.io/v2alpha1
 archiveSize: 8
 mirror:
   platform:
-    architectures:
-      - "{{.Architectures}}"
-    channels:
-      - name: {{.ChannelName}}
-        minVersion: {{.MinVersion}}
-        maxVersion: {{.MaxVersion}}
-        type: ocp
+    release: {{.ReleaseImage}}
 {{if .AdditionalImages}}  additionalImages:
 {{.AdditionalImages}}{{end}}
 {{if .BlockedImages}}  blockedImages:

@@ -2,6 +2,7 @@
 Description=Agent-based installer preparation service
 Wants=network.target node-zero.service
 After=network-online.target node-zero.service
+Before=assisted-service.service
 ConditionPathExists=/etc/assisted/node0
 
 [Service]

@@ -24,20 +24,21 @@ import (
 )
 
 const (
-	//OcDefaultTries is the number of times to execute the oc command on failures
+	// OcDefaultTries is the number of times to execute the oc command on failures
 	OcDefaultTries = 5
 	// OcDefaultRetryDelay is the time between retries
 	OcDefaultRetryDelay = time.Second * 5
 	// QueryPattern formats the image names for a given release
 	QueryPattern = ".references.spec.tags[] | .name + \" \" + .from.name"
+	// OcGeneratedManifestsDir is the dir of the generated cluster manifests
+	OcGeneratedManifestsDir = "cluster-resources"
 )
 
 const (
 	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
-	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
-	ocMirrorToDir        = "oc mirror --config=%s docker://127.0.0.1:%d --dir %s --dest-use-http"
-	ocAdmReleaseInfo     = "oc adm release info quay.io/openshift-release-dev/ocp-release:%s-%s -o json"
 	templateExtractCmd   = "oc adm release extract --command=%s --to=%s %s"
+	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
+	ocMirror             = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=1 --parallel-layers=1 --retry-times=5"
 )
 
 // Release is the interface to use the oc command to the get image info
@@ -93,7 +94,7 @@ func (r *release) GetImageFromRelease(imageName string) (string, error) {
 	cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
 
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
-	image, err := r.execute(r.ApplianceConfig.Config.PullSecret, cmd)
+	image, err := r.execute(cmd)
 	if err != nil {
 		return "", err
 	}
@@ -103,9 +104,8 @@ func (r *release) GetImageFromRelease(imageName string) (string, error) {
 
 func (r *release) extractFileFromImage(image, file, outputDir string) (string, error) {
 	cmd := fmt.Sprintf(templateImageExtract, file, outputDir, image)
-
 	logrus.Debugf("extracting %s to %s, %s", file, outputDir, cmd)
-	_, err := retry.Do(OcDefaultTries, OcDefaultRetryDelay, r.execute, r.ApplianceConfig.Config.PullSecret, cmd)
+	_, err := retry.Do(OcDefaultTries, OcDefaultRetryDelay, r.execute, cmd)
 	if err != nil {
 		return "", err
 	}
@@ -122,64 +122,19 @@ func (r *release) extractFileFromImage(image, file, outputDir string) (string, e
 func (r *release) ExtractCommand(command string, dest string) (string, error) {
 	cmd := fmt.Sprintf(templateExtractCmd, command, dest, *r.ApplianceConfig.Config.OcpRelease.URL)
 	logrus.Debugf("extracting %s to %s, %s", command, dest, cmd)
-	stdout, err := r.execute(r.ApplianceConfig.Config.PullSecret, cmd)
+	stdout, err := r.execute(cmd)
 	if err != nil {
 		return "", err
 	}
 	return stdout, nil
 }
 
-func (r *release) execute(pullSecret, command string) (string, error) {
-	executeCommand := command
-	if pullSecret != "" {
-		ps, err := r.Executer.TempFile(r.EnvConfig.TempDir, "registry-config")
-		if err != nil {
-			return "", err
-		}
-		logrus.Debugf("Created a temporary file: %s", ps.Name())
-		defer func() {
-			ps.Close()
-			_ = r.OSInterface.Remove(ps.Name())
-		}()
-		_, err = ps.Write([]byte(r.ApplianceConfig.Config.PullSecret))
-		if err != nil {
-			logrus.Errorf("Failed to write pull-secret data into %s: %s", ps.Name(), err.Error())
-			return "", err
-		}
-		// flush the buffer to ensure the file can be read
-		ps.Close()
-		executeCommand = command[:] + " --registry-config=" + ps.Name()
-	}
-
-	stdout, err := r.Executer.Execute(executeCommand)
-
+func (r *release) execute(command string) (string, error) {
+	stdout, err := r.Executer.Execute(command)
 	if err == nil {
 		return strings.TrimSpace(stdout), nil
 	}
-
-	return "", errors.Wrapf(err, "Failed to execute cmd (%s): %s", executeCommand, err)
-}
-
-func (r *release) setDockerConfig() error {
-	homeDir, err := r.OSInterface.UserHomeDir()
-	if err != nil {
-		return errors.Wrapf(err, "Failed to get home directory")
-	}
-
-	configPath := filepath.Join(homeDir, ".docker", "config.json")
-	if _, err = r.OSInterface.Stat(configPath); err == nil {
-		logrus.Debugf("Using pull secret from: %s", configPath)
-		return nil
-	}
-
-	if err = r.OSInterface.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
-		return err
-	}
-
-	if err = r.OSInterface.WriteFile(configPath, []byte(r.ApplianceConfig.Config.PullSecret), os.ModePerm); err != nil {
-		return errors.Wrap(err, "failed to write file")
-	}
-	return nil
+	return "", errors.Wrapf(err, "Failed to execute cmd (%s): %s", command, err)
 }
 
 func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, operators string) error {
@@ -195,26 +150,18 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 		return err
 	}
 
-	tempDir, err := r.OSInterface.MkdirTemp(r.EnvConfig.TempDir, "oc-mirror")
-	if err != nil {
-		return err
-	}
-
+	tempDir := filepath.Join(r.EnvConfig.TempDir, "oc-mirror")
 	registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
-	cmd := fmt.Sprintf(ocMirrorToDir, imageSetFilePath, registryPort, tempDir)
+	cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)
+
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
-
-	if err = r.setDockerConfig(); err != nil {
-		return err
-	}
-
-	result, err := r.execute("", cmd)
+	result, err := r.execute(cmd)
 	logrus.Debugf("mirroring result: %s", result)
 	if err != nil {
 		return err
 	}
 
-	// Copy yaml files (imageContentSourcePolicy and catalogSource) to cache dir
+	// Copy generated yaml files to cache dir
 	if err = r.copyOutputYamls(tempDir); err != nil {
 		return err
 	}
@@ -243,7 +190,7 @@ func (r *release) copyMappingFile(ocMirrorDir string) error {
 }
 
 func (r *release) copyOutputYamls(ocMirrorDir string) error {
-	yamlPaths, err := filepath.Glob(filepath.Join(ocMirrorDir, "results-*/*.yaml"))
+	yamlPaths, err := filepath.Glob(filepath.Join(ocMirrorDir, "working-dir", OcGeneratedManifestsDir, "*.yaml"))
 	if err != nil {
 		return err
 	}
@@ -260,7 +207,10 @@ func (r *release) copyOutputYamls(ocMirrorDir string) error {
 		newYaml := strings.ReplaceAll(string(yamlBytes), buildRegistryURI, internalRegistryURI)
 
 		// Write edited yamls to cache
-		destYamlPath := filepath.Join(r.EnvConfig.CacheDir, filepath.Base(yamlPath))
+		if err = r.OSInterface.MkdirAll(filepath.Join(r.EnvConfig.CacheDir, OcGeneratedManifestsDir), os.ModePerm); err != nil {
+			return err
+		}
+		destYamlPath := filepath.Join(r.EnvConfig.CacheDir, OcGeneratedManifestsDir, filepath.Base(yamlPath))
 		if err = r.OSInterface.WriteFile(destYamlPath, []byte(newYaml), os.ModePerm); err != nil {
 			return err
 		}
