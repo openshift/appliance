@@ -1,5 +1,5 @@
 [Unit]
-Description=Service that updates installer-args and ignition on all hosts
+Description=Service that updates ignition on all hosts
 Wants=network-online.target
 Requires=apply-host-config.service
 After=network-online.target apply-host-config.service

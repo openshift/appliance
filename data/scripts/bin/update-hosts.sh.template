@@ -24,22 +24,9 @@ curl_assisted_service() {
     curl "${headers[@]}" -X "${method}" "${additional_options[@]}" "${baseURL}${endpoint}"
 }
 
-# Wait for all required hosts to be discovered
-declare host_ids
-total_required_nodes=$(( REQUIRED_MASTER_NODES + REQUIRED_WORKER_NODES ))
-while [[ "${num_of_hosts}" != "${total_required_nodes}" ]]
-do
-    echo "Waiting for ${total_required_nodes} required hosts..." 1>&2
-    host_ids=$(curl_assisted_service "/infra-envs/${INFRA_ENV_ID}/hosts" | jq -r .[].id)
-    if [[ -n ${host_ids} ]]; then
-        num_of_hosts=0
-        for id in ${host_ids}; do
-            ((num_of_hosts+=1))
-        done
-        echo "Discovered ${num_of_hosts} hosts"
-    fi
-    sleep 2
-done
+declare -A hosts
+declare cluster_id
+declare cluster_status
 
 # Set install ignition config
 ignition=$(echo '{{.InstallIgnitionConfig}}' | jq -c --raw-input)
@@ -49,13 +36,39 @@ host_env_base64=$(base64 -w 0 /etc/assisted/rendezvous-host.env)
 placeholder_base64=$(echo -n '{{.RendezvousHostEnvPlaceholder}}' | base64)
 ignition="${ignition//$placeholder_base64/$host_env_base64}"
 
-# Update installer-args and ignition for each host
-if [[ -n ${host_ids} ]]; then
-    for id in ${host_ids}; do
-        # Update host's ignition (used when booting from the installation disk after bootstrap)
-        curl_assisted_service "${BASE_URL}/infra-envs/${INFRA_ENV_ID}/hosts/${id}/ignition" \
-            PATCH -d '{"config": '"${ignition}"'}'
+# Waiting for the cluster-id to be available
+until [[ -n ${cluster_id} ]]; do
+    echo "Querying assisted-service for cluster-id..."
+    cluster_id=$(curl_assisted_service "/clusters" GET | jq -r '.[0].id')
+    sleep 1
+done
+echo "Fetched cluster-id: $cluster_id"
 
-        echo "Updated installer-args and ignition of host with id: ${id}"
+# Updating hosts can be done before starting the installation
+until [[ $cluster_status == "preparing-for-installation" ]]; do
+    cluster_status=$(curl_assisted_service "/clusters/${cluster_id}" | jq -r .status)
+
+    # Update ignition for each host
+    host_ids=$(curl_assisted_service "/infra-envs/${INFRA_ENV_ID}/hosts" | jq -r .[].id)
+    if [[ -z ${host_ids} ]]; then
+        sleep 2
+        continue
+    fi
+
+    for id in ${host_ids}; do
+        if [[ ${hosts[$id]} == "true" ]]; then
+            # Host is already updated
+            continue
+        fi
+
+        # Update host's ignition (used when booting from the installation disk after bootstrap)
+        curl_assisted_service "/infra-envs/${INFRA_ENV_ID}/hosts/${id}/ignition" \
+            PATCH -d '{"config": '"${ignition}"'}'
+        hosts[$id]=true
+        echo "Updated ignition of host: ${id}"
     done
-fi
+
+    sleep 1
+done
+
+echo "Done updating hosts"
