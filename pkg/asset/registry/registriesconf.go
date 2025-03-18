@@ -8,11 +8,12 @@ import (
 	"strings"
 
 	"github.com/containers/image/pkg/sysregistriesv2"
-	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -23,7 +24,26 @@ const (
 
 var (
 	registriesConfFilename = filepath.Join("mirror", "registries.conf")
+	idmsFileName           = filepath.Join("cluster-resources", "idms-oc-mirror.yaml")
 )
+
+type ImageDigestMirrorSet struct {
+	APIVersion string `yaml:"apiVersion"`
+	Kind       string `yaml:"kind"`
+	Metadata   struct {
+		Name string `yaml:"name"`
+	} `yaml:"metadata"`
+	Spec struct {
+		ImageDigestMirrors []ImageDigestMirror `yaml:"imageDigestMirrors"`
+	} `yaml:"spec"`
+	Status struct {
+		// You can define specific fields for Status if needed. Here it is an empty struct for now.
+	} `yaml:"status"`
+}
+type ImageDigestMirror struct {
+	Mirrors []string `yaml:"mirrors"`
+	Source  string   `yaml:"source"`
+}
 
 // RegistriesConf generates the registries.conf file.
 type RegistriesConf struct {
@@ -53,13 +73,12 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
 
-	releaseImage := swag.StringValue(applianceConfig.Config.OcpRelease.URL)
-	baseLocation := extractBaseURL(releaseImage)
+	releaseImagesLocation, releaseLocation := i.getEndpointLocations(envConfig.CacheDir)
 	registries := &sysregistriesv2.V2RegistriesConf{
 		Registries: []sysregistriesv2.Registry{
 			{
 				Endpoint: sysregistriesv2.Endpoint{
-					Location: baseLocation, // "quay.io/openshift-release-dev/ocp-release"
+					Location: releaseImagesLocation,
 				},
 				Mirrors: []sysregistriesv2.Endpoint{
 					{
@@ -73,7 +92,7 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 			},
 			{
 				Endpoint: sysregistriesv2.Endpoint{
-					Location: "quay.io/openshift-release-dev/ocp-v4.0-art-dev",
+					Location: releaseLocation,
 				},
 				Mirrors: []sysregistriesv2.Endpoint{
 					{
@@ -101,6 +120,36 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 	return nil
 }
 
+func (i *RegistriesConf) getEndpointLocations(cacheDir string) (string, string) {
+	releaseImagesLocation := "quay.io/openshift-release-dev/ocp-release"
+	releaseLocation := "quay.io/openshift-release-dev/ocp-v4.0-art-dev"
+
+	idmsFile, err := os.ReadFile(filepath.Join(cacheDir, idmsFileName))
+	if err != nil {
+		logrus.Debugf("missing IDMS yaml (%v), fallback to defaults.", err)
+		return releaseImagesLocation, releaseLocation
+	}
+	var idms *ImageDigestMirrorSet
+	if err := yaml.UnmarshalStrict(idmsFile, &idms); err != nil {
+		logrus.Debugf("failed to unmarshal IDMS yaml (%v), fallback to defaults.", err)
+		return releaseImagesLocation, releaseLocation
+	}
+
+	for _, digestMirrors := range idms.Spec.ImageDigestMirrors {
+		if len(digestMirrors.Mirrors) == 0 {
+			continue
+		}
+		location := string(digestMirrors.Mirrors[0])
+		if strings.HasSuffix(location, "release-images") {
+			releaseImagesLocation = digestMirrors.Source
+		} else if strings.HasSuffix(location, "release") {
+			releaseLocation = digestMirrors.Source
+		}
+	}
+
+	return releaseImagesLocation, releaseLocation
+}
+
 func (i *RegistriesConf) Load(f asset.FileFetcher) (bool, error) {
 	file, err := f.FetchByName(registriesConfFilename)
 	if err != nil {
@@ -126,15 +175,4 @@ func (i *RegistriesConf) Files() []*asset.File {
 		return []*asset.File{i.File}
 	}
 	return []*asset.File{}
-}
-
-func extractBaseURL(releaseImage string) string {
-	// Split the string by ':' and '@' and take the first part
-	parts := strings.Split(releaseImage, ":")
-	if len(parts) > 1 {
-		// If the split resulted in more than one part, check for '@'
-		parts = strings.Split(parts[0], "@")
-	}
-	// Return the base URL part (the first part)
-	return parts[0]
 }
