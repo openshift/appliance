@@ -26,6 +26,8 @@ import (
 )
 
 const (
+	dataDir                             = "data"
+	imagesDir                           = "images"
 	upgradeDataDir                      = "upgrade"
 	installMirrorDir                    = "upgrade/oc-mirror/install"
 	upgradeVolumeNamePattern            = "upgrade_%s"
@@ -98,8 +100,22 @@ func (u *UpgradeISO) Generate(_ context.Context, dependencies asset.Parents) err
 		return err
 	}
 
-	// Pulling release images
 	spinner := log.NewSpinner(
+		"Generating container registry image...",
+		"Successfully generated container registry image",
+		"Failed to generate container registry image",
+		envConfig,
+	)
+	registryUri, err := registry.CopyRegistryImageIfNeeded(envConfig, applianceConfig)
+	if err != nil {
+		return log.StopSpinner(spinner, err)
+	}
+	if err := log.StopSpinner(spinner, nil); err != nil {
+		return err
+	}
+
+	// Pulling release images
+	spinner = log.NewSpinner(
 		fmt.Sprintf("Pulling OpenShift %s release images required for upgrade...",
 			applianceConfig.Config.OcpRelease.Version),
 		fmt.Sprintf("Successfully pulled OpenShift %s release images required for upgrade",
@@ -116,7 +132,7 @@ func (u *UpgradeISO) Generate(_ context.Context, dependencies asset.Parents) err
 	releaseImageRegistry := registry.NewRegistry(
 		registry.RegistryConfig{
 			DataDirPath: registryDir,
-			URI:         swag.StringValue(applianceConfig.Config.ImageRegistry.URI),
+			URI:         registryUri,
 			Port:        swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
 		})
 

@@ -9,21 +9,18 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
-	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/genisoimage"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/release"
-	"github.com/openshift/appliance/pkg/skopeo"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	dataDir            = "data"
-	imagesDir          = "images"
 	bootstrapMirrorDir = "data/oc-mirror/bootstrap"
 	installMirrorDir   = "data/oc-mirror/install"
+	dataDir            = "data"
 	dataIsoName        = "data.iso"
 	dataVolumeName     = "agentdata"
 )
@@ -75,7 +72,7 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 		"Failed to generate container registry image",
 		envConfig,
 	)
-	registryUri, err := a.copyRegistryImageIfNeeded(envConfig, applianceConfig)
+	registryUri, err := registry.CopyRegistryImageIfNeeded(envConfig, applianceConfig)
 	if err != nil {
 		return log.StopSpinner(spinner, err)
 	}
@@ -147,45 +144,4 @@ func (a *DataISO) updateAsset(envConfig *config.EnvConfig) error {
 	a.Size = f.Size()
 
 	return nil
-}
-
-func (a *DataISO) copyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) (string, error) {
-	registryFilename := filepath.Base(consts.RegistryFilePath)
-	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
-	registryUri := swag.StringValue(applianceConfig.Config.ImageRegistry.URI)
-
-	if registryUri == "" {
-		// Use an internally built registry image
-		registryUri = consts.RegistryImage
-	}
-
-	// Search for registry image in cache dir
-	if fileName := envConfig.FindInCache(registryFilename); fileName != "" {
-		logrus.Debug("Reusing registry.tar from cache")
-		if err := registry.LoadRegistryImage(envConfig.CacheDir); err != nil {
-			return "", err
-		}
-	} else if registryUri == consts.RegistryImage {
-		// Build the registry image internally
-		if err := registry.BuildRegistryImage(envConfig.CacheDir); err != nil {
-			return "", err
-		}
-	} else {
-		// Pulling the registry image and copying to cache
-		if err := skopeo.NewSkopeo(nil).CopyToFile(
-			registryUri,
-			consts.RegistryImage,
-			fileInCachePath); err != nil {
-			return registryUri, err
-		}
-	}
-
-	// Copy to data dir in temp
-	fileInDataDir := filepath.Join(envConfig.TempDir, dataDir, imagesDir, consts.RegistryFilePath)
-	if err := fileutil.CopyFile(fileInCachePath, fileInDataDir); err != nil {
-		logrus.Error(err)
-		return "", err
-	}
-
-	return registryUri, nil
 }

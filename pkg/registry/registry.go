@@ -8,8 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-openapi/swag"
+	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
+	"github.com/openshift/appliance/pkg/fileutil"
+	"github.com/openshift/appliance/pkg/skopeo"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -23,6 +27,9 @@ const (
 
 	registryAttempts             = 3
 	registrySleepBetweenAttempts = 5
+
+	dataDir   = "data"
+	imagesDir = "images"
 )
 
 type Registry interface {
@@ -141,4 +148,45 @@ func LoadRegistryImage(cacheDir string) error {
 	// Load image
 	_, err := exec.Execute(fmt.Sprintf(registryLoadCmd, cacheDir))
 	return err
+}
+
+func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) (string, error) {
+	registryFilename := filepath.Base(consts.RegistryFilePath)
+	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
+	registryUri := swag.StringValue(applianceConfig.Config.ImageRegistry.URI)
+
+	if registryUri == "" {
+		// Use an internally built registry image
+		registryUri = consts.RegistryImage
+	}
+
+	// Search for registry image in cache dir
+	if fileName := envConfig.FindInCache(registryFilename); fileName != "" {
+		logrus.Debug("Reusing registry.tar from cache")
+		if err := LoadRegistryImage(envConfig.CacheDir); err != nil {
+			return "", err
+		}
+	} else if registryUri == consts.RegistryImage {
+		// Build the registry image internally
+		if err := BuildRegistryImage(envConfig.CacheDir); err != nil {
+			return "", err
+		}
+	} else {
+		// Pulling the registry image and copying to cache
+		if err := skopeo.NewSkopeo(nil).CopyToFile(
+			registryUri,
+			consts.RegistryImage,
+			fileInCachePath); err != nil {
+			return registryUri, err
+		}
+	}
+
+	// Copy to data dir in temp
+	fileInDataDir := filepath.Join(envConfig.TempDir, dataDir, imagesDir, consts.RegistryFilePath)
+	if err := fileutil.CopyFile(fileInCachePath, fileInDataDir); err != nil {
+		logrus.Error(err)
+		return "", err
+	}
+
+	return registryUri, nil
 }
