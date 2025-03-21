@@ -39,7 +39,7 @@ ignition="${ignition//$placeholder_base64/$host_env_base64}"
 # Waiting for the cluster-id to be available
 until [[ -n ${cluster_id} ]]; do
     echo "Querying assisted-service for cluster-id..."
-    cluster_id=$(curl_assisted_service "/clusters" GET | jq -r '.[0].id')
+    cluster_id=$(curl_assisted_service "/clusters" GET | jq -r '.[].id')
     sleep 1
 done
 echo "Fetched cluster-id: $cluster_id"
