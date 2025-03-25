@@ -714,9 +714,9 @@ To initiate the deployment:
 Notes:
 * The configuration file [appliance-config.yaml](#generate-a-template-of-the-appliance-config) is required in `APPLIANCE_ASSETS` dir for building - i.e. similar to the disk image flow.
   * The `diskSizeGB` property is not required for the live ISO flow.
-* Ensure the target device is first in the boot order (i.e. the live ISO should be booted only once).
+* Ensure the target device is first in the boot order (i.e. the live ISO should be booted only once). Or, if the target device isn't empty, select the live ISO manually during boot.
 
 **:warning: Limitations:**
 * This flow is currently experimental.
 * A [recovery grub item](#recovery--reinstall) is not available using this flow.
-* It's mandatory to keep the ISO attached during the cluster bootstrap.
+* It's mandatory to keep the ISO attached during cluster installation.
