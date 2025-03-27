@@ -1,0 +1,10 @@
+contentOrigin:
+  repofiles: ["./redhat.repo"]
+packages:
+  - yum-utils
+  - guestfs-tools
+  - genisoimage
+  - coreos-installer
+  - syslinux
+arches:
+  - x86_64
