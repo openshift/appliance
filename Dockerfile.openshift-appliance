@@ -18,30 +18,23 @@ RUN mkdir $ASSETS_DIR && chmod 775 $ASSETS_DIR
 VOLUME $ASSETS_DIR
 ENV ASSETS_DIR=$ASSETS_DIR
 
-# Install skopeo and podman
-RUN dnf -y install skopeo podman && dnf clean all
+# Install skopeo/podman/libguestfs
+RUN dnf -y install skopeo podman guestfs-tools genisoimage coreos-installer syslinux && dnf clean all
 
-# Add repos
-RUN dnf install -y yum-utils
-RUN yum-config-manager --disable \* 
-RUN yum-config-manager --add-repo http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/
-RUN yum-config-manager --add-repo http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/
-RUN rpm --import https://centos.org/keys/RPM-GPG-KEY-CentOS-Official
-
-# Install and config libguestfs
-RUN dnf repolist
-RUN dnf -y --allowerasing install guestfs-tools genisoimage coreos-installer syslinux && dnf clean all
+# Config libguestfs
 ENV LIBGUESTFS_BACKEND=direct
 
-# Download oc-mirror
-RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.18.5/oc-mirror.tar.gz \
-    | tar xvzf - -C /usr/local/bin && \
-    chmod +x /usr/local/bin/oc-mirror
+# Create cache dir (for Konflux)
+ENV CACHE_DIR=/cachi2/output/deps/generic
+RUN mkdir -p $CACHE_DIR
 
 # Download oc
-RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.18.5/openshift-client-linux.tar.gz \
-    | tar xvzf - -C /usr/local/bin && \
-    chmod +x /usr/local/bin/oc
+RUN curl -sL -o $CACHE_DIR/openshift-client-linux.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.18.5/openshift-client-linux.tar.gz || true
+RUN tar xvzf $CACHE_DIR/openshift-client-linux.tar.gz -C /usr/local/bin && chmod +x /usr/local/bin/oc
+
+# Download oc-mirror
+RUN curl -sL -o $CACHE_DIR/oc-mirror.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.18.5/oc-mirror.tar.gz || true
+RUN tar xvzf $CACHE_DIR/oc-mirror.tar.gz -C /usr/local/bin && chmod +x /usr/local/bin/oc-mirror
 
 # Copy openshift-appliance binary
 COPY --from=builder /tmp/openshift-appliance /openshift-appliance
