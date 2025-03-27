@@ -1,0 +1,12 @@
+contentOrigin:
+  repofiles: ["./redhat.repo"]
+packages:
+  - yum-utils
+  - guestfs-tools
+  - genisoimage
+  - coreos-installer
+  - syslinux
+  - skopeo
+  - podman
+arches:
+  - x86_64
