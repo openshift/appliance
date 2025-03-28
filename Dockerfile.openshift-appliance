@@ -21,16 +21,8 @@ ENV ASSETS_DIR=$ASSETS_DIR
 # Install skopeo and podman
 RUN dnf -y install skopeo podman && dnf clean all
 
-# Add repos
-RUN dnf install -y yum-utils
-RUN yum-config-manager --disable \* 
-RUN yum-config-manager --add-repo http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/
-RUN yum-config-manager --add-repo http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/
-RUN rpm --import https://centos.org/keys/RPM-GPG-KEY-CentOS-Official
-
 # Install and config libguestfs
-RUN dnf repolist
-RUN dnf -y --allowerasing install guestfs-tools genisoimage coreos-installer syslinux && dnf clean all
+RUN dnf -y install guestfs-tools genisoimage coreos-installer syslinux && dnf clean all
 ENV LIBGUESTFS_BACKEND=direct
 
 # Download oc-mirror
