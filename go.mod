@@ -85,7 +85,7 @@ require (
 	github.com/clarketm/json v1.14.1 // indirect
 	github.com/containers/image/v5 v5.31.0 // indirect
 	github.com/containers/storage v1.54.0 // indirect
-	github.com/coreos/go-json v0.0.0-20230131223807-18775e0fb4fb // indirect
+	github.com/coreos/go-json v0.0.0-20231102161613-e49c8866685a // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/coreos/vcontext v0.0.0-20230201181013-d72178a18687 // indirect
