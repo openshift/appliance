@@ -1,6 +1,8 @@
 module github.com/openshift/appliance
 
-go 1.22.9
+go 1.23.7
+
+toolchain go1.23.8
 
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
@@ -11,7 +13,7 @@ require (
 	github.com/coreos/ignition/v2 v2.20.0
 	github.com/coreos/stream-metadata-go v0.4.5
 	github.com/diskfs/go-diskfs v1.4.1
-	github.com/distribution/distribution/v3 v3.0.0-rc.3
+	github.com/distribution/distribution/v3 v3.0.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-openapi/swag v0.23.0
 	github.com/golang/mock v1.7.0-rc.1
@@ -32,8 +34,8 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/thedevsaddam/retry v1.2.1
 	github.com/thoas/go-funk v0.9.3
-	golang.org/x/crypto v0.31.0
-	golang.org/x/term v0.29.0
+	golang.org/x/crypto v0.36.0
+	golang.org/x/term v0.30.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.30.3
 	k8s.io/apimachinery v0.30.3
@@ -46,9 +48,9 @@ require (
 	cloud.google.com/go/compute/metadata v0.5.1 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.5 // indirect
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.12.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.6.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.9.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.17.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.2 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v5 v5.7.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
@@ -59,7 +61,7 @@ require (
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
-	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.3.3 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/IBM-Cloud/bluemix-go v0.0.0-20211102075456-ffc4e11dfb16 // indirect
 	github.com/IBM-Cloud/power-go-client v1.8.3 // indirect
@@ -109,7 +111,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
@@ -130,7 +132,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.2.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
@@ -222,7 +224,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/redis/go-redis/extra/rediscmd/v9 v9.0.5 // indirect
 	github.com/redis/go-redis/extra/redisotel/v9 v9.0.5 // indirect
-	github.com/redis/go-redis/v9 v9.1.0 // indirect
+	github.com/redis/go-redis/v9 v9.7.3 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749 // indirect
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd // indirect
@@ -262,11 +264,11 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
 	golang.org/x/mod v0.19.0 // indirect
-	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/oauth2 v0.23.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/net v0.37.0 // indirect
+	golang.org/x/oauth2 v0.28.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
