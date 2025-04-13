@@ -8,7 +8,7 @@ require (
 	github.com/briandowns/spinner v1.23.2
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/containers/image v3.0.2+incompatible
-	github.com/coreos/ignition/v2 v2.20.0
+	github.com/coreos/ignition/v2 v2.21.0
 	github.com/coreos/stream-metadata-go v0.4.5
 	github.com/diskfs/go-diskfs v1.4.1
 	github.com/distribution/distribution/v3 v3.0.0-rc.3
