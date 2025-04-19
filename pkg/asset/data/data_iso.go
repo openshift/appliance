@@ -76,7 +76,7 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 	if err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err := log.StopSpinner(spinner, nil); err != nil {
+	if err = log.StopSpinner(spinner, nil); err != nil {
 		return err
 	}
 

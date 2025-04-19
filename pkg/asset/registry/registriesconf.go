@@ -139,7 +139,7 @@ func (i *RegistriesConf) getEndpointLocations(cacheDir string) (string, string) 
 		if len(digestMirrors.Mirrors) == 0 {
 			continue
 		}
-		location := string(digestMirrors.Mirrors[0])
+		location := digestMirrors.Mirrors[0]
 		if strings.HasSuffix(location, "release-images") {
 			releaseImagesLocation = digestMirrors.Source
 		} else if strings.HasSuffix(location, "release") {

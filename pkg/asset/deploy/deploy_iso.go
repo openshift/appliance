@@ -158,7 +158,7 @@ func (i *DeployISO) buildDeploymentIso(envConfig *config.EnvConfig, applianceCon
 		return err
 	}
 	deployIsoFileName := filepath.Join(envConfig.AssetsDir, consts.DeployIsoName)
-	if err := isoeditor.Create(deployIsoFileName, deployIsoTempDir, volumeID); err != nil {
+	if err = isoeditor.Create(deployIsoFileName, deployIsoTempDir, volumeID); err != nil {
 		logrus.Errorf("Failed to create ISO: %s", err.Error())
 		return err
 	}
