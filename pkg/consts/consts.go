@@ -43,9 +43,9 @@ const (
 	ReservedPartitionGUID = "8DA63339-0007-60C0-C436-083AC8230908"
 
 	// Local registry
-	RegistryImage     = "localhost/registry:latest"
-	RegistryFilePath  = "registry/registry.tar"
-	RegistryPort      = 5005
+	RegistryImage    = "localhost/registry:latest"
+	RegistryFilePath = "registry/registry.tar"
+	RegistryPort     = 5005
 
 	// Local registry env file
 	RegistryEnvPath       = "/etc/assisted/registry.env"

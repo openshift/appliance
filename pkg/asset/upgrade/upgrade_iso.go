@@ -86,7 +86,7 @@ func (u *UpgradeISO) Generate(_ context.Context, dependencies asset.Parents) err
 	r := release.NewRelease(releaseConfig)
 
 	dataDirPath := filepath.Join(envConfig.TempDir, upgradeDataDir)
-	if err := os.MkdirAll(dataDirPath, os.ModePerm); err != nil {
+	if err = os.MkdirAll(dataDirPath, os.ModePerm); err != nil {
 		logrus.Errorf("Failed to create dir: %s", dataDirPath)
 		return err
 	}
@@ -110,7 +110,7 @@ func (u *UpgradeISO) Generate(_ context.Context, dependencies asset.Parents) err
 	if err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	if err := log.StopSpinner(spinner, nil); err != nil {
+	if err = log.StopSpinner(spinner, nil); err != nil {
 		return err
 	}
 
@@ -155,7 +155,7 @@ func (u *UpgradeISO) Generate(_ context.Context, dependencies asset.Parents) err
 		return err
 	}
 	machineConfigPath := filepath.Join(envConfig.AssetsDir, machineConfigFileName)
-	err = os.WriteFile(machineConfigPath, machineConfigBytes, 0644)
+	err = os.WriteFile(machineConfigPath, machineConfigBytes, 0644) // #nosec G306
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,7 @@ package installer
 
 import (
 	"context"
-	
+
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/installer"
 	"github.com/openshift/installer/pkg/asset"

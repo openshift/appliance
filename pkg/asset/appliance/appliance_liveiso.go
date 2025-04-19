@@ -159,7 +159,7 @@ func (a *ApplianceLiveISO) buildLiveISO(envConfig *config.EnvConfig, applianceCo
 		return err
 	}
 	liveIsoFileName := filepath.Join(envConfig.AssetsDir, consts.ApplianceLiveIsoFileName)
-	if err := isoeditor.Create(liveIsoFileName, workDir, volumeID); err != nil {
+	if err = isoeditor.Create(liveIsoFileName, workDir, volumeID); err != nil {
 		logrus.Errorf("Failed to create ISO: %s", err.Error())
 		return err
 	}

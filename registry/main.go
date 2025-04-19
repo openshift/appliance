@@ -1,5 +1,6 @@
 package main
 
+// #nosec G108
 import (
 	_ "net/http/pprof"
 

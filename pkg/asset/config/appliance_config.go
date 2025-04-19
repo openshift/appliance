@@ -355,8 +355,9 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 
 		// Get image
 		if !strings.Contains(releaseImage, "@") {
+			var releaseDigest string
 			cmd := fmt.Sprintf(templateGetDigest, releaseImage)
-			releaseDigest, err := executer.NewExecuter().Execute(cmd)
+			releaseDigest, err = executer.NewExecuter().Execute(cmd)
 			if err != nil {
 				return "", "", nil
 			}

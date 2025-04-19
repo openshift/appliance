@@ -39,8 +39,6 @@ const (
 	manifestPath              = "/etc/assisted/manifests"
 	corePassOverrideFilePath  = "/etc/assisted/appliance-override-password-set" // #nosec G101
 	extraManifestsPath        = "/etc/assisted/extra-manifests"
-	catalogSourcePattern      = "catalogSource-*.yaml"
-	idmsFileName              = "idms-oc-mirror.yaml"
 )
 
 var (

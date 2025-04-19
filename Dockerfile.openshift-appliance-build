@@ -13,7 +13,7 @@ RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/i
 
 FROM quay.io/centos/centos:stream9
 
-RUN dnf install -y make git && dnf clean all
+RUN dnf install -y make git diffutils && dnf clean all
 
 ENV GOROOT=/usr/lib/golang
 ENV GOPATH=/opt/app-root/src/go
