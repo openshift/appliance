@@ -1,8 +1,7 @@
 [Unit]
 Description=Service that updates ignition on all hosts
 Wants=network-online.target
-Requires=apply-host-config.service
-After=network-online.target apply-host-config.service
+After=network-online.target
 ConditionPathExists=/etc/assisted/node0
 
 [Service]
