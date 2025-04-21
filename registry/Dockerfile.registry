@@ -6,6 +6,9 @@ COPY registry registry
 VOLUME ["/var/lib/registry"]
 EXPOSE 5000
 
+# Disable export traces (see: https://github.com/distribution/distribution/issues/4270)
+ENV OTEL_TRACES_EXPORTER none
+
 ENTRYPOINT ["/registry"]
 CMD ["serve", "config.yml"]
       
