@@ -70,4 +70,5 @@ const (
 	CreatePinnedImageSets = false
 	EnableFips            = false
 	EnableInteractiveFlow = false
+	UseDefaultSourceNames = false
 )
