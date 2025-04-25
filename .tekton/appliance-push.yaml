@@ -6,7 +6,8 @@ metadata:
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "master"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
+      == "master"
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: appliance
@@ -29,9 +30,9 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: build-source-image
-    value: 'true'
+    value: "true"
   - name: hermetic
-    value: 'true'
+    value: "true"
   - name: prefetch-input
     value: '[{"type": "gomod", "path": "."}, {"type": "rpm", "path": "./rpm-prefetching/"}]'
   pipelineSpec:
@@ -80,11 +81,13 @@ spec:
       name: output-image
       type: string
     - default: .
-      description: Path to the source code of an application's component from where to build image.
+      description: Path to the source code of an application's component from where
+        to build image.
       name: path-context
       type: string
     - default: Dockerfile
-      description: Path to the Dockerfile inside the context specified by parameter path-context
+      description: Path to the Dockerfile inside the context specified by parameter
+        path-context
       name: dockerfile
       type: string
     - default: "false"
@@ -112,7 +115,8 @@ spec:
       name: java
       type: string
     - default: ""
-      description: Image tag expiration time, time values could be something like 1h, 2d, 3w for hours, days, and weeks, respectively.
+      description: Image tag expiration time, time values could be something like
+        1h, 2d, 3w for hours, days, and weeks, respectively.
       name: image-expires-after
     - default: "false"
       description: Build a source image.
@@ -122,7 +126,7 @@ spec:
       description: Add built image into an OCI image index
       name: build-image-index
       type: string
-    - default: "snyk-secret"
+    - default: snyk-secret
       description: Snyk Token Secret Name
       name: snyk-secret
     results:
@@ -366,6 +370,11 @@ spec:
         values:
         - "false"
     - name: sast-snyk-check
+      params:
+      - name: image-digest
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
+      - name: image-url
+        value: $(tasks.build-container.results.IMAGE_URL)
       runAfter:
       - build-image-index
       taskRef:
@@ -385,11 +394,6 @@ spec:
       workspaces:
       - name: workspace
         workspace: workspace
-      params:
-      - name: image-digest
-        value: $(tasks.build-container.results.IMAGE_DIGEST)
-      - name: image-url
-        value: $(tasks.build-container.results.IMAGE_URL)
     - name: clamav-scan
       params:
       - name: image-digest
@@ -471,7 +475,6 @@ spec:
       runAfter:
       - build-image-index
       taskRef:
-        resolver: bundles
         params:
         - name: name
           value: rpms-signature-scan
@@ -479,11 +482,13 @@ spec:
           value: quay.io/konflux-ci/tekton-catalog/task-rpms-signature-scan:0.2@sha256:d01508e7a0df9059af2ef455e3e81588a70e0b24cd4a5def35af3cc1537bf84a
         - name: kind
           value: task
+        resolver: bundles
     workspaces:
     - name: workspace
     - name: git-auth
       optional: true
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-appliance
   workspaces:
   - name: workspace
     volumeClaimTemplate:
