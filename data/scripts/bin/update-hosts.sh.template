@@ -44,6 +44,20 @@ until [[ -n ${cluster_id} ]]; do
 done
 echo "Fetched cluster-id: $cluster_id"
 
+# Load extra manifests, if present.,Required only for the interactive workflow
+if [[ "$WORKFLOW_TYPE" == "install-interactive-disconnected" ]]; then
+    extraManifestsDir="/etc/assisted/extra-manifests"
+    for file in "$extraManifestsDir"/*.yaml "$extraManifestsDir"/*.yml; do
+        [ -e "$file" ] || continue
+
+        filename=$(basename "${file}")
+        encoded_content=$(base64 -w 0 "${file}")
+        echo "Registering extra manifest ${file}"
+        curl_assisted_service "/clusters/${cluster_id}/manifests" \
+                POST -d "{\"folder\": \"openshift\", \"file_name\": \"${filename}\", \"content\": \"${encoded_content}\"}"
+    done
+fi
+
 # Updating hosts can be done before starting the installation
 until [[ $cluster_status == "preparing-for-installation" ]]; do
     cluster_status=$(curl_assisted_service "/clusters/${cluster_id}" | jq -r .status)
