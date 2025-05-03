@@ -30,8 +30,6 @@ const (
 	OcDefaultRetryDelay = time.Second * 5
 	// QueryPattern formats the image names for a given release
 	QueryPattern = ".references.spec.tags[] | .name + \" \" + .from.name"
-	// OcGeneratedManifestsDir is the dir of the generated cluster manifests
-	OcGeneratedManifestsDir = "cluster-resources"
 )
 
 const (
@@ -190,7 +188,7 @@ func (r *release) copyMappingFile(ocMirrorDir string) error {
 }
 
 func (r *release) copyOutputYamls(ocMirrorDir string) error {
-	yamlPaths, err := filepath.Glob(filepath.Join(ocMirrorDir, "working-dir", OcGeneratedManifestsDir, "*.yaml"))
+	yamlPaths, err := filepath.Glob(filepath.Join(ocMirrorDir, "working-dir", consts.OcMirrorResourcesDir, "*.yaml"))
 	if err != nil {
 		return err
 	}
@@ -207,10 +205,10 @@ func (r *release) copyOutputYamls(ocMirrorDir string) error {
 		newYaml := strings.ReplaceAll(string(yamlBytes), buildRegistryURI, internalRegistryURI)
 
 		// Write edited yamls to cache
-		if err = r.OSInterface.MkdirAll(filepath.Join(r.EnvConfig.CacheDir, OcGeneratedManifestsDir), os.ModePerm); err != nil {
+		if err = r.OSInterface.MkdirAll(filepath.Join(r.EnvConfig.CacheDir, consts.OcMirrorResourcesDir), os.ModePerm); err != nil {
 			return err
 		}
-		destYamlPath := filepath.Join(r.EnvConfig.CacheDir, OcGeneratedManifestsDir, filepath.Base(yamlPath))
+		destYamlPath := filepath.Join(r.EnvConfig.CacheDir, consts.OcMirrorResourcesDir, filepath.Base(yamlPath))
 		if err = r.OSInterface.WriteFile(destYamlPath, []byte(newYaml), os.ModePerm); err != nil {
 			return err
 		}

@@ -32,6 +32,8 @@ const (
 	PinnedImageSetPattern = "/etc/assisted/%s-pinned-image-set.yaml"
 	// OcMirrorMappingFileName - name of the mapping file created by oc mirror
 	OcMirrorMappingFileName = "mapping.txt"
+	// OcMirrorResourcesDir - cluster resources directory created by oc mirror
+	OcMirrorResourcesDir = "cluster-resources"
 	// MinOcpVersionForPinnedImageSet - minimum version that supports PinnedImageSet
 	MinOcpVersionForPinnedImageSet = "4.16"
 
