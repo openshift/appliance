@@ -9,6 +9,7 @@ import (
 
 	"github.com/containers/image/pkg/sysregistriesv2"
 	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -24,7 +25,7 @@ const (
 
 var (
 	registriesConfFilename = filepath.Join("mirror", "registries.conf")
-	idmsFileName           = filepath.Join("cluster-resources", "idms-oc-mirror.yaml")
+	idmsFileName           = filepath.Join(consts.OcMirrorResourcesDir, "idms-oc-mirror.yaml")
 )
 
 type ImageDigestMirrorSet struct {
