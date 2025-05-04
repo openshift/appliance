@@ -85,7 +85,7 @@ func GetPinnedImageSetTemplateData(images, role string) interface{} {
 	}
 }
 
-func GetBootstrapIgnitionTemplateData(isLiveISO bool, ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string) interface{} {
+func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string) interface{} {
 	releaseImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
@@ -109,6 +109,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO bool, ocpReleaseImage types.Rele
 	data := struct {
 		IsBootstrapStep              bool
 		IsLiveISO                    bool
+		EnableInteractiveFlow        bool
 		InstallIgnitionConfig        string
 		RendezvousHostEnvPlaceholder string
 
@@ -119,6 +120,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO bool, ocpReleaseImage types.Rele
 	}{
 		IsBootstrapStep:              true,
 		IsLiveISO:                    isLiveISO,
+		EnableInteractiveFlow:        enableInteractiveFlow,
 		InstallIgnitionConfig:        installIgnitionConfig,
 		RendezvousHostEnvPlaceholder: rendezvousHostEnvPlaceholder,
 
