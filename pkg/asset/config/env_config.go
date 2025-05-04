@@ -137,3 +137,31 @@ func (e *EnvConfig) FindInAssets(filePattern string) string {
 	}
 	return e.findInDir(e.AssetsDir, filePattern)
 }
+
+// FindFilesInCache returns the files from cache whose name match the given regexp.
+func (e *EnvConfig) FindFilesInCache(pattern string) (files []*asset.File, err error) {	
+	matches, err := filepath.Glob(filepath.Join(e.CacheDir, pattern))
+	if err != nil {
+		return nil, err
+	}
+
+	files = make([]*asset.File, 0, len(matches))
+	for _, path := range matches {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+
+		filename, err := filepath.Rel(e.CacheDir, path)
+		if err != nil {
+			return nil, err
+		}
+
+		files = append(files, &asset.File{
+			Filename: filename,
+			Data:     data,
+		})
+	}
+
+	return files, nil
+}
