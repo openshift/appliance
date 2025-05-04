@@ -44,8 +44,8 @@ until [[ -n ${cluster_id} ]]; do
 done
 echo "Fetched cluster-id: $cluster_id"
 
-# Load extra manifests, if present.,Required only for the interactive workflow
-if [[ "$WORKFLOW_TYPE" == "install-interactive-disconnected" ]]; then
+# Register extra manifests, if present. Required only for the interactive workflow.
+if [ "{{.EnableInteractiveFlow}}" = "true" ]; then
     extraManifestsDir="/etc/assisted/extra-manifests"
     for file in "$extraManifestsDir"/*.yaml "$extraManifestsDir"/*.yml; do
         [ -e "$file" ] || continue
