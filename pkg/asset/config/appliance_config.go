@@ -48,8 +48,8 @@ const (
 	PodmanPull = "podman pull %s"
 
 	// Release
-	templateGetVersion = "oc adm release info %s -o template --template '{{.metadata.version}}'"
-	templateGetDigest  = "oc adm release info %s -o template --template '{{.digest}}'"
+	templateGetVersion = "oc adm release info %s -o template --template '{{.metadata.version}}' --insecure=true"
+	templateGetDigest  = "oc adm release info %s -o template --template '{{.digest}}' --insecure=true"
 )
 
 var (
