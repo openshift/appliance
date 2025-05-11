@@ -160,6 +160,10 @@ useDefaultSourceNames: use-default-source-names
 # [Optional]
 additionalImages:
    - name: image-url
+# Images to avoid including in the appliance disk image (by name or regular expression).
+# [Optional]
+blockedImages:
+   - name: image-url
 # Operators to be included in the appliance disk image.
 # See examples in https://github.com/openshift/oc-mirror/blob/main/docs/imageset-config-ref.yaml.
 # [Optional]

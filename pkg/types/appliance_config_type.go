@@ -25,6 +25,7 @@ type ApplianceConfig struct {
 	EnableInteractiveFlow *bool          `json:"enableInteractiveFlow"`
 	UseDefaultSourceNames *bool          `json:"useDefaultSourceNames"`
 	AdditionalImages      *[]Image       `json:"additionalImages,omitempty"`
+	BlockedImages         *[]Image       `json:"blockedImages,omitempty"`
 	Operators             *[]Operator    `json:"operators,omitempty"`
 }
 
