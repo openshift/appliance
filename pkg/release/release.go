@@ -216,7 +216,7 @@ func (r *release) copyOutputYamls(ocMirrorDir string) error {
 	return nil
 }
 
-func (r *release) generateAdditionalImagesList(images *[]types.Image) string {
+func (r *release) generateImagesList(images *[]types.Image) string {
 	if images == nil {
 		return ""
 	}
@@ -246,8 +246,8 @@ func (r *release) generateOperatorsList(operators *[]types.Operator) string {
 func (r *release) MirrorInstallImages() error {
 	return r.mirrorImages(
 		consts.ImageSetTemplateFile,
-		"",
-		r.generateAdditionalImagesList(r.ApplianceConfig.Config.AdditionalImages),
+		r.generateImagesList(r.ApplianceConfig.Config.BlockedImages),
+		r.generateImagesList(r.ApplianceConfig.Config.AdditionalImages),
 		r.generateOperatorsList(r.ApplianceConfig.Config.Operators),
 	)
 }
