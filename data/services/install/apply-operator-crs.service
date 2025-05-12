@@ -1,0 +1,12 @@
+[Unit]
+Description=Apply operator CRs service
+Wants=network.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/apply-operator-crs.sh
+Type=oneshot
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

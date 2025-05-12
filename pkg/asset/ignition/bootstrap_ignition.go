@@ -213,10 +213,11 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	}
 
 	// Add extra manifests files (from 'openshift' dir and 'cluster-resources')
-	if err = i.addExtraManifests(
+	fileList := append(extraManifests.FileList, mirrorResources...)
+	if err = addExtraManifests(
 		&i.Config,
-		extraManifests.FileList,
-		mirrorResources,
+		fileList,
+		extraManifestsPath,
 		applianceConfig.Config.UseDefaultSourceNames); err != nil {
 		return err
 	}
@@ -234,10 +235,10 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 }
 
 // addExtraManifests is a non-exportable function copy-over from openshift/installer/pkg/asset/agent/image/ignition.go
-func (i *BootstrapIgnition) addExtraManifests(
+func addExtraManifests(
 	config *igntypes.Config,
-	extraManifests []*asset.File,
-	mirrorResources []*asset.File,
+	fileList []*asset.File,
+	destPath string,
 	useDefaultSourceNames *bool) error {
 
 	user := "root"
@@ -245,7 +246,7 @@ func (i *BootstrapIgnition) addExtraManifests(
 
 	config.Storage.Directories = append(config.Storage.Directories, igntypes.Directory{
 		Node: igntypes.Node{
-			Path: extraManifestsPath,
+			Path: destPath,
 			User: igntypes.NodeUser{
 				Name: &user,
 			},
@@ -256,7 +257,6 @@ func (i *BootstrapIgnition) addExtraManifests(
 		},
 	})
 
-	fileList := append(extraManifests, mirrorResources...)
 	for _, file := range fileList {
 		type unstructured map[string]interface{}
 
@@ -279,7 +279,7 @@ func (i *BootstrapIgnition) addExtraManifests(
 			if strings.Contains(fileString, "CatalogSource") {
 				// Convert to default source naming (e.g. redhat-operators)
 				if swag.BoolValue(useDefaultSourceNames) {
-					fileBytes, err = i.convertToDefaultSourceNaming(fileBytes)
+					fileBytes, err = convertToDefaultSourceNaming(fileBytes)
 					if err != nil {
 						return err
 					}
@@ -289,7 +289,7 @@ func (i *BootstrapIgnition) addExtraManifests(
 			base := filepath.Base(file.Filename)
 			ext := filepath.Ext(file.Filename)
 			baseWithoutExt := strings.TrimSuffix(base, ext)
-			baseFileName := filepath.Join(extraManifestsPath, baseWithoutExt)
+			baseFileName := filepath.Join(destPath, baseWithoutExt)
 			fileName := fmt.Sprintf("%s-%d%s", baseFileName, n, ext)
 
 			extraFile := ignasset.FileFromBytes(fileName, user, mode, fileBytes)
@@ -300,7 +300,7 @@ func (i *BootstrapIgnition) addExtraManifests(
 	return nil
 }
 
-func (i *BootstrapIgnition) convertToDefaultSourceNaming(fileBytes []byte) ([]byte, error) {
+func  convertToDefaultSourceNaming(fileBytes []byte) ([]byte, error) {
 	var cs CatalogSource
 	if err := yaml.Unmarshal(fileBytes, &cs); err != nil {
 		return nil, err

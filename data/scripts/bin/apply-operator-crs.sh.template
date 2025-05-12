@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+export KUBECONFIG="/etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/node-kubeconfigs/localhost.kubeconfig"
+
+ensure_csvs_succeeded() {
+  local namespace="$1"
+
+  # Get all CSV names in the specified namespace
+  local csv_names=$(oc get csv -n "$namespace" -o jsonpath='{.items[*].metadata.name}')
+  if [ -z "$csv_names" ]; then
+    echo "No CSVs found yet in namespace '$namespace'."
+    return 1
+  fi
+
+  # Iterate through each CSV name
+  IFS=' ' read -r -a csv_array <<< "$csv_names"
+  for csv in "${csv_array[@]}"; do
+    # Get the status of the current CSV
+    local status=$(oc get csv -n "$namespace" "$csv" -o jsonpath='{.status.phase}')
+    if [ "$status" != "Succeeded" ]; then
+      return 1
+    fi
+  done
+
+  return 0
+}
+
+# Loop over the CRs
+crsDir="/etc/assisted/extra-manifests/post-installation"
+for file in "$crsDir"/*.yaml "$crsDir"/*.yml; do
+  echo "Processing YAML file: $file"
+
+  # Get the namespace from the YAML file
+  namespace=$(cat "$file" | grep -oP "namespace: *['\"]*\K[^'\"]+")
+  if [ -z "$namespace" ]; then
+    continue
+  fi
+
+  # Wait for the CSVs to succeed
+  until ensure_csvs_succeeded "$namespace" &>/dev/null; do
+    echo "Waiting for CSVs to succeed in namespace '$namespace'..."
+    sleep 60
+  done
+
+  # Check if the CR is already available
+  if oc get -f "$file" &>/dev/null; then
+    continue
+  fi
+
+  # Apply the CR
+  until oc apply -f "$file" &>/dev/null; do
+    echo "Retrying to apply CR: '$file'..."
+    sleep 60
+  done
+done
