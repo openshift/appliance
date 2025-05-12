@@ -326,7 +326,21 @@ spec:
   sourceNamespace: openshift-marketplace
 ```
 
-Note: each file should contain a single object.
+#### Add required CRs
+
+If a CustomResource should be applied post operator installation, add the relevant CR to `${APPLIANCE_ASSETS}/openshift/crs`.
+The CRs will be applied automatically during cluster installation.
+
+E.g. a CR for `kubevirt-hyperconverged` operator:
+
+*openshift/crs/cnv_cr.yaml*
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: "openshift-cnv"
+```
 
 ### Build the disk image
 * Make sure you have enough free disk space.

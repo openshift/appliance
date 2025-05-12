@@ -11,6 +11,7 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
+	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/consts"
 	ignitionutil "github.com/openshift/appliance/pkg/ignition"
 	"github.com/openshift/appliance/pkg/templates"
@@ -29,12 +30,14 @@ const (
 	installRegistryDataPath      = "/mnt/agentdata/oc-mirror/install"
 	rendezvousHostEnvFilePath    = "/etc/assisted/rendezvous-host.env"
 	rendezvousHostEnvPlaceholder = "placeholder-content-for-rendezvous-host.env"
+	postInstallationCrsDir       = "post-installation"
 )
 
 var (
 	installServices = []string{
 		"start-local-registry.service",
 		"set-node-zero.service",
+		"apply-operator-crs.service",
 	}
 
 	installScripts = []string{
@@ -43,6 +46,7 @@ var (
 		"setup-local-registry-upgrade.sh",
 		"start-cluster-upgrade.sh",
 		"mount-agent-data.sh",
+		"apply-operator-crs.sh",
 	}
 
 	corePassHash string
@@ -65,6 +69,7 @@ func (i *InstallIgnition) Dependencies() []asset.Asset {
 	return []asset.Asset{
 		&config.EnvConfig{},
 		&config.ApplianceConfig{},
+		&manifests.OperatorCRs{},
 	}
 }
 
@@ -72,7 +77,8 @@ func (i *InstallIgnition) Dependencies() []asset.Asset {
 func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
-	dependencies.Get(envConfig, applianceConfig)
+	operatorCRs := &manifests.OperatorCRs{}
+	dependencies.Get(envConfig, applianceConfig, operatorCRs)
 
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -154,6 +160,15 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	rendezvousHostEnvFile := ignasset.FileFromString(rendezvousHostEnvFilePath,
 		"root", 0644, rendezvousHostEnvPlaceholder)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, rendezvousHostEnvFile)
+
+	// Add operators CR manifests from 'openshift/crs' dir
+	if err = addExtraManifests(
+		&i.Config,
+		operatorCRs.FileList,
+		filepath.Join(extraManifestsPath, postInstallationCrsDir),
+		swag.Bool(false)); err != nil {
+		return err
+	}
 
 	logrus.Debug("Successfully generated install ignition")
 
