@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	genDataImageCmd = "genisoimage -J -joliet-long -D -V %s -o %s/%s %s"
+	genDataImageCmd = "genisoimage --iso-level 3 -R -D -V %s -o %s/%s %s"
 )
 
 type GenIsoImage interface {
