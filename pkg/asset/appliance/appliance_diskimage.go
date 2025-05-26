@@ -77,8 +77,9 @@ func (a *ApplianceDiskImage) Generate(_ context.Context, dependencies asset.Pare
 	recoveryIsoFile := filepath.Join(envConfig.CacheDir, consts.RecoveryIsoFileName)
 	dataIsoFile := filepath.Join(envConfig.CacheDir, consts.DataIsoFileName)
 	userCfgFile := templates.GetFilePathByTemplate(consts.UserCfgTemplateFile, envConfig.TempDir)
+	isCompact := applianceConfig.Config.DiskSizeGB == nil
 	gfTemplateData := templates.GetGuestfishScriptTemplateData(
-		diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize, baseImageFile,
+		isCompact, diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize, baseImageFile,
 		applianceImageFile, recoveryIsoFile, dataIsoFile, userCfgFile, consts.GrubCfgFilePath, envConfig.TempDir)
 	if err := templates.RenderTemplateFile(
 		consts.GuestfishScriptTemplateFile,

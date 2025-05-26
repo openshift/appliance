@@ -17,7 +17,7 @@ var _ = Describe("Test Partitions", func() {
 		baseIsoSize = conversions.GibToBytes(2)
 		recoveryIsoSize = conversions.GibToBytes(5)
 		dataIsoSize = conversions.GibToBytes(30)
-		testPartitions = NewPartitions().GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize)
+		testPartitions = NewPartitions().GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize, false)
 	})
 
 	It("partitions are aligned to 4K", func() {
