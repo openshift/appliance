@@ -4,7 +4,6 @@ import (
 	"math"
 
 	"github.com/diskfs/go-diskfs"
-	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/conversions"
 	"github.com/sirupsen/logrus"
 )
@@ -19,7 +18,7 @@ const (
 )
 
 type Partitions interface {
-	GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64) *AgentPartitions
+	GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64, isCompact bool) *AgentPartitions
 	GetCoreOSPartitions(coreosImagePath string) ([]Partition, error)
 	GetBootPartitionsSize(baseImageFile string) int64
 }
@@ -39,7 +38,7 @@ func NewPartitions() Partitions {
 	return &partitions{}
 }
 
-func (p *partitions) GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64) *AgentPartitions {
+func (p *partitions) GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64, isCompact bool) *AgentPartitions {
 	// Calc data partition start/end sectors
 	dataEndSector := (conversions.GibToBytes(diskSize) - conversions.MibToBytes(1)) / sectorSize
 	dataStartSector := dataEndSector - (dataIsoSize / sectorSize)
@@ -51,7 +50,7 @@ func (p *partitions) GetAgentPartitions(diskSize, baseIsoSize, recoveryIsoSize, 
 	recoveryStartSector = roundToNearestSector(recoveryStartSector, sectorAlignmentFactor)
 
 	// Calc root partition start/end sectors
-	rootPartitionSize := p.getRootPartitionSize(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize)
+	rootPartitionSize := p.getRootPartitionSize(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize, isCompact)
 	rootEndSector := recoveryStartSector - sectorAlignmentFactor
 	rootStartSector := rootEndSector - (rootPartitionSize / sectorSize)
 	rootStartSector = roundToNearestSector(rootStartSector, sectorAlignmentFactor)
@@ -100,8 +99,8 @@ func (p *partitions) GetBootPartitionsSize(baseImageFile string) int64 {
 	return sectorSize*(partitions[0].Size+partitions[1].Size+partitions[2].Size) + conversions.MibToBytes(1)
 }
 
-func (p *partitions) getRootPartitionSize(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64) int64 {
-	if diskSize < config.MinDiskSize {
+func (p *partitions) getRootPartitionSize(diskSize, baseIsoSize, recoveryIsoSize, dataIsoSize int64, isCompact bool) int64 {
+	if isCompact {
 		// When using a compact disk image, the root partition is resized during cloning
 		return sectorSize64K
 	}
