@@ -1,7 +1,7 @@
 package executer
 
 import (
-	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -24,19 +24,14 @@ func NewExecuter() Executer {
 }
 
 func (e *executer) Execute(command string) (string, error) {
-	var stdoutBytes, stderrBytes bytes.Buffer
-
 	formattedCmd, args := e.formatCommand(command)
 	logrus.Debugf("Running cmd: %s %s", formattedCmd, strings.Join(args[:], " "))
 	cmd := exec.Command(formattedCmd, args...)
-	cmd.Stdout = &stdoutBytes
-	cmd.Stderr = &stderrBytes
-	err := cmd.Run()
+	combinedOutput, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", errors.Wrapf(err, "Failed to execute cmd (%s): %s", cmd, stderrBytes.String())
+		return "", errors.New(fmt.Sprintf("Failed to execute cmd (%s): %s", cmd, string(combinedOutput)))
 	}
-
-	return strings.TrimSuffix(stdoutBytes.String(), "\n"), nil
+	return strings.TrimSuffix(string(combinedOutput), "\n"), nil
 }
 
 func (e *executer) TempFile(dir, pattern string) (f *os.File, err error) {

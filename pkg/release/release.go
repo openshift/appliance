@@ -17,7 +17,6 @@ import (
 	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/appliance/pkg/types"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/thedevsaddam/retry"
 	"sigs.k8s.io/yaml"
@@ -132,7 +131,7 @@ func (r *release) execute(command string) (string, error) {
 	if err == nil {
 		return strings.TrimSpace(stdout), nil
 	}
-	return "", errors.Wrapf(err, "Failed to execute cmd (%s): %s", command, err)
+	return "", err
 }
 
 func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, operators string) error {
