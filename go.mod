@@ -1,6 +1,8 @@
 module github.com/openshift/appliance
 
-go 1.22.9
+go 1.23
+
+toolchain go1.23.9
 
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
@@ -300,7 +302,7 @@ require (
 	sigs.k8s.io/cluster-api-provider-openstack v0.10.3 // indirect
 	sigs.k8s.io/cluster-api-provider-vsphere v1.9.3 // indirect
 	sigs.k8s.io/controller-runtime v0.18.5 // indirect
-	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/kustomize/api v0.16.0 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.16.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
