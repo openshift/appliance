@@ -19,7 +19,7 @@ require (
 	github.com/itchyny/gojq v0.12.17
 	github.com/onsi/ginkgo/v2 v2.19.1
 	github.com/onsi/gomega v1.34.0
-	github.com/openconfig/goyang v1.6.0
+	github.com/openconfig/goyang v1.6.2
 	github.com/openshift/api v0.0.0-20240808203820-e69593239e49
 	github.com/openshift/assisted-image-service v0.0.0-20250301084320-0faa6d927ecd
 	github.com/openshift/assisted-service/api v0.0.0
