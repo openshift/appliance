@@ -116,8 +116,8 @@ github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapp
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.48.1/go.mod h1:viRWSEhtMZqz1rhwmOVKkWl6SwmVowfL9O2YR5gI2PE=
 github.com/IBM-Cloud/bluemix-go v0.0.0-20250409011132-bdd4531aaa04 h1:euG2yKR4snk8zIa5BeUKBWcIj4o1SBqX+k7CtIab6Y8=
 github.com/IBM-Cloud/bluemix-go v0.0.0-20250409011132-bdd4531aaa04/go.mod h1:/7hMjdZA6fEpd/dQAOEABxKEwN0t72P3PlpEDu0Y7bE=
-github.com/IBM-Cloud/power-go-client v1.8.3 h1:QsBuIS6KvKsiEpe0yiHYKhWgXlqkcJ7XqFHtATj8Yh4=
-github.com/IBM-Cloud/power-go-client v1.8.3/go.mod h1:UDyXeIKEp6r7yWUXYu3r0ZnFSlNZ2YeQTHwM2Tmlgv0=
+github.com/IBM-Cloud/power-go-client v1.11.0 h1:4xlYXF2+S3s6Crb0D2+d5c1kb6gUE7eowMXLB7Q6cWY=
+github.com/IBM-Cloud/power-go-client v1.11.0/go.mod h1:UDyXeIKEp6r7yWUXYu3r0ZnFSlNZ2YeQTHwM2Tmlgv0=
 github.com/IBM/go-sdk-core/v5 v5.18.1 h1:wdftQO8xejECTWTKF3FGXyW0McKxxDAopH7MKwA187c=
 github.com/IBM/go-sdk-core/v5 v5.18.1/go.mod h1:3ywpylZ41WhWPusqtpJZWopYlt2brebcphV7mA2JncU=
 github.com/IBM/keyprotect-go-client v0.12.2 h1:Cjxcqin9Pl0xz3MnxdiVd4v/eIa79xL3hQpSbwOr/DQ=
