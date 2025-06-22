@@ -962,8 +962,8 @@ github.com/openshift/cloud-credential-operator v0.0.0-20240404165937-5e8812d6418
 github.com/openshift/cloud-credential-operator v0.0.0-20240404165937-5e8812d64187/go.mod h1:eyA6FG71366St6Q1TW+jXdQbald0rUwtEPhAREMlyhA=
 github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e h1:FWzYb0sH16yVOyySUwY5yXtZFW/U2bPoK38SEGjC5D8=
 github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e/go.mod h1:Q5WzHV1JZw/XNRnXCo8JfyOSegL13a+lhV4sc44lpSI=
-github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20230308152226-83c0473d4429 h1:2/6W0JbwAmEbDtHAHaJvoj6et532k3qaY/jFKK9uH3o=
-github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20230308152226-83c0473d4429/go.mod h1:jCWQvdjpxizEfnLAP7NyR3Itt0mMhRHxUScJZdaB2aM=
+github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20240104064818-a336f0b5f7ee h1:gLn3dNSE7k3SJMSrG0ebD73+ItIl61m0T9+dLINeGs0=
+github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20240104064818-a336f0b5f7ee/go.mod h1:jCWQvdjpxizEfnLAP7NyR3Itt0mMhRHxUScJZdaB2aM=
 github.com/openshift/cluster-api-provider-ovirt v0.1.1-0.20220323121149-e3f2850dd519 h1:foU7/s6DQczTFdZ/8H++pUC2Pzygqdz5ZgqUakksR5w=
 github.com/openshift/cluster-api-provider-ovirt v0.1.1-0.20220323121149-e3f2850dd519/go.mod h1:C7unCUThP8eqT4xQfbvg3oIDn2S9TYtb0wbBoH/SR2U=
 github.com/openshift/custom-resource-status v1.1.3-0.20220503160415-f2fdb4999d87 h1:cHyxR+Y8rAMT6m1jQCaYGRwikqahI0OjjUDhFNf3ySQ=
