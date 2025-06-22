@@ -16,7 +16,9 @@ import (
 
 // RecoveryIgnition generates the custom ignition file for the recovery ISO
 type RecoveryIgnition struct {
-	Config igntypes.Config
+	Unconfigured igntypes.Config
+	Bootstrap    igntypes.Config
+	Merged       igntypes.Config
 }
 
 var _ asset.Asset = (*RecoveryIgnition)(nil)
@@ -29,9 +31,9 @@ func (i *RecoveryIgnition) Name() string {
 // Dependencies returns dependencies used by the asset.
 func (i *RecoveryIgnition) Dependencies() []asset.Asset {
 	return []asset.Asset{
-		&BootstrapIgnition{},
 		&config.EnvConfig{},
 		&config.ApplianceConfig{},
+		&BootstrapIgnition{},
 		&manifests.UnconfiguredManifests{},
 	}
 }
@@ -64,12 +66,14 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 		return errors.Wrapf(err, "failed to fetch un-configured ignition")
 	}
 
-	unconfiguredIgnitionConfig, _, err := configv32.Parse(configBytes)
+	unconfiguredIgnition, _, err := configv32.Parse(configBytes)
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse un-configured ignition")
 	}
 
-	i.Config = configv32.Merge(unconfiguredIgnitionConfig, bootstrapIgnition.Config)
+	i.Unconfigured = unconfiguredIgnition
+	i.Bootstrap = bootstrapIgnition.Config
+	i.Merged = configv32.Merge(i.Unconfigured, i.Bootstrap)
 
 	logrus.Debug("Successfully generated recovery ignition")
 
