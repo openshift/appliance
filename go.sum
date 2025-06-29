@@ -284,8 +284,8 @@ github.com/coreos/ignition/v2 v2.20.0 h1:xQjrxhCbcSKpqrN2hOQavAc1rx0GOf6qh2QCauS
 github.com/coreos/ignition/v2 v2.20.0/go.mod h1:l7EpXNWA7jBXmjUMvnVBlrrj+LX2wA/PAyD9kstwFDQ=
 github.com/coreos/pkg v0.0.0-20160727233714-3ac0863d7acf/go.mod h1:E3G3o1h8I7cfcXa63jLwjI0eiQQMgzzUDFVpN/nH/eA=
 github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f/go.mod h1:E3G3o1h8I7cfcXa63jLwjI0eiQQMgzzUDFVpN/nH/eA=
-github.com/coreos/stream-metadata-go v0.4.5 h1:Ik1pPKKCug7TPw9rgqmlsU+dZkR+hDYFQ0iPpx5Ucrg=
-github.com/coreos/stream-metadata-go v0.4.5/go.mod h1:fMObQqQm8Ku91G04btKzEH3AsdP1mrAb986z9aaK0tE=
+github.com/coreos/stream-metadata-go v0.4.8 h1:vu9CiCFYCb/JpLq+LOjeWuxVhVH9tx1qc46fw1g+B48=
+github.com/coreos/stream-metadata-go v0.4.8/go.mod h1:fMObQqQm8Ku91G04btKzEH3AsdP1mrAb986z9aaK0tE=
 github.com/coreos/vcontext v0.0.0-20190529201340-22b159166068/go.mod h1:E+6hug9bFSe0KZ2ZAzr8M9F5JlArJjv5D1JS7KSkPKE=
 github.com/coreos/vcontext v0.0.0-20191017033345-260217907eb5/go.mod h1:E+6hug9bFSe0KZ2ZAzr8M9F5JlArJjv5D1JS7KSkPKE=
 github.com/coreos/vcontext v0.0.0-20231102161604-685dc7299dc5 h1:sMZSC2BW5LKCdvNbfN12SbKrNvtLBUNjfHZmMvI2ItY=
