@@ -892,8 +892,8 @@ github.com/nbutton23/zxcvbn-go v0.0.0-20180912185939-ae427f1e4c1d/go.mod h1:o96d
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nutanix-cloud-native/cluster-api-provider-nutanix v1.5.3 h1:6F2IrYW1Ky3oo44rGcvvGgUo6wqPA8fjjou3kjKVNbk=
 github.com/nutanix-cloud-native/cluster-api-provider-nutanix v1.5.3/go.mod h1:cujPL3lTeW8+zr8RUJCPDss1HHe81Hc9XxXMNrdTSqQ=
-github.com/nutanix-cloud-native/prism-go-client v0.5.0 h1:aSNuKDOK7+q676MQyetYXcySY41IjSvN2UmrDIU3+6s=
-github.com/nutanix-cloud-native/prism-go-client v0.5.0/go.mod h1:QhLX+sEep0cStzHVYU6mPgIlnA8U3DySskagrbDprRk=
+github.com/nutanix-cloud-native/prism-go-client v0.5.2 h1:qhFJeC3CRrWM8BTaNvxnjShVNH5E99z5MPU3a2BO14A=
+github.com/nutanix-cloud-native/prism-go-client v0.5.2/go.mod h1:N/O9fz5fimjb30RxlPbKbGs/Z2lqMgDqrb6CrsZvQrA=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8 h1:nPr65rt6Y5JFSKQO7qToXr7pePgD6Gwiw05lkbyAQTE=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
