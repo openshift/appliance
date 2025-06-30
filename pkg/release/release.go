@@ -198,7 +198,7 @@ func (r *release) copyOutputYamls(ocMirrorDir string) error {
 			return err
 		}
 
-		// Replace registry URI with "registry.appliance.com:5000"
+		// Replace localhost with internal registry URI
 		buildRegistryURI := fmt.Sprintf("127.0.0.1:%d", swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port))
 		internalRegistryURI := fmt.Sprintf("%s:%d", registry.RegistryDomain, registry.RegistryPort)
 		newYaml := strings.ReplaceAll(string(yamlBytes), buildRegistryURI, internalRegistryURI)
