@@ -20,7 +20,6 @@ cp /tmp/certs/domain.crt /etc/containers/certs.d/{{.RegistryDomain}}:5000
 cp /tmp/certs/domain.crt /etc/pki/ca-trust/source/anchors/
 update-ca-trust extract
 
-# Config registry dns
-# TODO: check if worth exposing only locally and/or support IPv6
-sed -i '/0.0.0.0 {{.RegistryDomain}}/d' /etc/hosts
-echo "0.0.0.0 {{.RegistryDomain}}" >> /etc/hosts
+# Config registry local dns
+sed -i '/127.0.0.1 {{.RegistryDomain}}/d' /etc/hosts
+echo "127.0.0.1 {{.RegistryDomain}}" >> /etc/hosts
