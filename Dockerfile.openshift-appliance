@@ -10,7 +10,7 @@ RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/openshift
 RUN cd registry && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/registry
 
 # Create final image
-FROM registry.access.redhat.com/ubi9/ubi:9.6-1750786174
+FROM registry.access.redhat.com/ubi9/ubi:9.6-1751287003
 
 # Create/Mount assets 
 ARG ASSETS_DIR=/assets
