@@ -90,7 +90,7 @@ func (a *RecoveryISO) Generate(_ context.Context, dependencies asset.Parents) er
 		EnvConfig:       envConfig,
 	}
 	c := coreos.NewCoreOS(coreOSConfig)
-	ignitionBytes, err := json.Marshal(recoveryIgnition.Config)
+	ignitionBytes, err := json.Marshal(recoveryIgnition.Merged)
 	if err != nil {
 		logrus.Errorf("Failed to marshal recovery ignition to json: %s", err.Error())
 		return log.StopSpinner(spinner, err)
