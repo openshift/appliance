@@ -1,6 +1,6 @@
 module github.com/openshift/appliance
 
-go 1.23.0
+go 1.23.2
 
 toolchain go1.23.9
 
@@ -19,8 +19,8 @@ require (
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/hashicorp/go-version v1.7.0
 	github.com/itchyny/gojq v0.12.17
-	github.com/onsi/ginkgo/v2 v2.19.1
-	github.com/onsi/gomega v1.34.0
+	github.com/onsi/ginkgo/v2 v2.23.4
+	github.com/onsi/gomega v1.37.0
 	github.com/openconfig/goyang v1.6.0
 	github.com/openshift/api v0.0.0-20240808203820-e69593239e49
 	github.com/openshift/assisted-image-service v0.0.0-20250301084320-0faa6d927ecd
@@ -65,9 +65,9 @@ require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/IBM-Cloud/bluemix-go v0.0.0-20250618042132-471bd83e0b74 // indirect
 	github.com/IBM-Cloud/power-go-client v1.8.3 // indirect
-	github.com/IBM/go-sdk-core/v5 v5.18.1 // indirect
+	github.com/IBM/go-sdk-core/v5 v5.20.1 // indirect
 	github.com/IBM/keyprotect-go-client v0.12.2 // indirect
-	github.com/IBM/networking-go-sdk v0.45.0 // indirect
+	github.com/IBM/networking-go-sdk v0.51.8 // indirect
 	github.com/IBM/platform-services-go-sdk v0.71.0 // indirect
 	github.com/IBM/vpc-go-sdk v0.61.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
@@ -109,7 +109,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
@@ -126,7 +126,7 @@ require (
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.19.0 // indirect
+	github.com/go-playground/validator/v10 v10.26.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gobuffalo/flect v1.0.2 // indirect
 	github.com/gofrs/uuid/v5 v5.2.0 // indirect
@@ -137,7 +137,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20250630185457-6e76a2b096b5 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
@@ -235,7 +235,7 @@ require (
 	github.com/vmware/govmomi v0.37.2 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	go.mongodb.org/mongo-driver v1.14.0 // indirect
+	go.mongodb.org/mongo-driver v1.17.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/bridges/prometheus v0.57.0 // indirect
 	go.opentelemetry.io/contrib/exporters/autoexport v0.57.0 // indirect
@@ -260,6 +260,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
+	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
@@ -276,7 +277,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20241104194629-dd2ea8efbc28 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241104194629-dd2ea8efbc28 // indirect
 	google.golang.org/grpc v1.68.0 // indirect
-	google.golang.org/protobuf v1.35.1 // indirect
+	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/evanphx/json-patch.v5 v5.6.0 // indirect
 	gopkg.in/gcfg.v1 v1.2.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
