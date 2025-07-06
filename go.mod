@@ -290,7 +290,7 @@ require (
 	k8s.io/cloud-provider-vsphere v1.30.1 // indirect
 	k8s.io/component-base v0.30.3 // indirect
 	k8s.io/klog v1.0.0 // indirect
-	k8s.io/klog/v2 v2.120.1 // indirect
+	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/kubectl v0.30.3 // indirect
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57 // indirect
