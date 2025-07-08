@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi:9.6-1751445649
+FROM registry.access.redhat.com/ubi9/ubi:9.6-1751897624
 
 COPY config.yml config.yml
 COPY registry registry
