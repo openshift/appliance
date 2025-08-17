@@ -740,6 +740,5 @@ Notes:
 * Ensure the target device is first in the boot order (i.e. the live ISO should be booted only once). Or, if the target device isn't empty, select the live ISO manually during boot.
 
 **:warning: Limitations:**
-* This flow is currently experimental.
 * A [recovery grub item](#recovery--reinstall) is not available using this flow.
 * It's mandatory to keep the ISO attached during cluster installation.

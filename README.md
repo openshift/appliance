@@ -17,6 +17,7 @@ of an OpenShift cluster. Thus, all required images are included in the appliance
 * libguestfs-tools
 * coreos-installer
 * oc
+* oc-mirror
 * skopeo
 * podman
 * go >= 1.19
@@ -50,17 +51,6 @@ make build
 
 #### Create config file (appliance-config.yaml)
 
-A configuration file named `appliance-config.yaml` is required for running the tool. The file should include the following properties:
-
-* ocpRelease.version: OCP release version in major.minor or major.minor.patch format (for major.minor, latest patch version will be used)
-* ocpRelease.channel: OCP release [update channel](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/updating_clusters/understanding-upgrade-channels-releases#understanding-upgrade-channels_understanding-upgrade-channels-releases) (stable|fast|eus|candidate)
-* ocpRelease.cpuArchitecture: CPU architecture of the release payload (x86_64|aarch64|ppc64le)
-* diskSizeGB: Virtual size of the appliance disk image (at least 150 GiB)
-* pullSecret: PullSecret required for mirroring the OCP release payload
-* sshKey: Public SSH key for accessing the appliance during the bootstrap phase.
-  * To access the cluster during or after installation, set the `sshKey` in [install-config.yaml](https://docs.openshift.com/container-platform/4.13/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html#installation-bare-metal-agent-installer-config-yaml_preparing-to-install-with-agent-based-installer)
-* userCorePass: Password for user 'core' to login from console
-
 ##### Generate config file template
 
 Using binary:
@@ -83,14 +73,18 @@ make run
 apiVersion: v1beta1
 kind: ApplianceConfig
 ocpRelease:
-  version: 4.14
-  channel: candidate
+  version: 4.19
+  channel: stable
   cpuArchitecture: x86_64
 diskSizeGB: 200
-pullSecret: ...
-sshKey: ...
-userCorePass: ...
+imageRegistry:
+  uri: docker.io/library/registry:2
+pullSecret: '...'
 ```
+
+Notes:
+* `imageRegistry` is mandatory when using the binary.
+* For more details, see [Appliance user-guide](docs/user-guide.md#set-appliance-config).
 
 #### Start appliance disk image build flow
 
