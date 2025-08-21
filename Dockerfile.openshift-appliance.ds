@@ -16,7 +16,7 @@ FROM registry.redhat.io/openshift4/ose-cli AS oc
 FROM registry.redhat.io/openshift4/oc-mirror-plugin-rhel9 AS oc-mirror
 
 # Create final image
-FROM registry.access.redhat.com/ubi9/ubi:9.6-1751445649
+FROM registry.access.redhat.com/ubi9/ubi:9.6-1755678605
 
 # Create/Mount assets 
 ARG ASSETS_DIR=/assets
