@@ -23,8 +23,6 @@ spec:
     value: '{{repo_url}}'
   - name: image-expires-after
     value: 5d
-  - name: build-platform
-    value: linux/x86_64
   - name: output-image
     value: quay.io/redhat-user-workloads/crt-nshift-appliance-tenant/appliance/appliance:on-pr-{{revision}}
   - name: path-context
@@ -250,7 +248,7 @@ spec:
       - name: IMAGE_APPEND_PLATFORM
         value: "true"
       - name: PLATFORM
-        value: $(params.build-platform)
+        value: "linux/x86_64"
       runAfter:
       - prefetch-dependencies
       taskRef:

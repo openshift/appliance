@@ -20,8 +20,6 @@ spec:
     value: Dockerfile.openshift-appliance.ds
   - name: git-url
     value: '{{repo_url}}'
-  - name: build-platform
-    value: linux/x86_64
   - name: output-image
     value: quay.io/redhat-user-workloads/crt-nshift-appliance-tenant/appliance/appliance:{{revision}}
   - name: path-context
@@ -247,7 +245,7 @@ spec:
       - name: IMAGE_APPEND_PLATFORM
         value: "true"
       - name: PLATFORM
-        value: $(params.build-platform)
+        value: "linux/x86_64"
       runAfter:
       - prefetch-dependencies
       taskRef:
