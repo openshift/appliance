@@ -1,7 +1,7 @@
 package consts
 
 const (
-	MaxOcpVersion = "4.20" // Latest supported version (update on each release)
+	MaxOcpVersion = "4.19" // Latest supported version (update on each release)
 	MinOcpVersion = "4.14"
 
 	// user.cfg template
