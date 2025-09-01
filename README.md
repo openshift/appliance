@@ -212,3 +212,4 @@ For full details about the supported properties and examples, refer to:
 The command outputs the following:
 * A non-bootable configuration ISO ( agentconfig.noarch.iso)
 * 'auth' directory: contains `kubeconfig` and `kubeadmin-password`
+
