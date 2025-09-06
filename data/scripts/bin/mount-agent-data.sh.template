@@ -26,27 +26,44 @@ create_data_device() {
     ) | dmsetup create data
 }
 
-mkdir -p $MNT_DIR
-
-if [ "{{.IsLiveISO}}" = "true" ]; then
-    # Wait for mount
+wait_for_iso_mount() {
     while ! mountpoint -q $ISO_DIR; do
         echo "Waiting for $ISO_DIR to be fully mounted..."
         sleep 5
     done
+}
 
+mount_registry_data_iso() {
+    registry_data_iso=/home/core/registry_data.iso
+
+    # If the registry data iso does not exist, create it
+    if [ ! -f "$registry_data_iso" ]; then
+        # Wait for the mount to be ready
+        wait_for_iso_mount
+
+        # Create the registry data iso
+        cat $ISO_DIR/data/data* > $registry_data_iso
+    fi
+
+    # Mount the registry data iso
+    mount -o ro $registry_data_iso $MNT_DIR
+}
+
+mkdir -p $MNT_DIR
+
+if [ "{{.IsLiveISO}}" = "true" ]; then
     if [ "{{.IsBootstrapStep}}" = "true" ]; then
+        # Wait for the mount to be ready
+        wait_for_iso_mount
+
         # Create virtual device for the registry data
         create_data_device
 
         # Mount data iso
         mount -o ro /dev/dm-0 $MNT_DIR
     else
-        registry_data_iso=/home/core/registry_data.iso
-        if [ ! -f "$registry_data_iso" ]; then
-            cat $ISO_DIR/data/data* > $registry_data_iso
-        fi
-        mount -o ro $registry_data_iso $MNT_DIR
+        # Mount the registry data iso
+        mount_registry_data_iso
     fi
 else # Disk image mode
     # Mount agentdata partition
