@@ -2,7 +2,7 @@ module github.com/openshift/appliance
 
 go 1.23.0
 
-toolchain go1.23.9
+toolchain go1.25.1
 
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
