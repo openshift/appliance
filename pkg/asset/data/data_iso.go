@@ -100,6 +100,7 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 			DataDirPath: registryDir,
 			URI:         registryUri,
 			Port:        swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+			UseBinary:   swag.BoolValue(applianceConfig.Config.ImageRegistry.UseBinary),
 		})
 
 	if err = releaseImageRegistry.StartRegistry(); err != nil {
