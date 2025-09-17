@@ -69,6 +69,7 @@ const (
 	// Appliance config flags (default values)
 	EnableDefaultSources  = false
 	StopLocalRegistry     = false
+	UseRegistryBinary     = false
 	CreatePinnedImageSets = false
 	EnableFips            = false
 	EnableInteractiveFlow = false

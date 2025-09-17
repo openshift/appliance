@@ -119,6 +119,10 @@ imageRegistry:
   # Default: 5005
   # [Optional]
   port: port
+  # Use the registry binary built internally (to avoid nested containers when running the image).
+  # Default: false
+  # [Optional]
+  useBinary: use-binary
 # Enable all default CatalogSources (on openshift-marketplace namespace).
 # Should be disabled for disconnected environments.
 # Default: false
