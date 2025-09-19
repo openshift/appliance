@@ -11,7 +11,7 @@ done
 
 # Stop local registry
 echo "Stopping the local registry..."
-sudo systemctl stop start-local-registry.service
+sudo systemctl disable --now start-local-registry.service
 
 # Remove selector label set in 99-(master|worker)-generated-registries
 # This will delete mirror configuration in /etc/containers/registries.conf

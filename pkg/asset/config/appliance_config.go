@@ -143,10 +143,16 @@ pullSecret: pull-secret
   # - quay.io/libpod/registry:2.8
   # [Optional]
   # uri: uri
+  #
   # The image registry container TCP port to bind. A valid port number is between %d and %d.
   # Default: %d
   # [Optional]
   # port: port
+  #
+  # Use the registry binary built internally (to avoid nested containers when running the image).
+  # Default: false
+  # [Optional]
+  # useBinary: %t
 
 # Enable all default CatalogSources (on openshift-marketplace namespace).
 # Should be disabled for disconnected environments.
@@ -158,7 +164,7 @@ pullSecret: pull-secret
 # Note that additional images and operators won't be available when stopped.
 # Default: false
 # [Optional]
-stopLocalRegistry: %t
+# stopLocalRegistry: %t
 
 # Create PinnedImageSets for both the master and worker MCPs.
 # The PinnedImageSets will include all the images included in the appliance disk image.
@@ -216,7 +222,7 @@ stopLocalRegistry: %t
 		types.ApplianceConfigApiVersion,
 		consts.MinOcpVersion, consts.MaxOcpVersion,
 		graph.ReleaseChannelStable, CpuArchitectureX86, MinDiskSize,
-		RegistryMinPort, RegistryMaxPort, consts.RegistryPort,
+		RegistryMinPort, RegistryMaxPort, consts.RegistryPort, consts.UseRegistryBinary,
 		consts.EnableDefaultSources, consts.StopLocalRegistry, consts.CreatePinnedImageSets,
 		consts.EnableFips, consts.EnableInteractiveFlow, consts.UseDefaultSourceNames)
 

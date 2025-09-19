@@ -13,6 +13,7 @@ import (
 //go:generate mockgen -source=executer.go -package=executer -destination=mock_executer.go
 type Executer interface {
 	Execute(command string) (string, error)
+	ExecuteBackground(command string, envVars []string) error
 	TempFile(dir, pattern string) (f *os.File, err error)
 }
 
@@ -32,6 +33,15 @@ func (e *executer) Execute(command string) (string, error) {
 		return "", errors.New(fmt.Sprintf("Failed to execute cmd (%s): %s", cmd, string(combinedOutput)))
 	}
 	return strings.TrimSuffix(string(combinedOutput), "\n"), nil
+}
+
+// Execute command in background
+func (e *executer) ExecuteBackground(command string, envVars []string) error {
+	formattedCmd, args := e.formatCommand(command)
+	logrus.Debugf("Running cmd: %s %s", formattedCmd, strings.Join(args[:], " "))
+	cmd := exec.Command(formattedCmd, args...)
+	cmd.Env = envVars
+	return cmd.Start()
 }
 
 func (e *executer) TempFile(dir, pattern string) (f *os.File, err error) {

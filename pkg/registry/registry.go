@@ -19,11 +19,12 @@ import (
 )
 
 const (
-	registryStartCmd = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%d %s"
-	registryStopCmd  = "podman rm registry -f"
-	registryBuildCmd = "podman build -f Dockerfile.registry -t registry ."
-	registrySaveCmd  = "podman save -o %s/registry.tar %s"
-	registryLoadCmd  = "podman load -q -i %s/registry.tar"
+	registryStartCmd     = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%d %s"
+	registryStopCmd      = "podman rm registry -f"
+	registryBuildCmd     = "podman build -f Dockerfile.registry -t registry ."
+	registrySaveCmd      = "podman save -o %s/registry.tar %s"
+	registryLoadCmd      = "podman load -q -i %s/registry.tar"
+	registryRunBinaryCmd = "/registry serve config.yml"
 
 	registryAttempts             = 3
 	registrySleepBetweenAttempts = 5
@@ -47,6 +48,7 @@ type RegistryConfig struct {
 	Port        int
 	URI         string
 	DataDirPath string
+	UseBinary   bool
 }
 
 type registry struct {
@@ -88,8 +90,6 @@ func (r *registry) verifyRegistryAvailability(registryURL string) error {
 
 func (r *registry) StartRegistry() error {
 	var err error
-	_ = r.StopRegistry()
-
 	if err = os.RemoveAll(r.DataDirPath); err != nil {
 		return err
 	}
@@ -97,23 +97,56 @@ func (r *registry) StartRegistry() error {
 		return err
 	}
 
-	_, err = r.Executer.Execute(fmt.Sprintf(registryStartCmd, r.DataDirPath, r.Port, r.URI))
+	if r.UseBinary {
+		err = r.runRegistryBinary()
+	} else {
+		err = r.runRegistryImage()
+	}
 	if err != nil {
-		return errors.Wrapf(err, "registry start failure")
+		return err
 	}
 
 	if err = r.verifyRegistryAvailability(r.registryURL); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (r *registry) runRegistryImage() error {
+	_ = r.StopRegistry()
+
+	logrus.Debug("Running registry image")
+	_, err := r.Executer.Execute(fmt.Sprintf(registryStartCmd, r.DataDirPath, r.Port, r.URI))
+	if err != nil {
+		return errors.Wrapf(err, "registry start failure")
+	}
+	return nil
+}
+
+func (r *registry) runRegistryBinary() error {
+	// Add env vars
+	envVars := os.Environ()
+	envVars = append(envVars, fmt.Sprintf("REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=%s", r.DataDirPath))
+	envVars = append(envVars, fmt.Sprintf("REGISTRY_HTTP_ADDR=127.0.0.1:%d", r.Port))
+
+	// Run the registry binary
+	logrus.Debug("Running registry binary")
+	err := r.Executer.ExecuteBackground(registryRunBinaryCmd, envVars)
+	if err != nil {
+		return errors.Wrapf(err, "registry binary run failure")
+	}
 	return nil
 }
 
 func (r *registry) StopRegistry() error {
+	if r.UseBinary {
+		return nil
+	}
 	logrus.Debug("Stopping registry container")
 	_, err := r.Executer.Execute(registryStopCmd)
 	if err != nil {
 		return errors.Wrapf(err, "registry stop failure")
-
 	}
 	return nil
 }

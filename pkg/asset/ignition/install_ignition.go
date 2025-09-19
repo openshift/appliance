@@ -45,6 +45,7 @@ var (
 		"set-node-zero.sh",
 		"setup-local-registry-upgrade.sh",
 		"start-cluster-upgrade.sh",
+		"stop-local-registry.sh",
 		"mount-agent-data.sh",
 		"apply-operator-crs.sh",
 	}
@@ -97,7 +98,6 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 
 	if swag.BoolValue(applianceConfig.Config.StopLocalRegistry) {
 		installServices = append(installServices, "stop-local-registry.service")
-		installScripts = append(installScripts, "stop-local-registry.sh")
 	}
 
 	if swag.BoolValue(applianceConfig.Config.CreatePinnedImageSets) && i.isOcpVersionCompatibleWithPinnedImageSet(applianceConfig) {

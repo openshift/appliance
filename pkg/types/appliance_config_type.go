@@ -37,8 +37,9 @@ type ReleaseImage struct {
 }
 
 type ImageRegistry struct {
-	URI  *string `json:"uri"`
-	Port *int    `json:"port"`
+	URI       *string `json:"uri"`
+	Port      *int    `json:"port"`
+	UseBinary *bool   `json:"useBinary"`
 }
 
 // Structs copied from oc-mirror: https://github.com/openshift/oc-mirror/blob/main/v2/pkg/api/v1alpha2/types_config.go
