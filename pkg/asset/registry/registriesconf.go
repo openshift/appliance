@@ -1,8 +1,11 @@
 package registry
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,6 +53,8 @@ type ImageDigestMirror struct {
 type RegistriesConf struct {
 	File   *asset.File
 	Config *sysregistriesv2.V2RegistriesConf
+
+	fSys fs.FS
 }
 
 var _ asset.Asset = (*RegistriesConf)(nil)
@@ -74,7 +79,11 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
 
-	releaseImagesLocation, releaseLocation := i.getEndpointLocations(envConfig.CacheDir)
+	if i.fSys == nil {
+		i.fSys = os.DirFS(envConfig.CacheDir)
+	}
+
+	releaseImagesLocation, releaseLocation := i.getEndpointLocations()
 	registries := &sysregistriesv2.V2RegistriesConf{
 		Registries: []sysregistriesv2.Registry{
 			{
@@ -121,33 +130,41 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 	return nil
 }
 
-func (i *RegistriesConf) getEndpointLocations(cacheDir string) (string, string) {
+func (i *RegistriesConf) getEndpointLocations() (string, string) {
 	releaseImagesLocation := "quay.io/openshift-release-dev/ocp-release"
 	releaseLocation := "quay.io/openshift-release-dev/ocp-v4.0-art-dev"
 
-	idmsFile, err := os.ReadFile(filepath.Join(cacheDir, idmsFileName))
+	idmsFile, err := fs.ReadFile(i.fSys, idmsFileName)
 	if err != nil {
 		logrus.Debugf("missing IDMS yaml (%v), fallback to defaults.", err)
 		return releaseImagesLocation, releaseLocation
 	}
-	var idms *ImageDigestMirrorSet
-	if err := yaml.UnmarshalStrict(idmsFile, &idms); err != nil {
-		logrus.Debugf("failed to unmarshal IDMS yaml (%v), fallback to defaults.", err)
-		return releaseImagesLocation, releaseLocation
-	}
 
-	for _, digestMirrors := range idms.Spec.ImageDigestMirrors {
-		if len(digestMirrors.Mirrors) == 0 {
-			continue
+	dec := yaml.NewDecoder(bytes.NewReader(idmsFile))
+	dec.SetStrict(true)
+
+	for {
+		var idms ImageDigestMirrorSet
+		if err := dec.Decode(&idms); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			logrus.Debugf("failed to unmarshal IDMS yaml (%v)", err)
 		}
-		location := digestMirrors.Mirrors[0]
-		if strings.HasSuffix(location, "release-images") {
-			releaseImagesLocation = digestMirrors.Source
-		} else if strings.HasSuffix(location, "release") {
-			releaseLocation = digestMirrors.Source
+
+		for _, digestMirrors := range idms.Spec.ImageDigestMirrors {
+			if len(digestMirrors.Mirrors) == 0 {
+				continue
+			}
+			location := digestMirrors.Mirrors[0]
+			if strings.HasSuffix(location, "release-images") {
+				releaseImagesLocation = digestMirrors.Source
+			} else if strings.HasSuffix(location, "release") {
+				releaseLocation = digestMirrors.Source
+			}
 		}
 	}
-
+	logrus.Debugf("endpoints locations: %s, %s", releaseImagesLocation, releaseLocation)
 	return releaseImagesLocation, releaseLocation
 }
 
