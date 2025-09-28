@@ -1,8 +1,8 @@
 module github.com/openshift/appliance
 
-go 1.23.0
+go 1.24.0
 
-toolchain go1.23.9
+toolchain go1.24.6
 
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
@@ -13,7 +13,7 @@ require (
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coreos/ignition/v2 v2.20.0
 	github.com/coreos/stream-metadata-go v0.4.5
-	github.com/diskfs/go-diskfs v1.4.1
+	github.com/diskfs/go-diskfs v1.7.0
 	github.com/distribution/distribution/v3 v3.0.0-rc.3
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-openapi/swag v0.23.0
@@ -74,6 +74,7 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
+	github.com/anchore/go-lzo v0.1.0 // indirect
 	github.com/apparentlymart/go-cidr v1.1.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go v1.55.5 // indirect

@@ -165,6 +165,8 @@ github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRF
 github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b h1:mimo19zliBX/vSQ6PWWSL9lK8qwHozUj03+zLoEB8O0=
 github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b/go.mod h1:fvzegU4vN3H1qMT+8wDmzjAcDONcgo2/SZ/TyfdUOFs=
+github.com/anchore/go-lzo v0.1.0 h1:NgAacnzqPeGH49Ky19QKLBZEuFRqtTG9cdaucc3Vncs=
+github.com/anchore/go-lzo v0.1.0/go.mod h1:3kLx0bve2oN1iDwgM1U5zGku1Tfbdb0No5qp1eL1fIk=
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883/go.mod h1:rCTlJbsFo29Kk6CurOXKm700vrz8f0KW0JNfpkRJY/8=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230321174746-8dcc6526cfb1 h1:X8MJ0fnN5FPdcGF5Ij2/OW+HgiJrRg3AfHAx1PJtIzM=
@@ -312,8 +314,8 @@ github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cu
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/digitalocean/go-libvirt v0.0.0-20250616175656-5843751af96c h1:VTYS0X+Vfs/W5ABzT5SerR4bTc5n27oOVgGqM2Tbg90=
 github.com/digitalocean/go-libvirt v0.0.0-20250616175656-5843751af96c/go.mod h1:GwQQeZzqvtOneY034nAMNxnXA/6aXd/9z7uDm7Hb8sk=
-github.com/diskfs/go-diskfs v1.4.1 h1:iODgkzHLmvXS+1VDztpW53T+dQm8GQzi20y9yUd5UCA=
-github.com/diskfs/go-diskfs v1.4.1/go.mod h1:+tOkQs8CMMog6Nvljg8DGIxEXrgL48iyT3OM3IlSz74=
+github.com/diskfs/go-diskfs v1.7.0 h1:vonWmt5CMowXwUc79jWyGrf2DIMeoOjkLlMnQYGVOs8=
+github.com/diskfs/go-diskfs v1.7.0/go.mod h1:LhQyXqOugWFRahYUSw47NyZJPezFzB9UELwhpszLP/k=
 github.com/distribution/distribution/v3 v3.0.0-rc.3 h1:JRJso9IVLoooKX76oWR+DWCCdZlK5m4nRtDWvzB1ITg=
 github.com/distribution/distribution/v3 v3.0.0-rc.3/go.mod h1:offoOgrnYs+CFwis8nE0hyzYZqRCZj5EFc5kgfszwiE=
 github.com/distribution/reference v0.6.0 h1:0IXCQ5g4/QMHHkarYzh5l+u8T3t73zM5QvfrDyIgxBk=
