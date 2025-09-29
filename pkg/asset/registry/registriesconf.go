@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,10 +12,10 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/installer/pkg/asset"
+	agentManifests "github.com/openshift/installer/pkg/asset/agent/manifests"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -50,6 +51,8 @@ type ImageDigestMirror struct {
 type RegistriesConf struct {
 	File   *asset.File
 	Config *sysregistriesv2.V2RegistriesConf
+
+	fSys fs.FS
 }
 
 var _ asset.Asset = (*RegistriesConf)(nil)
@@ -74,7 +77,11 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
 
-	releaseImagesLocation, releaseLocation := i.getEndpointLocations(envConfig.CacheDir)
+	if i.fSys == nil {
+		i.fSys = os.DirFS(envConfig.CacheDir)
+	}
+
+	releaseImagesLocation, releaseLocation := i.getEndpointLocations()
 	registries := &sysregistriesv2.V2RegistriesConf{
 		Registries: []sysregistriesv2.Registry{
 			{
@@ -121,33 +128,36 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 	return nil
 }
 
-func (i *RegistriesConf) getEndpointLocations(cacheDir string) (string, string) {
+func (i *RegistriesConf) getEndpointLocations() (string, string) {
 	releaseImagesLocation := "quay.io/openshift-release-dev/ocp-release"
 	releaseLocation := "quay.io/openshift-release-dev/ocp-v4.0-art-dev"
 
-	idmsFile, err := os.ReadFile(filepath.Join(cacheDir, idmsFileName))
+	idmsFile, err := fs.ReadFile(i.fSys, idmsFileName)
 	if err != nil {
 		logrus.Debugf("missing IDMS yaml (%v), fallback to defaults.", err)
 		return releaseImagesLocation, releaseLocation
 	}
-	var idms *ImageDigestMirrorSet
-	if err := yaml.UnmarshalStrict(idmsFile, &idms); err != nil {
-		logrus.Debugf("failed to unmarshal IDMS yaml (%v), fallback to defaults.", err)
+
+	idmsManifests, err := agentManifests.GetMultipleYamls[ImageDigestMirrorSet](idmsFile)
+	if err != nil {
+		logrus.Debugf("could not decode YAML for %s (%v), fallback to defaults.", idmsFileName, err)
 		return releaseImagesLocation, releaseLocation
 	}
 
-	for _, digestMirrors := range idms.Spec.ImageDigestMirrors {
-		if len(digestMirrors.Mirrors) == 0 {
-			continue
-		}
-		location := digestMirrors.Mirrors[0]
-		if strings.HasSuffix(location, "release-images") {
-			releaseImagesLocation = digestMirrors.Source
-		} else if strings.HasSuffix(location, "release") {
-			releaseLocation = digestMirrors.Source
+	for _, idms := range idmsManifests {
+		for _, digestMirrors := range idms.Spec.ImageDigestMirrors {
+			if len(digestMirrors.Mirrors) == 0 {
+				continue
+			}
+			location := digestMirrors.Mirrors[0]
+			if strings.HasSuffix(location, "release-images") {
+				releaseImagesLocation = digestMirrors.Source
+			} else if strings.HasSuffix(location, "release") {
+				releaseLocation = digestMirrors.Source
+			}
 		}
 	}
-
+	logrus.Debugf("endpoints locations: %s, %s", releaseImagesLocation, releaseLocation)
 	return releaseImagesLocation, releaseLocation
 }
 
