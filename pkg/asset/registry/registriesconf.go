@@ -1,10 +1,8 @@
 package registry
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -14,10 +12,10 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/installer/pkg/asset"
+	agentManifests "github.com/openshift/installer/pkg/asset/agent/manifests"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -140,18 +138,13 @@ func (i *RegistriesConf) getEndpointLocations() (string, string) {
 		return releaseImagesLocation, releaseLocation
 	}
 
-	dec := yaml.NewDecoder(bytes.NewReader(idmsFile))
-	dec.SetStrict(true)
+	idmsManifests, err := agentManifests.GetMultipleYamls[ImageDigestMirrorSet](idmsFile)
+	if err != nil {
+		logrus.Debugf("could not decode YAML for %s (%v), fallback to defaults.", idmsFileName, err)
+		return releaseImagesLocation, releaseLocation
+	}
 
-	for {
-		var idms ImageDigestMirrorSet
-		if err := dec.Decode(&idms); err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			logrus.Debugf("failed to unmarshal IDMS yaml (%v)", err)
-		}
-
+	for _, idms := range idmsManifests {
 		for _, digestMirrors := range idms.Spec.ImageDigestMirrors {
 			if len(digestMirrors.Mirrors) == 0 {
 				continue
