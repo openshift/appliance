@@ -28,6 +28,14 @@ var _ = Describe("Test RegistriesConf", func() {
 		}
 	})
 
+	It("OpenShift CI like mirror file", func() {
+		fakeFileSystem[idmsFileName] = createOpenShiftCIMirrorFile()
+
+		err := r.Generate(context.Background(), deps)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(r.File.Data)).To(Equal("unqualified-search-registries = []\n\n[[registry]]\n  location = \"quay-proxy.ci.openshift.org/openshift/ci\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5000/openshift/release\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release\"\n\n[[registry]]\n  location = \"registry.build05.ci.openshift.org/ci-op-f7f21dkx/stable\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5000/openshift/release\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release\"\n\n[[registry]]\n  location = \"registry.build05.ci.openshift.org/ci-op-f7f21dkx/release\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5000/openshift/release-images\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release-images\"\n"))
+	})
+
 	It("Single Yaml", func() {
 		fakeFileSystem[idmsFileName] = createSingleYamlIDMSMirrorFile()
 
@@ -41,14 +49,35 @@ var _ = Describe("Test RegistriesConf", func() {
 
 		err := r.Generate(context.Background(), deps)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(string(r.File.Data)).Should(ContainSubstring("registry.ci.openshift.org"))
+		Expect(string(r.File.Data)).To(Equal("unqualified-search-registries = []\n\n[[registry]]\n  location = \"registry.redhat.io/container-native-virtualization\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5000/container-native-virtualization\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/container-native-virtualization\"\n\n[[registry]]\n  location = \"registry.redhat.io/openshift4\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5000/openshift4\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift4\"\n\n[[registry]]\n  location = \"registry.redhat.io/workload-availability\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5000/workload-availability\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/workload-availability\"\n\n[[registry]]\n  location = \"registry.redhat.io/migration-toolkit-virtualization\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5000/migration-toolkit-virtualization\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/migration-toolkit-virtualization\"\n\n[[registry]]\n  location = \"registry.redhat.io/kube-descheduler-operator\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5000/kube-descheduler-operator\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/kube-descheduler-operator\"\n\n[[registry]]\n  location = \"registry.ci.openshift.org/ocp/release\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5000/openshift/release-images\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release-images\"\n\n[[registry]]\n  location = \"quay.io/openshift-release-dev/ocp-v4.0-art-dev\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5000/openshift/release\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release\"\n"))
 	})
-
 })
 
 func TestRegistriesConf(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "registriesconf_test")
+}
+
+// In an OpenShift CI job, the quay-proxy may be also
+// present as an additional mirroring location
+func createOpenShiftCIMirrorFile() *fstest.MapFile {
+	return &fstest.MapFile{
+		Data: []byte(`apiVersion: config.openshift.io/v1
+kind: ImageDigestMirrorSet
+metadata:
+  name: idms-release-0
+spec:
+  imageDigestMirrors:
+  - mirrors:
+    - 127.0.0.1:5005/openshift/release
+    source: quay-proxy.ci.openshift.org/openshift/ci
+  - mirrors:
+    - 127.0.0.1:5005/openshift/release
+    source: registry.build05.ci.openshift.org/ci-op-f7f21dkx/stable
+  - mirrors:
+    - 127.0.0.1:5005/openshift/release-images
+    source: registry.build05.ci.openshift.org/ci-op-f7f21dkx/release
+status: {}`)}
 }
 
 func createSingleYamlIDMSMirrorFile() *fstest.MapFile {
@@ -61,10 +90,10 @@ metadata:
 spec:
   imageDigestMirrors:
   - mirrors:
-    - registry.appliance.openshift.com:5000/openshift/release-images
+    - 127.0.0.1:5005/openshift/release-images
     source: registry.ci.openshift.org/ocp/release
   - mirrors:
-    - registry.appliance.openshift.com:5000/openshift/release
+    - 127.0.0.1:5005/openshift/release
     source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
 status: {}`)}
 }
@@ -78,19 +107,19 @@ metadata:
 spec:
   imageDigestMirrors:
   - mirrors:
-    - registry.appliance.openshift.com:5000/container-native-virtualization
+    - 127.0.0.1:5005/container-native-virtualization
     source: registry.redhat.io/container-native-virtualization
   - mirrors:
-    - registry.appliance.openshift.com:5000/openshift4
+    - 127.0.0.1:5005/openshift4
     source: registry.redhat.io/openshift4
   - mirrors:
-    - registry.appliance.openshift.com:5000/workload-availability
+    - 127.0.0.1:5005/workload-availability
     source: registry.redhat.io/workload-availability
   - mirrors:
-    - registry.appliance.openshift.com:5000/migration-toolkit-virtualization
+    - 127.0.0.1:5005/migration-toolkit-virtualization
     source: registry.redhat.io/migration-toolkit-virtualization
   - mirrors:
-    - registry.appliance.openshift.com:5000/kube-descheduler-operator
+    - 127.0.0.1:5005/kube-descheduler-operator
     source: registry.redhat.io/kube-descheduler-operator
 status: {}
 ---
@@ -101,10 +130,10 @@ metadata:
 spec:
   imageDigestMirrors:
   - mirrors:
-    - registry.appliance.openshift.com:5000/openshift/release-images
+    - 127.0.0.1:5005/openshift/release-images
     source: registry.ci.openshift.org/ocp/release
   - mirrors:
-    - registry.appliance.openshift.com:5000/openshift/release
+    - 127.0.0.1:5005/openshift/release
     source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
 status: {}`)}
 }

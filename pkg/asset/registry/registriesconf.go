@@ -6,7 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
+	"regexp"
 
 	"github.com/containers/image/pkg/sysregistriesv2"
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -81,38 +81,9 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 		i.fSys = os.DirFS(envConfig.CacheDir)
 	}
 
-	releaseImagesLocation, releaseLocation := i.getEndpointLocations()
-	registries := &sysregistriesv2.V2RegistriesConf{
-		Registries: []sysregistriesv2.Registry{
-			{
-				Endpoint: sysregistriesv2.Endpoint{
-					Location: releaseImagesLocation,
-				},
-				Mirrors: []sysregistriesv2.Endpoint{
-					{
-						Location: fmt.Sprintf("%s:%d/openshift/release-images", RegistryDomain, RegistryPort),
-					},
-					// Mirror for the upgrade registry
-					{
-						Location: fmt.Sprintf("%s:%d/openshift/release-images", RegistryDomain, RegistryPortUpgrade),
-					},
-				},
-			},
-			{
-				Endpoint: sysregistriesv2.Endpoint{
-					Location: releaseLocation,
-				},
-				Mirrors: []sysregistriesv2.Endpoint{
-					{
-						Location: fmt.Sprintf("%s:%d/openshift/release", RegistryDomain, RegistryPort),
-					},
-					// Mirror for the upgrade registry
-					{
-						Location: fmt.Sprintf("%s:%d/openshift/release", RegistryDomain, RegistryPortUpgrade),
-					},
-				},
-			},
-		},
+	registries, err := i.generateRegistries()
+	if err != nil {
+		return err
 	}
 
 	registriesData, err := toml.Marshal(registries)
@@ -128,37 +99,42 @@ func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents)
 	return nil
 }
 
-func (i *RegistriesConf) getEndpointLocations() (string, string) {
-	releaseImagesLocation := "quay.io/openshift-release-dev/ocp-release"
-	releaseLocation := "quay.io/openshift-release-dev/ocp-v4.0-art-dev"
-
+func (i *RegistriesConf) generateRegistries() (*sysregistriesv2.V2RegistriesConf, error) {
 	idmsFile, err := fs.ReadFile(i.fSys, idmsFileName)
 	if err != nil {
-		logrus.Debugf("missing IDMS yaml (%v), fallback to defaults.", err)
-		return releaseImagesLocation, releaseLocation
+		return nil, err
 	}
 
 	idmsManifests, err := agentManifests.GetMultipleYamls[ImageDigestMirrorSet](idmsFile)
 	if err != nil {
-		logrus.Debugf("could not decode YAML for %s (%v), fallback to defaults.", idmsFileName, err)
-		return releaseImagesLocation, releaseLocation
+		return nil, err
 	}
 
+	regs := &sysregistriesv2.V2RegistriesConf{}
+
 	for _, idms := range idmsManifests {
-		for _, digestMirrors := range idms.Spec.ImageDigestMirrors {
-			if len(digestMirrors.Mirrors) == 0 {
-				continue
+		for _, idmsMirror := range idms.Spec.ImageDigestMirrors {
+			r := sysregistriesv2.Registry{
+				Endpoint: sysregistriesv2.Endpoint{
+					Location: idmsMirror.Source,
+				},
 			}
-			location := digestMirrors.Mirrors[0]
-			if strings.HasSuffix(location, "release-images") {
-				releaseImagesLocation = digestMirrors.Source
-			} else if strings.HasSuffix(location, "release") {
-				releaseLocation = digestMirrors.Source
+			logrus.Debugf("adding mirrors for %s", r.Endpoint.Location)
+			for _, m := range idmsMirror.Mirrors {
+				re := regexp.MustCompile(`^[^/]+`)
+				r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
+					Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", RegistryDomain, RegistryPort)),
+				})
+				r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
+					Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", RegistryDomain, RegistryPortUpgrade)),
+				})
 			}
+			regs.Registries = append(regs.Registries, r)
 		}
 	}
-	logrus.Debugf("endpoints locations: %s, %s", releaseImagesLocation, releaseLocation)
-	return releaseImagesLocation, releaseLocation
+
+	logrus.Debugf("registries generation completed")
+	return regs, nil
 }
 
 func (i *RegistriesConf) Load(f asset.FileFetcher) (bool, error) {
