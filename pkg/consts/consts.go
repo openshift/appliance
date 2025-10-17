@@ -72,6 +72,5 @@ const (
 	UseRegistryBinary     = false
 	CreatePinnedImageSets = false
 	EnableFips            = false
-	EnableInteractiveFlow = false
 	UseDefaultSourceNames = false
 )

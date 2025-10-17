@@ -22,7 +22,6 @@ type ApplianceConfig struct {
 	EnableFips            *bool          `json:"enableFips"`
 	StopLocalRegistry     *bool          `json:"stopLocalRegistry"`
 	CreatePinnedImageSets *bool          `json:"createPinnedImageSets"`
-	EnableInteractiveFlow *bool          `json:"enableInteractiveFlow"`
 	UseDefaultSourceNames *bool          `json:"useDefaultSourceNames"`
 	AdditionalImages      *[]Image       `json:"additionalImages,omitempty"`
 	BlockedImages         *[]Image       `json:"blockedImages,omitempty"`
