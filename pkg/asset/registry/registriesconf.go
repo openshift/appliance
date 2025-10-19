@@ -119,7 +119,7 @@ func (i *RegistriesConf) generateRegistries() (*sysregistriesv2.V2RegistriesConf
 					Location: idmsMirror.Source,
 				},
 			}
-			logrus.Debugf("adding mirrors for %s", r.Endpoint.Location)
+			logrus.Debugf("adding mirrors for %s", r.Location)
 			for _, m := range idmsMirror.Mirrors {
 				re := regexp.MustCompile(`^[^/]+`)
 				r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
