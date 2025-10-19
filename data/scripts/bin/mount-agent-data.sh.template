@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 ISO_DIR=/run/media/iso
+# The name must NOT start with "agent"
+DEV_NAME=ocpregistrydata
 MNT_DIR=/mnt/agentdata
 
 create_data_device() {
@@ -23,7 +25,7 @@ create_data_device() {
             echo "$start $size linear $device 0"
             ((start+=$size))
         done
-    ) | dmsetup create data
+    ) | dmsetup create "${DEV_NAME}"
 }
 
 wait_for_iso_mount() {
@@ -60,7 +62,7 @@ if [ "{{.IsLiveISO}}" = "true" ]; then
         create_data_device
 
         # Mount data iso
-        mount -o ro /dev/dm-0 $MNT_DIR
+        mount -o ro "/dev/mapper/${DEV_NAME}" $MNT_DIR
     else
         # Mount the registry data iso
         mount_registry_data_iso
