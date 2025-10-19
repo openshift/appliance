@@ -140,7 +140,6 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	// Add bootstrap scripts to ignition
 	templateData := templates.GetBootstrapIgnitionTemplateData(
 		envConfig.IsLiveISO,
-		swag.BoolValue(applianceConfig.Config.EnableInteractiveFlow),
 		applianceConfig.Config.OcpRelease,
 		bootstrapRegistryDataPath,
 		string(installIgnitionConfig),
