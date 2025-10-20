@@ -1,8 +1,8 @@
 module github.com/openshift/appliance
 
-go 1.23.0
+go 1.24.0
 
-toolchain go1.23.9
+toolchain go1.24.6
 
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
@@ -37,7 +37,6 @@ require (
 	github.com/thoas/go-funk v0.9.3
 	golang.org/x/crypto v0.39.0
 	golang.org/x/term v0.32.0
-	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.30.3
 	k8s.io/apimachinery v0.30.3
 	sigs.k8s.io/yaml v1.4.0
@@ -177,7 +176,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/metal3-io/baremetal-operator/apis v0.4.0 // indirect
-	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.4.0 // indirect
+	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.11.1 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/microsoft/kiota-abstractions-go v0.18.0 // indirect
 	github.com/microsoft/kiota-authentication-azure-go v0.6.0 // indirect
@@ -282,6 +281,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.24.5 // indirect
 	k8s.io/apiextensions-apiserver v0.30.3 // indirect
