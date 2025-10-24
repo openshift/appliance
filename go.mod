@@ -37,7 +37,6 @@ require (
 	github.com/thoas/go-funk v0.9.3
 	golang.org/x/crypto v0.39.0
 	golang.org/x/term v0.32.0
-	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.30.3
 	k8s.io/apimachinery v0.30.3
 	sigs.k8s.io/yaml v1.4.0
@@ -172,6 +171,7 @@ require (
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/lib/pq v1.10.9 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -282,6 +282,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.24.5 // indirect
 	k8s.io/apiextensions-apiserver v0.30.3 // indirect
@@ -311,7 +312,7 @@ require (
 replace (
 	github.com/docker/docker => github.com/docker/docker v28.0.1+incompatible
 	github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20230831114549-1922eda29cf8
-	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20230831114549-1922eda29cf8
+	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20251023175526-f026180842bb
 	github.com/openshift/hive/apis => github.com/openshift/hive/apis v0.0.0-20220222213051-def9088fdb5a
 	sigs.k8s.io/cluster-api-provider-ibmcloud => sigs.k8s.io/cluster-api-provider-ibmcloud v0.9.0-beta.0.0.20241029051454-9b0770491a76
 )
