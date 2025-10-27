@@ -35,7 +35,7 @@ build-openshift-ci-test-bin:
 	./hack/setup_env.sh
 
 lint:
-	golangci-lint run -v --timeout=10m --concurrency=2 --fast
+	golangci-lint run -v --timeout=20m
 
 test: $(REPORTS)
 	go test -count=1 -cover -coverprofile=$(COVER_PROFILE) ./...
