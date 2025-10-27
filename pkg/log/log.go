@@ -94,7 +94,9 @@ func SetupFileHook(baseDir string) func() {
 	}))
 
 	return func() {
-		logfile.Close()
+		if err = logfile.Close(); err != nil {
+			logrus.Errorf("Failed to close log file: %s", err.Error())
+		}
 		logrus.StandardLogger().ReplaceHooks(originalHooks)
 	}
 }

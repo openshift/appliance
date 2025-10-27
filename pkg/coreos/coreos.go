@@ -101,15 +101,23 @@ func (c *coreos) EmbedIgnition(ignition []byte, isoPath string) error {
 		return err
 	}
 	defer func() {
-		ignitionFile.Close()
-		os.Remove(ignitionFile.Name())
+		if err := ignitionFile.Close(); err != nil {
+			logrus.Errorf("Failed to close ignition file: %s", err.Error())
+			return
+		}
+		if err := os.Remove(ignitionFile.Name()); err != nil {
+			logrus.Errorf("Failed to remove ignition file: %s", err.Error())
+		}
 	}()
 	_, err = ignitionFile.Write(ignition)
 	if err != nil {
 		logrus.Errorf("Failed to write ignition data into %s: %s", ignitionFile.Name(), err.Error())
 		return err
 	}
-	ignitionFile.Close()
+	if err = ignitionFile.Close(); err != nil {
+		logrus.Errorf("Failed to close ignition file: %s", err.Error())
+		return err
+	}
 
 	// Invoke embed ignition command
 	embedCmd := fmt.Sprintf(templateEmbedIgnition, ignitionFile.Name(), isoPath)
@@ -123,9 +131,10 @@ func (c *coreos) WrapIgnition(ignition []byte, ignitionPath, imagePath string) e
 		return err
 	}
 	defer func() {
-		ignitionImgFile.Close()
+		if err := ignitionImgFile.Close(); err != nil {
+			logrus.Errorf("Failed to close ignition image file: %s", err.Error())
+		}
 	}()
-
 
 	compressedCpio, err := generateCompressedCPIO(ignition, ignitionPath, 0o100_644)
 	if err != nil {

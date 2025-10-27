@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/openshift/appliance/pkg/executer"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -90,20 +91,32 @@ func ExtractCompressedFile(source, target string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer reader.Close()
+	defer func() {
+		if err := reader.Close(); err != nil {
+			logrus.Errorf("Failed to close reader: %s", err.Error())
+		}
+	}()
 
 	archive, err := gzip.NewReader(reader)
 	if err != nil {
 		return "", err
 	}
-	defer archive.Close()
+	defer func() {
+		if err := archive.Close(); err != nil {
+			logrus.Errorf("Failed to close archive: %s", err.Error())
+		}
+	}()
 
 	target = filepath.Join(target, archive.Name)
 	writer, err := os.Create(target)
 	if err != nil {
 		return "", err
 	}
-	defer writer.Close()
+	defer func() {
+		if err := writer.Close(); err != nil {
+			logrus.Errorf("Failed to close writer: %s", err.Error())
+		}
+	}()
 
 	_, err = io.Copy(writer, archive) // #nosec G110
 	return target, err

@@ -461,14 +461,14 @@ func (a *ApplianceConfig) validateImageRegistry() field.ErrorList {
 }
 
 func (a *ApplianceConfig) validateApiVersion() field.ErrorList {
-	if a.Config.TypeMeta.APIVersion == "" {
+	if a.Config.APIVersion == "" {
 		return field.ErrorList{field.Required(field.NewPath("apiVersion"), "apiVersion is required")}
 	}
 	switch v := a.Config.APIVersion; v {
 	case types.ApplianceConfigApiVersion: // Current version
 	default:
 		return field.ErrorList{field.Invalid(field.NewPath("apiVersion"),
-			a.Config.TypeMeta.APIVersion,
+			a.Config.APIVersion,
 			fmt.Sprintf("apiVersion must be %q", types.ApplianceConfigApiVersion))}
 	}
 	return nil

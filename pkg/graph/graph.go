@@ -149,7 +149,11 @@ func (g *graph) resolvePullSpec(endpoint string, release OcpRelease) (string, st
 	if resp == nil {
 		return "", "", fmt.Errorf("failed to request %s: got a nil response", targetName)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logrus.Errorf("Failed to close response body: %s", err.Error())
+		}
+	}()
 
 	var buf bytes.Buffer
 	_, readErr := io.Copy(&buf, resp.Body)
