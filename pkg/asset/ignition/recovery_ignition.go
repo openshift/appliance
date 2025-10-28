@@ -6,12 +6,23 @@ import (
 
 	configv32 "github.com/coreos/ignition/v2/config/v3_2"
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
+	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/installer"
 	"github.com/openshift/installer/pkg/asset"
+	ignasset "github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	// InteractiveUIFilePath is the sentinel file path that indicates interactive UI should be enabled
+	InteractiveUIFilePath = "/etc/assisted/interactive-ui"
+	// InteractiveUIFileMode defines the file permissions for the interactive UI sentinel file
+	InteractiveUIFileMode = 0644
+	// InteractiveUIFileOwner defines the owner of the interactive UI sentinel file
+	InteractiveUIFileOwner = "root"
 )
 
 // RecoveryIgnition generates the custom ignition file for the recovery ISO
@@ -69,6 +80,13 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 	unconfiguredIgnition, _, err := configv32.Parse(configBytes)
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse un-configured ignition")
+	}
+
+	if swag.BoolValue(installerConfig.ApplianceConfig.Config.EnableInteractiveFlow) {
+		// Create an empty sentinel file to indicate that the interactive UI should be enabled.
+		// The presence of this file (regardless of content) signals the system to enable interactive flow.
+		interactiveUIFile := ignasset.FileFromString(InteractiveUIFilePath, InteractiveUIFileOwner, InteractiveUIFileMode, "")
+		unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, interactiveUIFile)
 	}
 
 	i.Unconfigured = unconfiguredIgnition
