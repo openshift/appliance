@@ -218,7 +218,7 @@ require (
 	github.com/pkg/xattr v0.4.9 // indirect
 	github.com/ppc64le-cloud/powervs-utils v0.0.0-20250820090732-d58d915fd4b6 // indirect
 	github.com/prometheus/client_golang v1.20.5 // indirect
-	github.com/prometheus/client_model v0.6.1 // indirect
+	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.60.1 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/redis/go-redis/extra/rediscmd/v9 v9.0.5 // indirect
