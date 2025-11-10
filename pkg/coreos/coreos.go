@@ -114,10 +114,6 @@ func (c *coreos) EmbedIgnition(ignition []byte, isoPath string) error {
 		logrus.Errorf("Failed to write ignition data into %s: %s", ignitionFile.Name(), err.Error())
 		return err
 	}
-	if err = ignitionFile.Close(); err != nil {
-		logrus.Errorf("Failed to close ignition file: %s", err.Error())
-		return err
-	}
 
 	// Invoke embed ignition command
 	embedCmd := fmt.Sprintf(templateEmbedIgnition, ignitionFile.Name(), isoPath)
