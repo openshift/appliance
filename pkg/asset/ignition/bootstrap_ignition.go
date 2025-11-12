@@ -24,6 +24,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/consts"
+	reg "github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
@@ -63,6 +64,7 @@ var (
 
 	bootstrapScripts = []string{
 		"setup-local-registry.sh",
+		"start-registry.sh",
 		"set-env-files.sh",
 		"pre-install.sh",
 		"pre-install-node-zero.sh",
@@ -107,6 +109,12 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	registriesConf := &registry.RegistriesConf{}
 	installIgnition := &InstallIgnition{}
 	dependencies.Get(envConfig, applianceConfig, extraManifests, registriesConf, installIgnition)
+
+	// Determine if we're using the OCP registry (for the podman run command)
+	useOcpRegistry := reg.ShouldUseOcpRegistry(envConfig, applianceConfig)
+	if useOcpRegistry {
+		logrus.Info("BootstrapIgnition will use OCP docker-registry image")
+	}
 
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -185,8 +193,9 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	}
 
 	// Add registry.env file
+	// Always use localhost/registry:latest as this is the image available in the disconnected environment
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
-		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall, ""))
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryImage, consts.RegistryDataInstall, "", useOcpRegistry))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add public ssh key

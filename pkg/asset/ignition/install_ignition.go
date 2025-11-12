@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/consts"
 	ignitionutil "github.com/openshift/appliance/pkg/ignition"
+	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	ignasset "github.com/openshift/installer/pkg/asset/ignition"
@@ -77,6 +78,12 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	applianceConfig := &config.ApplianceConfig{}
 	operatorCRs := &manifests.OperatorCRs{}
 	dependencies.Get(envConfig, applianceConfig, operatorCRs)
+
+	// Determine if we're using the OCP registry (for the podman run command)
+	useOcpRegistry := registry.ShouldUseOcpRegistry(envConfig, applianceConfig)
+	if useOcpRegistry {
+		logrus.Info("InstallIgnition will use OCP docker-registry image")
+	}
 
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -153,8 +160,9 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	}
 
 	// Add registry.env file
+	// Always use localhost/registry:latest as this is the image available in the disconnected environment
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
-		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall, consts.RegistryDataUpgrade))
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryImage, consts.RegistryDataInstall, consts.RegistryDataUpgrade, useOcpRegistry))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add a placeholder for rendezvous-host.env file
