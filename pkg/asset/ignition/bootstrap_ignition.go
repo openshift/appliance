@@ -299,7 +299,7 @@ func addExtraManifests(
 	return nil
 }
 
-func  convertToDefaultSourceNaming(fileBytes []byte) ([]byte, error) {
+func convertToDefaultSourceNaming(fileBytes []byte) ([]byte, error) {
 	var cs CatalogSource
 	if err := yaml.Unmarshal(fileBytes, &cs); err != nil {
 		return nil, err
