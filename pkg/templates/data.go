@@ -190,15 +190,11 @@ func GetDeployIgnitionTemplateData(targetDevice, postScript string, sparseClone,
 }
 
 func GetRegistryEnv(registryImage, registryData, registryUpgrade string, useOcpRegistry bool) string {
-	ocpRegistryFlag := "false"
-	if useOcpRegistry {
-		ocpRegistryFlag = "true"
-	}
 	return fmt.Sprintf(`REGISTRY_IMAGE=%s
 REGISTRY_DATA=%s
 REGISTRY_UPGRADE=%s
-USE_OCP_REGISTRY=%s
-`, registryImage, registryData, registryUpgrade, ocpRegistryFlag)
+USE_OCP_REGISTRY=%t
+`, registryImage, registryData, registryUpgrade, useOcpRegistry)
 }
 
 func GetUpgradeISOEnv(releaseImage, releaseVersion string) string {
