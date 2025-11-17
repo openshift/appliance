@@ -6,10 +6,12 @@ import (
 
 	configv32 "github.com/coreos/ignition/v2/config/v3_2"
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
+	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/installer"
 	"github.com/openshift/installer/pkg/asset"
+	"github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -69,6 +71,16 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 	unconfiguredIgnition, _, err := configv32.Parse(configBytes)
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse un-configured ignition")
+	}
+
+	if swag.BoolValue(installerConfig.ApplianceConfig.Config.EnableInteractiveFlow) {
+		interactiveUIFile := ignition.FileFromString("/etc/assisted/interactive-ui", "root", 0644, "")
+		unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, interactiveUIFile)
+
+		// Explicitly disable the load-config-iso service, not required in the OVE flow
+		// (even though disabled by default, the udev rule may require it).
+		noConfigImageFile := ignition.FileFromString("/etc/assisted/no-config-image", "root", 0644, "")
+		unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, noConfigImageFile)
 	}
 
 	i.Unconfigured = unconfiguredIgnition

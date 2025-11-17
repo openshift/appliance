@@ -38,7 +38,7 @@ lint:
 	golangci-lint run -v --timeout=20m
 
 test: $(REPORTS)
-	go test -count=1 -cover -coverprofile=$(COVER_PROFILE) ./...
+	go test -v -count=1 -cover -coverprofile=$(COVER_PROFILE) ./...
 	$(MAKE) _coverage
 
 _coverage:
