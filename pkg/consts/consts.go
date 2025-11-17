@@ -36,6 +36,8 @@ const (
 	OcMirrorResourcesDir = "cluster-resources"
 	// MinOcpVersionForPinnedImageSet - minimum version that supports PinnedImageSet
 	MinOcpVersionForPinnedImageSet = "4.16"
+	// MinOcpVersionContainingDistributionRegistry - minimum version where docker-registry image in OCP release contains distribution binary
+	MinOcpVersionContainingDistributionRegistry = "4.21"
 
 	// Recovery/Data partitions
 	RecoveryPartitionName = "agentboot"

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-openapi/swag"
+	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
@@ -183,11 +184,17 @@ func LoadRegistryImage(cacheDir string) error {
 
 // ShouldUseOcpRegistry determines if the OCP docker-registry image should be used
 // based on the priority: user config > OCP release > internally built
-// Returns true only if no user config is set AND OCP release has docker-registry available
+// Returns true only if no user config is set AND OCP version >= 4.21 AND OCP release has docker-registry available
 func ShouldUseOcpRegistry(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) bool {
 	// Only use OCP registry if user hasn't configured their own imageRegistry.uri
 	if swag.StringValue(applianceConfig.Config.ImageRegistry.URI) != "" {
 		logrus.Debug("User-configured registry detected, not using OCP docker-registry")
+		return false
+	}
+
+	// Check if OCP version supports docker-registry with distribution binary (>= 4.21)
+	if !ocpVersionContainsDistributionRegistry(applianceConfig) {
+		logrus.Debug("OCP version < 4.21, docker-registry does not contain distribution binary")
 		return false
 	}
 
@@ -205,6 +212,23 @@ func ShouldUseOcpRegistry(envConfig *config.EnvConfig, applianceConfig *config.A
 
 	logrus.Debug("No OCP docker-registry available, using internally built registry")
 	return false
+}
+
+func ocpVersionContainsDistributionRegistry(applianceConfig *config.ApplianceConfig) bool {
+	minOcpVer, _ := version.NewVersion(consts.MinOcpVersionContainingDistributionRegistry)
+
+	// Strip everything after and including the first '-' character
+	// E.g., "4.21.0-0.ci-2025-11-17-124207" becomes "4.21.0"
+	versionStr := applianceConfig.Config.OcpRelease.Version
+	if idx := strings.Index(versionStr, "-"); idx != -1 {
+		versionStr = versionStr[:idx]
+	}
+
+	ocpVer, _ := version.NewVersion(versionStr)
+	result := ocpVer.GreaterThanOrEqual(minOcpVer)
+	logrus.Debugf("ocpVersionContainsDistributionRegistry: OCP version %s >= minimum version %s: %v",
+		ocpVer.String(), minOcpVer.String(), result)
+	return result
 }
 
 func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) (string, error) {
