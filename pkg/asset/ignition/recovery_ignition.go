@@ -2,7 +2,9 @@ package ignition
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strings"
 
 	configv32 "github.com/coreos/ignition/v2/config/v3_2"
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
@@ -81,6 +83,19 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 		// (even though disabled by default, the udev rule may require it).
 		noConfigImageFile := ignition.FileFromString("/etc/assisted/no-config-image", "root", 0644, "")
 		unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, noConfigImageFile)
+
+		version := getOCPVersion(installerConfig.ApplianceConfig)
+  irrContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1alpha1
+  kind: InternalReleaseImage
+  metadata:
+    name: cluster
+  spec:
+    releases:
+    - name: ocp-release-bundle-%s
+  `, version)
+
+        irrFile := ignition.FileFromString("/etc/assisted/manifests/internalreleaseimage.yaml", "root", 0644, irrContent)
+        unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, irrFile)
 	}
 
 	i.Unconfigured = unconfiguredIgnition
@@ -91,3 +106,24 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 
 	return nil
 }
+
+// getOCPVersion returns the OpenShift version string for the InternalReleaseImage.
+// If a release URL is provided, it extracts the version tag from the URL.
+// Otherwise, it constructs the version from the configured version and architecture.
+  func getOCPVersion(applianceConfig *config.ApplianceConfig) string {
+        if applianceConfig.Config.OcpRelease.URL != nil && *applianceConfig.Config.OcpRelease.URL != "" {
+                return extractVersionFromURL(*applianceConfig.Config.OcpRelease.URL)
+        }
+        ocpVersion := applianceConfig.Config.OcpRelease.Version
+        arch := *applianceConfig.Config.OcpRelease.CpuArchitecture
+        return fmt.Sprintf("%s-%s", ocpVersion, arch)
+  }
+
+  // extractVersionFromURL extracts the version tag from a container image URL.
+  func extractVersionFromURL(url string) string {
+        parts := strings.Split(url, ":")
+        if len(parts) >= 2 {
+                return parts[len(parts)-1]
+        }
+        return ""
+  }
