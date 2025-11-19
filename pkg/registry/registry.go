@@ -90,9 +90,6 @@ func (r *registry) verifyRegistryAvailability(registryURL string) error {
 
 func (r *registry) StartRegistry() error {
 	var err error
-	if err = os.RemoveAll(r.DataDirPath); err != nil {
-		return err
-	}
 	if err = os.MkdirAll(r.DataDirPath, os.ModePerm); err != nil {
 		return err
 	}

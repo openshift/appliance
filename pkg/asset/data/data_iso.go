@@ -18,11 +18,9 @@ import (
 )
 
 const (
-	bootstrapMirrorDir = "data/oc-mirror/bootstrap"
-	installMirrorDir   = "data/oc-mirror/install"
-	dataDir            = "data"
-	dataIsoName        = "data.iso"
-	dataVolumeName     = "agentdata"
+	dataDir        = "data"
+	dataIsoName    = "data.iso"
+	dataVolumeName = "agentdata"
 )
 
 // DataISO is an asset that contains registry images
@@ -90,7 +88,7 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 			applianceConfig.Config.OcpRelease.Version),
 		envConfig,
 	)
-	registryDir, err := registry.GetRegistryDataPath(envConfig.TempDir, installMirrorDir)
+	registryDir, err := registry.GetRegistryDataPath(envConfig.TempDir, dataDir)
 	if err != nil {
 		return log.StopSpinner(spinner, err)
 	}

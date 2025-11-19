@@ -52,7 +52,7 @@ const (
 	// Local registry env file
 	RegistryEnvPath       = "/etc/assisted/registry.env"
 	RegistryDataBootstrap = "/tmp/registry"
-	RegistryDataInstall   = "/mnt/agentdata/oc-mirror/install"
+	RegistryDataInstall   = "/mnt/agentdata/"
 	RegistryDataUpgrade   = "/media/upgrade/oc-mirror/install"
 
 	// Deployment ISO

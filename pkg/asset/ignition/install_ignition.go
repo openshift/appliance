@@ -27,7 +27,6 @@ const (
 	baseIgnitionPath             = "ignition/base/config.ign"
 	bootDevice                   = "/dev/disk/by-partlabel/boot"
 	bootMountPath                = "/boot"
-	installRegistryDataPath      = "/mnt/agentdata/oc-mirror/install"
 	rendezvousHostEnvFilePath    = "/etc/assisted/rendezvous-host.env"
 	rendezvousHostEnvPlaceholder = "placeholder-content-for-rendezvous-host.env"
 	postInstallationCrsDir       = "post-installation"
@@ -122,7 +121,6 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	// Create install template data
 	templateData := templates.GetInstallIgnitionTemplateData(
 		envConfig.IsLiveISO,
-		installRegistryDataPath,
 		corePassHash)
 
 	// Add services common for bootstrap and install
