@@ -25,7 +25,7 @@ import (
 
 const (
 	liveIsoWorkDir                = "live-iso"
-	liveIsoDataDir                = "data"
+	liveIsoDataDir                = "registry"
 	bootstrapImageName            = "/images/bootstrap-appliance.img"
 	bootstrapIgnitionPath         = "/usr/lib/ignition/base.d/99-bootstrap.ign"
 	defaultGrubConfigFilePath     = "EFI/redhat/grub.cfg"
