@@ -122,11 +122,14 @@ func (i *RegistriesConf) generateRegistries() (*sysregistriesv2.V2RegistriesConf
 			logrus.Debugf("adding mirrors for %s", r.Location)
 			for _, m := range idmsMirror.Mirrors {
 				re := regexp.MustCompile(`^[^/]+`)
+				// TODO: remove Insecure: true when certificates are added back
 				r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
 					Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", RegistryDomain, RegistryPort)),
+					Insecure: true,
 				})
 				r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
 					Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", RegistryDomain, RegistryPortUpgrade)),
+					Insecure: true,
 				})
 			}
 			regs.Registries = append(regs.Registries, r)

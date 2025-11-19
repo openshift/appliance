@@ -5,21 +5,6 @@ source "mount-agent-data.sh"
 # Load registry image
 podman load -q -i /mnt/agentdata/images/{{.RegistryFilePath}}
 
-# Create certificate for the local registry
-mkdir -p /tmp/certs
-openssl req -newkey rsa:4096 -nodes -sha256 -keyout /tmp/certs/domain.key \
-    -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN={{.RegistryDomain}}" \
-    -addext "subjectAltName=DNS:{{.RegistryDomain}},DNS:quay.io" \
-    -x509 -days 36500 -out /tmp/certs/domain.crt
-
-# Apply certificates
-mkdir -p /etc/docker/certs.d/{{.RegistryDomain}}:5000
-mkdir -p /etc/containers/certs.d/{{.RegistryDomain}}:5000
-cp /tmp/certs/domain.crt /etc/docker/certs.d/{{.RegistryDomain}}:5000
-cp /tmp/certs/domain.crt /etc/containers/certs.d/{{.RegistryDomain}}:5000
-cp /tmp/certs/domain.crt /etc/pki/ca-trust/source/anchors/
-update-ca-trust extract
-
 # Config registry local dns
 sed -i '/127.0.0.1 {{.RegistryDomain}}/d' /etc/hosts
 echo "127.0.0.1 {{.RegistryDomain}}" >> /etc/hosts
