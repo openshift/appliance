@@ -32,7 +32,6 @@ import (
 )
 
 const (
-	bootstrapRegistryDataPath = "/mnt/agentdata/oc-mirror/bootstrap"
 	registriesConfFilePath    = "/etc/containers/registries.conf"
 	manifestPath              = "/etc/assisted/manifests"
 	corePassOverrideFilePath  = "/etc/assisted/appliance-override-password-set" // #nosec G101
@@ -141,7 +140,6 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 		envConfig.IsLiveISO,
 		swag.BoolValue(applianceConfig.Config.EnableInteractiveFlow),
 		applianceConfig.Config.OcpRelease,
-		bootstrapRegistryDataPath,
 		string(installIgnitionConfig),
 		coreosImagePath,
 		rendezvousHostEnvPlaceholder)

@@ -85,7 +85,7 @@ func GetPinnedImageSetTemplateData(images, role string) interface{} {
 	}
 }
 
-func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocpReleaseImage types.ReleaseImage, registryDataPath, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string) interface{} {
+func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocpReleaseImage types.ReleaseImage, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string) interface{} {
 	releaseImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
@@ -114,7 +114,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		RendezvousHostEnvPlaceholder string
 
 		ReleaseImages, ReleaseImage, OsImages                             string
-		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
+		RegistryDomain, RegistryFilePath, RegistryImage string
 
 		Partition0, Partition1, Partition2, Partition3 Partition
 	}{
@@ -130,7 +130,6 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		OsImages:      string(osImages),
 
 		// Registry
-		RegistryDataPath: registryDataPath,
 		RegistryDomain:   registry.RegistryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
@@ -153,7 +152,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 	return data
 }
 
-func GetInstallIgnitionTemplateData(isLiveISO bool, registryDataPath, corePassHash string) interface{} {
+func GetInstallIgnitionTemplateData(isLiveISO bool, corePassHash string) interface{} {
 	return struct {
 		IsBootstrapStep bool
 		IsLiveISO       bool
@@ -165,7 +164,6 @@ func GetInstallIgnitionTemplateData(isLiveISO bool, registryDataPath, corePassHa
 		IsLiveISO:       isLiveISO,
 
 		// Registry
-		RegistryDataPath: registryDataPath,
 		RegistryDomain:   registry.RegistryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
