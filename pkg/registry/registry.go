@@ -22,6 +22,7 @@ import (
 
 const (
 	registryStartCmd     = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%d %s"
+	registryStartCmdOcp  = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%d -u 0 --entrypoint=/usr/bin/distribution containers-storage:%s serve /etc/registry/config.yaml"
 	registryStopCmd      = "podman rm registry -f"
 	registryBuildCmd     = "podman build -f Dockerfile.registry -t registry ."
 	registrySaveCmd      = "podman save -o %s/registry.tar %s"
@@ -45,12 +46,13 @@ type HTTPClient interface {
 }
 
 type RegistryConfig struct {
-	Executer    executer.Executer
-	HTTPClient  HTTPClient
-	Port        int
-	URI         string
-	DataDirPath string
-	UseBinary   bool
+	Executer       executer.Executer
+	HTTPClient     HTTPClient
+	Port           int
+	URI            string
+	DataDirPath    string
+	UseBinary      bool
+	UseOcpRegistry bool
 }
 
 type registry struct {
@@ -115,8 +117,16 @@ func (r *registry) StartRegistry() error {
 func (r *registry) runRegistryImage() error {
 	_ = r.StopRegistry()
 
-	logrus.Debug("Running registry image")
-	_, err := r.Executer.Execute(fmt.Sprintf(registryStartCmd, r.DataDirPath, r.Port, r.URI))
+	var cmd string
+	if r.UseOcpRegistry {
+		logrus.Debug("Running OCP docker-registry image with distribution entrypoint")
+		cmd = fmt.Sprintf(registryStartCmdOcp, r.DataDirPath, r.Port, r.URI)
+	} else {
+		logrus.Debug("Running registry image")
+		cmd = fmt.Sprintf(registryStartCmd, r.DataDirPath, r.Port, r.URI)
+	}
+
+	_, err := r.Executer.Execute(cmd)
 	if err != nil {
 		return errors.Wrapf(err, "registry start failure")
 	}
@@ -180,6 +190,12 @@ func LoadRegistryImage(cacheDir string) error {
 	// Load image
 	_, err := exec.Execute(fmt.Sprintf(registryLoadCmd, cacheDir))
 	return err
+}
+
+// IsUsingOcpRegistry returns true if we're using the docker-registry from OCP release
+// (i.e., user has not specified a custom imageRegistry.uri)
+func IsUsingOcpRegistry(applianceConfig *config.ApplianceConfig) bool {
+	return swag.StringValue(applianceConfig.Config.ImageRegistry.URI) == ""
 }
 
 // ShouldUseOcpRegistry determines if the OCP docker-registry image should be used
@@ -259,26 +275,31 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 	}
 
 	// Search for registry image in cache dir
-	if fileName := envConfig.FindInCache(registryFilename); fileName != "" {
-		logrus.Debug("Reusing registry.tar from cache")
-		if err := LoadRegistryImage(envConfig.CacheDir); err != nil {
-			return "", err
-		}
-	} else if sourceRegistryUri == consts.RegistryImage {
-		// Build the registry image internally
-		if err := BuildRegistryImage(envConfig.CacheDir); err != nil {
-			return "", err
+	if fileName := envConfig.FindInCache(registryFilename); fileName == "" {
+		// Not in cache, need to create it
+		if sourceRegistryUri == consts.RegistryImage {
+			// Build the registry image internally
+			if err := BuildRegistryImage(envConfig.CacheDir); err != nil {
+				return "", err
+			}
+		} else {
+			// Pull the source registry image (docker-registry from OCP release or from appliance config)
+			// and copy/tag it to localhost/registry:latest, then save to registry.tar
+			logrus.Infof("Copying registry image from %s to %s", sourceRegistryUri, consts.RegistryImage)
+			if err := skopeo.NewSkopeo(nil).CopyToFile(
+				sourceRegistryUri,
+				consts.RegistryImage,
+				fileInCachePath); err != nil {
+				return "", err
+			}
 		}
 	} else {
-		// Pull the source registry image (docker-registry from OCP release or from appliance config)
-		// and copy/tag it to localhost/registry:latest, then save to registry.tar
-		logrus.Infof("Copying registry image from %s to %s", sourceRegistryUri, consts.RegistryImage)
-		if err := skopeo.NewSkopeo(nil).CopyToFile(
-			sourceRegistryUri,
-			consts.RegistryImage,
-			fileInCachePath); err != nil {
-			return "", err
-		}
+		logrus.Debug("Reusing registry.tar from cache")
+	}
+
+	// Load the registry image into podman storage
+	if err := LoadRegistryImage(envConfig.CacheDir); err != nil {
+		return "", err
 	}
 
 	// Copy to data dir in temp

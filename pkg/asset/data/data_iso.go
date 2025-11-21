@@ -95,10 +95,11 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 	spinner.DirToMonitor = registryDir
 	releaseImageRegistry := registry.NewRegistry(
 		registry.RegistryConfig{
-			DataDirPath: registryDir,
-			URI:         registryUri,
-			Port:        swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
-			UseBinary:   swag.BoolValue(applianceConfig.Config.ImageRegistry.UseBinary),
+			DataDirPath:    registryDir,
+			URI:            registryUri,
+			Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+			UseBinary:      swag.BoolValue(applianceConfig.Config.ImageRegistry.UseBinary),
+			UseOcpRegistry: registry.IsUsingOcpRegistry(applianceConfig),
 		})
 
 	if err = releaseImageRegistry.StartRegistry(); err != nil {
