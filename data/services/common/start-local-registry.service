@@ -7,7 +7,7 @@ Environment=PODMAN_SYSTEMD_UNIT=%n
 EnvironmentFile=/etc/assisted/registry.env
 ExecStartPre=/bin/rm -f %t/%n.ctr-id
 ExecStartPre=/usr/local/bin/setup-local-registry.sh
-ExecStart=podman run --net host --cidfile=%t/%n.ctr-id --privileged --replace --log-driver=journald --name=registry -p 5000:5000 -p 5443:5000 -v ${REGISTRY_DATA}:/var/lib/registry -v /tmp/certs:/certs -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 -e REGISTRY_HTTP_TLS_CERTIFICATE=certs/domain.crt -e REGISTRY_HTTP_TLS_KEY=certs/domain.key $REGISTRY_IMAGE
+ExecStart=/usr/local/bin/start-registry.sh
 ExecStop=/usr/bin/podman stop --ignore --cidfile=%t/%n.ctr-id
 ExecStopPost=/usr/bin/podman rm -f --ignore --cidfile=%t/%n.ctr-id
 

@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/consts"
+	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
@@ -62,6 +63,7 @@ var (
 
 	bootstrapScripts = []string{
 		"setup-local-registry.sh",
+		"start-registry.sh",
 		"set-env-files.sh",
 		"pre-install.sh",
 		"pre-install-node-zero.sh",
@@ -104,6 +106,12 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	extraManifests := &agentManifests.ExtraManifests{}
 	installIgnition := &InstallIgnition{}
 	dependencies.Get(envConfig, applianceConfig, extraManifests, installIgnition)
+
+	// Determine if we're using the OCP registry (for the podman run command)
+	useOcpRegistry := registry.ShouldUseOcpRegistry(envConfig, applianceConfig)
+	if useOcpRegistry {
+		logrus.Info("BootstrapIgnition will use OCP docker-registry image")
+	}
 
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -183,8 +191,9 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	}
 
 	// Add registry.env file
+	// Always use localhost/registry:latest as this is the image available in the disconnected environment
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
-		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall, ""))
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryImage, consts.RegistryDataInstall, "", useOcpRegistry))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add public ssh key
@@ -299,7 +308,7 @@ func addExtraManifests(
 	return nil
 }
 
-func  convertToDefaultSourceNaming(fileBytes []byte) ([]byte, error) {
+func convertToDefaultSourceNaming(fileBytes []byte) ([]byte, error) {
 	var cs CatalogSource
 	if err := yaml.Unmarshal(fileBytes, &cs); err != nil {
 		return nil, err
