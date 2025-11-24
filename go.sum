@@ -946,8 +946,8 @@ github.com/openshift/api v0.0.0-20200827090112-c05698d102cf/go.mod h1:M3xexPhgM8
 github.com/openshift/api v0.0.0-20200829102639-8a3a835f1acf/go.mod h1:M3xexPhgM8DISzzRpuFUy+jfPjQPIcs9yqEYj17mXV8=
 github.com/openshift/api v0.0.0-20240808203820-e69593239e49 h1:sw+VD/623xdBnqm1r5DUfch1R7lm7uE5wiYkJt6ioRI=
 github.com/openshift/api v0.0.0-20240808203820-e69593239e49/go.mod h1:OOh6Qopf21pSzqNVCB5gomomBXb8o5sGKZxG2KNpaXM=
-github.com/openshift/assisted-image-service v0.0.0-20250301084320-0faa6d927ecd h1:aG05jLwPaxznSpJUslvipJwJXvnTY6qDiX+PF20CNhI=
-github.com/openshift/assisted-image-service v0.0.0-20250301084320-0faa6d927ecd/go.mod h1:WGdSeSnK0voEWWwA4ar5eApNjGBLmGTpFurEKw/FXJc=
+github.com/openshift/assisted-image-service v0.0.0-20251124072317-6438e736a0d8 h1:6T5/4RMwNjO3QmppoKcI4I0+0SCee8w3ALmllacgbTs=
+github.com/openshift/assisted-image-service v0.0.0-20251124072317-6438e736a0d8/go.mod h1:WGdSeSnK0voEWWwA4ar5eApNjGBLmGTpFurEKw/FXJc=
 github.com/openshift/assisted-service/api v0.0.0-20230831114549-1922eda29cf8 h1:+fZLKbycDo4JeLwPGVSAgf2XPaJGLM341l9ZfrrlxG0=
 github.com/openshift/assisted-service/api v0.0.0-20230831114549-1922eda29cf8/go.mod h1:PmMnbVno5ocinfELDdKOaatvT5ucJLrau+fjHQNeCiY=
 github.com/openshift/assisted-service/models v0.0.0-20230831114549-1922eda29cf8 h1:lQO/vwmLX4kSmZitusnqdq9KbuW402DWkcmR0CJfgBI=
