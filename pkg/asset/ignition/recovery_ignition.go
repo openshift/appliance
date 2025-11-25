@@ -3,6 +3,7 @@ package ignition
 import (
 	"context"
 	"os"
+	"path/filepath"
 
 	configv32 "github.com/coreos/ignition/v2/config/v3_2"
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
@@ -14,6 +15,7 @@ import (
 	"github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/thoas/go-funk"
 )
 
 // RecoveryIgnition generates the custom ignition file for the recovery ISO
@@ -82,6 +84,12 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 		noConfigImageFile := ignition.FileFromString("/etc/assisted/no-config-image", "root", 0644, "")
 		unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, noConfigImageFile)
 	}
+
+	// Remove registries.conf file from unconfiguredIgnition (already added in bootstrapIgnition)
+	registriesConfPath := filepath.Join(registriesConfFilePath, registriesConfFilename)
+	unconfiguredIgnition.Storage.Files = funk.Filter(unconfiguredIgnition.Storage.Files, func(f igntypes.File) bool {
+		return f.Path != registriesConfPath
+	}).([]igntypes.File)
 
 	i.Unconfigured = unconfiguredIgnition
 	i.Bootstrap = bootstrapIgnition.Config
