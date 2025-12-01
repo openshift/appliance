@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 
 ISO_DIR=/run/media/iso
+REGISTRY_DATA_DIR=/var/lib/iri-registry
+
 # The name must NOT start with "agent"
-DEV_NAME=ocpregistrydata
+DEV_NAME=ocp-registry-data
 MNT_DIR=/mnt/agentdata
+DATA_FILES=$ISO_DIR/registry/data*
 
 create_data_device() {
     # Create a loop device for each data file part
-    DATA_FILES="$ISO_DIR/data/data*"
     loop_sizes=()
     for f in $DATA_FILES
     do
@@ -36,15 +38,24 @@ wait_for_iso_mount() {
 }
 
 mount_registry_data_iso() {
-    registry_data_iso=/home/core/registry_data.iso
+    # Mount the registry data directory if exists (>=4.21)
+    if [ -d "$REGISTRY_DATA_DIR" ]; then
+        # Create a symlink to the registry data directory if it doesn't exist
+        if [ ! -L "$MNT_DIR" ]; then
+            rm -rf $MNT_DIR
+            ln -s $REGISTRY_DATA_DIR $MNT_DIR
+        fi
+        return
+    fi
 
     # If the registry data iso does not exist, create it
+    registry_data_iso=/home/core/registry_data.iso
     if [ ! -f "$registry_data_iso" ]; then
         # Wait for the mount to be ready
         wait_for_iso_mount
 
-        # Create the registry data iso
-        cat $ISO_DIR/data/data* > $registry_data_iso
+        # Copy the registry data iso to the disk
+        cat $DATA_FILES > $registry_data_iso
     fi
 
     # Mount the registry data iso
@@ -61,10 +72,10 @@ if [ "{{.IsLiveISO}}" = "true" ]; then
         # Create virtual device for the registry data
         create_data_device
 
-        # Mount data iso
+        # Mount data device
         mount -o ro "/dev/mapper/${DEV_NAME}" $MNT_DIR
     else
-        # Mount the registry data iso
+        # Mount the registry data iso (copy from media to disk if necessary)
         mount_registry_data_iso
     fi
 else # Disk image mode
