@@ -34,13 +34,11 @@ const (
 
 var (
 	installServices = []string{
-		"start-local-registry.service",
 		"set-node-zero.service",
 		"apply-operator-crs.service",
 	}
 
 	installScripts = []string{
-		"setup-local-registry.sh",
 		"set-node-zero.sh",
 		"setup-local-registry-upgrade.sh",
 		"start-cluster-upgrade.sh",
@@ -93,6 +91,11 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 			return err
 		}
 		corePassHash = string(passBytes)
+	}
+
+	if !swag.BoolValue(applianceConfig.Config.SkipLocalRegistry) {
+		installServices = append(installServices, "start-local-registry.service")
+		installScripts = append(installScripts, "setup-local-registry.sh")
 	}
 
 	if swag.BoolValue(applianceConfig.Config.StopLocalRegistry) {
