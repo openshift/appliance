@@ -1,0 +1,20 @@
+[Unit]
+Description=Local Registry (OCP)
+Wants=network.target
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+EnvironmentFile=/etc/assisted/registry.env
+ExecStartPre=/bin/rm -f %t/%n.ctr-id
+ExecStartPre=/usr/local/bin/setup-local-registry.sh
+ExecStart=/usr/bin/podman run --net host --cidfile=%t/%n.ctr-id --privileged --replace --log-driver=journald --name=registry -p 5000:5000 -p 5443:5000 -v ${REGISTRY_DATA}:/var/lib/registry -v /tmp/certs:/certs -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 -e REGISTRY_HTTP_TLS_CERTIFICATE=certs/domain.crt -e REGISTRY_HTTP_TLS_KEY=certs/domain.key -u 0 --entrypoint=/usr/bin/distribution ${REGISTRY_IMAGE} serve /etc/registry/config.yaml
+ExecStop=/usr/bin/podman stop --ignore --cidfile=%t/%n.ctr-id
+ExecStopPost=/usr/bin/podman rm -f --ignore --cidfile=%t/%n.ctr-id
+
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=9000
+TimeoutStopSec=300
+
+[Install]
+WantedBy=multi-user.target

@@ -133,8 +133,12 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 		envConfig.IsLiveISO,
 		corePassHash)
 
-	// Add services common for bootstrap and install
-	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", templateData, installServices); err != nil {
+	// Add registry service from appropriate directory (OCP or default)
+	registryServiceDir := "services/local-registry-default"
+	if useOcpRegistry {
+		registryServiceDir = "services/local-registry-ocp"
+	}
+	if err := bootstrap.AddSystemdUnits(&i.Config, registryServiceDir, templateData, installServices); err != nil {
 		return err
 	}
 
@@ -162,7 +166,7 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	// Add registry.env file
 	// Always use localhost/registry:latest as this is the image available in the disconnected environment
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
-		"root", 0644, templates.GetRegistryEnv(consts.RegistryImage, consts.RegistryDataInstall, consts.RegistryDataUpgrade, useOcpRegistry))
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryImage, consts.RegistryDataInstall, consts.RegistryDataUpgrade))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add a placeholder for rendezvous-host.env file
