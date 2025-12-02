@@ -63,7 +63,6 @@ var (
 
 	bootstrapScripts = []string{
 		"setup-local-registry.sh",
-		"start-registry.sh",
 		"set-env-files.sh",
 		"pre-install.sh",
 		"pre-install-node-zero.sh",
@@ -124,8 +123,12 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 		bootstrapServices = append(bootstrapServices, "ironic-agent.service")
 	}
 
-	// Add services common for bootstrap and install
-	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", nil, bootstrapServices); err != nil {
+	// Add registry service from appropriate directory (OCP or default)
+	registryServiceDir := "services/local-registry-default"
+	if useOcpRegistry {
+		registryServiceDir = "services/local-registry-ocp"
+	}
+	if err := bootstrap.AddSystemdUnits(&i.Config, registryServiceDir, nil, bootstrapServices); err != nil {
 		return err
 	}
 
@@ -193,7 +196,7 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	// Add registry.env file
 	// Always use localhost/registry:latest as this is the image available in the disconnected environment
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
-		"root", 0644, templates.GetRegistryEnv(consts.RegistryImage, consts.RegistryDataInstall, "", useOcpRegistry))
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryImage, consts.RegistryDataInstall, ""))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add public ssh key
