@@ -36,6 +36,7 @@ var (
 	installServices = []string{
 		"set-node-zero.service",
 		"apply-operator-crs.service",
+		"stop-local-registry-iri-tls.service",
 	}
 
 	installScripts = []string{
@@ -43,6 +44,7 @@ var (
 		"setup-local-registry-upgrade.sh",
 		"start-cluster-upgrade.sh",
 		"stop-local-registry.sh",
+		"stop-local-registry-iri-tls.sh",
 		"mount-agent-data.sh",
 		"apply-operator-crs.sh",
 	}

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+# Stop local registry when IRI TLS secret is present
+echo "IRI TLS secret detected at /etc/mcc/bootstrap/tls/internal-release-image-tls-secret.yaml"
+echo "Stopping start-local-registry.service..."
+sudo systemctl stop start-local-registry.service

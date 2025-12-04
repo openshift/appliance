@@ -1,0 +1,13 @@
+[Unit]
+Description=Stop local registry when IRI TLS secret is present
+Wants=network.target
+After=network-online.target start-local-registry.service
+ConditionPathExists=/etc/mcc/bootstrap/tls/internal-release-image-tls-secret.yaml
+
+[Service]
+ExecStart=/usr/local/bin/stop-local-registry-iri-tls.sh
+Type=oneshot
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target
