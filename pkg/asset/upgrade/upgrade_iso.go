@@ -131,9 +131,10 @@ func (u *UpgradeISO) Generate(_ context.Context, dependencies asset.Parents) err
 	spinner.DirToMonitor = registryDir
 	releaseImageRegistry := registry.NewRegistry(
 		registry.RegistryConfig{
-			DataDirPath: registryDir,
-			URI:         registryUri,
-			Port:        swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+			DataDirPath:    registryDir,
+			URI:            registryUri,
+			Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+			UseOcpRegistry: registry.ShouldUseOcpRegistry(envConfig, applianceConfig),
 		})
 
 	if err = releaseImageRegistry.StartRegistry(); err != nil {

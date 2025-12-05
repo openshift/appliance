@@ -247,7 +247,7 @@ After installing the cluster, images should be available for pulling using the i
 To fetch the digest, use skopeo from inside the node.
 E.g.
 ```shell
-skopeo inspect docker://registry.appliance.openshift.com:5000/fedora/httpd-24 | jq .Digest
+skopeo inspect docker://registry.appliance.openshift.com:22625/fedora/httpd-24 | jq .Digest
 "sha256:5d98ffbb97ea86633aed7ae2445b9d939e29639a292d3052efb078e72606ba04"
 ```
 ```shell
