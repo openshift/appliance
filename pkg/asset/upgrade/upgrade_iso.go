@@ -134,7 +134,7 @@ func (u *UpgradeISO) Generate(_ context.Context, dependencies asset.Parents) err
 			DataDirPath:    registryDir,
 			URI:            registryUri,
 			Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
-			UseOcpRegistry: registry.IsUsingOcpRegistry(applianceConfig),
+			UseOcpRegistry: registry.ShouldUseOcpRegistry(envConfig, applianceConfig),
 		})
 
 	if err = releaseImageRegistry.StartRegistry(); err != nil {

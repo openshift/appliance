@@ -192,12 +192,6 @@ func LoadRegistryImage(cacheDir string) error {
 	return err
 }
 
-// IsUsingOcpRegistry returns true if we're using the docker-registry from OCP release
-// (i.e., user has not specified a custom imageRegistry.uri)
-func IsUsingOcpRegistry(applianceConfig *config.ApplianceConfig) bool {
-	return swag.StringValue(applianceConfig.Config.ImageRegistry.URI) == ""
-}
-
 // ShouldUseOcpRegistry determines if the OCP docker-registry image should be used
 // based on the priority: user config > OCP release > internally built
 // Returns true only if no user config is set AND OCP version >= 4.21 AND OCP release has docker-registry available
@@ -230,20 +224,33 @@ func ShouldUseOcpRegistry(envConfig *config.EnvConfig, applianceConfig *config.A
 	return false
 }
 
-func ocpVersionContainsDistributionRegistry(applianceConfig *config.ApplianceConfig) bool {
-	minOcpVer, _ := version.NewVersion(consts.MinOcpVersionContainingDistributionRegistry)
-
+// isVersionAtLeast checks if the given version string is at least the minimum version.
+// It strips pre-release and build metadata (everything after and including the first '-')
+// before comparison. E.g., "4.21.0-0.ci-2025-11-17-124207" becomes "4.21.0".
+func isVersionAtLeast(versionStr, minVersionStr string) bool {
 	// Strip everything after and including the first '-' character
-	// E.g., "4.21.0-0.ci-2025-11-17-124207" becomes "4.21.0"
-	versionStr := applianceConfig.Config.OcpRelease.Version
 	if idx := strings.Index(versionStr, "-"); idx != -1 {
 		versionStr = versionStr[:idx]
 	}
 
-	ocpVer, _ := version.NewVersion(versionStr)
-	result := ocpVer.GreaterThanOrEqual(minOcpVer)
+	ocpVer, err := version.NewVersion(versionStr)
+	if err != nil {
+		return false
+	}
+
+	minOcpVer, err := version.NewVersion(minVersionStr)
+	if err != nil {
+		return false
+	}
+
+	return ocpVer.GreaterThanOrEqual(minOcpVer)
+}
+
+func ocpVersionContainsDistributionRegistry(applianceConfig *config.ApplianceConfig) bool {
+	versionStr := applianceConfig.Config.OcpRelease.Version
+	result := isVersionAtLeast(versionStr, consts.MinOcpVersionContainingDistributionRegistry)
 	logrus.Debugf("ocpVersionContainsDistributionRegistry: OCP version %s >= minimum version %s: %v",
-		ocpVer.String(), minOcpVer.String(), result)
+		versionStr, consts.MinOcpVersionContainingDistributionRegistry, result)
 	return result
 }
 

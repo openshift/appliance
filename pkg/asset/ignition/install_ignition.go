@@ -164,9 +164,8 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	}
 
 	// Add registry.env file
-	// Always use localhost/registry:latest as this is the image available in the disconnected environment
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
-		"root", 0644, templates.GetRegistryEnv(consts.RegistryImage, consts.RegistryDataInstall, consts.RegistryDataUpgrade))
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall, consts.RegistryDataUpgrade))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add a placeholder for rendezvous-host.env file
