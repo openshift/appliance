@@ -22,7 +22,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/consts"
-	"github.com/openshift/appliance/pkg/registry"
+	reg "github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
@@ -107,7 +107,7 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	dependencies.Get(envConfig, applianceConfig, extraManifests, installIgnition)
 
 	// Determine if we're using the OCP registry (for the podman run command)
-	useOcpRegistry := registry.ShouldUseOcpRegistry(envConfig, applianceConfig)
+	useOcpRegistry := reg.ShouldUseOcpRegistry(envConfig, applianceConfig)
 	if useOcpRegistry {
 		logrus.Info("BootstrapIgnition will use OCP docker-registry image")
 	}
