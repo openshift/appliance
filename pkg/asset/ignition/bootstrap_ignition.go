@@ -194,9 +194,8 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	}
 
 	// Add registry.env file
-	// Always use localhost/registry:latest as this is the image available in the disconnected environment
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
-		"root", 0644, templates.GetRegistryEnv(consts.RegistryImage, consts.RegistryDataInstall, ""))
+		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall, ""))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add public ssh key
