@@ -6,18 +6,18 @@ source "mount-agent-data.sh"
 podman load -q -i /mnt/agentdata/images/{{.RegistryFilePath}}
 
 # Create certificate for the local registry
-mkdir -p /tmp/certs
-openssl req -newkey rsa:4096 -nodes -sha256 -keyout /tmp/certs/domain.key \
+mkdir -p /etc/iri-registry/certs
+openssl req -newkey rsa:4096 -nodes -sha256 -keyout /etc/iri-registry/certs/tls.key \
     -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN={{.RegistryDomain}}" \
     -addext "subjectAltName=DNS:{{.RegistryDomain}},DNS:quay.io" \
-    -x509 -days 36500 -out /tmp/certs/domain.crt
+    -x509 -days 36500 -out /etc/iri-registry/certs/tls.crt
 
 # Apply certificates
-mkdir -p /etc/docker/certs.d/{{.RegistryDomain}}:5000
-mkdir -p /etc/containers/certs.d/{{.RegistryDomain}}:5000
-cp /tmp/certs/domain.crt /etc/docker/certs.d/{{.RegistryDomain}}:5000
-cp /tmp/certs/domain.crt /etc/containers/certs.d/{{.RegistryDomain}}:5000
-cp /tmp/certs/domain.crt /etc/pki/ca-trust/source/anchors/
+mkdir -p /etc/docker/certs.d/{{.RegistryDomain}}:22625
+mkdir -p /etc/containers/certs.d/{{.RegistryDomain}}:22625
+cp /etc/iri-registry/certs/tls.crt /etc/docker/certs.d/{{.RegistryDomain}}:22625
+cp /etc/iri-registry/certs/tls.crt /etc/containers/certs.d/{{.RegistryDomain}}:22625
+cp /etc/iri-registry/certs/tls.crt /etc/pki/ca-trust/source/anchors/
 update-ca-trust extract
 
 # Config registry local dns

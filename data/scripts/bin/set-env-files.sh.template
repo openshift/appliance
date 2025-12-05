@@ -4,7 +4,7 @@ assistedServiceEnvFile=/usr/local/share/assisted-service/assisted-service.env
 imagesEnvFile=/usr/local/share/assisted-service/images.env
 
 # Add registry domain to assisted-service.env
-sed -i 's/PUBLIC_CONTAINER_REGISTRIES=.*/&,{{.RegistryDomain}}:5000/g' $assistedServiceEnvFile
+sed -i 's/PUBLIC_CONTAINER_REGISTRIES=.*/&,{{.RegistryDomain}}:22625/g' $assistedServiceEnvFile
 
 # Set RELEASE_IMAGES in assisted-service.env
 sed -i '/^RELEASE_IMAGES/s|=.*$|={{.ReleaseImages}}|' $assistedServiceEnvFile
