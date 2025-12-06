@@ -128,6 +128,12 @@ func (i *RegistriesConf) generateRegistries() (*sysregistriesv2.V2RegistriesConf
 				r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
 					Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", RegistryDomain, RegistryPortUpgrade)),
 				})
+				r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
+					Location: re.ReplaceAllString(m, fmt.Sprintf("api-int.%s:%d", RegistryDomain, RegistryPort)),
+				})
+				r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
+					Location: re.ReplaceAllString(m, fmt.Sprintf("localhost:%d", RegistryPort)),
+				})
 			}
 			regs.Registries = append(regs.Registries, r)
 		}
