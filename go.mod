@@ -70,7 +70,7 @@ require (
 	github.com/IBM/networking-go-sdk v0.45.0 // indirect
 	github.com/IBM/platform-services-go-sdk v0.71.0 // indirect
 	github.com/IBM/vpc-go-sdk v0.61.0 // indirect
-	github.com/MakeNowJust/heredoc v1.0.0 // indirect
+	github.com/MakeNowJust/heredoc/v2 v2.0.1 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/apparentlymart/go-cidr v1.1.0 // indirect
