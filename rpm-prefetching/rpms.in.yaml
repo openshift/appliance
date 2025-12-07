@@ -1,5 +1,7 @@
 contentOrigin:
   repofiles: ["./redhat.repo"]
+context:
+  image: registry.redhat.io/ubi9-minimal:9.7
 packages:
   - yum-utils
   - guestfs-tools

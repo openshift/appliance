@@ -16,7 +16,7 @@ FROM registry.redhat.io/openshift4/ose-cli AS oc
 FROM registry.redhat.io/openshift4/oc-mirror-plugin-rhel9 AS oc-mirror
 
 # Create final image
-FROM registry.access.redhat.com/ubi9/ubi:9.6-1760340943
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.7
 
 # Create/Mount assets 
 ARG ASSETS_DIR=/assets
@@ -25,7 +25,7 @@ VOLUME $ASSETS_DIR
 ENV ASSETS_DIR=$ASSETS_DIR
 
 # Install skopeo/podman/libguestfs
-RUN dnf -y install skopeo podman guestfs-tools genisoimage coreos-installer syslinux && dnf clean all
+RUN microdnf -y install skopeo podman guestfs-tools genisoimage coreos-installer syslinux && microdnf clean all
 
 # Config libguestfs
 ENV LIBGUESTFS_BACKEND=direct
