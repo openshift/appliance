@@ -225,14 +225,8 @@ func ShouldUseOcpRegistry(envConfig *config.EnvConfig, applianceConfig *config.A
 }
 
 // isVersionAtLeast checks if the given version string is at least the minimum version.
-// It strips pre-release and build metadata (everything after and including the first '-')
-// before comparison. E.g., "4.21.0-0.ci-2025-11-17-124207" becomes "4.21.0".
+// Pre-release versions (e.g., "4.21.0-rc.1") are considered less than their stable release and would return false.
 func isVersionAtLeast(versionStr, minVersionStr string) bool {
-	// Strip everything after and including the first '-' character
-	if idx := strings.Index(versionStr, "-"); idx != -1 {
-		versionStr = versionStr[:idx]
-	}
-
 	ocpVer, err := version.NewVersion(versionStr)
 	if err != nil {
 		return false
