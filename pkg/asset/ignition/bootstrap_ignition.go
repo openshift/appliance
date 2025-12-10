@@ -24,6 +24,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/consts"
+	reg "github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
@@ -108,6 +109,12 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	installIgnition := &InstallIgnition{}
 	dependencies.Get(envConfig, applianceConfig, extraManifests, registriesConf, installIgnition)
 
+	// Determine if we're using the OCP registry (for the podman run command)
+	useOcpRegistry := reg.ShouldUseOcpRegistry(envConfig, applianceConfig)
+	if useOcpRegistry {
+		logrus.Info("BootstrapIgnition will use OCP docker-registry image")
+	}
+
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
 			Version: igntypes.MaxVersion.String(),
@@ -119,8 +126,12 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 		bootstrapServices = append(bootstrapServices, "ironic-agent.service")
 	}
 
-	// Add services common for bootstrap and install
-	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", nil, bootstrapServices); err != nil {
+	// Add registry service from appropriate directory (OCP or default)
+	registryServiceDir := "services/local-registry-default"
+	if useOcpRegistry {
+		registryServiceDir = "services/local-registry-ocp"
+	}
+	if err := bootstrap.AddSystemdUnits(&i.Config, registryServiceDir, nil, bootstrapServices); err != nil {
 		return err
 	}
 

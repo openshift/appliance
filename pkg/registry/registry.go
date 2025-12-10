@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/go-openapi/swag"
+	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/fileutil"
+	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/appliance/pkg/skopeo"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -20,6 +22,7 @@ import (
 
 const (
 	registryStartCmd     = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%d %s"
+	registryStartCmdOcp  = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%d -u 0 --entrypoint=/usr/bin/distribution containers-storage:%s serve /etc/registry/config.yaml"
 	registryStopCmd      = "podman rm registry -f"
 	registryBuildCmd     = "podman build -f Dockerfile.registry -t registry ."
 	registrySaveCmd      = "podman save -o %s/registry.tar %s"
@@ -43,12 +46,13 @@ type HTTPClient interface {
 }
 
 type RegistryConfig struct {
-	Executer    executer.Executer
-	HTTPClient  HTTPClient
-	Port        int
-	URI         string
-	DataDirPath string
-	UseBinary   bool
+	Executer       executer.Executer
+	HTTPClient     HTTPClient
+	Port           int
+	URI            string
+	DataDirPath    string
+	UseBinary      bool
+	UseOcpRegistry bool
 }
 
 type registry struct {
@@ -113,8 +117,16 @@ func (r *registry) StartRegistry() error {
 func (r *registry) runRegistryImage() error {
 	_ = r.StopRegistry()
 
-	logrus.Debug("Running registry image")
-	_, err := r.Executer.Execute(fmt.Sprintf(registryStartCmd, r.DataDirPath, r.Port, r.URI))
+	var cmd string
+	if r.UseOcpRegistry {
+		logrus.Debug("Running OCP docker-registry image with distribution entrypoint")
+		cmd = fmt.Sprintf(registryStartCmdOcp, r.DataDirPath, r.Port, r.URI)
+	} else {
+		logrus.Debug("Running registry image")
+		cmd = fmt.Sprintf(registryStartCmd, r.DataDirPath, r.Port, r.URI)
+	}
+
+	_, err := r.Executer.Execute(cmd)
 	if err != nil {
 		return errors.Wrapf(err, "registry start failure")
 	}
@@ -180,35 +192,115 @@ func LoadRegistryImage(cacheDir string) error {
 	return err
 }
 
+// ShouldUseOcpRegistry determines if the OCP docker-registry image should be used
+// based on the priority: user config > OCP release > internally built
+// Returns true only if no user config is set AND OCP version >= 4.21 AND OCP release has docker-registry available
+func ShouldUseOcpRegistry(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) bool {
+	// Only use OCP registry if user hasn't configured their own imageRegistry.uri
+	if swag.StringValue(applianceConfig.Config.ImageRegistry.URI) != "" {
+		logrus.Debug("User-configured registry detected, not using OCP docker-registry")
+		return false
+	}
+
+	// Check if OCP version supports docker-registry with distribution binary (>= 4.21)
+	if !ocpVersionContainsDistributionRegistry(applianceConfig) {
+		logrus.Debug("OCP version < 4.21, docker-registry does not contain distribution binary")
+		return false
+	}
+
+	// No user-configured registry, check if OCP release has docker-registry
+	releaseConfig := release.ReleaseConfig{
+		ApplianceConfig: applianceConfig,
+		EnvConfig:       envConfig,
+	}
+	r := release.NewRelease(releaseConfig)
+	imageRegistryUri, err := r.GetImageFromRelease("docker-registry")
+	if err == nil && imageRegistryUri != "" {
+		logrus.Debug("OCP docker-registry available and will be used")
+		return true
+	}
+
+	logrus.Debug("No OCP docker-registry available, using internally built registry")
+	return false
+}
+
+// isVersionAtLeast checks if the given version string is at least the minimum version.
+// Pre-release versions (e.g., "4.21.0-rc.1") are considered less than their stable release and would return false.
+func isVersionAtLeast(versionStr, minVersionStr string) bool {
+	ocpVer, err := version.NewVersion(versionStr)
+	if err != nil {
+		return false
+	}
+
+	minOcpVer, err := version.NewVersion(minVersionStr)
+	if err != nil {
+		return false
+	}
+
+	return ocpVer.GreaterThanOrEqual(minOcpVer)
+}
+
+func ocpVersionContainsDistributionRegistry(applianceConfig *config.ApplianceConfig) bool {
+	versionStr := applianceConfig.Config.OcpRelease.Version
+	result := isVersionAtLeast(versionStr, consts.MinOcpVersionContainingDistributionRegistry)
+	logrus.Debugf("ocpVersionContainsDistributionRegistry: OCP version %s >= minimum version %s: %v",
+		versionStr, consts.MinOcpVersionContainingDistributionRegistry, result)
+	return result
+}
+
 func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) (string, error) {
 	registryFilename := filepath.Base(consts.RegistryFilePath)
 	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
-	registryUri := swag.StringValue(applianceConfig.Config.ImageRegistry.URI)
 
-	if registryUri == "" {
-		// Use an internally built registry image
-		registryUri = consts.RegistryImage
+	// Determine source registry URI with priority: appliance config, docker-registry from OCP release, or internally built
+	var sourceRegistryUri string
+
+	// First priority: appliance config imageRegistry.uri (user-specified)
+	sourceRegistryUri = swag.StringValue(applianceConfig.Config.ImageRegistry.URI)
+	if sourceRegistryUri != "" {
+		logrus.Infof("Using registry from appliance config: %s", sourceRegistryUri)
+	} else if ShouldUseOcpRegistry(envConfig, applianceConfig) {
+		// Second priority: docker-registry from OCP release
+		releaseConfig := release.ReleaseConfig{
+			ApplianceConfig: applianceConfig,
+			EnvConfig:       envConfig,
+		}
+		r := release.NewRelease(releaseConfig)
+		imageRegistryUri, _ := r.GetImageFromRelease("docker-registry")
+		sourceRegistryUri = imageRegistryUri
+		logrus.Infof("Using docker-registry from OCP release: %s", sourceRegistryUri)
+	} else {
+		// Last resort: Use an internally built registry image
+		sourceRegistryUri = consts.RegistryImage
+		logrus.Infof("Using internally built registry image: %s", sourceRegistryUri)
 	}
 
 	// Search for registry image in cache dir
-	if fileName := envConfig.FindInCache(registryFilename); fileName != "" {
-		logrus.Debug("Reusing registry.tar from cache")
-		if err := LoadRegistryImage(envConfig.CacheDir); err != nil {
-			return "", err
-		}
-	} else if registryUri == consts.RegistryImage {
-		// Build the registry image internally
-		if err := BuildRegistryImage(envConfig.CacheDir); err != nil {
-			return "", err
+	if fileName := envConfig.FindInCache(registryFilename); fileName == "" {
+		// Not in cache, need to create it
+		if sourceRegistryUri == consts.RegistryImage {
+			// Build the registry image internally
+			if err := BuildRegistryImage(envConfig.CacheDir); err != nil {
+				return "", err
+			}
+		} else {
+			// Pull the source registry image (docker-registry from OCP release or from appliance config)
+			// and copy/tag it to localhost/registry:latest, then save to registry.tar
+			logrus.Infof("Copying registry image from %s to %s", sourceRegistryUri, consts.RegistryImage)
+			if err := skopeo.NewSkopeo(nil).CopyToFile(
+				sourceRegistryUri,
+				consts.RegistryImage,
+				fileInCachePath); err != nil {
+				return "", err
+			}
 		}
 	} else {
-		// Pulling the registry image and copying to cache
-		if err := skopeo.NewSkopeo(nil).CopyToFile(
-			registryUri,
-			consts.RegistryImage,
-			fileInCachePath); err != nil {
-			return registryUri, err
-		}
+		logrus.Debug("Reusing registry.tar from cache")
+	}
+
+	// Load the registry image into podman storage
+	if err := LoadRegistryImage(envConfig.CacheDir); err != nil {
+		return "", err
 	}
 
 	// Copy to data dir in temp
@@ -218,5 +310,6 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 		return "", err
 	}
 
-	return registryUri, nil
+	// Always return localhost/registry:latest as this is what will be loaded in the disconnected environment
+	return consts.RegistryImage, nil
 }

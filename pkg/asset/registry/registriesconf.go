@@ -20,7 +20,7 @@ import (
 
 const (
 	RegistryDomain      = "registry.appliance.openshift.com"
-	RegistryPort        = 5000
+	RegistryPort        = 22625
 	RegistryPortUpgrade = 5001
 )
 

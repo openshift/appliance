@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2/dsl/core"
+	. "github.com/onsi/ginkgo/v2/dsl/table"
 	. "github.com/onsi/gomega"
 	"github.com/openshift/appliance/pkg/executer"
 )
@@ -21,6 +22,26 @@ func (c *ClientMock) Do(req *http.Request) (*http.Response, error) {
 	}
 	return nil, errors.New("test client error, unexpected URL")
 }
+
+var _ = Describe("Test isVersionAtLeast", func() {
+	DescribeTable("version comparison",
+		func(versionStr, minVersionStr string, expected bool) {
+			result := isVersionAtLeast(versionStr, minVersionStr)
+			Expect(result).To(Equal(expected))
+		},
+		Entry("CI version 4.21.0-0.ci-2025-11-17-124207 < 4.21.0", "4.21.0-0.ci-2025-11-17-124207", "4.21.0", false),
+		Entry("EC version 4.21.0-ec.3 < 4.21.0", "4.21.0-ec.3", "4.21.0", false),
+		Entry("Release version 4.21.0 >= 4.21", "4.21.0", "4.21", true),
+		Entry("Release version 4.21.5 >= 4.21", "4.21.5", "4.21", true),
+		Entry("Release version 4.22.0 >= 4.21", "4.22.0", "4.21", true),
+		Entry("CI version 4.22.0-0.nightly-2025-12-01 >= 4.21", "4.22.0-0.nightly-2025-12-01", "4.21", true),
+		Entry("Release version 4.20.10 < 4.21", "4.20.10", "4.21", false),
+		Entry("CI version 4.20.0-0.ci-2025-11-17-124207 < 4.21", "4.20.0-0.ci-2025-11-17-124207", "4.21", false),
+		Entry("Invalid version string", "invalid", "4.21", false),
+		Entry("Invalid minimum version", "4.21.0", "invalid", false),
+		Entry("Both invalid", "invalid", "also-invalid", false),
+	)
+})
 
 var _ = Describe("Test Image Registry", func() {
 	var (
