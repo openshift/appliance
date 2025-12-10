@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/consts"
 	ignitionutil "github.com/openshift/appliance/pkg/ignition"
+	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	ignasset "github.com/openshift/installer/pkg/asset/ignition"
@@ -78,6 +79,12 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	operatorCRs := &manifests.OperatorCRs{}
 	dependencies.Get(envConfig, applianceConfig, operatorCRs)
 
+	// Determine if we're using the OCP registry (for the podman run command)
+	useOcpRegistry := registry.ShouldUseOcpRegistry(envConfig, applianceConfig)
+	if useOcpRegistry {
+		logrus.Info("InstallIgnition will use OCP docker-registry image")
+	}
+
 	i.Config = igntypes.Config{
 		Ignition: igntypes.Ignition{
 			Version: igntypes.MaxVersion.String(),
@@ -126,8 +133,12 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 		envConfig.IsLiveISO,
 		corePassHash)
 
-	// Add services common for bootstrap and install
-	if err := bootstrap.AddSystemdUnits(&i.Config, "services/common", templateData, installServices); err != nil {
+	// Add registry service from appropriate directory (OCP or default)
+	registryServiceDir := "services/local-registry-default"
+	if useOcpRegistry {
+		registryServiceDir = "services/local-registry-ocp"
+	}
+	if err := bootstrap.AddSystemdUnits(&i.Config, registryServiceDir, templateData, installServices); err != nil {
 		return err
 	}
 
