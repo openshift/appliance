@@ -7,10 +7,17 @@ podman load -q -i /mnt/agentdata/images/{{.RegistryFilePath}}
 
 # Create certificate for the local registry
 mkdir -p /etc/iri-registry/certs
-openssl req -newkey rsa:4096 -nodes -sha256 -keyout /etc/iri-registry/certs/tls.key \
-    -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN={{.RegistryDomain}}" \
-    -addext "subjectAltName=DNS:{{.RegistryDomain}},DNS:quay.io" \
-    -x509 -days 36500 -out /etc/iri-registry/certs/tls.crt
+
+# Only generate self-signed certs if they don't already exist (e.g., from IRI TLS)
+if [[ ! -s /etc/iri-registry/certs/tls.crt ]] || [[ ! -s /etc/iri-registry/certs/tls.key ]]; then
+    echo "Generating self-signed certificate for local registry"
+    openssl req -newkey rsa:4096 -nodes -sha256 -keyout /etc/iri-registry/certs/tls.key \
+        -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN={{.RegistryDomain}}" \
+        -addext "subjectAltName=DNS:{{.RegistryDomain}},DNS:quay.io" \
+        -x509 -days 36500 -out /etc/iri-registry/certs/tls.crt
+else
+    echo "Using existing certificates at /etc/iri-registry/certs/"
+fi
 
 # Apply certificates
 mkdir -p /etc/docker/certs.d/{{.RegistryDomain}}:22625

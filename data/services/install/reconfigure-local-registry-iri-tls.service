@@ -1,0 +1,11 @@
+[Unit]
+Description=Reconfigure local registry with IRI TLS certificate
+After=start-local-registry.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/reconfigure-local-registry-iri-tls.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
