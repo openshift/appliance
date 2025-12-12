@@ -29,8 +29,8 @@ var _ = Describe("Test isVersionAtLeast", func() {
 			result := isVersionAtLeast(versionStr, minVersionStr)
 			Expect(result).To(Equal(expected))
 		},
-		Entry("CI version 4.21.0-0.ci-2025-11-17-124207 < 4.21.0", "4.21.0-0.ci-2025-11-17-124207", "4.21.0", false),
-		Entry("EC version 4.21.0-ec.3 < 4.21.0", "4.21.0-ec.3", "4.21.0", false),
+		Entry("CI version 4.21.0-0.ci-2025-11-17-124207 >= 4.21", "4.21.0-0.ci-2025-11-17-124207", "4.21", true),
+		Entry("CI version 4.21.0-0.ec.3 >= 4.21", "4.21.0-0.ec.3", "4.21", true),
 		Entry("Release version 4.21.0 >= 4.21", "4.21.0", "4.21", true),
 		Entry("Release version 4.21.5 >= 4.21", "4.21.5", "4.21", true),
 		Entry("Release version 4.22.0 >= 4.21", "4.22.0", "4.21", true),
