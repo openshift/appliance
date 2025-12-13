@@ -13,13 +13,14 @@ import (
 	os "os"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockExecuter is a mock of Executer interface.
 type MockExecuter struct {
 	ctrl     *gomock.Controller
 	recorder *MockExecuterMockRecorder
+	isgomock struct{}
 }
 
 // MockExecuterMockRecorder is the mock recorder for MockExecuter.
