@@ -37,6 +37,7 @@ var (
 	installServices = []string{
 		"set-node-zero.service",
 		"apply-operator-crs.service",
+		"watch-iri-tls-certs.path",
 	}
 
 	installScripts = []string{
@@ -46,6 +47,7 @@ var (
 		"stop-local-registry.sh",
 		"mount-agent-data.sh",
 		"apply-operator-crs.sh",
+		"reconfigure-local-registry-iri-tls.sh",
 	}
 
 	corePassHash string
@@ -174,7 +176,7 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	i.Config.Storage.Files = append(i.Config.Storage.Files, rendezvousHostEnvFile)
 
 	// Add operators CR manifests from 'openshift/crs' dir
-	if err = addExtraManifests(
+	if err := addExtraManifests(
 		&i.Config,
 		operatorCRs.FileList,
 		filepath.Join(extraManifestsPath, postInstallationCrsDir),
