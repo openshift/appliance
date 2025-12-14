@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+set -e
+
+CERT_PATH="/opt/openshift/tls/internal-release-image.crt"
+KEY_PATH="/opt/openshift/tls/internal-release-image.key"
+DEST_DIR="/etc/iri-registry/certs"
+REGISTRY_SERVICE="start-local-registry.service"
+
+echo "IRI TLS certificate and key detected"
+
+# Verify both files exist and have content
+if [[ ! -f "${CERT_PATH}" ]]; then
+    echo "Error: Certificate not found at ${CERT_PATH}"
+    exit 1
+fi
+
+if [[ ! -s "${CERT_PATH}" ]]; then
+    echo "Error: Certificate file is empty at ${CERT_PATH}"
+    exit 1
+fi
+
+if [[ ! -f "${KEY_PATH}" ]]; then
+    echo "Error: Key not found at ${KEY_PATH}"
+    exit 1
+fi
+
+if [[ ! -s "${KEY_PATH}" ]]; then
+    echo "Error: Key file is empty at ${KEY_PATH}"
+    exit 1
+fi
+
+echo "Copying IRI TLS certificate and key to ${DEST_DIR}..."
+
+# Copy the certificate and key
+cp "${CERT_PATH}" "${DEST_DIR}/tls.crt"
+cp "${KEY_PATH}" "${DEST_DIR}/tls.key"
+
+# Set appropriate permissions
+chmod 644 "${DEST_DIR}/tls.crt"
+chmod 600 "${DEST_DIR}/tls.key"
+
+echo "Restarting ${REGISTRY_SERVICE}..."
+systemctl restart "${REGISTRY_SERVICE}"
+
+echo "Registry successfully reconfigured with IRI TLS certificate"
+
+# Disable the path unit to prevent retriggering
+echo "Disabling watch-iri-tls-certs.path to prevent retriggering..."
+systemctl disable --now watch-iri-tls-certs.path
