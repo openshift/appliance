@@ -48,7 +48,7 @@ const (
 
 	// Local registry
 	RegistryImage    = "localhost/registry:latest"
-	RegistryFilePath = "registry/registry.tar"
+	RegistryFilePath = "registry/registry"
 	RegistryPort     = 5005
 
 	// Local registry env file

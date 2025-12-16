@@ -2,8 +2,35 @@
 
 source "mount-agent-data.sh"
 
-# Load registry image
-podman load -q -i /mnt/agentdata/images/{{.RegistryFilePath}}
+# Source registry environment variables
+source /etc/assisted/registry.env
+
+# Load registry image from dir format
+podman pull dir:/mnt/agentdata/images/{{.RegistryFilePath}}
+
+# When using OCP docker-registry image from the release payload, REGISTRY_IMAGE contains
+# a digest reference (e.g., registry.ci.openshift.org/ocp/4.21-2025-12-15-160423@sha256:abc123...)
+# We need to tag it with :latest for easier reference in subsequent podman run commands.
+# This is because:
+# 1. The dir: transport preserves the digest but podman pull doesn't create a :latest tag automatically
+# 2. Start-local-registry.service and other scripts expect a simple tag reference
+# 3. The digest ensures we're tagging the exact image that was pulled from the release
+if [[ "$REGISTRY_IMAGE" == *"@sha256:"* ]]; then
+    # Extract base image name (everything before @sha256:)
+    BASE_IMAGE="${REGISTRY_IMAGE%@sha256:*}"
+    # Extract the digest (everything after @)
+    DIGEST="${REGISTRY_IMAGE#*@}"
+    # Get the image ID that matches this digest
+    IMAGE_ID=$(podman images --digests --format '{{.Digest}} {{.ID}}' | grep "^${DIGEST}" | awk '{print $2}')
+
+    if [[ -n "$IMAGE_ID" ]]; then
+        # Tag the pulled image with :latest using the image ID
+        podman tag "$IMAGE_ID" "${BASE_IMAGE}:latest"
+        echo "Tagged registry image $IMAGE_ID (digest: $DIGEST) as ${BASE_IMAGE}:latest"
+    else
+        echo "Warning: Could not find image with digest $DIGEST"
+    fi
+fi
 
 # Create certificate for the local registry
 mkdir -p /etc/iri-registry/certs
