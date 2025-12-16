@@ -104,7 +104,7 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 
 	if !swag.BoolValue(applianceConfig.Config.SkipLocalRegistry) {
 		installServices = append(installServices, "start-local-registry.service")
-		installScripts = append(installScripts, "setup-local-registry.sh")
+		installScripts = append(installScripts, "load-registry-image.sh", "setup-local-registry.sh")
 	}
 
 	if swag.BoolValue(applianceConfig.Config.StopLocalRegistry) {
@@ -166,8 +166,9 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	}
 
 	// Add registry.env file
+	registryImageURI := registry.GetRegistryImageURI(envConfig, applianceConfig)
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
-		"root", 0644, templates.GetRegistryEnv(consts.RegistryDataInstall, consts.RegistryDataUpgrade))
+		"root", 0644, templates.GetRegistryEnv(registryImageURI, consts.RegistryDataInstall, consts.RegistryDataUpgrade))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)
 
 	// Add a placeholder for rendezvous-host.env file
