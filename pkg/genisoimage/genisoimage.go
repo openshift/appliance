@@ -29,6 +29,7 @@ func NewGenIsoImage(exec executer.Executer) GenIsoImage {
 }
 
 func (s *genisoimage) GenerateImage(imagePath, imageName, dirPath, volumeName string) error {
+	fmt.Printf("RWSU GenerateImage execute %s \n", fmt.Sprintf(genDataImageCmd, volumeName, imagePath, imageName, dirPath))
 	_, err := s.executer.Execute(fmt.Sprintf(genDataImageCmd, volumeName, imagePath, imageName, dirPath))
 	return err
 }

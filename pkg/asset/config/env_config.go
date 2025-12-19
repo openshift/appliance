@@ -27,6 +27,7 @@ type EnvConfig struct {
 
 	DebugBootstrap    bool
 	DebugBaseIgnition bool
+	MirrorPath        string // Path to pre-mirrored images from oc-mirror
 }
 
 var _ asset.Asset = (*EnvConfig)(nil)

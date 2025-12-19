@@ -9,6 +9,7 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
+	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/genisoimage"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/registry"
@@ -123,7 +124,32 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 	)
 	spinner.FileToMonitor = dataIsoName
 	imageGen := genisoimage.NewGenIsoImage(nil)
-	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir), dataVolumeName); err != nil {
+
+	// When mirror-path is provided, copy the Docker registry data from mirror-path/data
+	// to temp/data so it's in the same location as the registry container image (images/registry/registry.tar)
+	registryDataSourcePath := filepath.Join(envConfig.TempDir, dataDir)
+	if envConfig.MirrorPath != "" {
+		mirrorDataPath := filepath.Join(envConfig.MirrorPath, dataDir)
+		dockerSrcPath := filepath.Join(mirrorDataPath, "docker")
+		dockerDstPath := filepath.Join(registryDataSourcePath, "docker")
+
+		logrus.Infof("Copying Docker registry data from %s to %s", dockerSrcPath, dockerDstPath)
+		if _, err := os.Stat(dockerSrcPath); err == nil {
+			if err := os.MkdirAll(registryDataSourcePath, os.ModePerm); err != nil {
+				return log.StopSpinner(spinner, fmt.Errorf("failed to create directory for Docker registry data: %w", err))
+			}
+			cpCmd := fmt.Sprintf("cp -r %s %s", dockerSrcPath, dockerDstPath)
+			exec := executer.NewExecuter()
+			if _, err := exec.Execute(cpCmd); err != nil {
+				return log.StopSpinner(spinner, fmt.Errorf("failed to copy Docker registry data: %w", err))
+			}
+			logrus.Infof("Successfully copied Docker registry data")
+		} else {
+			logrus.Warnf("Docker registry data not found at %s: %v", dockerSrcPath, err)
+		}
+	}
+
+	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, registryDataSourcePath, dataVolumeName); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	return log.StopSpinner(spinner, a.updateAsset(envConfig))
