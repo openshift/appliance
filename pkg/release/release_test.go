@@ -92,6 +92,12 @@ var _ = Describe("Test Release", func() {
 		testRelease = NewRelease(coreOSConfig)
 	})
 
+	AfterEach(func() {
+		// Clean up scripts/mirror directory created by RenderTemplateFile during tests
+		scriptsDir := filepath.Join(tempDir, "scripts")
+		os.RemoveAll(scriptsDir)
+	})
+
 	It("MirrorInstallImages - success", func() {
 		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", nil).Times(1)
 

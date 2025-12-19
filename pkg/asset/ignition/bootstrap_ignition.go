@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/consts"
 	reg "github.com/openshift/appliance/pkg/registry"
+	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
@@ -246,6 +248,12 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 		}
 	}
 
+	if swag.BoolValue(applianceConfig.Config.CreatePinnedImageSets) {
+		if err := i.addPinnedImageSetConfigFiles(envConfig, applianceConfig); err != nil {
+			return err
+		}
+	}
+
 	logrus.Debug("Successfully generated bootstrap ignition")
 
 	return nil
@@ -400,6 +408,50 @@ func (i *BootstrapIgnition) setCoreUserPass(role, pwdHash string) error {
 	manifestPath := fmt.Sprintf("%s/%s.yaml", extraManifestsPath, machineConfig.Name)
 	manifestFile := ignasset.FileFromBytes(manifestPath, "root", 0644, manifestBytes)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, manifestFile)
+
+	return nil
+}
+
+func (i *BootstrapIgnition) addPinnedImageSetConfigFiles(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
+	// Get mapping file content using oc mirror dry-run
+	rel := release.NewRelease(release.ReleaseConfig{
+		EnvConfig:       envConfig,
+		ApplianceConfig: applianceConfig,
+	})
+
+	mappingBytes, err := rel.GetMappingFile()
+	if err != nil {
+		return err
+	}
+
+	var builder strings.Builder
+	for _, mapping := range strings.Split(string(mappingBytes), "\n") {
+		image := strings.Split(mapping, "=")[0]
+		image = strings.TrimPrefix(image, "docker://")
+		if image != "" {
+			builder.WriteString(fmt.Sprintf("  - name: %s\n", image))
+		}
+	}
+	images := builder.String()
+
+	for _, role := range []string{"master", "worker"} {
+		outputDir := filepath.Join(envConfig.TempDir, role)
+		if err := templates.RenderTemplateFile(
+			consts.PinnedImageSetTemplateFile,
+			templates.GetPinnedImageSetTemplateData(images, role),
+			outputDir); err != nil {
+			return err
+		}
+
+		fileBytes, err := os.ReadFile(templates.GetFilePathByTemplate(consts.PinnedImageSetTemplateFile, outputDir))
+		if err != nil {
+			return err
+		}
+
+		manifestPath := fmt.Sprintf("%s/%s.yaml", extraManifestsPath, fmt.Sprintf(consts.PinnedImageSetPattern, role))
+		fileIgnitionConfig := ignasset.FileFromBytes(manifestPath, "root", 0644, fileBytes)
+		i.Config.Storage.Files = append(i.Config.Storage.Files, fileIgnitionConfig)
+	}
 
 	return nil
 }

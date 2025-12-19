@@ -414,6 +414,11 @@ func (a *ApplianceConfig) validateConfig(f asset.FileFetcher) field.ErrorList {
 		allErrs = append(allErrs, err...)
 	}
 
+	// Validate pinnedImageSet
+	if err := a.validatePinnedImageSet(); err != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("createPinnedImageSets"), a.Config.CreatePinnedImageSets, err.Error()))
+	}
+
 	// Validate pullSecret
 	if err := validate.ImagePullSecret(a.Config.PullSecret); err != nil {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("pullSecret"), a.Config.PullSecret, err.Error()))
@@ -533,6 +538,18 @@ func (a *ApplianceConfig) validateDiskSize() error {
 	}
 	if *a.Config.DiskSizeGB < MinDiskSize {
 		return fmt.Errorf("diskSizeGB must be at least %d GiB", MinDiskSize)
+	}
+	return nil
+}
+
+func (a *ApplianceConfig) validatePinnedImageSet() error {
+	if !swag.BoolValue(a.Config.CreatePinnedImageSets) {
+		return nil
+	}
+	minOcpVer, _ := version.NewVersion(consts.MinOcpVersionForPinnedImageSet)
+	ocpVer, _ := version.NewVersion(a.Config.OcpRelease.Version)
+	if ocpVer.LessThan(minOcpVer) {
+		return fmt.Errorf("OCP release version must be at least %s to create PinnedImageSets", consts.MinOcpVersionForPinnedImageSet)
 	}
 	return nil
 }

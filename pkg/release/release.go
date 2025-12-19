@@ -36,6 +36,8 @@ const (
 	templateExtractCmd   = "oc adm release extract --command=%s --to=%s %s"
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
 	ocMirror             = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=1 --parallel-layers=1 --retry-times=5"
+	// ocMirrorDryRun is the command template for running oc mirror in dry-run mode to generate mapping.txt
+	ocMirrorDryRun = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --dry-run"
 )
 
 // Release is the interface to use the oc command to the get image info
@@ -46,6 +48,7 @@ type Release interface {
 	MirrorInstallImages() error
 	GetImageFromRelease(imageName string) (string, error)
 	ExtractCommand(command string, dest string) (string, error)
+	GetMappingFile() ([]byte, error)
 }
 
 type ReleaseConfig struct {
@@ -163,27 +166,7 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 		return err
 	}
 
-	if err = r.copyMappingFile(tempDir); err != nil {
-		return err
-	}
-
 	return err
-}
-
-func (r *release) copyMappingFile(ocMirrorDir string) error {
-	mappingFiles, err := filepath.Glob(filepath.Join(ocMirrorDir, fmt.Sprintf("results-*/%s", consts.OcMirrorMappingFileName)))
-	if err != nil {
-		return err
-	}
-
-	// The slice returned from Glob will have a single filename when running the application, but it will be empty when running the unit-tests since they don't create the files "oc mirror" generates
-	for _, mappingFile := range mappingFiles {
-		if err := fileutil.CopyFile(mappingFile, filepath.Join(r.EnvConfig.CacheDir, consts.OcMirrorMappingFileName)); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (r *release) copyOutputYamls(ocMirrorDir string) error {
@@ -249,4 +232,41 @@ func (r *release) MirrorInstallImages() error {
 		r.generateImagesList(r.ApplianceConfig.Config.AdditionalImages),
 		r.generateOperatorsList(r.ApplianceConfig.Config.Operators),
 	)
+}
+
+// GetMappingFile runs oc mirror in dry-run mode to generate and return the mapping.txt file content.
+// mapping.txt is only generated with --dry-run flag.
+func (r *release) GetMappingFile() ([]byte, error) {
+	// Render the imageset template
+	if err := templates.RenderTemplateFile(
+		consts.ImageSetTemplateFile,
+		templates.GetImageSetTemplateData(r.ApplianceConfig,
+			r.generateImagesList(r.ApplianceConfig.Config.BlockedImages),
+			r.generateImagesList(r.ApplianceConfig.Config.AdditionalImages),
+			r.generateOperatorsList(r.ApplianceConfig.Config.Operators)),
+		r.EnvConfig.TempDir); err != nil {
+		return nil, err
+	}
+
+	imageSetFilePath, err := filepath.Abs(templates.GetFilePathByTemplate(consts.ImageSetTemplateFile, r.EnvConfig.TempDir))
+	if err != nil {
+		return nil, err
+	}
+
+	dryRunDir := filepath.Join(r.EnvConfig.TempDir, "oc-mirror-dry-run")
+	registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
+	dryRunCmd := fmt.Sprintf(ocMirrorDryRun, imageSetFilePath, registryPort, dryRunDir)
+
+	logrus.Debugf("Running oc mirror dry-run to generate mapping file (%s)", dryRunCmd)
+	result, err := r.execute(dryRunCmd)
+	logrus.Debugf("dry-run result: %s", result)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find and read the mapping file from dry-run output
+	// In dry-run mode, oc-mirror puts the mapping file in working-dir/dry-run/mapping.txt
+	mappingFilePath := filepath.Join(dryRunDir, "working-dir", "dry-run", consts.OcMirrorMappingFileName)
+
+	return r.OSInterface.ReadFile(mappingFilePath)
 }
