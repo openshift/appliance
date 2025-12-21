@@ -89,3 +89,18 @@ func (mr *MockReleaseMockRecorder) MirrorReleaseImages() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MirrorReleaseImages", reflect.TypeOf((*MockRelease)(nil).MirrorInstallImages))
 }
+
+// GetMappingFile mocks base method.
+func (m *MockRelease) GetMappingFile() ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMappingFile")
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMappingFile indicates an expected call of GetMappingFile.
+func (mr *MockReleaseMockRecorder) GetMappingFile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMappingFile", reflect.TypeOf((*MockRelease)(nil).GetMappingFile))
+}

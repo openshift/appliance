@@ -29,7 +29,7 @@ const (
 	// PinnedImageSetTemplateFile template
 	PinnedImageSetTemplateFile = "scripts/mirror/pinned-image-set.yaml.template"
 	// PinnedImageSetPattern - for installation ignition
-	PinnedImageSetPattern = "/etc/assisted/%s-pinned-image-set.yaml"
+	PinnedImageSetPattern = "%s-pinned-image-set"
 	// OcMirrorMappingFileName - name of the mapping file created by oc mirror
 	OcMirrorMappingFileName = "mapping.txt"
 	// OcMirrorResourcesDir - cluster resources directory created by oc mirror
