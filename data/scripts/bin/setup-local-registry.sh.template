@@ -2,8 +2,8 @@
 
 source "mount-agent-data.sh"
 
-# Load registry image
-podman load -q -i /mnt/agentdata/images/{{.RegistryFilePath}}
+# Load and tag the registry image
+source "load-registry-image.sh"
 
 # Create certificate for the local registry
 mkdir -p /etc/iri-registry/certs

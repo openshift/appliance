@@ -13,7 +13,6 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
-	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/appliance/pkg/skopeo"
 	"github.com/pkg/errors"
@@ -25,8 +24,8 @@ const (
 	registryStartCmdOcp  = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%d -u 0 --entrypoint=/usr/bin/distribution containers-storage:%s serve /etc/registry/config.yaml"
 	registryStopCmd      = "podman rm registry -f"
 	registryBuildCmd     = "podman build -f Dockerfile.registry -t registry ."
-	registrySaveCmd      = "podman save -o %s/registry.tar %s"
-	registryLoadCmd      = "podman load -q -i %s/registry.tar"
+	registrySaveCmd      = "podman push %s dir:%s/registry"
+	registryLoadCmd      = "skopeo copy dir:%s/registry containers-storage:localhost/registry:latest"
 	registryRunBinaryCmd = "/registry serve config.yml"
 
 	registryAttempts             = 3
@@ -119,11 +118,11 @@ func (r *registry) runRegistryImage() error {
 
 	var cmd string
 	if r.UseOcpRegistry {
-		logrus.Debug("Running OCP docker-registry image with distribution entrypoint")
 		cmd = fmt.Sprintf(registryStartCmdOcp, r.DataDirPath, r.Port, r.URI)
+		logrus.Debugf("Running OCP docker-registry image with distribution entrypoint: %s", cmd)
 	} else {
-		logrus.Debug("Running registry image")
 		cmd = fmt.Sprintf(registryStartCmd, r.DataDirPath, r.Port, r.URI)
+		logrus.Debugf("Running registry image: %s", cmd)
 	}
 
 	_, err := r.Executer.Execute(cmd)
@@ -180,8 +179,8 @@ func BuildRegistryImage(destDir string) error {
 	if err != nil {
 		return err
 	}
-	// Store image
-	_, err = exec.Execute(fmt.Sprintf(registrySaveCmd, destDir, consts.RegistryImage))
+	// Store image in dir format
+	_, err = exec.Execute(fmt.Sprintf(registrySaveCmd, consts.RegistryImage, destDir))
 	return err
 }
 
@@ -254,32 +253,38 @@ func ocpVersionContainsDistributionRegistry(applianceConfig *config.ApplianceCon
 	return result
 }
 
-func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) (string, error) {
-	registryFilename := filepath.Base(consts.RegistryFilePath)
-	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
-
-	// Determine source registry URI with priority: appliance config, docker-registry from OCP release, or internally built
-	var sourceRegistryUri string
-
+// GetRegistryImageURI returns the registry image URI to use based on configuration priority
+func GetRegistryImageURI(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) string {
 	// First priority: appliance config imageRegistry.uri (user-specified)
-	sourceRegistryUri = swag.StringValue(applianceConfig.Config.ImageRegistry.URI)
+	sourceRegistryUri := swag.StringValue(applianceConfig.Config.ImageRegistry.URI)
 	if sourceRegistryUri != "" {
-		logrus.Infof("Using registry from appliance config: %s", sourceRegistryUri)
-	} else if ShouldUseOcpRegistry(envConfig, applianceConfig) {
-		// Second priority: docker-registry from OCP release
+		return sourceRegistryUri
+	}
+
+	// Second priority: docker-registry from OCP release
+	if ShouldUseOcpRegistry(envConfig, applianceConfig) {
 		releaseConfig := release.ReleaseConfig{
 			ApplianceConfig: applianceConfig,
 			EnvConfig:       envConfig,
 		}
 		r := release.NewRelease(releaseConfig)
-		imageRegistryUri, _ := r.GetImageFromRelease("docker-registry")
-		sourceRegistryUri = imageRegistryUri
-		logrus.Infof("Using docker-registry from OCP release: %s", sourceRegistryUri)
-	} else {
-		// Last resort: Use an internally built registry image
-		sourceRegistryUri = consts.RegistryImage
-		logrus.Infof("Using internally built registry image: %s", sourceRegistryUri)
+		imageRegistryUri, err := r.GetImageFromRelease("docker-registry")
+		if err == nil && imageRegistryUri != "" {
+			return imageRegistryUri
+		}
 	}
+
+	// Last resort: Use an internally built registry image
+	return consts.RegistryImage
+}
+
+func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) (string, error) {
+	registryFilename := filepath.Base(consts.RegistryFilePath)
+	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
+
+	// Determine source registry URI using the helper function
+	sourceRegistryUri := GetRegistryImageURI(envConfig, applianceConfig)
+	logrus.Infof("Registry image URI: %s", sourceRegistryUri)
 
 	// Search for registry image in cache dir
 	if fileName := envConfig.FindInCache(registryFilename); fileName == "" {
@@ -291,7 +296,7 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 			}
 		} else {
 			// Pull the source registry image (docker-registry from OCP release or from appliance config)
-			// and copy/tag it to localhost/registry:latest, then save to registry.tar
+			// and copy it to dir format to preserve digests
 			logrus.Infof("Copying registry image from %s to %s", sourceRegistryUri, consts.RegistryImage)
 			if err := skopeo.NewSkopeo(nil).CopyToFile(
 				sourceRegistryUri,
@@ -301,7 +306,7 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 			}
 		}
 	} else {
-		logrus.Debug("Reusing registry.tar from cache")
+		logrus.Debug("Reusing registry from cache")
 	}
 
 	// Load the registry image into podman storage
@@ -309,13 +314,22 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 		return "", err
 	}
 
-	// Copy to data dir in temp
+	// Copy registry from cache to data dir staging area
+	// This staging area gets packaged into the data ISO (agentdata partition),
+	// which is mounted at /mnt/agentdata/ in the appliance for disconnected installation
 	fileInDataDir := filepath.Join(envConfig.TempDir, dataDir, imagesDir, consts.RegistryFilePath)
-	if err := fileutil.CopyFile(fileInCachePath, fileInDataDir); err != nil {
+	exec := executer.NewExecuter()
+	if err := os.MkdirAll(filepath.Dir(fileInDataDir), os.ModePerm); err != nil {
+		logrus.Error(err)
+		return "", err
+	}
+	if _, err := exec.Execute(fmt.Sprintf("cp -r %s %s", fileInCachePath, fileInDataDir)); err != nil {
 		logrus.Error(err)
 		return "", err
 	}
 
-	// Always return localhost/registry:latest as this is what will be loaded in the disconnected environment
+	// Return localhost/registry:latest for use in podman run during the build process
+	// LoadRegistryImage tagged the image as localhost/registry:latest in local storage
+	// Note: For REGISTRY_IMAGE env var in the appliance, use GetRegistryImageURI() instead
 	return consts.RegistryImage, nil
 }
