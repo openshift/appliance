@@ -82,7 +82,6 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/cjlapao/common-go v0.0.39 // indirect
 	github.com/clarketm/json v1.14.1 // indirect
 	github.com/containers/image/v5 v5.31.0 // indirect
 	github.com/containers/storage v1.54.0 // indirect
@@ -178,7 +177,7 @@ require (
 	github.com/metal3-io/baremetal-operator/apis v0.4.0 // indirect
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.4.0 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
-	github.com/microsoft/kiota-abstractions-go v0.18.0 // indirect
+	github.com/microsoft/kiota-abstractions-go v1.9.3 // indirect
 	github.com/microsoft/kiota-authentication-azure-go v0.6.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
@@ -228,19 +227,19 @@ require (
 	github.com/shurcooL/httpfs v0.0.0-20230704072500-f1e31cf0ba5c // indirect
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd // indirect
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace // indirect
+	github.com/std-uritemplate/std-uritemplate/go/v2 v2.0.3 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/vincent-petithory/dataurl v1.0.0 // indirect
 	github.com/vmware/govmomi v0.37.2 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
-	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/bridges/prometheus v0.57.0 // indirect
 	go.opentelemetry.io/contrib/exporters/autoexport v0.57.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.57.0 // indirect
-	go.opentelemetry.io/otel v1.34.0 // indirect
+	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.8.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.8.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.32.0 // indirect
@@ -253,11 +252,11 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.32.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.32.0 // indirect
 	go.opentelemetry.io/otel/log v0.8.0 // indirect
-	go.opentelemetry.io/otel/metric v1.34.0 // indirect
+	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
 	go.opentelemetry.io/otel/sdk/log v0.8.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.34.0 // indirect
-	go.opentelemetry.io/otel/trace v1.34.0 // indirect
+	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.starlark.net v0.0.0-20251029211736-7849196f18cf // indirect
 	go.uber.org/multierr v1.11.0 // indirect
