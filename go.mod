@@ -22,7 +22,7 @@ require (
 	github.com/onsi/gomega v1.36.0
 	github.com/openconfig/goyang v1.6.3
 	github.com/openshift/api v0.0.0-20240808203820-e69593239e49
-	github.com/openshift/assisted-image-service v0.0.0-20250301084320-0faa6d927ecd
+	github.com/openshift/assisted-image-service v0.0.0-20251229102121-b396d331f931
 	github.com/openshift/assisted-service/api v0.0.0
 	github.com/openshift/hive/apis v0.0.0-20231220215202-ad99b9e52d27
 	github.com/openshift/installer v1.4.17
@@ -99,6 +99,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/elliotwutingfeng/asciiset v0.0.0-20251209210403-59ed57bd7b86 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
+	github.com/erofs/go-erofs v0.0.0-20250726210804-e84d089fc453 // indirect
 	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect

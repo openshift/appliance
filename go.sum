@@ -364,6 +364,8 @@ github.com/envoyproxy/go-control-plane/envoy v1.32.4/go.mod h1:Gzjc5k8JcJswLjAx1
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/envoyproxy/protoc-gen-validate v1.2.1 h1:DEo3O99U8j4hBFwbJfrz9VtgcDfUKS7KJ7spH3d86P8=
 github.com/envoyproxy/protoc-gen-validate v1.2.1/go.mod h1:d/C80l/jxXLdfEIhX1W2TmLfsJ31lvEjwamM4DxlWXU=
+github.com/erofs/go-erofs v0.0.0-20250726210804-e84d089fc453 h1:PCt3HPQM9lr9QRaDF9Sg+cH8HGlpBabVmrlYWHEGAmI=
+github.com/erofs/go-erofs v0.0.0-20250726210804-e84d089fc453/go.mod h1:XkSeN9MHszGd4+3gcEjadJLYHCQpWzJ7/8yznzMuzJs=
 github.com/evanphx/json-patch v4.2.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
 github.com/evanphx/json-patch v4.9.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
 github.com/evanphx/json-patch v4.12.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
@@ -934,8 +936,8 @@ github.com/openshift/api v0.0.0-20200827090112-c05698d102cf/go.mod h1:M3xexPhgM8
 github.com/openshift/api v0.0.0-20200829102639-8a3a835f1acf/go.mod h1:M3xexPhgM8DISzzRpuFUy+jfPjQPIcs9yqEYj17mXV8=
 github.com/openshift/api v0.0.0-20240808203820-e69593239e49 h1:sw+VD/623xdBnqm1r5DUfch1R7lm7uE5wiYkJt6ioRI=
 github.com/openshift/api v0.0.0-20240808203820-e69593239e49/go.mod h1:OOh6Qopf21pSzqNVCB5gomomBXb8o5sGKZxG2KNpaXM=
-github.com/openshift/assisted-image-service v0.0.0-20250301084320-0faa6d927ecd h1:aG05jLwPaxznSpJUslvipJwJXvnTY6qDiX+PF20CNhI=
-github.com/openshift/assisted-image-service v0.0.0-20250301084320-0faa6d927ecd/go.mod h1:WGdSeSnK0voEWWwA4ar5eApNjGBLmGTpFurEKw/FXJc=
+github.com/openshift/assisted-image-service v0.0.0-20251229102121-b396d331f931 h1:rrXMH8XYN1jWhlAI9uVrrZp8JDC415VPlWsTuMC+b3I=
+github.com/openshift/assisted-image-service v0.0.0-20251229102121-b396d331f931/go.mod h1:cTr8yj5dj0arTFluNIJ+8E6fKGzwB6jeW0ogI2Gl0B0=
 github.com/openshift/assisted-service/api v0.0.0-20230831114549-1922eda29cf8 h1:+fZLKbycDo4JeLwPGVSAgf2XPaJGLM341l9ZfrrlxG0=
 github.com/openshift/assisted-service/api v0.0.0-20230831114549-1922eda29cf8/go.mod h1:PmMnbVno5ocinfELDdKOaatvT5ucJLrau+fjHQNeCiY=
 github.com/openshift/assisted-service/models v0.0.0-20230831114549-1922eda29cf8 h1:lQO/vwmLX4kSmZitusnqdq9KbuW402DWkcmR0CJfgBI=
