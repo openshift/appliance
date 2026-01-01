@@ -64,7 +64,7 @@ require (
 	github.com/IBM-Cloud/bluemix-go v0.0.0-20250618042132-471bd83e0b74 // indirect
 	github.com/IBM-Cloud/power-go-client v1.8.3 // indirect
 	github.com/IBM/go-sdk-core/v5 v5.18.1 // indirect
-	github.com/IBM/keyprotect-go-client v0.12.2 // indirect
+	github.com/IBM/keyprotect-go-client v0.15.1 // indirect
 	github.com/IBM/networking-go-sdk v0.45.0 // indirect
 	github.com/IBM/platform-services-go-sdk v0.71.0 // indirect
 	github.com/IBM/vpc-go-sdk v0.61.0 // indirect
