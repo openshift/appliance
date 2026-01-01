@@ -15,7 +15,6 @@ import (
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	agentManifests "github.com/openshift/installer/pkg/asset/agent/manifests"
-	"github.com/openshift/installer/pkg/asset/ignition"
 	ignasset "github.com/openshift/installer/pkg/asset/ignition"
 	"golang.org/x/crypto/bcrypt"
 	"sigs.k8s.io/yaml"
@@ -222,7 +221,7 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	i.Config.Storage.Files = append(i.Config.Storage.Files, clusterImageSetFile)
 
 	// Add registries.conf file
-	registriesConfFile := ignition.FileFromBytes(filepath.Join(registriesConfFilePath, registriesConfFilename),
+	registriesConfFile := ignasset.FileFromBytes(filepath.Join(registriesConfFilePath, registriesConfFilename),
 		"root", 0644, registriesConf.File.Data)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registriesConfFile)
 
