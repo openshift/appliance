@@ -20,7 +20,13 @@ output_issue=/etc/issue.d/90_output.issue
 printf '\\e{yellow}Preparing to start appliance disk image cloning...\\e{reset}\n' | tee $prepare_issue
 
 # Load appliance image
-podman load -q -i /run/media/iso/deploy/{{.ApplianceImageTar}}
+podman load -i /run/media/iso/deploy/{{.ApplianceImageTar}}
+
+# Tag the loaded image to a consistent name
+IMAGE_ID=$(podman images --quiet | head -1)
+podman tag "$IMAGE_ID" {{.ApplianceImageName}}
+
+printf '\\e{cyan}Tagged appliance image: {{.ApplianceImageName}}\\e{reset}\n'
 
 # Create a loop device for each appliance part
 APPLIANCE_FILES="/run/media/iso/deploy/{{.ApplianceFileName}}*"
@@ -44,14 +50,44 @@ done
 ) | dmsetup create appliance
 
 rm -rf $prepare_issue
-printf '\\e{cyan}Cloning appliance disk image to {{.TargetDevice}}...\\e{reset}\n' | tee $start_issue
+
+# Resolve target device path (handles symlinks like /dev/disk/by-path/*)
+TARGET_DEVICE="{{.TargetDevice}}"
+
+# Wait for udev to settle and ensure all disk symlinks are created
+udevadm settle --timeout=60
+
+# Wait for the target device to become available (up to 60 seconds)
+wait_count=0
+while [ ! -e "$TARGET_DEVICE" ] && [ $wait_count -lt 30 ]; do
+  printf '\\e{yellow}Waiting for target device %s to become available...\\e{reset}\n' "$TARGET_DEVICE"
+  udevadm settle --timeout=5
+  sleep 2
+  ((wait_count++))
+done
+
+if [ ! -e "$TARGET_DEVICE" ]; then
+  printf '\\e{red}Error: Target device %s not found after waiting.\\e{reset}\n' "$TARGET_DEVICE" | tee $clone_issue
+  printf '\\e{red}\nAppliance disk image cloning failed.\\e{reset}\n' | tee $done_issue
+  agetty --reload
+  exit 1
+fi
+
+# If the target device is a symlink, resolve it to the actual device
+if [ -L "$TARGET_DEVICE" ]; then
+  RESOLVED_DEVICE=$(readlink -f "$TARGET_DEVICE")
+  printf '\\e{cyan}Resolved symlink %s -> %s\\e{reset}\n' "$TARGET_DEVICE" "$RESOLVED_DEVICE"
+  TARGET_DEVICE="$RESOLVED_DEVICE"
+fi
+
+printf '\\e{cyan}Cloning appliance disk image to %s...\\e{reset}\n' "$TARGET_DEVICE" | tee $start_issue
 
 # Run virt-resize
 sparse="--no-sparse"
 if [ "{{.SparseClone}}" = "true" ]; then
   sparse=""
 fi
-podman run --rm -t --privileged --entrypoint virt-resize {{.ApplianceImageName}} --expand /dev/sda4 /dev/dm-0 {{.TargetDevice}} $sparse 2>&1 | tee $clone_issue
+podman run --rm -t --privileged --pull=never --entrypoint virt-resize {{.ApplianceImageName}} --expand /dev/sda4 /dev/dm-0 "$TARGET_DEVICE" $sparse 2>&1 | tee $clone_issue
 
 # Handle clone failure/success
 if [ "$?" -eq 0 ]; then
