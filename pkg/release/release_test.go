@@ -95,7 +95,8 @@ var _ = Describe("Test Release", func() {
 	AfterEach(func() {
 		// Clean up scripts/mirror directory created by RenderTemplateFile during tests
 		scriptsDir := filepath.Join(tempDir, "scripts")
-		os.RemoveAll(scriptsDir)
+		err := os.RemoveAll(scriptsDir)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("MirrorInstallImages - success", func() {
