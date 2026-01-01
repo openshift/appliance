@@ -308,8 +308,8 @@ github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZm
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
-github.com/digitalocean/go-libvirt v0.0.0-20250616175656-5843751af96c h1:VTYS0X+Vfs/W5ABzT5SerR4bTc5n27oOVgGqM2Tbg90=
-github.com/digitalocean/go-libvirt v0.0.0-20250616175656-5843751af96c/go.mod h1:GwQQeZzqvtOneY034nAMNxnXA/6aXd/9z7uDm7Hb8sk=
+github.com/digitalocean/go-libvirt v0.0.0-20251202224409-8b0babaf9393 h1:hCM2P/eR7IB06OpCMOMzCavv2e1vr4lo6xO7Z+bMMlI=
+github.com/digitalocean/go-libvirt v0.0.0-20251202224409-8b0babaf9393/go.mod h1:LPnY0u5aVDhLxExjB6yN79MuPUuICM5TY1omPFEAxn8=
 github.com/diskfs/go-diskfs v1.4.2 h1:khBr9RTkqAZFaMYK7PP8NooL30hqj3bSgRmj3Ouguls=
 github.com/diskfs/go-diskfs v1.4.2/go.mod h1:ss1uAUBhgDdEOewZFDWWpYqJFjNPbK7hYSjRoQE+D94=
 github.com/distribution/distribution/v3 v3.0.0 h1:q4R8wemdRQDClzoNNStftB2ZAfqOiN6UX90KJc4HjyM=
