@@ -9,7 +9,7 @@ require (
 	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/containers/image v3.0.2+incompatible
-	github.com/coreos/ignition/v2 v2.21.0
+	github.com/coreos/ignition/v2 v2.25.1
 	github.com/coreos/stream-metadata-go v0.4.10
 	github.com/diskfs/go-diskfs v1.4.2
 	github.com/distribution/distribution/v3 v3.0.0
