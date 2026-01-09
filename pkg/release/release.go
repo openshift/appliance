@@ -32,10 +32,10 @@ const (
 )
 
 const (
-	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
-	templateExtractCmd   = "oc adm release extract --command=%s --to=%s %s"
-	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
-	ocMirror             = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=1 --parallel-layers=1 --retry-times=5"
+	templateGetImage     = "oc adm release info --registry-config %s --image-for=%s %s"
+	templateExtractCmd   = "oc adm release extract --registry-config %s --command=%s --to=%s %s"
+	templateImageExtract = "oc image extract --registry-config %s --path %s:%s --confirm %s"
+	ocMirror             = "oc mirror --v2 --authfile %s --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=1 --parallel-layers=1 --retry-times=5"
 	// ocMirrorDryRun is the command template for running oc mirror in dry-run mode to generate mapping.txt
 	ocMirrorDryRun = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --dry-run"
 )
@@ -91,7 +91,8 @@ func (r *release) ExtractFile(image string, filename string) (string, error) {
 }
 
 func (r *release) GetImageFromRelease(imageName string) (string, error) {
-	cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
+	configPath := r.ApplianceConfig.GetPullSecretPath()
+	cmd := fmt.Sprintf(templateGetImage, configPath, imageName, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
 
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 	image, err := r.execute(cmd)
@@ -148,7 +149,8 @@ func (r *release) fixImageReference(imageRef, releaseURL string) (string, error)
 }
 
 func (r *release) extractFileFromImage(image, file, outputDir string) (string, error) {
-	cmd := fmt.Sprintf(templateImageExtract, file, outputDir, image)
+	configPath := r.ApplianceConfig.GetPullSecretPath()
+	cmd := fmt.Sprintf(templateImageExtract, configPath, file, outputDir, image)
 	logrus.Debugf("extracting %s to %s, %s", file, outputDir, cmd)
 	_, err := retry.Do(OcDefaultTries, OcDefaultRetryDelay, r.execute, cmd)
 	if err != nil {
@@ -165,7 +167,10 @@ func (r *release) extractFileFromImage(image, file, outputDir string) (string, e
 }
 
 func (r *release) ExtractCommand(command string, dest string) (string, error) {
-	cmd := fmt.Sprintf(templateExtractCmd, command, dest, *r.ApplianceConfig.Config.OcpRelease.URL)
+	releaseURL := *r.ApplianceConfig.Config.OcpRelease.URL
+	configPath := r.ApplianceConfig.GetPullSecretPath()
+	cmd := fmt.Sprintf(templateExtractCmd, configPath, command, dest, releaseURL)
+
 	logrus.Debugf("extracting %s to %s, %s", command, dest, cmd)
 	stdout, err := r.execute(cmd)
 	if err != nil {
@@ -210,7 +215,8 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 
 		tempDir = filepath.Join(r.EnvConfig.TempDir, "oc-mirror")
 		registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
-		cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)
+		configPath := r.ApplianceConfig.GetPullSecretPath()
+		cmd := fmt.Sprintf(ocMirror, configPath, imageSetFilePath, registryPort, tempDir)
 
 		logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 		result, err := r.execute(cmd)
