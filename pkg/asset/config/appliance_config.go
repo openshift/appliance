@@ -379,7 +379,21 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 				return "", "", nil
 			}
 			releaseDigest = strings.Trim(releaseDigest, "'")
-			releaseImage = fmt.Sprintf("%s@%s", strings.Split(releaseImage, ":")[0], releaseDigest)
+			// Remove tag from release image (preserve registry, port, and repository path)
+			// Example: registry.example.com:5000/repo/image:tag -> registry.example.com:5000/repo/image
+			releaseImageWithoutTag := releaseImage
+			if lastSlash := strings.LastIndex(releaseImage, "/"); lastSlash != -1 {
+				// Find the last colon after the last slash (that's the tag separator)
+				if lastColon := strings.LastIndex(releaseImage[lastSlash:], ":"); lastColon != -1 {
+					releaseImageWithoutTag = releaseImage[:lastSlash+lastColon]
+				}
+			} else {
+				// No slash found, just remove tag after last colon
+				if lastColon := strings.LastIndex(releaseImage, ":"); lastColon != -1 {
+					releaseImageWithoutTag = releaseImage[:lastColon]
+				}
+			}
+			releaseImage = fmt.Sprintf("%s@%s", releaseImageWithoutTag, releaseDigest)
 		}
 		logrus.Debugf("Release image: %s", releaseImage)
 	}
