@@ -18,6 +18,7 @@ type ApplianceConfig struct {
 	SshKey                *string        `json:"sshKey"`
 	UserCorePass          *string        `json:"userCorePass"`
 	ImageRegistry         *ImageRegistry `json:"imageRegistry"`
+	MirrorPath            *string        `json:"mirrorPath,omitempty"`
 	EnableDefaultSources  *bool          `json:"enableDefaultSources"`
 	EnableFips            *bool          `json:"enableFips"`
 	StopLocalRegistry     *bool          `json:"stopLocalRegistry"`
