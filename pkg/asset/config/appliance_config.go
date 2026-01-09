@@ -48,8 +48,8 @@ const (
 	PodmanPull = "podman pull %s"
 
 	// Release
-	templateGetVersion = "oc adm release info %s -o template --template '{{.metadata.version}}'"
-	templateGetDigest  = "oc adm release info %s -o template --template '{{.digest}}'"
+	templateGetVersion = "oc adm release info --registry-config %s %s -o template --template '{{.metadata.version}}'"
+	templateGetDigest  = "oc adm release info --registry-config %s %s -o template --template '{{.digest}}'"
 )
 
 var (
@@ -59,9 +59,11 @@ var (
 
 // ApplianceConfig reads the appliance-config.yaml file.
 type ApplianceConfig struct {
-	File     *asset.File
-	Config   *types.ApplianceConfig
-	Template string
+	File            *asset.File
+	Config          *types.ApplianceConfig
+	Template        string
+	pullSecretPath  string
+	pullSecretFile  *os.File
 }
 
 var _ asset.WritableAsset = (*ApplianceConfig)(nil)
@@ -362,18 +364,19 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 		releaseImage = swag.StringValue(a.Config.OcpRelease.URL)
 
 		// Get version
-		cmd := fmt.Sprintf(templateGetVersion, releaseImage)
+		cmd := fmt.Sprintf(templateGetVersion, a.pullSecretPath, releaseImage)
 		releaseVersion, err = executer.NewExecuter().Execute(cmd)
 		if err != nil {
+			logrus.Debugf("Error executing command: %s, error: %v", cmd, err)
 			return "", "", nil
 		}
 		releaseVersion = strings.Trim(releaseVersion, "'")
-		logrus.Debugf("Release version: %s", releaseVersion)
+		logrus.Debugf("Got release version: '%s'", releaseVersion)
 
 		// Get image
 		if !strings.Contains(releaseImage, "@") {
 			var releaseDigest string
-			cmd := fmt.Sprintf(templateGetDigest, releaseImage)
+			cmd := fmt.Sprintf(templateGetDigest, a.pullSecretPath, releaseImage)
 			releaseDigest, err = executer.NewExecuter().Execute(cmd)
 			if err != nil {
 				return "", "", nil
@@ -569,22 +572,51 @@ func (a *ApplianceConfig) validatePinnedImageSet() error {
 }
 
 func (a *ApplianceConfig) storePullSecret() error {
-	// Get home dir (~)
-	homeDir, err := os.UserHomeDir()
+	// Create temporary file for pull secret
+	tmpFile, err := os.CreateTemp("", "appliance-pull-secret-*.json")
 	if err != nil {
-		return errors.Wrapf(err, "failed to get home directory")
+		return errors.Wrap(err, "failed to create temporary file for pull secret")
 	}
 
-	// Create sub dirs
-	configPath := filepath.Join(homeDir, ".docker", "config.json")
-	if err = os.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
-		return err
+	// Write pull secret to temp file
+	if _, err = tmpFile.WriteString(a.Config.PullSecret); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return errors.Wrap(err, "failed to write pull secret to temporary file")
 	}
 
-	// Write pull secret
-	if err = os.WriteFile(configPath, []byte(a.Config.PullSecret), os.ModePerm); err != nil {
-		return errors.Wrap(err, "failed to write file")
+	if err = tmpFile.Close(); err != nil {
+		os.Remove(tmpFile.Name())
+		return errors.Wrap(err, "failed to close temporary pull secret file")
 	}
 
+	a.pullSecretPath = tmpFile.Name()
+	logrus.Debugf("Pull secret successfully written to temporary file: %s", a.pullSecretPath)
+
+	return nil
+}
+
+// GetPullSecretPath returns the path to the temporary pull secret file
+// If the path is empty (e.g., after loading from state), it recreates the temp file
+func (a *ApplianceConfig) GetPullSecretPath() string {
+	if a.pullSecretPath == "" && a.Config != nil {
+		logrus.Debugf("Pull secret path empty, recreating temporary file")
+		if err := a.storePullSecret(); err != nil {
+			logrus.Warnf("Failed to recreate pull secret temp file: %v", err)
+			return ""
+		}
+	}
+	return a.pullSecretPath
+}
+
+// CleanupPullSecret removes the temporary pull secret file
+func (a *ApplianceConfig) CleanupPullSecret() error {
+	if a.pullSecretPath != "" {
+		logrus.Debugf("Cleaning up temporary pull secret file: %s", a.pullSecretPath)
+		if err := os.Remove(a.pullSecretPath); err != nil && !os.IsNotExist(err) {
+			return errors.Wrapf(err, "failed to remove temporary pull secret file: %s", a.pullSecretPath)
+		}
+		a.pullSecretPath = ""
+	}
 	return nil
 }

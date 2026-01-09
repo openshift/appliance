@@ -53,6 +53,8 @@ func (e *EnvConfig) Generate(_ context.Context, dependencies asset.Parents) erro
 		return err
 	}
 
+	logrus.Debugf("EnvConfig.Generate() called with AssetsDir='%s', MirrorPath='%s', DebugBaseIgnition=%v", e.AssetsDir, e.MirrorPath, e.DebugBaseIgnition)
+
 	// Validate mirror-path if provided
 	if e.MirrorPath != "" {
 		logrus.Infof("Using pre-mirrored images from: %s", e.MirrorPath)

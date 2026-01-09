@@ -96,6 +96,10 @@ func runBuild(cmd *cobra.Command, args []string) {
 	cleanup := log.SetupFileHook(rootOpts.dir)
 	defer cleanup()
 
+	// Load ApplianceConfig and setup cleanup of pull secret temp file
+	_, cleanupPullSecret := setupApplianceConfig(cmd)
+	defer cleanupPullSecret()
+
 	// Load ApplianceDiskImage asset to check whether a clean is required
 	applianceDiskImage := appliance.ApplianceDiskImage{}
 	if asset, err := getAssetStore().Load(&applianceDiskImage); err == nil && asset != nil {
@@ -137,6 +141,10 @@ func runBuildISO(cmd *cobra.Command, args []string) {
 	cleanup := log.SetupFileHook(rootOpts.dir)
 	defer cleanup()
 
+	// Load ApplianceConfig and setup cleanup of pull secret temp file
+	_, cleanupPullSecret := setupApplianceConfig(cmd)
+	defer cleanupPullSecret()
+
 	// Generate DeployConfig asset
 	if err := getAssetStore().Fetch(cmd.Context(), deployConfig); err != nil {
 		logrus.Fatal(err)
@@ -161,6 +169,10 @@ func runBuildISO(cmd *cobra.Command, args []string) {
 func runBuildUpgradeISO(cmd *cobra.Command, args []string) {
 	cleanup := log.SetupFileHook(rootOpts.dir)
 	defer cleanup()
+
+	// Load ApplianceConfig and setup cleanup of pull secret temp file
+	_, cleanupPullSecret := setupApplianceConfig(cmd)
+	defer cleanupPullSecret()
 
 	// Generate UpgradeConfig asset
 	if err := getAssetStore().Fetch(cmd.Context(), deployConfig); err != nil {
@@ -191,6 +203,10 @@ func runBuildLiveISO(cmd *cobra.Command, args []string) {
 
 	cleanup := log.SetupFileHook(rootOpts.dir)
 	defer cleanup()
+
+	// Load ApplianceConfig and setup cleanup of pull secret temp file
+	_, cleanupPullSecret := setupApplianceConfig(cmd)
+	defer cleanupPullSecret()
 
 	// Load ApplianceLiveISO asset to check whether a clean is required
 	applianceLiveISO := appliance.ApplianceLiveISO{}
@@ -255,4 +271,19 @@ func getAssetStore() asset.Store {
 		logrus.Fatal(errors.Wrap(err, "failed to create asset store"))
 	}
 	return assetStore
+}
+
+func setupApplianceConfig(cmd *cobra.Command) (*config.ApplianceConfig, func()) {
+	applianceConfig := &config.ApplianceConfig{}
+	if err := getAssetStore().Fetch(cmd.Context(), applianceConfig); err != nil {
+		logrus.Fatal(errors.Wrapf(err, "failed to fetch %s", applianceConfig.Name()))
+	}
+
+	cleanup := func() {
+		if err := applianceConfig.CleanupPullSecret(); err != nil {
+			logrus.Warnf("Failed to cleanup pull secret: %v", err)
+		}
+	}
+
+	return applianceConfig, cleanup
 }
