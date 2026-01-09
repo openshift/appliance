@@ -99,7 +99,52 @@ func (r *release) GetImageFromRelease(imageName string) (string, error) {
 		return "", err
 	}
 
+	// Fix incomplete image references from local registries
+	image, err = r.fixImageReference(image, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
+	if err != nil {
+		return "", err
+	}
+
 	return image, nil
+}
+
+// fixImageReference repairs incomplete image references returned by oc adm release info
+// when querying local registries with custom ports. The oc command may return references
+// like "registry.example.com@sha256:..." which are missing the port and repository path.
+// This function reconstructs the full reference from the release URL.
+func (r *release) fixImageReference(imageRef, releaseURL string) (string, error) {
+	// Check if this looks like an incomplete reference (has @ but no / after the hostname)
+	// Example: "virthost.ostest.test.metalkube.org@sha256:abc123"
+	if strings.Contains(imageRef, "@") && !strings.Contains(strings.Split(imageRef, "@")[0], "/") {
+		logrus.Debugf("Detected incomplete image reference: %s", imageRef)
+
+		// Extract digest from the incomplete reference
+		parts := strings.SplitN(imageRef, "@", 2)
+		if len(parts) != 2 {
+			return imageRef, nil // Return as-is if we can't parse it
+		}
+		digest := parts[1]
+
+		// Extract registry/port/repo from release URL
+		// Example: "virthost.ostest.test.metalkube.org:5000/openshift/release-images:tag"
+		// We want: "virthost.ostest.test.metalkube.org:5000/openshift/release-images"
+		releaseRef := releaseURL
+
+		// Remove tag or digest from release URL
+		if idx := strings.LastIndex(releaseRef, ":"); idx > strings.LastIndex(releaseRef, "/") {
+			releaseRef = releaseRef[:idx]
+		}
+		if idx := strings.Index(releaseRef, "@"); idx != -1 {
+			releaseRef = releaseRef[:idx]
+		}
+
+		// Reconstruct full image reference
+		fixedRef := fmt.Sprintf("%s@%s", releaseRef, digest)
+		logrus.Debugf("Fixed image reference: %s -> %s", imageRef, fixedRef)
+		return fixedRef, nil
+	}
+
+	return imageRef, nil
 }
 
 func (r *release) extractFileFromImage(image, file, outputDir string) (string, error) {
@@ -138,35 +183,70 @@ func (r *release) execute(command string) (string, error) {
 }
 
 func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, operators string) error {
-	if err := templates.RenderTemplateFile(
-		imageSetFile,
-		templates.GetImageSetTemplateData(r.ApplianceConfig, blockedImages, additionalImages, operators),
-		r.EnvConfig.TempDir); err != nil {
+	var tempDir string
+
+	// If a mirror path is provided in appliance-config, use it directly instead of running oc-mirror
+	var mirrorPath string
+	if r.ApplianceConfig.Config.MirrorPath != nil {
+		mirrorPath = *r.ApplianceConfig.Config.MirrorPath
+	}
+
+	if mirrorPath != "" {
+		logrus.Infof("Using pre-mirrored images from: %s", mirrorPath)
+		tempDir = mirrorPath
+	} else {
+		// Normal mirroring flow - run oc-mirror
+		if err := templates.RenderTemplateFile(
+			imageSetFile,
+			templates.GetImageSetTemplateData(r.ApplianceConfig, blockedImages, additionalImages, operators),
+			r.EnvConfig.TempDir); err != nil {
+			return err
+		}
+
+		imageSetFilePath, err := filepath.Abs(templates.GetFilePathByTemplate(imageSetFile, r.EnvConfig.TempDir))
+		if err != nil {
+			return err
+		}
+
+		tempDir = filepath.Join(r.EnvConfig.TempDir, "oc-mirror")
+		registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
+		cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)
+
+		logrus.Debugf("Fetching image from OCP release (%s)", cmd)
+		result, err := r.execute(cmd)
+		logrus.Debugf("mirroring result: %s", result)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Copy generated yaml files to cache dir (works for both mirror path and oc-mirror output)
+	if err := r.copyOutputYamls(tempDir, r.ApplianceConfig.Config.EnableInteractiveFlow); err != nil {
 		return err
 	}
 
-	imageSetFilePath, err := filepath.Abs(templates.GetFilePathByTemplate(imageSetFile, r.EnvConfig.TempDir))
+	// Copy mapping file (works for both mirror path and oc-mirror output)
+	if err := r.copyMappingFile(tempDir); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *release) copyMappingFile(ocMirrorDir string) error {
+	mappingFiles, err := filepath.Glob(filepath.Join(ocMirrorDir, fmt.Sprintf("results-*/%s", consts.OcMirrorMappingFileName)))
 	if err != nil {
 		return err
 	}
 
-	tempDir := filepath.Join(r.EnvConfig.TempDir, "oc-mirror")
-	registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
-	cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)
-
-	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
-	result, err := r.execute(cmd)
-	logrus.Debugf("mirroring result: %s", result)
-	if err != nil {
-		return err
+	// The slice returned from Glob will have a single filename when running the application, but it will be empty when running the unit-tests since they don't create the files "oc mirror" generates
+	for _, mappingFile := range mappingFiles {
+		if err := fileutil.CopyFile(mappingFile, filepath.Join(r.EnvConfig.CacheDir, consts.OcMirrorMappingFileName)); err != nil {
+			return err
+		}
 	}
 
-	// Copy generated yaml files to cache dir
-	if err = r.copyOutputYamls(tempDir, r.ApplianceConfig.Config.EnableInteractiveFlow); err != nil {
-		return err
-	}
-
-	return err
+	return nil
 }
 
 func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *bool) error {
@@ -197,6 +277,14 @@ func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *boo
 		internalRegistryURI := fmt.Sprintf("%s:%d", registryDomain, registry.RegistryPort)
 		newYaml := strings.ReplaceAll(string(yamlBytes), buildRegistryURI, internalRegistryURI)
 
+		// Add IDMS entry for local registry mirror if using a custom release URL
+		if filepath.Base(yamlPath) == "idms-oc-mirror.yaml" {
+			newYaml, err = r.addLocalRegistryIDMS(newYaml, internalRegistryURI)
+			if err != nil {
+				return err
+			}
+		}
+
 		// Write edited yamls to cache
 		if err = r.OSInterface.MkdirAll(filepath.Join(r.EnvConfig.CacheDir, consts.OcMirrorResourcesDir), os.ModePerm); err != nil {
 			return err
@@ -207,6 +295,55 @@ func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *boo
 		}
 	}
 	return nil
+}
+
+// addLocalRegistryIDMS adds an IDMS entry for the local registry mirror when using
+// a custom release URL (not upstream quay.io). This ensures that pulls from the
+// registry mirror are redirected to the appliance's internal registry.
+func (r *release) addLocalRegistryIDMS(yamlContent, internalRegistryURI string) (string, error) {
+	releaseURL := swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL)
+
+	// Check if using a custom registry (not upstream quay.io)
+	if !strings.Contains(releaseURL, "quay.io") && !strings.Contains(releaseURL, "registry.ci.openshift.org") {
+		// Extract registry host:port from release URL
+		localRegistry := releaseURL
+		// Remove digest if present
+		if idx := strings.Index(localRegistry, "@"); idx != -1 {
+			localRegistry = localRegistry[:idx]
+		}
+		// Remove tag if present (after last colon that comes after last slash)
+		if lastSlash := strings.LastIndex(localRegistry, "/"); lastSlash != -1 {
+			if lastColon := strings.LastIndex(localRegistry[lastSlash:], ":"); lastColon != -1 {
+				localRegistry = localRegistry[:lastSlash+lastColon]
+			}
+		}
+
+		// Extract just the registry host:port (without repository path)
+		registryHost := localRegistry
+		if idx := strings.Index(localRegistry, "/"); idx != -1 {
+			registryHost = localRegistry[:idx]
+		}
+
+		logrus.Infof("Adding IDMS entry for registry mirror: %s -> %s", registryHost, internalRegistryURI)
+
+		// Append IDMS entry for registry mirror
+		// This maps all pulls from the registry mirror to the appliance's internal registry
+		additionalIDMS := fmt.Sprintf(`---
+apiVersion: config.openshift.io/v1
+kind: ImageDigestMirrorSet
+metadata:
+  name: local-registry-mirror
+spec:
+  imageDigestMirrors:
+  - mirrors:
+    - %s
+    source: %s
+`, internalRegistryURI, registryHost)
+
+		return yamlContent + "\n" + additionalIDMS, nil
+	}
+
+	return yamlContent, nil
 }
 
 func (r *release) generateImagesList(images *[]types.Image) string {
