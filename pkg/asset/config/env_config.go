@@ -27,6 +27,7 @@ type EnvConfig struct {
 
 	DebugBootstrap    bool
 	DebugBaseIgnition bool
+	MirrorPath        string // Path to pre-mirrored images from oc-mirror
 }
 
 var _ asset.Asset = (*EnvConfig)(nil)
@@ -50,6 +51,16 @@ func (e *EnvConfig) Generate(_ context.Context, dependencies asset.Parents) erro
 	// Check whether the specified version is supported
 	if err := e.validateOcpReleaseVersion(applianceConfig.Config.OcpRelease.Version); err != nil {
 		return err
+	}
+
+	// Validate mirror-path if provided
+	if e.MirrorPath != "" {
+		logrus.Infof("Using pre-mirrored images from: %s", e.MirrorPath)
+		if err := e.validateMirrorPath(); err != nil {
+			return err
+		}
+	} else {
+		logrus.Info("Mirror path not specified, will perform image mirroring with oc-mirror")
 	}
 
 	// Cache dir in 'version-arch' format
@@ -117,6 +128,30 @@ func (e *EnvConfig) validateOcpReleaseVersion(releaseVersion string) error {
 		logrus.Warn(fmt.Sprintf("OCP release version %s is not supported. Latest supported version: %s.",
 			releaseVersion, consts.MaxOcpVersion))
 	}
+	return nil
+}
+
+func (e *EnvConfig) validateMirrorPath() error {
+	// Check if path exists
+	info, err := os.Stat(e.MirrorPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return errors.Errorf("mirror-path does not exist: %s", e.MirrorPath)
+		}
+		return errors.Wrapf(err, "failed to access mirror-path: %s", e.MirrorPath)
+	}
+
+	// Check if it's a directory
+	if !info.IsDir() {
+		return errors.Errorf("mirror-path is not a directory: %s", e.MirrorPath)
+	}
+
+	// Check if required structure exists (data subdirectory)
+	dataDir := filepath.Join(e.MirrorPath, "data")
+	if _, err := os.Stat(dataDir); err != nil {
+		return errors.Errorf("mirror-path must contain a 'data' subdirectory (expected oc-mirror workspace structure): %s", e.MirrorPath)
+	}
+
 	return nil
 }
 
