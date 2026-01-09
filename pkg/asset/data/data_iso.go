@@ -8,6 +8,7 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
+	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/genisoimage"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/registry"
@@ -122,7 +123,39 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	)
 	spinner.FileToMonitor = dataIsoName
 	imageGen := genisoimage.NewGenIsoImage(nil)
-	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir), dataVolumeName); err != nil {
+
+	// When mirror-path is provided, copy the Docker registry data from mirror-path/data
+	// to temp/data so it's in the same location as the registry container image (images/registry/registry.tar)
+	registryDataSourcePath := filepath.Join(envConfig.TempDir, dataDir)
+	if applianceConfig.Config.MirrorPath != nil && swag.StringValue(applianceConfig.Config.MirrorPath) != "" {
+		mirrorDataPath := filepath.Join(swag.StringValue(applianceConfig.Config.MirrorPath), dataDir)
+		dockerSrcPath := filepath.Join(mirrorDataPath, "docker")
+		dockerDstPath := filepath.Join(registryDataSourcePath, "docker")
+
+		logrus.Infof("Copying Docker registry data from %s to %s", dockerSrcPath, dockerDstPath)
+
+		// Validate source directory exists
+		if _, err := os.Stat(dockerSrcPath); err != nil {
+			return log.StopSpinner(spinner, fmt.Errorf("docker registry data not found at %s (mirror-path may be invalid): %w", dockerSrcPath, err))
+		}
+
+		// Create destination directory
+		if err := os.MkdirAll(registryDataSourcePath, os.ModePerm); err != nil {
+			return log.StopSpinner(spinner, fmt.Errorf("failed to create directory for Docker registry data: %w", err))
+		}
+
+		// Copy directory recursively using cp command
+		// Note: Paths are safe here as they're program-generated from validated inputs
+		cpCmd := fmt.Sprintf("cp -r %s %s", dockerSrcPath, dockerDstPath)
+		exec := executer.NewExecuter()
+		if _, err := exec.Execute(cpCmd); err != nil {
+			return log.StopSpinner(spinner, fmt.Errorf("failed to copy Docker registry data from %s to %s: %w", dockerSrcPath, dockerDstPath, err))
+		}
+
+		logrus.Infof("Successfully copied Docker registry data")
+	}
+
+	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, registryDataSourcePath, dataVolumeName); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	return log.StopSpinner(spinner, a.updateAsset(envConfig))

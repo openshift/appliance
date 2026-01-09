@@ -138,35 +138,49 @@ func (r *release) execute(command string) (string, error) {
 }
 
 func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, operators string) error {
-	if err := templates.RenderTemplateFile(
-		imageSetFile,
-		templates.GetImageSetTemplateData(r.ApplianceConfig, blockedImages, additionalImages, operators),
-		r.EnvConfig.TempDir); err != nil {
+	var tempDir string
+
+	// If a mirror path is provided in appliance-config, use it directly instead of running oc-mirror
+	var mirrorPath string
+	if r.ApplianceConfig.Config.MirrorPath != nil {
+		mirrorPath = *r.ApplianceConfig.Config.MirrorPath
+	}
+
+	if mirrorPath != "" {
+		logrus.Infof("Using pre-mirrored images from: %s", mirrorPath)
+		tempDir = mirrorPath
+	} else {
+		// Normal mirroring flow - run oc-mirror
+		if err := templates.RenderTemplateFile(
+			imageSetFile,
+			templates.GetImageSetTemplateData(r.ApplianceConfig, blockedImages, additionalImages, operators),
+			r.EnvConfig.TempDir); err != nil {
+			return err
+		}
+
+		imageSetFilePath, err := filepath.Abs(templates.GetFilePathByTemplate(imageSetFile, r.EnvConfig.TempDir))
+		if err != nil {
+			return err
+		}
+
+		tempDir = filepath.Join(r.EnvConfig.TempDir, "oc-mirror")
+		registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
+		cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)
+
+		logrus.Debugf("Fetching image from OCP release (%s)", cmd)
+		result, err := r.execute(cmd)
+		logrus.Debugf("mirroring result: %s", result)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Copy generated yaml files to cache dir (works for both mirror path and oc-mirror output)
+	if err := r.copyOutputYamls(tempDir); err != nil {
 		return err
 	}
 
-	imageSetFilePath, err := filepath.Abs(templates.GetFilePathByTemplate(imageSetFile, r.EnvConfig.TempDir))
-	if err != nil {
-		return err
-	}
-
-	tempDir := filepath.Join(r.EnvConfig.TempDir, "oc-mirror")
-	registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
-	cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)
-
-	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
-	result, err := r.execute(cmd)
-	logrus.Debugf("mirroring result: %s", result)
-	if err != nil {
-		return err
-	}
-
-	// Copy generated yaml files to cache dir
-	if err = r.copyOutputYamls(tempDir); err != nil {
-		return err
-	}
-
-	return err
+	return nil
 }
 
 func (r *release) copyOutputYamls(ocMirrorDir string) error {
