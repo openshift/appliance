@@ -26,11 +26,11 @@ const (
 	//
 	// dir: format: Stores the image as a directory structure instead of a tar archive
 	//        This format preserves all image metadata and supports podman pull dir: for loading
-	templateCopyToFile = "skopeo copy --all --preserve-digests docker://%s dir:%s"
+	templateCopyToFile = "skopeo copy --authfile %s --all --preserve-digests docker://%s dir:%s"
 )
 
 type Skopeo interface {
-	CopyToFile(imageUrl, imageName, filePath string) error
+	CopyToFile(imageUrl, imageName, filePath, authFile string) error
 }
 
 type skopeo struct {
@@ -47,11 +47,11 @@ func NewSkopeo(exec executer.Executer) Skopeo {
 	}
 }
 
-func (s *skopeo) CopyToFile(imageUrl, imageName, filePath string) error {
+func (s *skopeo) CopyToFile(imageUrl, imageName, filePath, authFile string) error {
 	if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
 		return err
 	}
 
-	_, err := s.executer.Execute(fmt.Sprintf(templateCopyToFile, imageUrl, filePath))
+	_, err := s.executer.Execute(fmt.Sprintf(templateCopyToFile, authFile, imageUrl, filePath))
 	return err
 }

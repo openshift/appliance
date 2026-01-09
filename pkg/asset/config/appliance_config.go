@@ -47,8 +47,8 @@ const (
 	PodmanPull = "podman pull %s"
 
 	// Release
-	templateGetVersion = "oc adm release info %s -o template --template '{{.metadata.version}}'"
-	templateGetDigest  = "oc adm release info %s -o template --template '{{.digest}}'"
+	templateGetVersion = "oc adm release info --registry-config %s %s -o template --template '{{.metadata.version}}'"
+	templateGetDigest  = "oc adm release info --registry-config %s %s -o template --template '{{.digest}}'"
 )
 
 var (
@@ -367,9 +367,14 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 		releaseImage = swag.StringValue(a.Config.OcpRelease.URL)
 
 		// Get version
-		cmd := fmt.Sprintf(templateGetVersion, releaseImage)
+		pullSecretPath, err := GetPullSecretPath()
+		if err != nil {
+			return "", "", err
+		}
+		cmd := fmt.Sprintf(templateGetVersion, pullSecretPath, releaseImage)
 		releaseVersion, err = executer.NewExecuter().Execute(cmd)
 		if err != nil {
+			logrus.Debugf("Error executing command: %s, error: %v", cmd, err)
 			return "", "", nil
 		}
 		releaseVersion = strings.Trim(releaseVersion, "'")
@@ -378,7 +383,7 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 		// Get image
 		if !strings.Contains(releaseImage, "@") {
 			var releaseDigest string
-			cmd := fmt.Sprintf(templateGetDigest, releaseImage)
+			cmd := fmt.Sprintf(templateGetDigest, pullSecretPath, releaseImage)
 			releaseDigest, err = executer.NewExecuter().Execute(cmd)
 			if err != nil {
 				return "", "", nil
@@ -618,4 +623,13 @@ func (a *ApplianceConfig) storePullSecret() error {
 	}
 
 	return nil
+}
+
+// GetPullSecretPath returns the path to the pull secret file (~/.docker/config.json)
+func GetPullSecretPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to get home directory")
+	}
+	return filepath.Join(homeDir, ".docker", "config.json"), nil
 }
