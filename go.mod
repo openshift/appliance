@@ -33,6 +33,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/thedevsaddam/retry v1.2.1
 	github.com/thoas/go-funk v0.9.3
+	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.46.0
 	golang.org/x/term v0.38.0
 	k8s.io/api v0.30.3

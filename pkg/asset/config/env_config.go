@@ -139,7 +139,7 @@ func (e *EnvConfig) FindInAssets(filePattern string) string {
 }
 
 // FindFilesInCache returns the files from cache whose name match the given regexp.
-func (e *EnvConfig) FindFilesInCache(pattern string) (files []*asset.File, err error) {	
+func (e *EnvConfig) FindFilesInCache(pattern string) (files []*asset.File, err error) {
 	matches, err := filepath.Glob(filepath.Join(e.CacheDir, pattern))
 	if err != nil {
 		return nil, err
