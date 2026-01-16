@@ -33,8 +33,8 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/thedevsaddam/retry v1.2.1
 	github.com/thoas/go-funk v0.9.3
-	golang.org/x/crypto v0.46.0
-	golang.org/x/term v0.38.0
+	golang.org/x/crypto v0.47.0
+	golang.org/x/term v0.39.0
 	k8s.io/api v0.30.3
 	k8s.io/apimachinery v0.30.3
 	sigs.k8s.io/yaml v1.4.0
@@ -140,7 +140,7 @@ require (
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.3.7 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.11 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
 	github.com/gophercloud/gophercloud/v2 v2.0.0 // indirect
 	github.com/gophercloud/utils/v2 v2.0.0-20240701101423-2401526caee5 // indirect
@@ -264,8 +264,8 @@ require (
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	golang.org/x/tools v0.40.0 // indirect
 	golang.org/x/tools/godoc v0.1.0-deprecated // indirect
