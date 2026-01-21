@@ -28,6 +28,12 @@ var (
 
 	envConfig    config.EnvConfig
 	deployConfig *config.DeployConfig
+
+	// assetStoreInstance caches the asset store to ensure the same instance
+	// is reused throughout command execution. This prevents EnvConfig from
+	// being regenerated with default values when setupApplianceConfig() fetches
+	// ApplianceConfig, which would overwrite runtime flags like IsLiveISO.
+	assetStoreInstance asset.Store
 )
 
 func NewBuildCmd() *cobra.Command {
@@ -263,11 +269,14 @@ func preRunBuildLiveISO(cmd *cobra.Command, args []string) {
 }
 
 func getAssetStore() asset.Store {
-	assetStore, err := assetstore.NewStore(rootOpts.dir)
-	if err != nil {
-		logrus.Fatal(errors.Wrap(err, "failed to create asset store"))
+	if assetStoreInstance == nil {
+		assetStore, err := assetstore.NewStore(rootOpts.dir)
+		if err != nil {
+			logrus.Fatal(errors.Wrap(err, "failed to create asset store"))
+		}
+		assetStoreInstance = assetStore
 	}
-	return assetStore
+	return assetStoreInstance
 }
 
 func setupApplianceConfig(cmd *cobra.Command) (*config.ApplianceConfig, func()) {
