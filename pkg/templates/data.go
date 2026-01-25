@@ -113,7 +113,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		InstallIgnitionConfig        string
 		RendezvousHostEnvPlaceholder string
 
-		ReleaseImages, ReleaseImage, OsImages                             string
+		ReleaseImages, ReleaseImage, OsImages                              string
 		RegistryDomain, RegistryFilePath, RegistryDigestKey, RegistryImage string
 
 		Partition0, Partition1, Partition2, Partition3 Partition
@@ -130,10 +130,17 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		OsImages:      string(osImages),
 
 		// Registry
-		RegistryDomain:      registry.RegistryDomain,
-		RegistryFilePath:    consts.RegistryFilePath,
-		RegistryDigestKey:   registryDigestKey,
-		RegistryImage:       consts.RegistryImage,
+		RegistryDomain:    registry.RegistryDomain,
+		RegistryFilePath:  consts.RegistryFilePath,
+		RegistryDigestKey: registryDigestKey,
+		RegistryImage:     consts.RegistryImage,
+	}
+
+	// If interactive flow is enabled, use localhost as registry domain, otherwise use the default registry domain
+	if enableInteractiveFlow {
+		data.RegistryDomain = "localhost"
+	} else {
+		data.RegistryDomain = registry.RegistryDomain
 	}
 
 	// Fetch base image partitions (Disk image mode)
@@ -153,19 +160,27 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 	return data
 }
 
-func GetInstallIgnitionTemplateData(isLiveISO bool, corePassHash, registryDigestKey string) interface{} {
+func GetInstallIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, corePassHash, registryDigestKey string) interface{} {
+	// If interactive flow is enabled, use localhost as registry domain, otherwise use the default registry domain
+	var registryDomain string
+	if enableInteractiveFlow {
+		registryDomain = "localhost"
+	} else {
+		registryDomain = registry.RegistryDomain
+	}
+
 	return struct {
 		IsBootstrapStep bool
 		IsLiveISO       bool
 
 		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryDigestKey, RegistryImage string
-		CorePassHash, GrubCfgFilePath, UserCfgFilePath                                        string
+		CorePassHash, GrubCfgFilePath, UserCfgFilePath                                       string
 	}{
 		IsBootstrapStep: false,
 		IsLiveISO:       isLiveISO,
 
 		// Registry
-		RegistryDomain:    registry.RegistryDomain,
+		RegistryDomain:    registryDomain,
 		RegistryFilePath:  consts.RegistryFilePath,
 		RegistryDigestKey: registryDigestKey,
 		RegistryImage:     consts.RegistryImage,
