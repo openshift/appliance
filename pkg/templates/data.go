@@ -113,7 +113,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		InstallIgnitionConfig        string
 		RendezvousHostEnvPlaceholder string
 
-		ReleaseImages, ReleaseImage, OsImages                             string
+		ReleaseImages, ReleaseImage, OsImages           string
 		RegistryDomain, RegistryFilePath, RegistryImage string
 
 		Partition0, Partition1, Partition2, Partition3 Partition
@@ -130,9 +130,15 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		OsImages:      string(osImages),
 
 		// Registry
-		RegistryDomain:   registry.RegistryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
+	}
+
+	// If interactive flow is enabled, use localhost as registry domain, otherwise use the default registry domain
+	if enableInteractiveFlow {
+		data.RegistryDomain = "localhost"
+	} else {
+		data.RegistryDomain = registry.RegistryDomain
 	}
 
 	// Fetch base image partitions (Disk image mode)
@@ -152,7 +158,15 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 	return data
 }
 
-func GetInstallIgnitionTemplateData(isLiveISO bool, corePassHash string) interface{} {
+func GetInstallIgnitionTemplateData(isLiveISO bool, enableInteractiveFlow bool, corePassHash string) interface{} {
+	// If interactive flow is enabled, use localhost as registry domain, otherwise use the default registry domain
+	var registryDomain string
+	if enableInteractiveFlow {
+		registryDomain = "localhost"
+	} else {
+		registryDomain = registry.RegistryDomain
+	}
+
 	return struct {
 		IsBootstrapStep bool
 		IsLiveISO       bool
@@ -164,7 +178,7 @@ func GetInstallIgnitionTemplateData(isLiveISO bool, corePassHash string) interfa
 		IsLiveISO:       isLiveISO,
 
 		// Registry
-		RegistryDomain:   registry.RegistryDomain,
+		RegistryDomain:   registryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
 		GrubCfgFilePath:  consts.GrubCfgFilePath,
