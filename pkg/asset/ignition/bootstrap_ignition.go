@@ -153,6 +153,7 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 	coreosImagePath := envConfig.FindInCache(coreosImagePattern)
 
 	// Add bootstrap scripts to ignition
+	logrus.Debugf("BootstrapIgnition rendering templates with IsLiveISO=%v", envConfig.IsLiveISO)
 	templateData := templates.GetBootstrapIgnitionTemplateData(
 		envConfig.IsLiveISO,
 		swag.BoolValue(applianceConfig.Config.EnableInteractiveFlow),

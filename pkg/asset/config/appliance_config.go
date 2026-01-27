@@ -48,8 +48,8 @@ const (
 	PodmanPull = "podman pull %s"
 
 	// Release
-	templateGetVersion = "oc adm release info %s -o template --template '{{.metadata.version}}'"
-	templateGetDigest  = "oc adm release info %s -o template --template '{{.digest}}'"
+	templateGetVersion = "oc adm release info --registry-config %s %s -o template --template '{{.metadata.version}}'"
+	templateGetDigest  = "oc adm release info --registry-config %s %s -o template --template '{{.digest}}'"
 )
 
 var (
@@ -59,9 +59,11 @@ var (
 
 // ApplianceConfig reads the appliance-config.yaml file.
 type ApplianceConfig struct {
-	File     *asset.File
-	Config   *types.ApplianceConfig
-	Template string
+	File            *asset.File
+	Config          *types.ApplianceConfig
+	Template        string
+	pullSecretPath  string
+	pullSecretFile  *os.File
 }
 
 var _ asset.WritableAsset = (*ApplianceConfig)(nil)
@@ -153,6 +155,12 @@ pullSecret: pull-secret
   # Default: false
   # [Optional]
   # useBinary: %t
+
+# Path to pre-mirrored images from oc-mirror workspace.
+# When provided, skips image mirroring and uses the pre-mirrored registry data.
+# The path should point to an oc-mirror workspace directory containing a 'data' subdirectory.
+# [Optional]
+# mirrorPath: /path/to/mirror/workspace
 
 # Enable all default CatalogSources (on openshift-marketplace namespace).
 # Should be disabled for disconnected environments.
@@ -362,24 +370,25 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 		releaseImage = swag.StringValue(a.Config.OcpRelease.URL)
 
 		// Get version
-		cmd := fmt.Sprintf(templateGetVersion, releaseImage)
+		cmd := fmt.Sprintf(templateGetVersion, a.pullSecretPath, releaseImage)
 		releaseVersion, err = executer.NewExecuter().Execute(cmd)
 		if err != nil {
+			logrus.Debugf("Error executing command: %s, error: %v", cmd, err)
 			return "", "", nil
 		}
 		releaseVersion = strings.Trim(releaseVersion, "'")
-		logrus.Debugf("Release version: %s", releaseVersion)
+		logrus.Debugf("Got release version: '%s'", releaseVersion)
 
 		// Get image
 		if !strings.Contains(releaseImage, "@") {
 			var releaseDigest string
-			cmd := fmt.Sprintf(templateGetDigest, releaseImage)
+			cmd := fmt.Sprintf(templateGetDigest, a.pullSecretPath, releaseImage)
 			releaseDigest, err = executer.NewExecuter().Execute(cmd)
 			if err != nil {
 				return "", "", nil
 			}
 			releaseDigest = strings.Trim(releaseDigest, "'")
-			releaseImage = fmt.Sprintf("%s@%s", strings.Split(releaseImage, ":")[0], releaseDigest)
+			releaseImage = fmt.Sprintf("%s@%s", releaseImage, releaseDigest)
 		}
 		logrus.Debugf("Release image: %s", releaseImage)
 	}
@@ -429,6 +438,11 @@ func (a *ApplianceConfig) validateConfig(f asset.FileFetcher) field.ErrorList {
 		if err := validate.SSHPublicKey(*a.Config.SshKey); err != nil {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("sshKey"), *a.Config.SshKey, err.Error()))
 		}
+	}
+
+	// Validate mirrorPath
+	if err := a.validateMirrorPath(); err != nil {
+		allErrs = append(allErrs, err...)
 	}
 
 	return allErrs
@@ -554,23 +568,87 @@ func (a *ApplianceConfig) validatePinnedImageSet() error {
 	return nil
 }
 
+func (a *ApplianceConfig) validateMirrorPath() field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if a.Config.MirrorPath != nil {
+		mirrorPath := swag.StringValue(a.Config.MirrorPath)
+		if mirrorPath != "" {
+			// Validate mirror path exists and is a directory
+			info, err := os.Stat(mirrorPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					allErrs = append(allErrs, field.Invalid(field.NewPath("mirrorPath"),
+						mirrorPath, "mirror path does not exist"))
+				} else {
+					allErrs = append(allErrs, field.Invalid(field.NewPath("mirrorPath"),
+						mirrorPath, fmt.Sprintf("failed to access mirror path: %v", err)))
+				}
+			} else if !info.IsDir() {
+				allErrs = append(allErrs, field.Invalid(field.NewPath("mirrorPath"),
+					mirrorPath, "mirror path must be a directory"))
+			} else {
+				// Validate data subdirectory exists
+				dataDir := filepath.Join(mirrorPath, "data")
+				if _, err := os.Stat(dataDir); err != nil {
+					allErrs = append(allErrs, field.Invalid(field.NewPath("mirrorPath"),
+						mirrorPath, "mirror path must contain a 'data' subdirectory (expected oc-mirror workspace structure)"))
+				}
+			}
+
+			logrus.Infof("Using pre-mirrored images from: %s", mirrorPath)
+		}
+	}
+
+	return allErrs
+}
+
 func (a *ApplianceConfig) storePullSecret() error {
-	// Get home dir (~)
-	homeDir, err := os.UserHomeDir()
+	// Create temporary file for pull secret
+	tmpFile, err := os.CreateTemp("", "appliance-pull-secret-*.json")
 	if err != nil {
-		return errors.Wrapf(err, "failed to get home directory")
+		return errors.Wrap(err, "failed to create temporary file for pull secret")
 	}
 
-	// Create sub dirs
-	configPath := filepath.Join(homeDir, ".docker", "config.json")
-	if err = os.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
-		return err
+	// Write pull secret to temp file
+	if _, err = tmpFile.WriteString(a.Config.PullSecret); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return errors.Wrap(err, "failed to write pull secret to temporary file")
 	}
 
-	// Write pull secret
-	if err = os.WriteFile(configPath, []byte(a.Config.PullSecret), os.ModePerm); err != nil {
-		return errors.Wrap(err, "failed to write file")
+	if err = tmpFile.Close(); err != nil {
+		os.Remove(tmpFile.Name())
+		return errors.Wrap(err, "failed to close temporary pull secret file")
 	}
 
+	a.pullSecretPath = tmpFile.Name()
+	logrus.Debugf("Pull secret successfully written to temporary file: %s", a.pullSecretPath)
+
+	return nil
+}
+
+// GetPullSecretPath returns the path to the temporary pull secret file
+// If the path is empty (e.g., after loading from state), it recreates the temp file
+func (a *ApplianceConfig) GetPullSecretPath() string {
+	if a.pullSecretPath == "" && a.Config != nil {
+		logrus.Debugf("Pull secret path empty, recreating temporary file")
+		if err := a.storePullSecret(); err != nil {
+			logrus.Warnf("Failed to recreate pull secret temp file: %v", err)
+			return ""
+		}
+	}
+	return a.pullSecretPath
+}
+
+// CleanupPullSecret removes the temporary pull secret file
+func (a *ApplianceConfig) CleanupPullSecret() error {
+	if a.pullSecretPath != "" {
+		logrus.Debugf("Cleaning up temporary pull secret file: %s", a.pullSecretPath)
+		if err := os.Remove(a.pullSecretPath); err != nil && !os.IsNotExist(err) {
+			return errors.Wrapf(err, "failed to remove temporary pull secret file: %s", a.pullSecretPath)
+		}
+		a.pullSecretPath = ""
+	}
 	return nil
 }

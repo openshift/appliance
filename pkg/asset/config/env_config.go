@@ -52,6 +52,8 @@ func (e *EnvConfig) Generate(_ context.Context, dependencies asset.Parents) erro
 		return err
 	}
 
+	logrus.Debugf("EnvConfig.Generate() called with AssetsDir='%s', IsLiveISO=%v, DebugBaseIgnition=%v", e.AssetsDir, e.IsLiveISO, e.DebugBaseIgnition)
+
 	// Cache dir in 'version-arch' format
 	cacheDirPattern := fmt.Sprintf("%s-%s",
 		applianceConfig.Config.OcpRelease.Version, applianceConfig.GetCpuArchitecture())
