@@ -12,7 +12,6 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/installer"
-	"github.com/openshift/appliance/pkg/utils"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/pkg/errors"
@@ -86,15 +85,18 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 		noConfigImageFile := ignition.FileFromString("/etc/assisted/no-config-image", "root", 0644, "")
 		unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, noConfigImageFile)
 
-		version := utils.GetOCPVersion(installerConfig.ApplianceConfig)
+		_, releaseVersion, err := installerConfig.ApplianceConfig.GetRelease()
+		if err != nil {
+			return err
+		}
   iriContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1alpha1
-  kind: InternalReleaseImage
-  metadata:
-    name: cluster
-  spec:
-    releases:
-    - name: ocp-release-bundle-%s
-  `, version)
+kind: InternalReleaseImage
+metadata:
+  name: cluster
+spec:
+  releases:
+  - name: ocp-release-bundle-%s
+`, releaseVersion)
 
 		// Keep the filepath in sync with openshift/installer#10176 until the installer min storage will be more robust.
   		iriFile := ignition.FileFromString("/etc/assisted/extra-manifests/internalreleaseimage.yaml", "root", 0644, iriContent)
