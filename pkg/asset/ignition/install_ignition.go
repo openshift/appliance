@@ -81,7 +81,7 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	// Determine if we're using the OCP registry (for the podman run command)
 	useOcpRegistry := registry.ShouldUseOcpRegistry(envConfig, applianceConfig)
 	if useOcpRegistry {
-		logrus.Info("InstallIgnition will use OCP docker-registry image")
+		logrus.Debug("InstallIgnition will use OCP docker-registry image")
 	}
 
 	i.Config = igntypes.Config{
@@ -126,7 +126,9 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	// Create install template data
 	templateData := templates.GetInstallIgnitionTemplateData(
 		envConfig.IsLiveISO,
-		corePassHash)
+		swag.BoolValue(applianceConfig.Config.EnableInteractiveFlow),
+		corePassHash,
+	)
 
 	// Add registry service from appropriate directory (OCP or default)
 	registryServiceDir := "services/local-registry-default"
