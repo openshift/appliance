@@ -35,7 +35,7 @@ const (
 	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
 	templateExtractCmd   = "oc adm release extract --command=%s --to=%s %s"
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
-	ocMirror             = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=1 --parallel-layers=1 --retry-times=5"
+	ocMirror             = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=4 --parallel-layers=4 --retry-times=5"
 )
 
 // Release is the interface to use the oc command to the get image info
