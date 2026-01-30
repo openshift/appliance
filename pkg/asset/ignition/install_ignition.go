@@ -1,7 +1,6 @@
 package ignition
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 
@@ -72,7 +71,7 @@ func (i *InstallIgnition) Dependencies() []asset.Asset {
 }
 
 // Generate the base ISO.
-func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents) error {
+func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	operatorCRs := &manifests.OperatorCRs{}

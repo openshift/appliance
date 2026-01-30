@@ -1,8 +1,6 @@
 package config
 
 import (
-	"context"
-
 	"github.com/openshift/installer/pkg/asset"
 )
 
@@ -21,7 +19,7 @@ func (e *DeployConfig) Dependencies() []asset.Asset {
 }
 
 // Generate EnvConfig asset
-func (e *DeployConfig) Generate(_ context.Context, dependencies asset.Parents) error {
+func (e *DeployConfig) Generate(dependencies asset.Parents) error {
 	return nil
 }
 

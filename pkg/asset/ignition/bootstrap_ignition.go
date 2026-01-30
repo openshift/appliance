@@ -1,7 +1,6 @@
 package ignition
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -103,7 +102,7 @@ func (i *BootstrapIgnition) Dependencies() []asset.Asset {
 }
 
 // Generate the base ISO.
-func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Parents) error {
+func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	extraManifests := &agentManifests.ExtraManifests{}
@@ -213,7 +212,7 @@ func (i *BootstrapIgnition) Generate(_ context.Context, dependencies asset.Paren
 
 	// Add cluster-image-set file
 	clusterImageSet := &manifests.ClusterImageSet{}
-	if err = clusterImageSet.Generate(context.TODO(), dependencies); err != nil {
+	if err = clusterImageSet.Generate(dependencies); err != nil {
 		return err
 	}
 	clusterImageSetFile := ignasset.FileFromBytes(filepath.Join("/etc/assisted", filepath.Base(clusterImageSet.File.Filename)),

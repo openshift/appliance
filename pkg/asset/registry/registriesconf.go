@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -72,7 +71,7 @@ func (*RegistriesConf) Dependencies() []asset.Asset {
 }
 
 // Generate generates the registries.conf file from install-config.
-func (i *RegistriesConf) Generate(_ context.Context, dependencies asset.Parents) error {
+func (i *RegistriesConf) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)

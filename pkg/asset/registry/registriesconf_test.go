@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"context"
 	"testing"
 	"testing/fstest"
 
@@ -31,7 +30,7 @@ var _ = Describe("Test RegistriesConf", func() {
 	It("OpenShift CI like mirror file", func() {
 		fakeFileSystem[idmsFileName] = createOpenShiftCIMirrorFile()
 
-		err := r.Generate(context.Background(), deps)
+		err := r.Generate(deps)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(r.File.Data)).To(Equal("unqualified-search-registries = []\n\n[[registry]]\n  location = \"quay-proxy.ci.openshift.org/openshift/ci\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/openshift/release\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release\"\n\n[[registry]]\n  location = \"registry.build05.ci.openshift.org/ci-op-f7f21dkx/stable\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/openshift/release\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release\"\n\n[[registry]]\n  location = \"registry.build05.ci.openshift.org/ci-op-f7f21dkx/release\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/openshift/release-images\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release-images\"\n"))
 	})
@@ -39,7 +38,7 @@ var _ = Describe("Test RegistriesConf", func() {
 	It("Single Yaml", func() {
 		fakeFileSystem[idmsFileName] = createSingleYamlIDMSMirrorFile()
 
-		err := r.Generate(context.Background(), deps)
+		err := r.Generate(deps)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(r.File.Data)).To(Equal("unqualified-search-registries = []\n\n[[registry]]\n  location = \"registry.ci.openshift.org/ocp/release\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/openshift/release-images\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release-images\"\n\n[[registry]]\n  location = \"quay.io/openshift-release-dev/ocp-v4.0-art-dev\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/openshift/release\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release\"\n"))
 	})
@@ -47,7 +46,7 @@ var _ = Describe("Test RegistriesConf", func() {
 	It("Multiple Yaml", func() {
 		fakeFileSystem[idmsFileName] = createMultipleYamlIDMSMirrorFile()
 
-		err := r.Generate(context.Background(), deps)
+		err := r.Generate(deps)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(r.File.Data)).To(Equal("unqualified-search-registries = []\n\n[[registry]]\n  location = \"registry.redhat.io/container-native-virtualization\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/container-native-virtualization\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/container-native-virtualization\"\n\n[[registry]]\n  location = \"registry.redhat.io/openshift4\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/openshift4\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift4\"\n\n[[registry]]\n  location = \"registry.redhat.io/workload-availability\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/workload-availability\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/workload-availability\"\n\n[[registry]]\n  location = \"registry.redhat.io/migration-toolkit-virtualization\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/migration-toolkit-virtualization\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/migration-toolkit-virtualization\"\n\n[[registry]]\n  location = \"registry.redhat.io/kube-descheduler-operator\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/kube-descheduler-operator\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/kube-descheduler-operator\"\n\n[[registry]]\n  location = \"registry.ci.openshift.org/ocp/release\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/openshift/release-images\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release-images\"\n\n[[registry]]\n  location = \"quay.io/openshift-release-dev/ocp-v4.0-art-dev\"\n  prefix = \"\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:22625/openshift/release\"\n\n  [[registry.mirror]]\n    location = \"registry.appliance.openshift.com:5001/openshift/release\"\n"))
 	})

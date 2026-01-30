@@ -1,7 +1,6 @@
 package upgrade
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -57,7 +56,7 @@ func (u *UpgradeISO) Dependencies() []asset.Asset {
 }
 
 // Generate the upgrade ISO
-func (u *UpgradeISO) Generate(_ context.Context, dependencies asset.Parents) error {
+func (u *UpgradeISO) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
