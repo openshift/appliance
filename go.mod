@@ -158,6 +158,8 @@ require (
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/itchyny/timefmt-go v0.1.7 // indirect
+	github.com/jackc/pgio v1.0.0 // indirect
+	github.com/jackc/pgtype v1.14.4 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.4 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
@@ -312,7 +314,7 @@ require (
 replace (
 	github.com/docker/docker => github.com/docker/docker v28.0.1+incompatible
 	github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20250922204150-a52b83145bea
-	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20250922204150-a52b83145bea
+	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20260130002942-ceb16f2eb1c9
 	github.com/openshift/hive/apis => github.com/openshift/hive/apis v0.0.0-20231220215202-ad99b9e52d27
 	sigs.k8s.io/cluster-api-provider-ibmcloud => sigs.k8s.io/cluster-api-provider-ibmcloud v0.9.0-beta.0.0.20241029051454-9b0770491a76
 )
