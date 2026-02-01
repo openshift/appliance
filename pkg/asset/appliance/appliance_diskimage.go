@@ -1,7 +1,6 @@
 package appliance
 
 import (
-	"context"
 	"path/filepath"
 
 	"github.com/go-openapi/swag"
@@ -40,7 +39,7 @@ func (a *ApplianceDiskImage) Dependencies() []asset.Asset {
 }
 
 // Generate the appliance disk.
-func (a *ApplianceDiskImage) Generate(_ context.Context, dependencies asset.Parents) error {
+func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	recoveryISO := &recovery.RecoveryISO{}

@@ -1,7 +1,6 @@
 package ignition
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -44,7 +43,7 @@ func (i *RecoveryIgnition) Dependencies() []asset.Asset {
 }
 
 // Generate the ignition embedded in the recovery ISO.
-func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parents) error {
+func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	envConfig := &config.EnvConfig{}
 	bootstrapIgnition := &BootstrapIgnition{}

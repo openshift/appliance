@@ -1,7 +1,6 @@
 package manifests
 
 import (
-	"context"
 
 	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/installer/pkg/asset"
@@ -37,7 +36,7 @@ func (m *UnconfiguredManifests) Dependencies() []asset.Asset {
 }
 
 // Generate generates the respective manifest files.
-func (m *UnconfiguredManifests) Generate(_ context.Context, dependencies asset.Parents) error {
+func (m *UnconfiguredManifests) Generate(dependencies asset.Parents) error {
 	for _, a := range []asset.WritableAsset{
 		&InfraEnv{},
 		&AgentPullSecret{},

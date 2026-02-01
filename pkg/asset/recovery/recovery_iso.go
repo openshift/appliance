@@ -1,7 +1,6 @@
 package recovery
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -42,7 +41,7 @@ func (a *RecoveryISO) Dependencies() []asset.Asset {
 }
 
 // Generate the recovery ISO.
-func (a *RecoveryISO) Generate(_ context.Context, dependencies asset.Parents) error {
+func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	baseISO := &BaseISO{}
 	applianceConfig := &config.ApplianceConfig{}

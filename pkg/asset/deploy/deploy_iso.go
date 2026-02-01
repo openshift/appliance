@@ -1,7 +1,6 @@
 package deploy
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -43,7 +42,7 @@ func (i *DeployISO) Dependencies() []asset.Asset {
 }
 
 // Generate the base ISO.
-func (i *DeployISO) Generate(_ context.Context, dependencies asset.Parents) error {
+func (i *DeployISO) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	baseISO := &recovery.BaseISO{}

@@ -1,7 +1,6 @@
 package appliance
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -29,7 +28,7 @@ func (a *BaseDiskImage) Dependencies() []asset.Asset {
 }
 
 // Generate the base disk image.
-func (a *BaseDiskImage) Generate(_ context.Context, dependencies asset.Parents) error {
+func (a *BaseDiskImage) Generate(dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
