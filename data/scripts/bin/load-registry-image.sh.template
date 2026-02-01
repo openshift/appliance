@@ -4,7 +4,9 @@
 source /etc/assisted/registry.env
 
 # Load registry image from dir format
-podman pull dir:/mnt/agentdata/images/{{.RegistryFilePath}}
+# Use -q so podman prints only the image ID; capture it to avoid race with concurrent pulls
+PULLED_IMAGE_REF="dir:/mnt/agentdata/images/{{.RegistryFilePath}}"
+IMAGE_ID_FROM_PULL=$(podman pull -q "$PULLED_IMAGE_REF" | tr -d '[:space:]')
 
 # Tag the pulled image with the reference from REGISTRY_IMAGE
 # The dir: transport doesn't automatically create tags, so we must tag explicitly
@@ -34,12 +36,12 @@ if [[ "$REGISTRY_IMAGE" == *"@sha256:"* ]]; then
     fi
 else
     # REGISTRY_IMAGE without digest (e.g., localhost/registry:latest for internally built registry)
-    # Tag the most recently pulled image with the REGISTRY_IMAGE reference
-    IMAGE_ID=$(podman images -q --no-trunc | head -1)
+    # Use image ID from podman pull -q output (no race)
+    IMAGE_ID="$IMAGE_ID_FROM_PULL"
     if [[ -n "$IMAGE_ID" ]]; then
         podman tag "$IMAGE_ID" "$REGISTRY_IMAGE"
         echo "Tagged registry image $IMAGE_ID as $REGISTRY_IMAGE"
     else
-        echo "Warning: Could not find recently pulled image to tag"
+        echo "Warning: Could not get image ID from pull (pull failed or no output)"
     fi
 fi
