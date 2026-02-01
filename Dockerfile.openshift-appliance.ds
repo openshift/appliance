@@ -56,5 +56,5 @@ LABEL summary="OpenShift-based Appliance Builder" \
       io.k8s.description="A utility for building a disk image that orchestrates OpenShift installation using the Agent-based installer." \
       io.k8s.display-name="OpenShift-based Appliance Builder" \
       io.openshift.tags="openshift,appliance,installer,agent" \
-      com.redhat.component="openshift-appliance"
-      
+      com.redhat.component="openshift-appliance" \
+      cpe="cpe:/a:redhat:assisted_installer:2.38::el9"
