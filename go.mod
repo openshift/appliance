@@ -311,7 +311,7 @@ require (
 
 replace (
 	github.com/docker/docker => github.com/docker/docker v28.0.1+incompatible
-	github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20250922204150-a52b83145bea
+	github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20260130002942-ceb16f2eb1c9
 	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20250922204150-a52b83145bea
 	github.com/openshift/hive/apis => github.com/openshift/hive/apis v0.0.0-20231220215202-ad99b9e52d27
 	sigs.k8s.io/cluster-api-provider-ibmcloud => sigs.k8s.io/cluster-api-provider-ibmcloud v0.9.0-beta.0.0.20241029051454-9b0770491a76

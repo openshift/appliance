@@ -935,8 +935,8 @@ github.com/openshift/api v0.0.0-20240808203820-e69593239e49 h1:sw+VD/623xdBnqm1r
 github.com/openshift/api v0.0.0-20240808203820-e69593239e49/go.mod h1:OOh6Qopf21pSzqNVCB5gomomBXb8o5sGKZxG2KNpaXM=
 github.com/openshift/assisted-image-service v0.0.0-20250301084320-0faa6d927ecd h1:aG05jLwPaxznSpJUslvipJwJXvnTY6qDiX+PF20CNhI=
 github.com/openshift/assisted-image-service v0.0.0-20250301084320-0faa6d927ecd/go.mod h1:WGdSeSnK0voEWWwA4ar5eApNjGBLmGTpFurEKw/FXJc=
-github.com/openshift/assisted-service/api v0.0.0-20250922204150-a52b83145bea h1:YhJ9iHKKT5ooAdVr8qq3BdudhTxP/WF0XYDT5gzi1ak=
-github.com/openshift/assisted-service/api v0.0.0-20250922204150-a52b83145bea/go.mod h1:wA7MaLcf/KoUl7fhB1bHBdhRBLjWPih90sHpxOV6ZLE=
+github.com/openshift/assisted-service/api v0.0.0-20260130002942-ceb16f2eb1c9 h1:+a+dxESBHFUElmy0pCtiJp4bMrQqP/8snTImyW4ZQdA=
+github.com/openshift/assisted-service/api v0.0.0-20260130002942-ceb16f2eb1c9/go.mod h1:a7jyKzCjBHh6w+GMrsu+rDGYE8dsfW6Llt6gxLP8joA=
 github.com/openshift/assisted-service/models v0.0.0-20250922204150-a52b83145bea h1:gVNUzhn1mdYD0MJNMnL1cu8sstF34mRo9lQdl/xi8vA=
 github.com/openshift/assisted-service/models v0.0.0-20250922204150-a52b83145bea/go.mod h1:5EkIueBSaLnt64HR8drgSewdm+GeuE7W5mr9pa2JXXk=
 github.com/openshift/build-machinery-go v0.0.0-20200211121458-5e3d6e570160/go.mod h1:1CkcsT3aVebzRBzVTSbiKSkJMsC/CASqxesfqEMfJEc=
