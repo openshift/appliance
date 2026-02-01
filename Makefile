@@ -81,3 +81,6 @@ unit-test:
 _unit_test: $(REPORTS)
 	# TODO: Add code coverage reports
 	gotestsum $(GO_UNITTEST_FLAGS) $(TEST) $(GINKGO_UNITTEST_FLAGS) -timeout $(TIMEOUT)
+
+update-rpm-lockfile:
+	./hack/update-rpm-lockfile.sh

@@ -12,10 +12,17 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 RPM_PREFETCH_DIR="${REPO_ROOT}/rpm-prefetching"
 INPUT_FILE="${RPM_PREFETCH_DIR}/rpms.in.yaml"
 OUTPUT_FILE="${RPM_PREFETCH_DIR}/rpms.lock.yaml"
+DOCKERFILE="${REPO_ROOT}/Dockerfile.openshift-appliance.ds"
 
 # Check if input file exists
 if [ ! -f "${INPUT_FILE}" ]; then
     echo "Error: Input file not found: ${INPUT_FILE}" >&2
+    exit 1
+fi
+
+# Check if Dockerfile exists
+if [ ! -f "${DOCKERFILE}" ]; then
+    echo "Error: Dockerfile not found: ${DOCKERFILE}" >&2
     exit 1
 fi
 
@@ -36,13 +43,11 @@ if [ -z "${PASSWORD}" ]; then
     exit 1
 fi
 
-# Determine container runtime (prefer podman, fallback to docker)
-if command -v podman >/dev/null 2>&1; then
-    CONTAINER_CMD="podman"
-elif command -v docker >/dev/null 2>&1; then
+# Require docker
+if command -v docker >/dev/null 2>&1; then
     CONTAINER_CMD="docker"
 else
-    echo "Error: Neither podman nor docker found in PATH" >&2
+    echo "Error: docker not found in PATH" >&2
     exit 1
 fi
 
@@ -58,8 +63,10 @@ echo ""
 cd "${REPO_ROOT}"
 
 # Build container command arguments
+# Force x86_64 platform to ensure consistent repo configuration across host architectures
 CONTAINER_ARGS=(
     "run" "--rm" "-it"
+    "--platform" "linux/amd64"
     "-v" "$(pwd):/source:Z"
 )
 
@@ -77,6 +84,7 @@ subscription-manager refresh
 dnf install -y pip skopeo git
 pip install --user git+https://github.com/konflux-ci/rpm-lockfile-prototype.git
 skopeo login registry.redhat.io -u \$RH_USER -p \$PASSWORD
+subscription-manager repos --enable codeready-builder-for-rhel-9-x86_64-rpms
 /usr/bin/cp -f /etc/yum.repos.d/redhat.repo /source/rpm-prefetching/redhat.repo
 cd /source
 ~/.local/bin/rpm-lockfile-prototype rpm-prefetching/rpms.in.yaml --outfile rpm-prefetching/rpms.lock.yaml
