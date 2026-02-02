@@ -306,7 +306,7 @@ require (
 	sigs.k8s.io/cluster-api-provider-gcp v1.7.1-0.20240724153512-c3b8b533143c // indirect
 	sigs.k8s.io/cluster-api-provider-ibmcloud v0.7.0 // indirect
 	sigs.k8s.io/cluster-api-provider-openstack v0.10.3 // indirect
-	sigs.k8s.io/cluster-api-provider-vsphere v1.9.3 // indirect
+	sigs.k8s.io/cluster-api-provider-vsphere v1.15.2 // indirect
 	sigs.k8s.io/controller-runtime v0.18.5 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.16.0 // indirect
