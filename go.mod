@@ -210,7 +210,7 @@ require (
 	github.com/openshift/library-go v0.0.0-20240207105404-126b47137408 // indirect
 	github.com/openshift/machine-api-operator v0.2.1-0.20240722145313-3a817c78946a // indirect
 	github.com/openshift/machine-api-provider-gcp v0.0.1-0.20231014045125-6096cc86f3ba // indirect
-	github.com/openshift/machine-api-provider-ibmcloud v0.0.0-20231207164151-6b0b8ea7b16d // indirect
+	github.com/openshift/machine-api-provider-ibmcloud 559ea0b38ac0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/ovirt/go-ovirt v0.0.0-20210809163552-d4276e35d3db // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
