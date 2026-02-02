@@ -99,7 +99,7 @@ require (
 	github.com/docker/go-events v0.0.0-20250808211157-605354379745 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/elliotwutingfeng/asciiset v0.0.0-20251209210403-59ed57bd7b86 // indirect
+	github.com/elliotwutingfeng/asciiset v0.0.0-20260129054604-cfde2086bc57 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/erofs/go-erofs v0.0.0-20250726210804-e84d089fc453 // indirect
 	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
