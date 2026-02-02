@@ -213,7 +213,7 @@ require (
 	github.com/openshift/machine-api-provider-ibmcloud v0.0.0-20231207164151-6b0b8ea7b16d // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/ovirt/go-ovirt v0.0.0-20210809163552-d4276e35d3db // indirect
-	github.com/pborman/uuid v1.2.0 // indirect
+	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.23 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
