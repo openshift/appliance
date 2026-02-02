@@ -304,7 +304,7 @@ require (
 	sigs.k8s.io/cluster-api-provider-aws/v2 v2.6.1 // indirect
 	sigs.k8s.io/cluster-api-provider-azure v1.15.1-0.20240617212811-a52056dfb88c // indirect
 	sigs.k8s.io/cluster-api-provider-gcp v1.7.1-0.20240724153512-c3b8b533143c // indirect
-	sigs.k8s.io/cluster-api-provider-ibmcloud v0.7.0 // indirect
+	sigs.k8s.io/cluster-api-provider-ibmcloud v0.13.0 // indirect
 	sigs.k8s.io/cluster-api-provider-openstack v0.10.3 // indirect
 	sigs.k8s.io/cluster-api-provider-vsphere v1.9.3 // indirect
 	sigs.k8s.io/controller-runtime v0.18.5 // indirect
@@ -317,5 +317,5 @@ require (
 replace (
 	github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20250922204150-a52b83145bea
 	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20250922204150-a52b83145bea
-	sigs.k8s.io/cluster-api-provider-ibmcloud => sigs.k8s.io/cluster-api-provider-ibmcloud v0.9.0-beta.0.0.20241029051454-9b0770491a76
+	sigs.k8s.io/cluster-api-provider-ibmcloud => sigs.k8s.io/cluster-api-provider-ibmcloud v0.13.0
 )
