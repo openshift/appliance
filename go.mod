@@ -21,11 +21,11 @@ require (
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/openconfig/goyang v1.6.3
-	github.com/openshift/api v0.0.0-20240808203820-e69593239e49
+	github.com/openshift/api v0.0.0-20240904015708-69df64132c91
 	github.com/openshift/assisted-image-service v0.0.0-20260130223312-503834119b3e
 	github.com/openshift/assisted-service/api v0.0.0
 	github.com/openshift/hive/apis v0.0.0-20231220215202-ad99b9e52d27
-	github.com/openshift/installer v0.0.0-20241029183827-aa89bb16f585
+	github.com/openshift/installer v0.91.0
 	github.com/openshift/machine-config-operator v0.0.1-0.20201023110058-6c8bd9b2915c
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pkg/errors v0.9.1
@@ -129,6 +129,7 @@ require (
 	github.com/go-playground/validator/v10 v10.22.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gobuffalo/flect v1.0.2 // indirect
+	github.com/gofrs/uuid/v5 v5.2.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
@@ -144,8 +145,8 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.7 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
-	github.com/gophercloud/gophercloud v1.7.0 // indirect
-	github.com/gophercloud/utils v0.0.0-20231010081019-80377eca5d56 // indirect
+	github.com/gophercloud/gophercloud/v2 v2.0.0 // indirect
+	github.com/gophercloud/utils/v2 v2.0.0-20240701101423-2401526caee5 // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
@@ -155,7 +156,6 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
-	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/golang-lru/arc/v2 v2.0.5 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.5 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
@@ -201,19 +201,18 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
 	github.com/openshift/assisted-service/models v0.0.0 // indirect
-	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87 // indirect
+	github.com/openshift/client-go v0.0.0-20240904134955-cd42fd3d7408 // indirect
 	github.com/openshift/cloud-credential-operator v0.0.0-20240404165937-5e8812d64187 // indirect
 	github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e // indirect
 	github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20240104064818-a336f0b5f7ee // indirect
 	github.com/openshift/cluster-api-provider-ovirt v0.1.1-0.20220323121149-e3f2850dd519 // indirect
 	github.com/openshift/custom-resource-status v1.1.3-0.20220503160415-f2fdb4999d87 // indirect
-	github.com/openshift/library-go v0.0.0-20240207105404-126b47137408 // indirect
+	github.com/openshift/library-go v0.0.0-20240903143724-7c5c5d305ac1 // indirect
 	github.com/openshift/machine-api-operator v0.2.1-0.20240722145313-3a817c78946a // indirect
 	github.com/openshift/machine-api-provider-gcp v0.0.1-0.20231014045125-6096cc86f3ba // indirect
 	github.com/openshift/machine-api-provider-ibmcloud v0.0.0-20231207164151-6b0b8ea7b16d // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/ovirt/go-ovirt v0.0.0-20210809163552-d4276e35d3db // indirect
-	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.23 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
@@ -282,7 +281,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251124214823-79d6a2a48846 // indirect
 	google.golang.org/grpc v1.73.0-dev // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
-	gopkg.in/evanphx/json-patch.v5 v5.6.0 // indirect
+	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/gcfg.v1 v1.2.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
@@ -306,11 +305,11 @@ require (
 	sigs.k8s.io/cluster-api-provider-gcp v1.7.1-0.20240724153512-c3b8b533143c // indirect
 	sigs.k8s.io/cluster-api-provider-ibmcloud v0.7.0 // indirect
 	sigs.k8s.io/cluster-api-provider-openstack v0.10.3 // indirect
-	sigs.k8s.io/cluster-api-provider-vsphere v1.9.3 // indirect
+	sigs.k8s.io/cluster-api-provider-vsphere v1.10.2 // indirect
 	sigs.k8s.io/controller-runtime v0.18.5 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
-	sigs.k8s.io/kustomize/api v0.16.0 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.16.0 // indirect
+	sigs.k8s.io/kustomize/api v0.17.1 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.17.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
