@@ -84,7 +84,7 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	// Determine if we're using the OCP registry (for the podman run command)
 	useOcpRegistry := registry.ShouldUseOcpRegistry(envConfig, applianceConfig)
 	if useOcpRegistry {
-		logrus.Info("InstallIgnition will use OCP docker-registry image")
+		logrus.Debug("InstallIgnition will use OCP docker-registry image")
 	}
 
 	i.Config = igntypes.Config{
