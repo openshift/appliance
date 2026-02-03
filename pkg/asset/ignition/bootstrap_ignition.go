@@ -113,7 +113,7 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	// Determine if we're using the OCP registry (for the podman run command)
 	useOcpRegistry := reg.ShouldUseOcpRegistry(envConfig, applianceConfig)
 	if useOcpRegistry {
-		logrus.Info("BootstrapIgnition will use OCP docker-registry image")
+		logrus.Debug("BootstrapIgnition will use OCP docker-registry image")
 	}
 
 	i.Config = igntypes.Config{
