@@ -113,7 +113,7 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	// Determine if we're using the OCP registry (for the podman run command)
 	useOcpRegistry := reg.ShouldUseOcpRegistry(envConfig, applianceConfig)
 	if useOcpRegistry {
-		logrus.Info("BootstrapIgnition will use OCP docker-registry image")
+		logrus.Debug("BootstrapIgnition will use OCP docker-registry image")
 	}
 
 	i.Config = igntypes.Config{
@@ -231,6 +231,11 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
+	// Convert binaryData to data in signature-configmap.yaml so it can be applied as a ConfigMap
+	if err := convertSignatureConfigMapBinaryDataToData(mirrorResources); err != nil {
+		return err
+	}
+
 	// Add extra manifests files (from 'openshift' dir and 'cluster-resources')
 	fileList := append(extraManifests.FileList, mirrorResources...)
 	if err = addExtraManifests(
@@ -256,6 +261,41 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 
 	logrus.Debug("Successfully generated bootstrap ignition")
 
+	return nil
+}
+
+const signatureConfigMapFilename = "signature-configmap.yaml"
+
+// convertSignatureConfigMapBinaryDataToData finds signature-configmap.yaml in mirrorResources
+// and moves binaryData into data (keeping values as base64 strings). Decoding is not done
+// because signature content is binary and would introduce control characters that yaml.Marshal
+// rejects; keeping base64 in "data" allows the ConfigMap to be applied and re-encoded as needed.
+func convertSignatureConfigMapBinaryDataToData(files []*asset.File) error {
+	for _, f := range files {
+		if filepath.Base(f.Filename) != signatureConfigMapFilename {
+			continue
+		}
+		var obj map[string]interface{}
+		if err := yaml.Unmarshal(f.Data, &obj); err != nil {
+			return errors.Wrapf(err, "failed to parse %s", f.Filename)
+		}
+		binaryData, ok := obj["binaryData"].(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		data := make(map[string]interface{})
+		for k, v := range binaryData {
+			data[k] = v
+		}
+		obj["data"] = data
+		delete(obj, "binaryData")
+		newData, err := yaml.Marshal(obj)
+		if err != nil {
+			return errors.Wrapf(err, "failed to marshal %s", f.Filename)
+		}
+		f.Data = newData
+		break
+	}
 	return nil
 }
 
