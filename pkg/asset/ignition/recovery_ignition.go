@@ -2,6 +2,7 @@ package ignition
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -83,6 +84,23 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 		// (even though disabled by default, the udev rule may require it).
 		noConfigImageFile := ignition.FileFromString("/etc/assisted/no-config-image", "root", 0644, "")
 		unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, noConfigImageFile)
+
+		_, releaseVersion, err := installerConfig.ApplianceConfig.GetRelease()
+		if err != nil {
+			return err
+		}
+  iriContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1alpha1
+kind: InternalReleaseImage
+metadata:
+  name: cluster
+spec:
+  releases:
+  - name: ocp-release-bundle-%s
+`, releaseVersion)
+
+		// Keep the filepath in sync with openshift/installer#10176 until the installer min storage will be more robust.
+  		iriFile := ignition.FileFromString("/etc/assisted/extra-manifests/internalreleaseimage.yaml", "root", 0644, iriContent)
+        unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, iriFile)
 	}
 
 	// Remove registries.conf file from unconfiguredIgnition (already added in bootstrapIgnition)
