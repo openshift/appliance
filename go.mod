@@ -83,7 +83,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cjlapao/common-go v0.0.39 // indirect
-	github.com/clarketm/json v1.14.1 // indirect
+	github.com/clarketm/json v1.17.1 // indirect
 	github.com/containers/image/v5 v5.31.0 // indirect
 	github.com/containers/storage v1.54.0 // indirect
 	github.com/coreos/go-json v0.0.0-20231102161613-e49c8866685a // indirect
