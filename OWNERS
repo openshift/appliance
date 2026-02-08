@@ -4,5 +4,7 @@ filters:
   .*:
     approvers:
       - approvers
+      - agent-approvers
     reviewers:
       - approvers
+      - agent-approvers
