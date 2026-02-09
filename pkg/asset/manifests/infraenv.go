@@ -18,7 +18,23 @@ import (
 
 const (
 	infraEnvName = "appliance"
+
+	// infraEnv APIVersion/Kind used when writing infraenv.yaml so we can omit
+	// Status and stay compatible with older openshift-install (e.g. 4.19) that
+	// does not recognize status.bootArtifacts.discoveryIgnitionURL.
+	infraEnvAPIVersion = "agent-install.openshift.io/v1beta1"
+	infraEnvKind       = "InfraEnv"
 )
+
+// infraEnvForDisk is used when writing infraenv.yaml to disk. It omits Status
+// so that the file is compatible with older openshift-install (e.g. 4.19) that
+// does not recognize status.bootArtifacts.discoveryIgnitionURL.
+type infraEnvForDisk struct {
+	APIVersion string                 `json:"apiVersion"`
+	Kind       string                 `json:"kind"`
+	Metadata   metav1.ObjectMeta      `json:"metadata,omitempty"`
+	Spec       aiv1beta1.InfraEnvSpec  `json:"spec,omitempty"`
+}
 
 var (
 	infraEnvFilename = filepath.Join(clusterManifestDir, "infraenv.yaml")
@@ -65,7 +81,16 @@ func (i *InfraEnv) Generate(dependencies asset.Parents) error {
 
 	i.Config = infraEnv
 
-	configData, err := yaml.Marshal(infraEnv)
+	// Marshal only apiVersion, kind, metadata, and spec (no status) so that
+	// the file is compatible with older openshift-install (e.g. 4.19) that
+	// does not recognize status.bootArtifacts.discoveryIgnitionURL.
+	forDisk := infraEnvForDisk{
+		APIVersion: infraEnvAPIVersion,
+		Kind:       infraEnvKind,
+		Metadata:   infraEnv.ObjectMeta,
+		Spec:       infraEnv.Spec,
+	}
+	configData, err := yaml.Marshal(forDisk)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal infraenv")
 	}
