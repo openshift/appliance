@@ -284,7 +284,7 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 
 	// Determine source registry URI using the helper function
 	sourceRegistryUri := GetRegistryImageURI(envConfig, applianceConfig)
-	logrus.Infof("Registry image URI: %s", sourceRegistryUri)
+	logrus.Debugf("Registry image URI: %s", sourceRegistryUri)
 
 	// Search for registry image in cache dir
 	if fileName := envConfig.FindInCache(registryFilename); fileName == "" {
