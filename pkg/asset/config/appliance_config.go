@@ -47,8 +47,8 @@ const (
 	PodmanPull = "podman pull %s"
 
 	// Release
-	templateGetVersion = "oc adm release info %s -o template --template '{{.metadata.version}}'"
-	templateGetDigest  = "oc adm release info %s -o template --template '{{.digest}}'"
+	templateGetVersion = "oc adm release info %s -o template --template '{{.metadata.version}}' --insecure=true"
+	templateGetDigest  = "oc adm release info %s -o template --template '{{.digest}}' --insecure=true"
 )
 
 var (
@@ -378,7 +378,9 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 				return "", "", nil
 			}
 			releaseDigest = strings.Trim(releaseDigest, "'")
-			releaseImage = fmt.Sprintf("%s@%s", strings.Split(releaseImage, ":")[0], releaseDigest)
+			if idx := strings.LastIndex(releaseImage, ":"); idx != -1 {
+				releaseImage = fmt.Sprintf("%s@%s", releaseImage[:idx], releaseDigest)
+			}
 		}
 		logrus.Debugf("Release image: %s", releaseImage)
 	}
