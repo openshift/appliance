@@ -153,6 +153,12 @@ pullSecret: pull-secret
   # [Optional]
   # useBinary: %t
 
+# Path to pre-mirrored images from oc-mirror workspace.
+# When provided, skips image mirroring and uses the pre-mirrored registry data.
+# The path should point to an oc-mirror workspace directory containing a 'data' subdirectory.
+# [Optional]
+# mirrorPath: /path/to/mirror/workspace
+
 # Enable all default CatalogSources (on openshift-marketplace namespace).
 # Should be disabled for disconnected environments.
 # Default: false
@@ -378,7 +384,7 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 				return "", "", nil
 			}
 			releaseDigest = strings.Trim(releaseDigest, "'")
-			releaseImage = fmt.Sprintf("%s@%s", strings.Split(releaseImage, ":")[0], releaseDigest)
+			releaseImage = fmt.Sprintf("%s@%s", releaseImage, releaseDigest)
 		}
 		logrus.Debugf("Release image: %s", releaseImage)
 	}
@@ -428,6 +434,11 @@ func (a *ApplianceConfig) validateConfig(f asset.FileFetcher) field.ErrorList {
 		if err := validate.SSHPublicKey(*a.Config.SshKey); err != nil {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("sshKey"), *a.Config.SshKey, err.Error()))
 		}
+	}
+
+	// Validate mirrorPath
+	if err := a.validateMirrorPath(); err != nil {
+		allErrs = append(allErrs, err...)
 	}
 
 	return allErrs
@@ -551,6 +562,41 @@ func (a *ApplianceConfig) validatePinnedImageSet() error {
 		return fmt.Errorf("OCP release version must be at least %s to create PinnedImageSets", consts.MinOcpVersionForPinnedImageSet)
 	}
 	return nil
+}
+
+func (a *ApplianceConfig) validateMirrorPath() field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if a.Config.MirrorPath != nil {
+		mirrorPath := swag.StringValue(a.Config.MirrorPath)
+		if mirrorPath != "" {
+			// Validate mirror path exists and is a directory
+			info, err := os.Stat(mirrorPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					allErrs = append(allErrs, field.Invalid(field.NewPath("mirrorPath"),
+						mirrorPath, "mirror path does not exist"))
+				} else {
+					allErrs = append(allErrs, field.Invalid(field.NewPath("mirrorPath"),
+						mirrorPath, fmt.Sprintf("failed to access mirror path: %v", err)))
+				}
+			} else if !info.IsDir() {
+				allErrs = append(allErrs, field.Invalid(field.NewPath("mirrorPath"),
+					mirrorPath, "mirror path must be a directory"))
+			} else {
+				// Validate data subdirectory exists
+				dataDir := filepath.Join(mirrorPath, "data")
+				if _, err := os.Stat(dataDir); err != nil {
+					allErrs = append(allErrs, field.Invalid(field.NewPath("mirrorPath"),
+						mirrorPath, "mirror path must contain a 'data' subdirectory (expected oc-mirror workspace structure)"))
+				}
+			}
+
+			logrus.Infof("Using pre-mirrored images from: %s", mirrorPath)
+		}
+	}
+
+	return allErrs
 }
 
 func (a *ApplianceConfig) storePullSecret() error {
