@@ -2,7 +2,6 @@ package ignition
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/installer"
 	"github.com/openshift/installer/pkg/asset"
-	"github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/thoas/go-funk"
@@ -77,30 +75,12 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 	}
 
 	if swag.BoolValue(installerConfig.ApplianceConfig.Config.EnableInteractiveFlow) {
-		interactiveUIFile := ignition.FileFromString("/etc/assisted/interactive-ui", "root", 0644, "")
-		unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, interactiveUIFile)
-
-		// Explicitly disable the load-config-iso service, not required in the OVE flow
-		// (even though disabled by default, the udev rule may require it).
-		noConfigImageFile := ignition.FileFromString("/etc/assisted/no-config-image", "root", 0644, "")
-		unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, noConfigImageFile)
-
 		_, releaseVersion, err := installerConfig.ApplianceConfig.GetRelease()
 		if err != nil {
 			return err
 		}
-  iriContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1alpha1
-kind: InternalReleaseImage
-metadata:
-  name: cluster
-spec:
-  releases:
-  - name: ocp-release-bundle-%s
-`, releaseVersion)
-
-		// Keep the filepath in sync with openshift/installer#10176 until the installer min storage will be more robust.
-  		iriFile := ignition.FileFromString("/etc/assisted/extra-manifests/internalreleaseimage.yaml", "root", 0644, iriContent)
-        unconfiguredIgnition.Storage.Files = append(unconfiguredIgnition.Storage.Files, iriFile)
+		ifi := NewInteractiveFlowIgnition(releaseVersion)
+		ifi.AppendToIgnition(&unconfiguredIgnition)
 	}
 
 	// Remove registries.conf file from unconfiguredIgnition (already added in bootstrapIgnition)
