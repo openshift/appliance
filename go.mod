@@ -24,7 +24,7 @@ require (
 	github.com/openshift/api v0.0.0-20240808203820-e69593239e49
 	github.com/openshift/assisted-image-service v0.0.0-20260130223312-503834119b3e
 	github.com/openshift/assisted-service/api v0.0.0
-	github.com/openshift/hive/apis v0.0.0-20231220215202-ad99b9e52d27
+	github.com/openshift/hive/apis 7d52d803da27
 	github.com/openshift/installer v0.0.0-20241029183827-aa89bb16f585
 	github.com/openshift/machine-config-operator v0.0.1-0.20201023110058-6c8bd9b2915c
 	github.com/pelletier/go-toml v1.9.5
