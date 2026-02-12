@@ -842,8 +842,8 @@ github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5
 github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
 github.com/metal3-io/baremetal-operator/apis v0.4.0 h1:1g5S3SKu9FqeD7OIf5jGKS6234HjNQpIRmfepZnSmiQ=
 github.com/metal3-io/baremetal-operator/apis v0.4.0/go.mod h1:1GDBiA3XqdP63dLZHJ1JH5fRJrfjn7pshoPEd9jwY7Q=
-github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.4.0 h1:AnA8XLLp3RKYjjlB4KI0fyPSDN/d5gb3ZtM2cVyxwOc=
-github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.4.0/go.mod h1:399nvdaqoU9rTI25UdFw2EWcVjmJPpeZPIhfDAIx/XU=
+github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.12.2 h1:dryb/sJbY70A301mSrZ+NDgOmmJuz2vgCD1zWs3OA14=
+github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.12.2/go.mod h1:K6WxF9PAIrFVHytfcp+P8MwpN+b1B0irQVKLGDOcpfY=
 github.com/mfridman/tparse v0.18.0 h1:wh6dzOKaIwkUGyKgOntDW4liXSo37qg5AXbIhkMV3vE=
 github.com/mfridman/tparse v0.18.0/go.mod h1:gEvqZTuCgEhPbYk/2lS3Kcxg1GmTxxU7kTC8DvP0i/A=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
