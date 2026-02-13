@@ -33,6 +33,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/thedevsaddam/retry v1.2.1
 	github.com/thoas/go-funk v0.9.3
+	github.com/vincent-petithory/dataurl v1.0.0
 	golang.org/x/crypto v0.47.0
 	golang.org/x/term v0.39.0
 	k8s.io/api v0.30.3
@@ -100,7 +101,7 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/elliotwutingfeng/asciiset v0.0.0-20251209210403-59ed57bd7b86 // indirect
-	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
+	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/erofs/go-erofs v0.0.0-20250726210804-e84d089fc453 // indirect
 	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
@@ -233,7 +234,6 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
-	github.com/vincent-petithory/dataurl v1.0.0 // indirect
 	github.com/vmware/govmomi v0.37.2 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
