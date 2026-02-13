@@ -195,7 +195,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/nutanix-cloud-native/cluster-api-provider-nutanix v1.5.3 // indirect
-	github.com/nutanix-cloud-native/prism-go-client v0.5.0 // indirect
+	github.com/nutanix-cloud-native/prism-go-client v0.6.3 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
