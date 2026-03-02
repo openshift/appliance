@@ -3,7 +3,6 @@ package coreos
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/release"
-	"github.com/openshift/assisted-image-service/pkg/isoeditor"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -31,7 +29,6 @@ type CoreOS interface {
 	DownloadDiskImage() (string, error)
 	DownloadISO() (string, error)
 	EmbedIgnition(ignition []byte, isoPath string) error
-	WrapIgnition(ignitionContent *isoeditor.IgnitionContent, imagePath string) error
 	FetchCoreOSStream() (map[string]any, error)
 }
 
@@ -118,33 +115,6 @@ func (c *coreos) EmbedIgnition(ignition []byte, isoPath string) error {
 	embedCmd := fmt.Sprintf(templateEmbedIgnition, ignitionFile.Name(), isoPath)
 	_, err = c.Executer.Execute(embedCmd)
 	return err
-}
-
-func (c *coreos) WrapIgnition(ignitionContent *isoeditor.IgnitionContent, imagePath string) error {
-	ignitionImgFile, err := os.OpenFile(imagePath, os.O_CREATE|os.O_RDWR, 0664)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := ignitionImgFile.Close(); err != nil {
-			logrus.Errorf("Failed to close ignition image file: %s", err.Error())
-		}
-	}()
-
-	// Generate compressed CPIO archive
-	archiveReader, err := ignitionContent.Archive()
-	if err != nil {
-		return err
-	}
-
-	// Copy archive to the image file
-	_, err = io.Copy(ignitionImgFile, archiveReader)
-	if err != nil {
-		logrus.Errorf("Failed to write ignition data into %s: %s", ignitionImgFile.Name(), err.Error())
-		return err
-	}
-
-	return nil
 }
 
 func (c *coreos) FetchCoreOSStream() (map[string]any, error) {
