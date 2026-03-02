@@ -3,9 +3,9 @@ package appliance
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/data"
@@ -23,12 +23,8 @@ import (
 )
 
 const (
-	liveIsoWorkDir                = "live-iso"
-	liveIsoDataDir                = "registry"
-	bootstrapImageName            = "/images/bootstrap-appliance.img"
-	defaultGrubConfigFilePath     = "EFI/redhat/grub.cfg"
-	defaultIsolinuxConfigFilePath = "isolinux/isolinux.cfg"
-	defaultKargsConfigFilePath    = "coreos/kargs.json"
+	liveIsoWorkDir = "live-iso"
+	liveIsoDataDir = "registry"
 )
 
 // ApplianceLiveISO is an asset that generates the OpenShift-based appliance.
@@ -164,44 +160,45 @@ func (a *ApplianceLiveISO) buildLiveISO(
 	)
 	spinner.FileToMonitor = consts.DeployIsoName
 
-	// Create bootstrap.img file
-	coreOSConfig := coreos.CoreOSConfig{
-		ApplianceConfig: applianceConfig,
-		EnvConfig:       envConfig,
-	}
-	c := coreos.NewCoreOS(coreOSConfig)
+	// Append bootstrap ignition to initrd using isoeditor library
 	sysIgnitionBytes, err := json.Marshal(recoveryIgnition.Bootstrap)
 	if err != nil {
 		logrus.Errorf("Failed to marshal recovery ignition to json: %s", err.Error())
 		return log.StopSpinner(spinner, err)
 	}
-	bootstrapImagePath := filepath.Join(workDir, bootstrapImageName)
 	ignitionContent := &isoeditor.IgnitionContent{
 		SystemConfigs: map[string][]byte{
 			"99-bootstrap.ign": sysIgnitionBytes,
 		},
 	}
-	if err := c.WrapIgnition(ignitionContent, bootstrapImagePath); err != nil {
-		logrus.Errorf("Failed to create bootstrap image: %s", err.Error())
+	initrdReader, err := isoeditor.NewInitRamFSStreamReaderFromISO(coreosIsoPath, ignitionContent)
+	if err != nil {
+		logrus.Errorf("Failed to create initrd with bootstrap ignition: %s", err.Error())
 		return log.StopSpinner(spinner, err)
 	}
+	defer func() {
+		if err := initrdReader.Close(); err != nil {
+			logrus.Errorf("Failed to close initrd reader: %s", err.Error())
+		}
+	}()
 
-	// Add bootstrap.img to initrd
-	replacement := fmt.Sprintf("$1 $2 %s", bootstrapImageName)
-	grubCfgPath := filepath.Join(workDir, defaultGrubConfigFilePath)
-	if err := editFile(grubCfgPath, `(?m)^(\s+initrd) (.+| )+$`, replacement); err != nil {
-		return err
+	// Write the updated initrd to the extracted ISO
+	initrdPath := filepath.Join(workDir, "images/pxeboot/initrd.img")
+	initrdFile, err := os.Create(initrdPath)
+	if err != nil {
+		logrus.Errorf("Failed to create initrd file %s: %s", initrdPath, err.Error())
+		return log.StopSpinner(spinner, err)
 	}
-	replacement = fmt.Sprintf("${1},%s ${2}", bootstrapImageName)
-	isolinuxConfigFilePath := filepath.Join(workDir, defaultIsolinuxConfigFilePath)
-	if err := editFile(isolinuxConfigFilePath, `(?m)^(\s+append.*initrd=\S+) (.*)$`, replacement); err != nil {
-		return err
+	if _, err := io.Copy(initrdFile, initrdReader); err != nil {
+		if closeErr := initrdFile.Close(); closeErr != nil {
+			logrus.Errorf("Failed to close initrd file: %s", closeErr.Error())
+		}
+		logrus.Errorf("Failed to write initrd file %s: %s", initrdPath, err.Error())
+		return log.StopSpinner(spinner, err)
 	}
-
-	// Fix offset in kargs.json
-	initrdImageOffset := int64(len(bootstrapImageName) + 1)
-	if err := fixKargsOffset(workDir, defaultIsolinuxConfigFilePath, initrdImageOffset); err != nil {
-		return err
+	if err := initrdFile.Close(); err != nil {
+		logrus.Errorf("Failed to close initrd file: %s", err.Error())
+		return log.StopSpinner(spinner, err)
 	}
 
 	// Generate live ISO
@@ -221,57 +218,4 @@ func (a *ApplianceLiveISO) buildLiveISO(
 	}
 
 	return log.StopSpinner(spinner, nil)
-}
-
-func editFile(fileName string, reString string, replacement string) error {
-	content, err := os.ReadFile(fileName)
-	if err != nil {
-		return err
-	}
-
-	re := regexp.MustCompile(reString)
-	newContent := re.ReplaceAllString(string(content), replacement)
-
-	if err := os.WriteFile(fileName, []byte(newContent), 0600); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func fixKargsOffset(workDir, configPath string, offset int64) error {
-	kargsConfigFilePath := filepath.Join(workDir, defaultKargsConfigFilePath)
-	kargsData, err := os.ReadFile(kargsConfigFilePath)
-	if err != nil {
-		return err
-	}
-
-	var kargsConfig struct {
-		Default string `json:"default"`
-		Files   []struct {
-			End    string `json:"end"`
-			Offset int64  `json:"offset"`
-			Pad    string `json:"pad"`
-			Path   string `json:"path"`
-		} `json:"files"`
-		Size int64 `json:"size"`
-	}
-	if err := json.Unmarshal(kargsData, &kargsConfig); err != nil {
-		return err
-	}
-	for i, file := range kargsConfig.Files {
-		if file.Path == configPath {
-			kargsConfig.Files[i].Offset = file.Offset + offset
-		}
-	}
-
-	workConfigFileContent, err := json.MarshalIndent(kargsConfig, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(kargsConfigFilePath, workConfigFileContent, 0600); err != nil {
-		return err
-	}
-
-	return nil
 }
