@@ -26,7 +26,6 @@ const (
 	liveIsoWorkDir                = "live-iso"
 	liveIsoDataDir                = "registry"
 	bootstrapImageName            = "/images/bootstrap-appliance.img"
-	bootstrapIgnitionPath         = "/usr/lib/ignition/base.d/99-bootstrap.ign"
 	defaultGrubConfigFilePath     = "EFI/redhat/grub.cfg"
 	defaultIsolinuxConfigFilePath = "isolinux/isolinux.cfg"
 	defaultKargsConfigFilePath    = "coreos/kargs.json"
@@ -177,7 +176,12 @@ func (a *ApplianceLiveISO) buildLiveISO(
 		return log.StopSpinner(spinner, err)
 	}
 	bootstrapImagePath := filepath.Join(workDir, bootstrapImageName)
-	if err := c.WrapIgnition(ignitionBytes, bootstrapIgnitionPath, bootstrapImagePath); err != nil {
+	ignitionContent := &isoeditor.IgnitionContent{
+		SystemConfigs: map[string][]byte{
+			"99-bootstrap.ign": ignitionBytes,
+		},
+	}
+	if err := c.WrapIgnition(ignitionContent, bootstrapImagePath); err != nil {
 		logrus.Errorf("Failed to create bootstrap image: %s", err.Error())
 		return log.StopSpinner(spinner, err)
 	}
