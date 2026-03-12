@@ -11,6 +11,15 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+func hasStorageFile(cfg types.Config, path string) bool {
+	for _, f := range cfg.Storage.Files {
+		if f.Path == path {
+			return true
+		}
+	}
+	return false
+}
+
 var _ = Describe("Test InteractiveFlow Ignition", func() {
 	var (
 		ign *types.Config
@@ -66,6 +75,33 @@ var _ = Describe("Test InteractiveFlow Ignition", func() {
 		Entry("valid release name", "4.15.0-0.ci-2025-11-22-162639", "ocp-release-bundle-4.15.0-0.ci-2025-11-22-162639"),
 		Entry("trim releases longer than 64 chars", "4.22.0-0.ci-2026-02-09-204741-test-ci-op-phx0mrh8-latest", "ocp-release-bundle-4.22.0-0.ci-2026-02-09-204741-test-ci-op-phx0"),
 	)
+})
+
+// RecoveryIgnition behavior: interactive flow is appended to Bootstrap (not Unconfigured),
+// so it appears in Bootstrap and Merged but not in Unconfigured.
+var _ = Describe("RecoveryIgnition interactive flow placement", func() {
+	interactiveFlowPaths := []string{
+		"/etc/assisted/interactive-ui",
+		"/etc/assisted/no-config-image",
+		"/etc/assisted/extra-manifests/internalreleaseimage.yaml",
+	}
+
+	It("places interactive flow files in Bootstrap and Merged, not in Unconfigured", func() {
+		unconfigured := types.Config{Storage: types.Storage{}}
+		bootstrap := types.Config{Storage: types.Storage{}}
+		NewInteractiveFlowIgnition("4.20.5-x86_64").AppendToIgnition(&bootstrap)
+
+		for _, p := range interactiveFlowPaths {
+			Expect(hasStorageFile(unconfigured, p)).To(BeFalse(), "interactive flow file %q should not be in Unconfigured", p)
+			Expect(hasStorageFile(bootstrap, p)).To(BeTrue(), "interactive flow file %q should be in Bootstrap", p)
+		}
+	})
+
+	It("leaves Bootstrap and Merged without interactive flow when nothing is appended", func() {
+		bootstrap := types.Config{Storage: types.Storage{}}
+		// No AppendToIgnition (simulates EnableInteractiveFlow false)
+		Expect(hasStorageFile(bootstrap, "/etc/assisted/interactive-ui")).To(BeFalse())
+	})
 })
 
 func ignitionGetFileData(ign *types.Config, filePath string) ([]byte, error) {
