@@ -12,7 +12,7 @@ import (
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/installer/pkg/asset"
 	agentManifests "github.com/openshift/installer/pkg/asset/agent/manifests"
-	"github.com/pelletier/go-toml"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
