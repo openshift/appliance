@@ -33,6 +33,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/thedevsaddam/retry v1.2.1
 	github.com/thoas/go-funk v0.9.3
+	github.com/vincent-petithory/dataurl v1.0.0
 	golang.org/x/crypto v0.47.0
 	golang.org/x/term v0.39.0
 	k8s.io/api v0.30.3
@@ -204,7 +205,7 @@ require (
 	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87 // indirect
 	github.com/openshift/cloud-credential-operator v0.0.0-20240404165937-5e8812d64187 // indirect
 	github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e // indirect
-	github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20240104064818-a336f0b5f7ee // indirect
+	github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20260306172213-c6cd9a293fb1 // indirect
 	github.com/openshift/cluster-api-provider-ovirt v0.1.1-0.20220323121149-e3f2850dd519 // indirect
 	github.com/openshift/custom-resource-status v1.1.3-0.20220503160415-f2fdb4999d87 // indirect
 	github.com/openshift/library-go v0.0.0-20240207105404-126b47137408 // indirect
@@ -233,7 +234,6 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
-	github.com/vincent-petithory/dataurl v1.0.0 // indirect
 	github.com/vmware/govmomi v0.37.2 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
