@@ -346,6 +346,27 @@ metadata:
   namespace: "openshift-cnv"
 ```
 
+### Using pre-mirrored images (Optional)
+
+If you have already mirrored OCP release images using `oc-mirror` on another system, you can skip the mirroring step during the build by providing the path to the oc-mirror workspace.
+
+Add the `mirrorPath` field to your `appliance-config.yaml`:
+```yaml
+apiVersion: v1beta1
+kind: ApplianceConfig
+ocpRelease:
+  version: 4.14
+  channel: candidate
+  cpuArchitecture: x86_64
+diskSizeGB: 200
+pullSecret: '{"auths":{<redacted>}}'
+sshKey: <redacted>
+# Path to oc-mirror workspace directory containing mirrored images
+mirrorPath: /path/to/mirror/workspace
+```
+
+The `mirrorPath` should point to the directory created by `oc-mirror` that contains a `data` subdirectory with the mirrored registry data.
+
 ### Build the disk image
 * Make sure you have enough free disk space.
   * The amount of space needed is defined by the configured `diskSizeGB` value mentioned above, which is at least 150GiB.
