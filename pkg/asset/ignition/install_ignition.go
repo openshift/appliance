@@ -125,7 +125,9 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	// Create install template data
 	templateData := templates.GetInstallIgnitionTemplateData(
 		envConfig.IsLiveISO,
-		corePassHash)
+		swag.BoolValue(applianceConfig.Config.EnableInteractiveFlow),
+		corePassHash,
+	)
 
 	// Add registry service from appropriate directory (OCP or default)
 	registryServiceDir := "services/local-registry-default"
