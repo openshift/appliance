@@ -122,10 +122,13 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 		}
 	}
 
+	registryImageURI := registry.GetRegistryImageURI(envConfig, applianceConfig)
+
 	// Create install template data
 	templateData := templates.GetInstallIgnitionTemplateData(
 		envConfig.IsLiveISO,
-		corePassHash)
+		corePassHash,
+		registry.RegistryCacheDigestKey(registryImageURI))
 
 	// Add registry service from appropriate directory (OCP or default)
 	registryServiceDir := "services/local-registry-default"
@@ -158,7 +161,6 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	}
 
 	// Add registry.env file
-	registryImageURI := registry.GetRegistryImageURI(envConfig, applianceConfig)
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
 		"root", 0644, templates.GetRegistryEnv(registryImageURI, consts.RegistryDataInstall, consts.RegistryDataUpgrade))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)

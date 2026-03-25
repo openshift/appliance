@@ -24,8 +24,8 @@ const (
 	registryStartCmdOcp  = "podman run --net=host --privileged -d --name registry -v %s:/var/lib/registry --restart=always -e REGISTRY_HTTP_ADDR=0.0.0.0:%d -u 0 --entrypoint=/usr/bin/distribution containers-storage:%s serve /etc/registry/config.yaml"
 	registryStopCmd      = "podman rm registry -f"
 	registryBuildCmd     = "podman build -f Dockerfile.registry -t registry ."
-	registrySaveCmd      = "podman push %s dir:%s/registry"
-	registryLoadCmd      = "skopeo copy dir:%s/registry containers-storage:localhost/registry:latest"
+	registrySaveCmd      = "podman push %s dir:%s"
+	registryLoadCmd      = "skopeo copy dir:%s containers-storage:localhost/registry:latest"
 	registryRunBinaryCmd = "/registry serve config.yml"
 
 	registryAttempts             = 3
@@ -278,20 +278,43 @@ func GetRegistryImageURI(envConfig *config.EnvConfig, applianceConfig *config.Ap
 	return consts.RegistryImage
 }
 
-func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) (string, error) {
-	registryFilename := filepath.Base(consts.RegistryFilePath)
-	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
+// RegistryCacheDigestKey returns a filesystem-safe subdirectory name under <cache>/registry/
+// and /mnt/agentdata/images/registry/. For references with a digest (e.g. repo@sha256:<hex>),
+// it uses the hash portion only. Any reference without "@" (including tag-only specs and
+// localhost/registry:latest) uses the fixed name "internal".
+func RegistryCacheDigestKey(sourceRegistryURI string) string {
+	if at := strings.LastIndex(sourceRegistryURI, "@"); at >= 0 {
+		digest := sourceRegistryURI[at+1:]
+		if i := strings.Index(digest, ":"); i >= 0 {
+			return digest[i+1:]
+		}
+		return digest
+	}
+	return "internal"
+}
 
-	// Determine source registry URI using the helper function
+func isRegistryImageCacheHit(registryDirPath string) bool {
+	fi, err := os.Stat(registryDirPath)
+	if err != nil || !fi.IsDir() {
+		return false
+	}
+	entries, err := os.ReadDir(registryDirPath)
+	return err == nil && len(entries) > 0
+}
+
+func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) (string, error) {
 	sourceRegistryUri := GetRegistryImageURI(envConfig, applianceConfig)
 	logrus.Debugf("Registry image URI: %s", sourceRegistryUri)
 
-	// Search for registry image in cache dir
-	if fileName := envConfig.FindInCache(registryFilename); fileName == "" {
-		// Not in cache, need to create it
+	digestKey := RegistryCacheDigestKey(sourceRegistryUri)
+	registryVersionDir := filepath.Join(envConfig.CacheDir, consts.RegistryFilePath, digestKey)
+
+	if !isRegistryImageCacheHit(registryVersionDir) {
+		if err := os.MkdirAll(filepath.Dir(registryVersionDir), os.ModePerm); err != nil {
+			return "", err
+		}
 		if sourceRegistryUri == consts.RegistryImage {
-			// Build the registry image internally
-			if err := BuildRegistryImage(envConfig.CacheDir); err != nil {
+			if err := BuildRegistryImage(registryVersionDir); err != nil {
 				return "", err
 			}
 		} else {
@@ -301,7 +324,7 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 			if err := skopeo.NewSkopeo(nil).CopyToFile(
 				sourceRegistryUri,
 				consts.RegistryImage,
-				fileInCachePath); err != nil {
+				registryVersionDir); err != nil {
 				return "", err
 			}
 		}
@@ -309,21 +332,19 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 		logrus.Debug("Reusing registry from cache")
 	}
 
-	// Load the registry image into podman storage
-	if err := LoadRegistryImage(envConfig.CacheDir); err != nil {
+	if err := LoadRegistryImage(registryVersionDir); err != nil {
 		return "", err
 	}
 
-	// Copy registry from cache to data dir staging area
-	// This staging area gets packaged into the data ISO (agentdata partition),
-	// which is mounted at /mnt/agentdata/ in the appliance for disconnected installation
-	fileInDataDir := filepath.Join(envConfig.TempDir, dataDir, imagesDir, consts.RegistryFilePath)
+	// Copy registry from cache to data dir staging as images/registry/<digest>/ (manifest.json at that level).
+	// Packaged into the data ISO (agentdata), mounted at /mnt/agentdata/ on the appliance.
+	registryImagesParent := filepath.Join(envConfig.TempDir, dataDir, imagesDir, consts.RegistryFilePath)
 	exec := executer.NewExecuter()
-	if err := os.MkdirAll(filepath.Dir(fileInDataDir), os.ModePerm); err != nil {
+	if err := os.MkdirAll(registryImagesParent, os.ModePerm); err != nil {
 		logrus.Error(err)
 		return "", err
 	}
-	if _, err := exec.Execute(fmt.Sprintf("cp -r %s %s", fileInCachePath, fileInDataDir)); err != nil {
+	if _, err := exec.Execute(fmt.Sprintf("cp -r %s %s", registryVersionDir, registryImagesParent)); err != nil {
 		logrus.Error(err)
 		return "", err
 	}
