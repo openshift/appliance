@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 ISO_DIR=/run/media/iso
 REGISTRY_DATA_DIR=/var/lib/iri-registry
@@ -7,25 +8,44 @@ REGISTRY_DATA_DIR=/var/lib/iri-registry
 DEV_NAME=ocp-registry-data
 MNT_DIR=/mnt/agentdata
 DATA_FILES=$ISO_DIR/registry/data*
+REGISTRY_MANIFEST="$MNT_DIR/images/{{.RegistryFilePath}}/manifest.json"
+
+# After mounting agent data, verify the OCI registry layout is readable. Catches I/O errors from
+# corrupt or mismatched virtual media (e.g. stale BMC session after ISO replace).
+verify_registry_data_readable() {
+    if mountpoint -q "$MNT_DIR" 2>/dev/null || [[ -L "$MNT_DIR" ]]; then
+        :
+    else
+        echo "ERROR: $MNT_DIR is not a mount point or symlink to registry data after agent data setup." >&2
+        exit 1
+    fi
+    if [[ ! -e "$REGISTRY_MANIFEST" ]]; then
+        echo "ERROR: Registry data missing at $REGISTRY_MANIFEST (agent data incomplete or not mounted)." >&2
+        exit 1
+    fi
+    # Read a block to surface input/output errors before podman/load-registry runs.
+    if ! head -c 4096 "$REGISTRY_MANIFEST" >/dev/null 2>&1; then
+        echo "ERROR: Cannot read $REGISTRY_MANIFEST (input/output error). The agent data ISO may be corrupt or virtual media may be stale — try disconnecting and reconnecting the ISO, or restart the BMC/iDRAC if the image was replaced." >&2
+        exit 1
+    fi
+}
 
 create_data_device() {
-    # Create a loop device for each data file part
-    loop_sizes=()
+    local loop_sizes=()
+    local f device
     for f in $DATA_FILES
     do
-        device=$(losetup --find)
-        losetup $device $f
-        loop_sizes+=($device)
+        device=$(losetup --find --show --read-only "$f")
+        loop_sizes+=("$device")
     done
 
-    # Create a device map using the loop devices
+    local start=0
+    local size
     (
-        start=0
-        for device in "${loop_sizes[@]}"
-        do
-            size=`blockdev --getsz $device`
+        for device in "${loop_sizes[@]}"; do
+            size=$(blockdev --getsz "$device")
             echo "$start $size linear $device 0"
-            ((start+=$size))
+            start=$((start + size))
         done
     ) | dmsetup create "${DEV_NAME}"
 }
@@ -54,12 +74,11 @@ mount_registry_data_iso() {
         # Wait for the mount to be ready
         wait_for_iso_mount
 
-        # Copy the registry data iso to the disk
-        cat $DATA_FILES > $registry_data_iso
+        cat $DATA_FILES > "$registry_data_iso"
     fi
 
     # Mount the registry data iso
-    mount -o ro $registry_data_iso $MNT_DIR
+    mount -o ro "$registry_data_iso" "$MNT_DIR"
 }
 
 mkdir -p $MNT_DIR
@@ -73,12 +92,14 @@ if [ "{{.IsLiveISO}}" = "true" ]; then
         create_data_device
 
         # Mount data device
-        mount -o ro "/dev/mapper/${DEV_NAME}" $MNT_DIR
+        mount -o ro "/dev/mapper/${DEV_NAME}" "$MNT_DIR"
     else
         # Mount the registry data iso (copy from media to disk if necessary)
         mount_registry_data_iso
     fi
 else # Disk image mode
     # Mount agentdata partition
-    mount -o ro /dev/disk/by-partlabel/agentdata $MNT_DIR
+    mount -o ro /dev/disk/by-partlabel/agentdata "$MNT_DIR"
 fi
+
+verify_registry_data_readable
