@@ -1,0 +1,2 @@
+# This Dockerfile is used to build the release bundle image.
+FROM scratch

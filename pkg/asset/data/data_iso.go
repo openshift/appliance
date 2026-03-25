@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/release"
+	"github.com/openshift/appliance/pkg/releasebundle"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )
@@ -63,6 +64,11 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
+	_, releaseVersion, err := applianceConfig.GetRelease()
+	if err != nil {
+		return err
+	}
+
 	spinner := log.NewSpinner(
 		"Generating container registry image...",
 		"Successfully generated container registry image",
@@ -107,6 +113,16 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	if err = r.MirrorInstallImages(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
+
+	// Build and push release bundle image
+	bundle := releasebundle.NewBundle(releasebundle.BundleConfig{
+		Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+		ReleaseVersion: releaseVersion,
+	})
+	if err = bundle.Push(); err != nil {
+		return log.StopSpinner(spinner, err)
+	}
+
 	if err = releaseImageRegistry.StopRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
