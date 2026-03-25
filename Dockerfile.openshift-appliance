@@ -42,6 +42,9 @@ COPY --from=builder /tmp/registry /registry
 COPY /registry/config.yml /config.yml
 COPY /registry/Dockerfile.registry /Dockerfile.registry
 
+# Copy release bundle files
+COPY /bundle/Dockerfile.bundle /Dockerfile.bundle
+
 # Copy
 RUN mkdir -p data
 COPY /data data

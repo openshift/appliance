@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
+	"github.com/openshift/appliance/pkg/releasebundle"
 	"github.com/openshift/installer/pkg/asset/ignition"
 )
 
@@ -35,11 +36,7 @@ func (i *interactiveFlowIgnition) appendControlFiles(ign *igntypes.Config) {
 }
 
 func (i *interactiveFlowIgnition) appendInternalReleaseImageManifest(ign *igntypes.Config) {
-	// Trim ocp bundle names longer than 64 chars.
-	ocpBundleStr := fmt.Sprintf("ocp-release-bundle-%s", i.releaseVersion)
-	if len(ocpBundleStr) > 64 {
-		ocpBundleStr = ocpBundleStr[:64]
-	}
+	ocpBundleStr := releasebundle.Tag(i.releaseVersion)
 
 	iriContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1alpha1
 kind: InternalReleaseImage
