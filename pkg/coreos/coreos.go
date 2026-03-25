@@ -2,7 +2,9 @@ package coreos
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -11,7 +13,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/release"
-	"github.com/pkg/errors"
+	"github.com/openshift/assisted-image-service/pkg/isoeditor"
 	"github.com/sirupsen/logrus"
 )
 
@@ -117,6 +119,48 @@ func (c *coreos) EmbedIgnition(ignition []byte, isoPath string) error {
 	return err
 }
 
+// WriteIgnitionToExtractedISO writes ignition content to an already-extracted ISO directory.
+// This should be called before isoeditor.Create() to avoid a redundant Extract/Create cycle.
+func WriteIgnitionToExtractedISO(ignition []byte, isoPath string, extractedDir string) error {
+	// Get the ignition image with embedded ignition content
+	ignitionContent := &isoeditor.IgnitionContent{
+		Config: ignition,
+	}
+	fileData, err := isoeditor.NewIgnitionImageReader(isoPath, ignitionContent)
+	if err != nil {
+		return fmt.Errorf("failed to create ignition image: %w", err)
+	}
+
+	// Write the returned files to the extracted directory
+	var errs []error
+	for _, fd := range fileData {
+		defer func(data io.ReadCloser, filename string) {
+			if err := data.Close(); err != nil {
+				logrus.Errorf("Failed to close data for %s: %s", filename, err.Error())
+			}
+		}(fd.Data, fd.Filename)
+
+		filePath := filepath.Join(extractedDir, fd.Filename)
+		file, err := os.Create(filePath)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		defer func(f *os.File) {
+			if err := f.Close(); err != nil {
+				logrus.Errorf("Failed to close file %s: %s", f.Name(), err.Error())
+			}
+		}(file)
+
+		_, err = io.Copy(file, fd.Data)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
 func (c *coreos) FetchCoreOSStream() (map[string]any, error) {
 	path, err := c.Release.ExtractFile(machineOsImageName, coreOsStream)
 	if err != nil {
@@ -130,7 +174,7 @@ func (c *coreos) FetchCoreOSStream() (map[string]any, error) {
 
 	var m map[string]any
 	if err = json.Unmarshal(file, &m); err != nil {
-		return nil, errors.Wrap(err, "failed to parse CoreOS stream metadata")
+		return nil, fmt.Errorf("failed to parse CoreOS stream metadata: %w", err)
 	}
 
 	return m, nil

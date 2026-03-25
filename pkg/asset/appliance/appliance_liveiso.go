@@ -60,22 +60,7 @@ func (a *ApplianceLiveISO) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
-	// Embed ignition in ISO
-	coreOSConfig := coreos.CoreOSConfig{
-		ApplianceConfig: applianceConfig,
-		EnvConfig:       envConfig,
-	}
-	c := coreos.NewCoreOS(coreOSConfig)
-	ignitionBytes, err := json.Marshal(recoveryIgnition.Unconfigured)
-	if err != nil {
-		logrus.Errorf("Failed to marshal recovery ignition to json: %s", err.Error())
-		return err
-	}
 	applianceLiveIsoFile := filepath.Join(envConfig.AssetsDir, consts.ApplianceLiveIsoFileName)
-	if err = c.EmbedIgnition(ignitionBytes, applianceLiveIsoFile); err != nil {
-		logrus.Errorf("Failed to embed ignition in recovery ISO: %s", err.Error())
-		return err
-	}
 
 	// Get installer binary
 	installerConfig := installer.InstallerConfig{
@@ -198,6 +183,17 @@ func (a *ApplianceLiveISO) buildLiveISO(
 	}
 	if err := initrdFile.Close(); err != nil {
 		logrus.Errorf("Failed to close initrd file: %s", err.Error())
+		return log.StopSpinner(spinner, err)
+	}
+
+	// Embed unconfigured ignition in the extracted ISO before creating the final ISO
+	ignitionBytes, err := json.Marshal(recoveryIgnition.Unconfigured)
+	if err != nil {
+		logrus.Errorf("Failed to marshal unconfigured ignition: %s", err.Error())
+		return log.StopSpinner(spinner, err)
+	}
+	if err := coreos.WriteIgnitionToExtractedISO(ignitionBytes, coreosIsoPath, workDir); err != nil {
+		logrus.Errorf("Failed to write ignition to extracted ISO: %s", err.Error())
 		return log.StopSpinner(spinner, err)
 	}
 
