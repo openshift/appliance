@@ -196,6 +196,18 @@ pullSecret: pull-secret
 # [Optional]
 # useDefaultSourceNames: %t
 
+# Feature set to enable for the cluster installation.
+# Valid values: TechPreviewNoUpgrade, DevPreviewNoUpgrade, CustomNoUpgrade, OKD
+# [Optional]
+# featureSet: feature-set-name
+
+# Feature gates to enable for the cluster installation.
+# Specify as a list of feature gate settings.
+# [Optional]
+# featureGates:
+#   - GateName1=true
+#   - GateName2=false
+
 # Additional images to be included in the appliance disk image.
 # [Optional]
 # additionalImages:

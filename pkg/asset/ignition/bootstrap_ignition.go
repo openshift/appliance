@@ -151,6 +151,12 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	coreosImagePattern := fmt.Sprintf(consts.CoreosImagePattern, applianceConfig.GetCpuArchitecture())
 	coreosImagePath := envConfig.FindInCache(coreosImagePattern)
 
+	// Convert featureGates array to comma-separated string
+	var featureGatesStr string
+	if applianceConfig.Config.FeatureGates != nil {
+		featureGatesStr = strings.Join(*applianceConfig.Config.FeatureGates, ",")
+	}
+
 	// Add bootstrap scripts to ignition
 	templateData := templates.GetBootstrapIgnitionTemplateData(
 		envConfig.IsLiveISO,
@@ -158,7 +164,9 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		applianceConfig.Config.OcpRelease,
 		string(installIgnitionConfig),
 		coreosImagePath,
-		rendezvousHostEnvPlaceholder)
+		rendezvousHostEnvPlaceholder,
+		swag.StringValue(applianceConfig.Config.FeatureSet),
+		featureGatesStr)
 	for _, script := range bootstrapScripts {
 		if err = bootstrap.AddStorageFiles(&i.Config,
 			"/usr/local/bin/"+script,

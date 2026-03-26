@@ -12,6 +12,13 @@ sed -i '/^RELEASE_IMAGES/s|=.*$|={{.ReleaseImages}}|' $assistedServiceEnvFile
 # Set OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR in assisted-service.env
 sed -i '/^OPENSHIFT_INSTALL_RELEASE_IMAGE_MIRROR/s|=.*$|={{.ReleaseImage}}|' $assistedServiceEnvFile
 
+{{if .FeatureSet}}# Set INSTALL_CONFIG_FEATURE_SET in assisted-service.env
+echo "INSTALL_CONFIG_FEATURE_SET={{.FeatureSet}}" >> $assistedServiceEnvFile
+{{end}}
+{{if .FeatureGates}}# Set INSTALL_CONFIG_FEATURE_GATES in assisted-service.env
+echo "INSTALL_CONFIG_FEATURE_GATES={{.FeatureGates}}" >> $assistedServiceEnvFile
+{{end}}
+
 # Set OS_IMAGES in images.env
 sed -i '/^OS_IMAGES/s|=.*$|={{.OsImages}}|' $imagesEnvFile
 

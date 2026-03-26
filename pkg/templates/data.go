@@ -85,7 +85,7 @@ func GetPinnedImageSetTemplateData(images, role string) interface{} {
 	}
 }
 
-func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocpReleaseImage types.ReleaseImage, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string) interface{} {
+func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocpReleaseImage types.ReleaseImage, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string, featureSet, featureGates string) interface{} {
 	releaseImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
@@ -115,6 +115,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 
 		ReleaseImages, ReleaseImage, OsImages                             string
 		RegistryDomain, RegistryFilePath, RegistryImage string
+		FeatureSet, FeatureGates string
 
 		Partition0, Partition1, Partition2, Partition3 Partition
 	}{
@@ -133,6 +134,10 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		RegistryDomain:   registry.RegistryDomain,
 		RegistryFilePath: consts.RegistryFilePath,
 		RegistryImage:    consts.RegistryImage,
+
+		// Feature configuration
+		FeatureSet:   featureSet,
+		FeatureGates: featureGates,
 	}
 
 	// Fetch base image partitions (Disk image mode)

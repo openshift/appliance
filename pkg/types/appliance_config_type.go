@@ -25,6 +25,8 @@ type ApplianceConfig struct {
 	CreatePinnedImageSets *bool          `json:"createPinnedImageSets"`
 	EnableInteractiveFlow *bool          `json:"enableInteractiveFlow"`
 	UseDefaultSourceNames *bool          `json:"useDefaultSourceNames"`
+	FeatureSet            *string        `json:"featureSet"`
+	FeatureGates          *[]string      `json:"featureGates"`
 	AdditionalImages      *[]Image       `json:"additionalImages,omitempty"`
 	BlockedImages         *[]Image       `json:"blockedImages,omitempty"`
 	Operators             *[]Operator    `json:"operators,omitempty"`
