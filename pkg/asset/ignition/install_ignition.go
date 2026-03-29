@@ -127,6 +127,7 @@ func (i *InstallIgnition) Generate(dependencies asset.Parents) error {
 	// Create install template data
 	templateData := templates.GetInstallIgnitionTemplateData(
 		envConfig.IsLiveISO,
+		swag.BoolValue(applianceConfig.Config.EnableInteractiveFlow),
 		corePassHash,
 		registry.RegistryCacheDigestKey(registryImageURI))
 
