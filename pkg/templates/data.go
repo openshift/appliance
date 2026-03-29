@@ -85,7 +85,7 @@ func GetPinnedImageSetTemplateData(images, role string) interface{} {
 	}
 }
 
-func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocpReleaseImage types.ReleaseImage, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string) interface{} {
+func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocpReleaseImage types.ReleaseImage, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder, registryDigestKey string) interface{} {
 	releaseImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
@@ -114,7 +114,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		RendezvousHostEnvPlaceholder string
 
 		ReleaseImages, ReleaseImage, OsImages                             string
-		RegistryDomain, RegistryFilePath, RegistryImage string
+		RegistryDomain, RegistryFilePath, RegistryDigestKey, RegistryImage string
 
 		Partition0, Partition1, Partition2, Partition3 Partition
 	}{
@@ -130,9 +130,10 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		OsImages:      string(osImages),
 
 		// Registry
-		RegistryDomain:   registry.RegistryDomain,
-		RegistryFilePath: consts.RegistryFilePath,
-		RegistryImage:    consts.RegistryImage,
+		RegistryDomain:      registry.RegistryDomain,
+		RegistryFilePath:    consts.RegistryFilePath,
+		RegistryDigestKey:   registryDigestKey,
+		RegistryImage:       consts.RegistryImage,
 	}
 
 	// Fetch base image partitions (Disk image mode)
@@ -152,24 +153,25 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 	return data
 }
 
-func GetInstallIgnitionTemplateData(isLiveISO bool, corePassHash string) interface{} {
+func GetInstallIgnitionTemplateData(isLiveISO bool, corePassHash, registryDigestKey string) interface{} {
 	return struct {
 		IsBootstrapStep bool
 		IsLiveISO       bool
 
-		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
-		CorePassHash, GrubCfgFilePath, UserCfgFilePath                    string
+		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryDigestKey, RegistryImage string
+		CorePassHash, GrubCfgFilePath, UserCfgFilePath                                        string
 	}{
 		IsBootstrapStep: false,
 		IsLiveISO:       isLiveISO,
 
 		// Registry
-		RegistryDomain:   registry.RegistryDomain,
-		RegistryFilePath: consts.RegistryFilePath,
-		RegistryImage:    consts.RegistryImage,
-		GrubCfgFilePath:  consts.GrubCfgFilePath,
-		UserCfgFilePath:  consts.UserCfgFilePath,
-		CorePassHash:     corePassHash,
+		RegistryDomain:    registry.RegistryDomain,
+		RegistryFilePath:  consts.RegistryFilePath,
+		RegistryDigestKey: registryDigestKey,
+		RegistryImage:     consts.RegistryImage,
+		GrubCfgFilePath:   consts.GrubCfgFilePath,
+		UserCfgFilePath:   consts.UserCfgFilePath,
+		CorePassHash:      corePassHash,
 	}
 }
 

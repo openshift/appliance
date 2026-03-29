@@ -5,7 +5,7 @@ source /etc/assisted/registry.env
 
 # Load registry image from dir format
 # Use -q so podman prints only the image ID; capture it to avoid race with concurrent pulls
-PULLED_IMAGE_REF="dir:/mnt/agentdata/images/{{.RegistryFilePath}}"
+PULLED_IMAGE_REF="dir:/mnt/agentdata/images/{{.RegistryFilePath}}/{{.RegistryDigestKey}}"
 IMAGE_ID_FROM_PULL=$(podman pull -q "$PULLED_IMAGE_REF" | tr -d '[:space:]')
 
 # Tag the pulled image with the reference from REGISTRY_IMAGE
