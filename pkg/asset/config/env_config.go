@@ -29,6 +29,7 @@ type EnvConfig struct {
 	DebugBaseIgnition bool
 	ToolsPath         string
 	RegistryAuthFile  string // Path to pull secret for registry authentication
+	PreserveTempDirs  bool
 }
 
 var _ asset.Asset = (*EnvConfig)(nil)
