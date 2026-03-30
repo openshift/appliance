@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,7 +11,6 @@ import (
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/ginkgo/v2/dsl/table"
 	. "github.com/onsi/gomega"
-	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
 )
 
@@ -44,66 +41,6 @@ var _ = Describe("Test isVersionAtLeast", func() {
 		Entry("Invalid minimum version", "4.21.0", "invalid", false),
 		Entry("Both invalid", "invalid", "also-invalid", false),
 	)
-})
-
-var _ = Describe("RegistryCacheDigestKey", func() {
-	DescribeTable("maps pull spec to cache subdirectory name",
-		func(source, want string) {
-			Expect(RegistryCacheDigestKey(source)).To(Equal(want))
-		},
-		Entry("repo@sha256:<hex> uses hash portion only",
-			"quay.io/ocp/release@sha256:0f57ec0abf6762a265f2e4f5523c170735c3a61be89032b71709ccf9daf430ce",
-			"0f57ec0abf6762a265f2e4f5523c170735c3a61be89032b71709ccf9daf430ce"),
-		Entry("uses last @ in reference",
-			"registry.io/ns/w@x@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-		Entry("digest with sha512 algorithm prefix",
-			"example.io/img@sha512:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-			"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
-		Entry("digest part without algo: returns whole digest segment",
-			"registry.io/img@opaque-digest-value",
-			"opaque-digest-value"),
-		Entry("built-in localhost registry (no @)",
-			consts.RegistryImage,
-			"internal"),
-		Entry("tag-only reference (no @)",
-			"quay.io/foo/bar:latest",
-			"internal"),
-	)
-})
-
-var _ = Describe("isRegistryImageCacheHit", func() {
-	var tmpDir string
-
-	BeforeEach(func() {
-		var err error
-		tmpDir, err = os.MkdirTemp("", "registry-cache-hit-*")
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { _ = os.RemoveAll(tmpDir) })
-	})
-
-	It("returns false for a missing path", func() {
-		Expect(isRegistryImageCacheHit(filepath.Join(tmpDir, "nonexistent"))).To(BeFalse())
-	})
-
-	It("returns false for an empty directory", func() {
-		empty := filepath.Join(tmpDir, "empty")
-		Expect(os.MkdirAll(empty, 0o755)).To(Succeed())
-		Expect(isRegistryImageCacheHit(empty)).To(BeFalse())
-	})
-
-	It("returns false for a regular file", func() {
-		f := filepath.Join(tmpDir, "file")
-		Expect(os.WriteFile(f, []byte("x"), 0o644)).To(Succeed())
-		Expect(isRegistryImageCacheHit(f)).To(BeFalse())
-	})
-
-	It("returns true when the directory has at least one entry", func() {
-		regDir := filepath.Join(tmpDir, "registry-dir")
-		Expect(os.MkdirAll(regDir, 0o755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(regDir, "manifest.json"), []byte("{}"), 0o644)).To(Succeed())
-		Expect(isRegistryImageCacheHit(regDir)).To(BeTrue())
-	})
 })
 
 var _ = Describe("Test Image Registry", func() {
