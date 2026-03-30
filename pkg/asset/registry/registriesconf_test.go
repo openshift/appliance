@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
 	"github.com/openshift/appliance/pkg/asset/config"
-	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 )
 
@@ -22,7 +21,7 @@ var _ = Describe("Test RegistriesConf", func() {
 		fakeFileSystem = fstest.MapFS{}
 		deps = asset.Parents{}
 
-		deps.Add(&config.EnvConfig{}, &config.ApplianceConfig{Config: &types.ApplianceConfig{}})
+		deps.Add(&config.EnvConfig{}, &config.ApplianceConfig{})
 		r = RegistriesConf{
 			fSys: fakeFileSystem,
 		}

@@ -162,29 +162,18 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 	}
 
 	// Copy generated yaml files to cache dir
-	if err = r.copyOutputYamls(tempDir, r.ApplianceConfig.Config.EnableInteractiveFlow); err != nil {
+	if err = r.copyOutputYamls(tempDir); err != nil {
 		return err
 	}
 
 	return err
 }
 
-func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *bool) error {
-	// If interactive flow is enabled, use localhost as registry domain, otherwise use the default registry domain
-	var registryDomain string
-	if swag.BoolValue(enableInteractiveFlow) {
-		registryDomain = "localhost"
-	} else {
-		registryDomain = registry.RegistryDomain
-	}
-
-	// Get all yaml files from the oc-mirror output
+func (r *release) copyOutputYamls(ocMirrorDir string) error {
 	yamlPaths, err := filepath.Glob(filepath.Join(ocMirrorDir, "working-dir", consts.OcMirrorResourcesDir, "*.yaml"))
 	if err != nil {
 		return err
 	}
-	
-	// Iterate over all yaml files and replace the localhost with the internal registry URI
 	for _, yamlPath := range yamlPaths {
 		logrus.Debugf("Copying ymals from oc-mirror output: %s", yamlPath)
 		yamlBytes, err := r.OSInterface.ReadFile(yamlPath)
@@ -194,7 +183,7 @@ func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *boo
 
 		// Replace localhost with internal registry URI
 		buildRegistryURI := fmt.Sprintf("127.0.0.1:%d", swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port))
-		internalRegistryURI := fmt.Sprintf("%s:%d", registryDomain, registry.RegistryPort)
+		internalRegistryURI := fmt.Sprintf("%s:%d", registry.RegistryDomain, registry.RegistryPort)
 		newYaml := strings.ReplaceAll(string(yamlBytes), buildRegistryURI, internalRegistryURI)
 
 		// Write edited yamls to cache

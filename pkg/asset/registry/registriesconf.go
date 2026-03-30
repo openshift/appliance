@@ -8,7 +8,6 @@ import (
 	"regexp"
 
 	"github.com/containers/image/pkg/sysregistriesv2"
-	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/installer/pkg/asset"
@@ -81,7 +80,7 @@ func (i *RegistriesConf) Generate(dependencies asset.Parents) error {
 		i.fSys = os.DirFS(envConfig.CacheDir)
 	}
 
-	registries, err := i.generateRegistries(applianceConfig.Config.EnableInteractiveFlow)
+	registries, err := i.generateRegistries()
 	if err != nil {
 		return err
 	}
@@ -99,7 +98,7 @@ func (i *RegistriesConf) Generate(dependencies asset.Parents) error {
 	return nil
 }
 
-func (i *RegistriesConf) generateRegistries(enableInteractiveFlow *bool) (*sysregistriesv2.V2RegistriesConf, error) {
+func (i *RegistriesConf) generateRegistries() (*sysregistriesv2.V2RegistriesConf, error) {
 	idmsFile, err := fs.ReadFile(i.fSys, idmsFileName)
 	if err != nil {
 		return nil, err
@@ -122,18 +121,12 @@ func (i *RegistriesConf) generateRegistries(enableInteractiveFlow *bool) (*sysre
 			logrus.Debugf("adding mirrors for %s", r.Location)
 			for _, m := range idmsMirror.Mirrors {
 				re := regexp.MustCompile(`^[^/]+`)
-				if swag.BoolValue(enableInteractiveFlow) {
-					r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
-						Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", "localhost", RegistryPort)),
-					})
-				} else {
-					r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
-						Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", RegistryDomain, RegistryPort)),
-					})
-					r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
-						Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", RegistryDomain, RegistryPortUpgrade)),
-					})
-				}
+				r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
+					Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", RegistryDomain, RegistryPort)),
+				})
+				r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
+					Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", RegistryDomain, RegistryPortUpgrade)),
+				})
 			}
 			regs.Registries = append(regs.Registries, r)
 		}
