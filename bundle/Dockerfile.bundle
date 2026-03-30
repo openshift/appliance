@@ -1,2 +1,15 @@
 # This Dockerfile is used to build the release bundle image.
 FROM scratch
+
+COPY imageset.yaml /manifests/imageset.yaml
+COPY mapping.txt /mirror/mapping.txt
+
+LABEL com.redhat.component="openshift-appliance-release-bundle-container" \
+      name="openshift-appliance-release-bundle" \
+      summary="A release bundle for OpenShift Appliance" \
+      description="A release bundle for OpenShift Appliance" \
+      io.k8s.display-name="openshift-appliance-release-bundle" \
+      io.k8s.description="A release bundle for OpenShift Appliance" \
+      io.openshift.tags="openshift,appliance,installer,agent" \
+      vendor="Red Hat, Inc." \
+      url="https://github.com/openshift/appliance"

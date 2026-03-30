@@ -131,6 +131,67 @@ var _ = Describe("Test Release", func() {
 	})
 })
 
+func TestFindMappingFileInMirrorWorkspace(t *testing.T) {
+	t.Run("finds nested mapping.txt", func(t *testing.T) {
+		dir := t.TempDir()
+		sub := filepath.Join(dir, "a", "b")
+		if err := os.MkdirAll(sub, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		want := "x=y\n"
+		if err := os.WriteFile(filepath.Join(sub, "mapping.txt"), []byte(want), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		b, err := FindMappingFileInMirrorWorkspace(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != want {
+			t.Fatalf("got %q want %q", b, want)
+		}
+	})
+	t.Run("missing root returns nil", func(t *testing.T) {
+		b, err := FindMappingFileInMirrorWorkspace(filepath.Join(t.TempDir(), "nope"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b != nil {
+			t.Fatal("expected nil bytes")
+		}
+	})
+	t.Run("empty tree returns nil", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, "x"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		b, err := FindMappingFileInMirrorWorkspace(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b != nil {
+			t.Fatal("expected nil bytes")
+		}
+	})
+	t.Run("finds working-dir/dry-run/mapping.txt", func(t *testing.T) {
+		dir := t.TempDir()
+		sub := filepath.Join(dir, "working-dir", "dry-run")
+		if err := os.MkdirAll(sub, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		want := "registry/a=b\n"
+		if err := os.WriteFile(filepath.Join(sub, "mapping.txt"), []byte(want), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		b, err := FindMappingFileInMirrorWorkspace(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != want {
+			t.Fatalf("got %q want %q", b, want)
+		}
+	})
+}
+
 func TestRelease(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "release_test")
