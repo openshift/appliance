@@ -151,8 +151,6 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	coreosImagePattern := fmt.Sprintf(consts.CoreosImagePattern, applianceConfig.GetCpuArchitecture())
 	coreosImagePath := envConfig.FindInCache(coreosImagePattern)
 
-	registryImageURI := reg.GetRegistryImageURI(envConfig, applianceConfig)
-
 	// Add bootstrap scripts to ignition
 	templateData := templates.GetBootstrapIgnitionTemplateData(
 		envConfig.IsLiveISO,
@@ -160,8 +158,7 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 		applianceConfig.Config.OcpRelease,
 		string(installIgnitionConfig),
 		coreosImagePath,
-		rendezvousHostEnvPlaceholder,
-		reg.RegistryCacheDigestKey(registryImageURI))
+		rendezvousHostEnvPlaceholder)
 	for _, script := range bootstrapScripts {
 		if err = bootstrap.AddStorageFiles(&i.Config,
 			"/usr/local/bin/"+script,
@@ -200,6 +197,7 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	}
 
 	// Add registry.env file
+	registryImageURI := reg.GetRegistryImageURI(envConfig, applianceConfig)
 	registryEnvFile := ignasset.FileFromString(consts.RegistryEnvPath,
 		"root", 0644, templates.GetRegistryEnv(registryImageURI, consts.RegistryDataInstall, ""))
 	i.Config.Storage.Files = append(i.Config.Storage.Files, registryEnvFile)

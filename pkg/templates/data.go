@@ -85,7 +85,7 @@ func GetPinnedImageSetTemplateData(images, role string) interface{} {
 	}
 }
 
-func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocpReleaseImage types.ReleaseImage, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder, registryDigestKey string) interface{} {
+func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocpReleaseImage types.ReleaseImage, installIgnitionConfig, coreosImagePath, rendezvousHostEnvPlaceholder string) interface{} {
 	releaseImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
@@ -113,8 +113,8 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		InstallIgnitionConfig        string
 		RendezvousHostEnvPlaceholder string
 
-		ReleaseImages, ReleaseImage, OsImages                              string
-		RegistryDomain, RegistryFilePath, RegistryDigestKey, RegistryImage string
+		ReleaseImages, ReleaseImage, OsImages           string
+		RegistryDomain, RegistryFilePath, RegistryImage string
 
 		Partition0, Partition1, Partition2, Partition3 Partition
 	}{
@@ -130,10 +130,9 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		OsImages:      string(osImages),
 
 		// Registry
-		RegistryDomain:    registry.RegistryDomain,
-		RegistryFilePath:  consts.RegistryFilePath,
-		RegistryDigestKey: registryDigestKey,
-		RegistryImage:     consts.RegistryImage,
+		RegistryDomain:   registry.RegistryDomain,
+		RegistryFilePath: consts.RegistryFilePath,
+		RegistryImage:    consts.RegistryImage,
 	}
 
 	// If interactive flow is enabled, use localhost as registry domain, otherwise use the default registry domain
@@ -160,7 +159,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 	return data
 }
 
-func GetInstallIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, corePassHash, registryDigestKey string) interface{} {
+func GetInstallIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, corePassHash string) interface{} {
 	// If interactive flow is enabled, use localhost as registry domain, otherwise use the default registry domain
 	var registryDomain string
 	if enableInteractiveFlow {
@@ -173,20 +172,19 @@ func GetInstallIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, coreP
 		IsBootstrapStep bool
 		IsLiveISO       bool
 
-		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryDigestKey, RegistryImage string
-		CorePassHash, GrubCfgFilePath, UserCfgFilePath                                       string
+		RegistryDataPath, RegistryDomain, RegistryFilePath, RegistryImage string
+		CorePassHash, GrubCfgFilePath, UserCfgFilePath                    string
 	}{
 		IsBootstrapStep: false,
 		IsLiveISO:       isLiveISO,
 
 		// Registry
-		RegistryDomain:    registryDomain,
-		RegistryFilePath:  consts.RegistryFilePath,
-		RegistryDigestKey: registryDigestKey,
-		RegistryImage:     consts.RegistryImage,
-		GrubCfgFilePath:   consts.GrubCfgFilePath,
-		UserCfgFilePath:   consts.UserCfgFilePath,
-		CorePassHash:      corePassHash,
+		RegistryDomain:   registryDomain,
+		RegistryFilePath: consts.RegistryFilePath,
+		RegistryImage:    consts.RegistryImage,
+		GrubCfgFilePath:  consts.GrubCfgFilePath,
+		UserCfgFilePath:  consts.UserCfgFilePath,
+		CorePassHash:     corePassHash,
 	}
 }
 

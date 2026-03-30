@@ -8,8 +8,7 @@ REGISTRY_DATA_DIR=/var/lib/iri-registry
 DEV_NAME=ocp-registry-data
 MNT_DIR=/mnt/agentdata
 DATA_FILES=$ISO_DIR/registry/data*
-# OCI dir layout matches load-registry-image.sh: images/<repo>/<digest>/manifest.json
-REGISTRY_MANIFEST="$MNT_DIR/images/{{.RegistryFilePath}}/{{.RegistryDigestKey}}/manifest.json"
+REGISTRY_MANIFEST="$MNT_DIR/images/{{.RegistryFilePath}}/manifest.json"
 
 # After mounting agent data, verify the OCI registry layout is readable. Catches I/O errors from
 # corrupt or mismatched virtual media (e.g. stale BMC session after ISO replace).
@@ -32,12 +31,6 @@ verify_registry_data_readable() {
 }
 
 create_data_device() {
-    # Service retries or repeated runs can invoke this again; dmsetup create fails with EBUSY if the
-    # target name already exists.
-    if dmsetup info "${DEV_NAME}" &>/dev/null; then
-        return 0
-    fi
-
     local loop_sizes=()
     local f device
     for f in $DATA_FILES
