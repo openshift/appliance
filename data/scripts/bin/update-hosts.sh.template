@@ -62,6 +62,14 @@ fi
 until [[ $cluster_status == "preparing-for-installation" ]]; do
     cluster_status=$(curl_assisted_service "/clusters/${cluster_id}" | jq -r .status)
 
+    # Wait until cluster is ready (all hosts registered and validated) before patching.
+    # This avoids querying the hosts API before any hosts have registered, which causes
+    # assisted-service to return an error object instead of an empty array.
+    if [[ $cluster_status != "ready" && $cluster_status != "preparing-for-installation" ]]; then
+        sleep 1
+        continue
+    fi
+
     # Update ignition for each host
     host_ids=$(curl_assisted_service "/infra-envs/${INFRA_ENV_ID}/hosts" | jq -r .[].id)
     if [[ -z ${host_ids} ]]; then
