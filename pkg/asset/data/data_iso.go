@@ -64,7 +64,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return err
 	}
 
-	_, releaseVersion, err := applianceConfig.GetRelease()
+	releaseImage, releaseVersion, err := applianceConfig.GetRelease()
 	if err != nil {
 		return err
 	}
@@ -118,6 +118,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	bundle := releasebundle.NewBundle(releasebundle.BundleConfig{
 		Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
 		ReleaseVersion: releaseVersion,
+		ReleaseImage:   releaseImage,
 	})
 	if err = bundle.Push(); err != nil {
 		return log.StopSpinner(spinner, err)
