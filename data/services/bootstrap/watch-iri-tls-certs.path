@@ -3,8 +3,8 @@ Description=Watch for IRI TLS certificate files
 Documentation=man:systemd.path(5)
 
 [Path]
-PathModified=/opt/openshift/tls/internal-release-image.crt
-PathModified=/opt/openshift/tls/internal-release-image.key
+PathExists=/opt/openshift/tls/internal-release-image.crt
+PathExists=/opt/openshift/tls/internal-release-image.key
 Unit=reconfigure-local-registry-iri-tls.service
 
 [Install]
