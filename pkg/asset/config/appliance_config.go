@@ -389,7 +389,7 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 				return "", "", nil
 			}
 			releaseDigest = strings.Trim(releaseDigest, "'")
-			releaseImage = fmt.Sprintf("%s@%s", releaseImage, releaseDigest)
+			releaseImage = appendDigest(releaseImage, releaseDigest)
 		}
 		logrus.Debugf("Release image: %s", releaseImage)
 	}
@@ -399,6 +399,19 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 	}
 
 	return releaseImage, releaseVersion, nil
+}
+
+// appendDigest appends a digest to an image reference, stripping any existing
+// tag first to avoid producing a "tag@digest" reference that fails image
+// validation. For example, "registry.example.com/img:tag" becomes
+// "registry.example.com/img@sha256:abc123".
+// LastIndex is used to locate the tag colon so that a port in the registry
+// host (e.g. "registry.example.com:5000/img:tag") is preserved correctly.
+func appendDigest(image, digest string) string {
+	if idx := strings.LastIndex(image, ":"); idx > strings.LastIndex(image, "/") {
+		image = image[:idx]
+	}
+	return fmt.Sprintf("%s@%s", image, digest)
 }
 
 func (a *ApplianceConfig) validateConfig(f asset.FileFetcher) field.ErrorList {
