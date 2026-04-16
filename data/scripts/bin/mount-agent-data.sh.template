@@ -88,11 +88,15 @@ if [ "{{.IsLiveISO}}" = "true" ]; then
         # Wait for the mount to be ready
         wait_for_iso_mount
 
-        # Create virtual device for the registry data
-        create_data_device
+        # Create virtual device for the registry data (idempotent: skip if already exists)
+        if ! dmsetup info "${DEV_NAME}" > /dev/null 2>&1; then
+            create_data_device
+        fi
 
-        # Mount data device
-        mount -o ro "/dev/mapper/${DEV_NAME}" "$MNT_DIR"
+        # Mount data device (idempotent: skip if already mounted)
+        if ! mountpoint -q "$MNT_DIR"; then
+            mount -o ro "/dev/mapper/${DEV_NAME}" "$MNT_DIR"
+        fi
     else
         # Mount the registry data iso (copy from media to disk if necessary)
         mount_registry_data_iso
