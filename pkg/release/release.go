@@ -2,6 +2,7 @@ package release
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -183,7 +184,7 @@ func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *boo
 	if err != nil {
 		return err
 	}
-	
+
 	// Iterate over all yaml files and replace the localhost with the internal registry URI
 	for _, yamlPath := range yamlPaths {
 		logrus.Debugf("Copying ymals from oc-mirror output: %s", yamlPath)
@@ -280,4 +281,45 @@ func (r *release) GetMappingFile() ([]byte, error) {
 	mappingFilePath := filepath.Join(dryRunDir, "working-dir", "dry-run", consts.OcMirrorMappingFileName)
 
 	return r.OSInterface.ReadFile(mappingFilePath)
+}
+
+// FindMappingFileInMirrorWorkspace returns the contents of the first mapping.txt found under root
+// (typically envConfig.TempDir/oc-mirror after a real oc mirror run). If root is missing or no
+// mapping file exists, it returns (nil, nil).
+func FindMappingFileInMirrorWorkspace(root string) ([]byte, error) {
+	info, err := os.Stat(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, nil
+	}
+	// Same layout as dry-run output (see GetMappingFile); real mirror may or may not write this path.
+	prio := filepath.Join(root, "working-dir", "dry-run", consts.OcMirrorMappingFileName)
+	if data, err := os.ReadFile(prio); err == nil {
+		return data, nil
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+	var found string
+	err = filepath.WalkDir(root, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !d.IsDir() && d.Name() == consts.OcMirrorMappingFileName {
+			found = p
+			return fs.SkipAll
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if found == "" {
+		return nil, nil
+	}
+	return os.ReadFile(found)
 }

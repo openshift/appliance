@@ -13,6 +13,7 @@ import (
 	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/appliance/pkg/releasebundle"
+	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )
@@ -114,10 +115,26 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return log.StopSpinner(spinner, err)
 	}
 
+	imageSetPath := templates.GetFilePathByTemplate(consts.ImageSetTemplateFile, envConfig.TempDir)
+	mappingBytes, err := release.FindMappingFileInMirrorWorkspace(filepath.Join(envConfig.TempDir, "oc-mirror"))
+	if err != nil {
+		return log.StopSpinner(spinner, err)
+	}
+	if len(mappingBytes) == 0 {
+		// Real oc-mirror runs often omit mapping.txt in the workspace; dry-run generates it (see GetMappingFile).
+		logrus.Debug("mapping.txt not found under oc-mirror workspace; running oc mirror dry-run to produce it for the release bundle")
+		mappingBytes, err = r.GetMappingFile()
+		if err != nil {
+			return log.StopSpinner(spinner, fmt.Errorf("generate mapping.txt for release bundle: %w", err))
+		}
+	}
+
 	// Build and push release bundle image
 	bundle := releasebundle.NewBundle(releasebundle.BundleConfig{
 		Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
 		ReleaseVersion: releaseVersion,
+		ImageSetPath:   imageSetPath,
+		MappingBytes:   mappingBytes,
 	})
 	if err = bundle.Push(); err != nil {
 		return log.StopSpinner(spinner, err)
