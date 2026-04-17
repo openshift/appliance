@@ -204,10 +204,7 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 		mirrorPath = *r.ApplianceConfig.Config.MirrorPath
 	}
 
-	if mirrorPath != "" {
-		logrus.Infof("Using pre-mirrored images from: %s", mirrorPath)
-		tempDir = mirrorPath
-	} else {
+	if mirrorPath == "" {
 		// Normal mirroring flow - run oc-mirror
 		if err := templates.RenderTemplateFile(
 			imageSetFile,
@@ -235,6 +232,9 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 		if err != nil {
 			return err
 		}
+	} else {
+		logrus.Infof("Using pre-mirrored images from: %s", mirrorPath)
+		tempDir = mirrorPath
 	}
 
 	// Copy generated yaml files to cache dir (works for both mirror path and oc-mirror output)
