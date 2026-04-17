@@ -33,7 +33,6 @@ var (
 	installServices = []string{
 		"set-node-zero.service",
 		"apply-operator-crs.service",
-		"watch-iri-tls-certs.path",
 	}
 
 	installScripts = []string{
@@ -43,7 +42,6 @@ var (
 		"stop-local-registry.sh",
 		"mount-agent-data.sh",
 		"apply-operator-crs.sh",
-		"reconfigure-local-registry-iri-tls.sh",
 	}
 
 	corePassHash string

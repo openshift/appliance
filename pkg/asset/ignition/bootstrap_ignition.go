@@ -60,6 +60,7 @@ var (
 		"pre-install.service",
 		"pre-install-node-zero.service",
 		"update-hosts.service",
+		"watch-iri-tls-certs.path",
 	}
 
 	bootstrapScripts = []string{
@@ -73,6 +74,7 @@ var (
 		"update-hosts.sh",
 		"create-virtual-device.sh",
 		"mount-agent-data.sh",
+		"reconfigure-local-registry-iri-tls.sh",
 	}
 )
 

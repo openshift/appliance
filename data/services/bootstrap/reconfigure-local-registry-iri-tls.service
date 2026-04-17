@@ -1,0 +1,12 @@
+[Unit]
+Description=Reconfigure local registry with IRI TLS certificate
+After=start-local-registry.service
+# No [Install] section: this service is activated solely by watch-iri-tls-certs.path
+# via systemd path activation when the IRI TLS certs are created during bootstrap.
+# Omitting [Install] prevents it from being enabled at boot independently.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/reconfigure-local-registry-iri-tls.sh
+RemainAfterExit=yes
+
