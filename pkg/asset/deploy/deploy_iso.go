@@ -126,12 +126,8 @@ func (i *DeployISO) buildDeploymentIso(envConfig *config.EnvConfig, applianceCon
 		envConfig,
 	)
 	applianceTarFile := filepath.Join(deployDir, consts.ApplianceImageTar)
-	authFile, err := config.GetPullSecretPath()
-	if err != nil {
-		return err
-	}
 	if err = skopeo.NewSkopeo(nil).CopyToFile(
-		consts.ApplianceImage, consts.ApplianceImageName, applianceTarFile, authFile); err != nil {
+		consts.ApplianceImage, consts.ApplianceImageName, applianceTarFile); err != nil {
 		return err
 	}
 

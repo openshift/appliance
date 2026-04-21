@@ -298,15 +298,10 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 			// Pull the source registry image (docker-registry from OCP release or from appliance config)
 			// and copy it to dir format to preserve digests
 			logrus.Infof("Copying registry image from %s to %s", sourceRegistryUri, consts.RegistryImage)
-			authFile, err := config.GetPullSecretPath()
-			if err != nil {
-				return "", err
-			}
 			if err := skopeo.NewSkopeo(nil).CopyToFile(
 				sourceRegistryUri,
 				consts.RegistryImage,
-				fileInCachePath,
-				authFile); err != nil {
+				fileInCachePath); err != nil {
 				return "", err
 			}
 		}

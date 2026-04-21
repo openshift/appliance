@@ -115,9 +115,7 @@ var _ = Describe("Test Release", func() {
 
 	It("GetImageFromRelease - success", func() {
 		imageName := "machine-os-images"
-		pullSecretPath, err := config.GetPullSecretPath()
-		Expect(err).NotTo(HaveOccurred())
-		cmd := fmt.Sprintf(templateGetImage, pullSecretPath, imageName, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+		cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
 		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
 
 		_, err = testRelease.GetImageFromRelease(imageName)
