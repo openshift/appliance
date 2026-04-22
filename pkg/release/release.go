@@ -18,7 +18,7 @@ import (
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/sirupsen/logrus"
-	"github.com/thedevsaddam/retry"
+	"github.com/thedevsaddam/retry/v2"
 	"sigs.k8s.io/yaml"
 )
 
@@ -183,7 +183,7 @@ func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *boo
 	if err != nil {
 		return err
 	}
-	
+
 	// Iterate over all yaml files and replace the localhost with the internal registry URI
 	for _, yamlPath := range yamlPaths {
 		logrus.Debugf("Copying ymals from oc-mirror output: %s", yamlPath)
