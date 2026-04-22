@@ -282,11 +282,44 @@ var _ = Describe("Test Release", func() {
 		_, err := testRelease.GetImageFromRelease(imageName)
 		Expect(err).To(HaveOccurred())
 	})
+
+	Context("GetArchitecture", func() {
+		It("should convert amd64 to x86_64 with digest URL", func() {
+			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release@sha256:809c037c016c7c0cbc83ce459ed344a55d65fa6cc0d3aa4d51e9a2d9d0cf7ffa")
+			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"config":{"architecture":"amd64"},"metadata":{"version":"4.21.0"}}`
+			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
+
+			arch, err := testRelease.GetArchitecture()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(arch).To(Equal("x86_64"))
+		})
+
+		It("should convert amd64 to x86_64 with tag URL", func() {
+			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.21.12-x86_64")
+			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"config":{"architecture":"amd64"},"metadata":{"version":"4.21.12"}}`
+			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
+
+			arch, err := testRelease.GetArchitecture()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(arch).To(Equal("x86_64"))
+		})
+
+		It("should handle error when getting architecture", func() {
+			applianceConfig.Config.OcpRelease.URL = swag.String("invalid-url")
+			mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("failed to get architecture")).Times(1)
+
+			_, err := testRelease.GetArchitecture()
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Context("IsStableRelease", func() {
 		It("should return true for stable release version", func() {
 			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-x86_64")
 			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
-			jsonOutput := `{"metadata":{"version":"4.22.0"}}`
+			jsonOutput := `{"config":{"architecture":"x86_64"},"metadata":{"version":"4.22.0"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
 			isStable, err := testRelease.IsStableRelease()
@@ -294,10 +327,10 @@ var _ = Describe("Test Release", func() {
 			Expect(isStable).To(BeTrue())
 		})
 
-		It("should return true for EC release", func() {
+		It("should return true for EC release 4.22.0-ec.5", func() {
 			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-ec.5-x86_64")
 			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
-			jsonOutput := `{"metadata":{"version":"4.22.0-ec.5"}}`
+			jsonOutput := `{"config":{"architecture":"x86_64"},"metadata":{"version":"4.22.0-ec.5"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
 			isStable, err := testRelease.IsStableRelease()
@@ -308,7 +341,7 @@ var _ = Describe("Test Release", func() {
 		It("should return true for RC release version", func() {
 			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-rc.0-x86_64")
 			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
-			jsonOutput := `{"metadata":{"version":"4.22.0-rc.0"}}`
+			jsonOutput := `{"config":{"architecture":"x86_64"},"metadata":{"version":"4.22.0-rc.0"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
 			isStable, err := testRelease.IsStableRelease()
@@ -319,7 +352,7 @@ var _ = Describe("Test Release", func() {
 		It("should return false for nightly release version", func() {
 			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.nightly-2026-04-23-082815")
 			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
-			jsonOutput := `{"metadata":{"version":"5.0.0-0.nightly-2026-04-23-082815"}}`
+			jsonOutput := `{"config":{"architecture":"x86_64"},"metadata":{"version":"5.0.0-0.nightly-2026-04-23-082815"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
 			isStable, err := testRelease.IsStableRelease()
@@ -327,10 +360,10 @@ var _ = Describe("Test Release", func() {
 			Expect(isStable).To(BeFalse())
 		})
 
-		It("should return false for CI release", func() {
+		It("should return false for CI release 5.0.0-0.ci", func() {
 			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.ci-2026-04-23-153053")
 			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
-			jsonOutput := `{"metadata":{"version":"5.0.0-0.ci-2026-04-23-153053"}}`
+			jsonOutput := `{"config":{"architecture":"x86_64"},"metadata":{"version":"5.0.0-0.ci-2026-04-23-153053"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
 			isStable, err := testRelease.IsStableRelease()
