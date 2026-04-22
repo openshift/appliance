@@ -11,11 +11,13 @@ import (
 // igntion files required to support the interactive flow.
 type interactiveFlowIgnition struct {
 	releaseVersion string
+	arch           string
 }
 
-func NewInteractiveFlowIgnition(releaseVersion string) *interactiveFlowIgnition {
+func NewInteractiveFlowIgnition(releaseVersion, arch string) *interactiveFlowIgnition {
 	return &interactiveFlowIgnition{
 		releaseVersion: releaseVersion,
+		arch:           arch,
 	}
 }
 
@@ -35,8 +37,13 @@ func (i *interactiveFlowIgnition) appendControlFiles(ign *igntypes.Config) {
 }
 
 func (i *interactiveFlowIgnition) appendInternalReleaseImageManifest(ign *igntypes.Config) {
-	// Trim ocp bundle names longer than 64 chars.
 	ocpBundleStr := fmt.Sprintf("ocp-release-bundle-%s", i.releaseVersion)
+
+	// For non-CI/nightly builds (stable, RC, DevPreview), append architecture suffix
+	if i.arch != "" {
+		ocpBundleStr = fmt.Sprintf("%s-%s", ocpBundleStr, i.arch)
+	}
+	// Trim ocp bundle names longer than 64 chars.
 	if len(ocpBundleStr) > 64 {
 		ocpBundleStr = ocpBundleStr[:64]
 	}
