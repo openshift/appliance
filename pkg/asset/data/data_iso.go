@@ -141,6 +141,14 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir), dataVolumeName); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
+	// Clean up staging directory now that data.iso has been created
+	if envConfig.PreserveTempDirs {
+		logrus.Infof("Preserving staging directory for debugging: %s", dataDirPath)
+	} else {
+		if err = os.RemoveAll(dataDirPath); err != nil {
+			logrus.Warnf("Failed to clean up staging directory %s: %v", dataDirPath, err)
+		}
+	}
 	return log.StopSpinner(spinner, a.updateAsset(envConfig))
 }
 
