@@ -7,7 +7,7 @@ import (
 
 	"github.com/openshift/appliance/pkg/consts"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
 	"github.com/openshift/appliance/pkg/executer"
