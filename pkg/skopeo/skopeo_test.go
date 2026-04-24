@@ -27,7 +27,6 @@ var _ = Describe("Test Skopeo", func() {
 	})
 
 	It("skopeo CopyToFile - success", func() {
-
 		fakePath := "path/to/registry"
 		cmd := fmt.Sprintf(templateCopyToFile, consts.RegistryImage, fakePath)
 		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)

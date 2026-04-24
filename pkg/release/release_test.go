@@ -118,7 +118,7 @@ var _ = Describe("Test Release", func() {
 		cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
 		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
 
-		_, err := testRelease.GetImageFromRelease(imageName)
+		_, err = testRelease.GetImageFromRelease(imageName)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
