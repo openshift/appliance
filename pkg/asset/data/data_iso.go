@@ -8,6 +8,7 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
+	"github.com/openshift/appliance/pkg/executer"
 	"github.com/openshift/appliance/pkg/genisoimage"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/registry"
@@ -58,7 +59,10 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	}
 	r := release.NewRelease(releaseConfig)
 
-	dataDirPath := filepath.Join(envConfig.TempDir, dataDir)
+	dataDirPath, err := filepath.Abs(filepath.Join(envConfig.TempDir, dataDir))
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(dataDirPath, os.ModePerm); err != nil {
 		logrus.Errorf("Failed to create dir: %s", dataDirPath)
 		return err
@@ -93,14 +97,20 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 			applianceConfig.Config.OcpRelease.Version),
 		envConfig,
 	)
-	registryDir, err := registry.GetRegistryDataPath(envConfig.TempDir, dataDir)
-	if err != nil {
-		return log.StopSpinner(spinner, err)
+	spinner.DirToMonitor = dataDirPath
+
+	// When mirror-path is provided, pre-populate the registry data directory before
+	// starting the registry so that bundle.Push() adds release-bundles on top of the
+	// mirrored data rather than overwriting it afterwards.
+	if applianceConfig.Config.MirrorPath != nil && swag.StringValue(applianceConfig.Config.MirrorPath) != "" {
+		if err := copyMirrorRegistryData(swag.StringValue(applianceConfig.Config.MirrorPath), dataDirPath); err != nil {
+			return log.StopSpinner(spinner, err)
+		}
 	}
-	spinner.DirToMonitor = registryDir
+
 	releaseImageRegistry := registry.NewRegistry(
 		registry.RegistryConfig{
-			DataDirPath:    registryDir,
+			DataDirPath:    dataDirPath,
 			URI:            registryUri,
 			Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
 			UseBinary:      swag.BoolValue(applianceConfig.Config.ImageRegistry.UseBinary),
@@ -138,10 +148,35 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	)
 	spinner.FileToMonitor = dataIsoName
 	imageGen := genisoimage.NewGenIsoImage(nil)
-	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, filepath.Join(envConfig.TempDir, dataDir), dataVolumeName); err != nil {
+	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, dataDirPath, dataVolumeName); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	return log.StopSpinner(spinner, a.updateAsset(envConfig))
+}
+
+// copyMirrorRegistryData copies the Docker registry data from a mirror-path
+// workspace into the temp data directory so it's available for ISO generation.
+func copyMirrorRegistryData(mirrorPath, registryDataSourcePath string) error {
+	dockerSrcPath := filepath.Join(mirrorPath, dataDir, "docker")
+	dockerDstPath := filepath.Join(registryDataSourcePath, "docker")
+
+	logrus.Infof("Copying Docker registry data from %s to %s", dockerSrcPath, dockerDstPath)
+
+	if _, err := os.Stat(dockerSrcPath); err != nil {
+		return fmt.Errorf("docker registry data not found at %s (mirror-path may be invalid): %w", dockerSrcPath, err)
+	}
+
+	if err := os.MkdirAll(registryDataSourcePath, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create directory for Docker registry data: %w", err)
+	}
+
+	// Note: paths are program-generated from validated inputs
+	if _, err := executer.NewExecuter().Execute(fmt.Sprintf("cp -r %s %s", dockerSrcPath, dockerDstPath)); err != nil {
+		return fmt.Errorf("failed to copy Docker registry data from %s to %s: %w", dockerSrcPath, dockerDstPath, err)
+	}
+
+	logrus.Infof("Successfully copied Docker registry data")
+	return nil
 }
 
 // Name returns the human-friendly name of the asset.
