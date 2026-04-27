@@ -5,9 +5,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
+	"github.com/coreos/stream-metadata-go/arch"
 	"github.com/go-openapi/swag"
 	"github.com/openconfig/goyang/pkg/indent"
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -32,12 +34,21 @@ const (
 )
 
 const (
-	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
-	templateExtractCmd   = "oc adm release extract --command=%s --to=%s %s"
-	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
-	ocMirror             = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=4 --parallel-layers=4 --retry-times=5 --ignore-release-signature"
+	templateGetImage        = "oc adm release info --image-for=%s --insecure=%t %s"
+	templateExtractCmd      = "oc adm release extract --command=%s --to=%s %s"
+	templateImageExtract    = "oc image extract --path %s:%s --confirm %s"
+	templateGetArchitecture = "oc adm release info %s -o template --template '{{.config.architecture}}'"
+	templateGetVersion      = "oc adm release info %s -o template --template '{{.metadata.version}}'"
+	ocMirror                = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=4 --parallel-layers=4 --retry-times=5 --ignore-release-signature"
 	// ocMirrorDryRun is the command template for running oc mirror in dry-run mode to generate mapping.txt
 	ocMirrorDryRun = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --ignore-release-signature --dry-run"
+)
+
+var (
+	// stableReleaseVersionRegex matches stable/production release versions (stable, EC, RC)
+	// Matches: x.y.z, x.y.z-ec.N, x.y.z-rc.N
+	// Does not match: x.y.z-0.ci-*, x.y.z-0.nightly-* (development/test builds)
+	stableReleaseVersionRegex = regexp.MustCompile(`^\d+\.\d+\.\d+(?:-(?:ec|rc)\.\d+)?$`)
 )
 
 // Release is the interface to use the oc command to the get image info
@@ -49,6 +60,8 @@ type Release interface {
 	GetImageFromRelease(imageName string) (string, error)
 	ExtractCommand(command string, dest string) (string, error)
 	GetMappingFile() ([]byte, error)
+	GetArchitecture() (string, error)
+	IsStableRelease() (bool, error)
 }
 
 type ReleaseConfig struct {
@@ -263,7 +276,7 @@ func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *boo
 	if err != nil {
 		return err
 	}
-	
+
 	// Iterate over all yaml files and replace the localhost with the internal registry URI
 	for _, yamlPath := range yamlPaths {
 		logrus.Debugf("Copying ymals from oc-mirror output: %s", yamlPath)
@@ -417,4 +430,37 @@ func (r *release) GetMappingFile() ([]byte, error) {
 	mappingFilePath := filepath.Join(dryRunDir, "working-dir", "dry-run", consts.OcMirrorMappingFileName)
 
 	return r.OSInterface.ReadFile(mappingFilePath)
+}
+
+// GetArchitecture retrieves the CPU architecture from the release metadata
+func (r *release) GetArchitecture() (string, error) {
+	cmd := fmt.Sprintf(templateGetArchitecture, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
+	logrus.Debugf("Fetching architecture from OCP release (%s)", cmd)
+
+	architecture, err := r.execute(cmd)
+	if err != nil {
+		return "", err
+	}
+
+	// Convert to RpmArch if architecture is defined (amd64 -> x86_64, arm64 -> aarch64)
+	if architecture != "" {
+		architecture = arch.RpmArch(strings.Trim(architecture, "'"))
+	}
+
+	return architecture, nil
+}
+
+// IsStableRelease checks if the release is a stable/production release by validating the version string
+// Stable releases match pattern: x.y.z, x.y.z-ec.N, x.y.z-rc.N
+// Returns true for stable/EC/RC releases, false for CI/nightly development builds
+func (r *release) IsStableRelease() (bool, error) {
+	cmd := fmt.Sprintf(templateGetVersion, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
+	logrus.Debugf("Fetching version from OCP release (%s)", cmd)
+
+	version, err := r.execute(cmd)
+	if err != nil {
+		return false, err
+	}
+
+	return stableReleaseVersionRegex.MatchString(strings.Trim(version, "'")), nil
 }

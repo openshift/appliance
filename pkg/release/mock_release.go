@@ -104,3 +104,33 @@ func (mr *MockReleaseMockRecorder) GetMappingFile() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMappingFile", reflect.TypeOf((*MockRelease)(nil).GetMappingFile))
 }
+
+// GetArchitecture mocks base method.
+func (m *MockRelease) GetArchitecture() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetArchitecture")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetArchitecture indicates an expected call of GetArchitecture.
+func (mr *MockReleaseMockRecorder) GetArchitecture() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetArchitecture", reflect.TypeOf((*MockRelease)(nil).GetArchitecture))
+}
+
+// IsStableRelease mocks base method.
+func (m *MockRelease) IsStableRelease() (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsStableRelease")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsStableRelease indicates an expected call of IsStableRelease.
+func (mr *MockReleaseMockRecorder) IsStableRelease() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsStableRelease", reflect.TypeOf((*MockRelease)(nil).IsStableRelease))
+}
