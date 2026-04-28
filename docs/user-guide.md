@@ -160,6 +160,13 @@ enableInteractiveFlow: enable-interactive-flow
 # Default: false
 # [Optional]
 useDefaultSourceNames: use-default-source-names
+# Disable sigstore attachments for all registries referenced in additionalImages.
+# This can be required for disconnected mirroring when signature attachment manifests
+# are unavailable in source registries.
+# Note: this is a workaround for images that do not publish OCI .sig manifests (failing oc-mirror v2).
+# Default: false
+# [Optional]
+disableSigstoreForAdditionalImages: disable-sigstore-for-additional-images
 # Additional images to be included in the appliance disk image.
 # [Optional]
 additionalImages:
