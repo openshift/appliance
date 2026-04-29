@@ -202,6 +202,14 @@ pullSecret: pull-secret
 # [Optional]
 # useDefaultSourceNames: %t
 
+# Disable sigstore attachments for all registries referenced in additionalImages.
+# This can be required for disconnected mirroring when signature attachment manifests
+# are unavailable in source registries.
+# Note: this is a workaround for images that do not publish OCI .sig manifests (failing oc-mirror v2).
+# Default: false
+# [Optional]
+# disableSigstoreForAdditionalImages: false
+
 # Additional images to be included in the appliance disk image.
 # [Optional]
 # additionalImages:

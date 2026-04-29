@@ -205,6 +205,10 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 			return err
 		}
 
+		if err := r.disableSigstoreForRelevantRegistries(); err != nil {
+			return err
+		}
+
 		tempDir = filepath.Join(r.EnvConfig.TempDir, "oc-mirror")
 		registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
 		cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)

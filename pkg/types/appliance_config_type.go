@@ -12,23 +12,24 @@ type ApplianceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	OcpRelease            ReleaseImage   `json:"ocpRelease"`
-	DiskSizeGB            *int           `json:"diskSizeGb"`
-	PullSecret            string         `json:"pullSecret"`
-	SshKey                *string        `json:"sshKey"`
-	UserCorePass          *string        `json:"userCorePass"`
-	ImageRegistry         *ImageRegistry `json:"imageRegistry"`
-	MirrorPath            *string        `json:"mirrorPath,omitempty"`
-	EnableDefaultSources  *bool          `json:"enableDefaultSources"`
-	EnableFips            *bool          `json:"enableFips"`
-	StopLocalRegistry     *bool          `json:"stopLocalRegistry"`
-	SkipLocalRegistry     *bool          `json:"skipLocalRegistry"`
-	CreatePinnedImageSets *bool          `json:"createPinnedImageSets"`
-	EnableInteractiveFlow *bool          `json:"enableInteractiveFlow"`
-	UseDefaultSourceNames *bool          `json:"useDefaultSourceNames"`
-	AdditionalImages      *[]Image       `json:"additionalImages,omitempty"`
-	BlockedImages         *[]Image       `json:"blockedImages,omitempty"`
-	Operators             *[]Operator    `json:"operators,omitempty"`
+	OcpRelease                         ReleaseImage   `json:"ocpRelease"`
+	DiskSizeGB                         *int           `json:"diskSizeGb"`
+	PullSecret                         string         `json:"pullSecret"`
+	SshKey                             *string        `json:"sshKey"`
+	UserCorePass                       *string        `json:"userCorePass"`
+	ImageRegistry                      *ImageRegistry `json:"imageRegistry"`
+	MirrorPath                         *string        `json:"mirrorPath,omitempty"`
+	EnableDefaultSources               *bool          `json:"enableDefaultSources"`
+	EnableFips                         *bool          `json:"enableFips"`
+	StopLocalRegistry                  *bool          `json:"stopLocalRegistry"`
+	SkipLocalRegistry                  *bool          `json:"skipLocalRegistry"`
+	CreatePinnedImageSets              *bool          `json:"createPinnedImageSets"`
+	EnableInteractiveFlow              *bool          `json:"enableInteractiveFlow"`
+	UseDefaultSourceNames              *bool          `json:"useDefaultSourceNames"`
+	DisableSigstoreForAdditionalImages *bool          `json:"disableSigstoreForAdditionalImages,omitempty"`
+	AdditionalImages                   *[]Image       `json:"additionalImages,omitempty"`
+	BlockedImages                      *[]Image       `json:"blockedImages,omitempty"`
+	Operators                          *[]Operator    `json:"operators,omitempty"`
 }
 
 type ReleaseImage struct {
