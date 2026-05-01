@@ -63,6 +63,21 @@ func (mr *MockReleaseMockRecorder) ExtractFile(image, filename interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractFile", reflect.TypeOf((*MockRelease)(nil).ExtractFile), image, filename)
 }
 
+// GetArchitecture mocks base method.
+func (m *MockRelease) GetArchitecture() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetArchitecture")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetArchitecture indicates an expected call of GetArchitecture.
+func (mr *MockReleaseMockRecorder) GetArchitecture() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetArchitecture", reflect.TypeOf((*MockRelease)(nil).GetArchitecture))
+}
+
 // GetImageFromRelease mocks base method.
 func (m *MockRelease) GetImageFromRelease(imageName string) (string, error) {
 	m.ctrl.T.Helper()
