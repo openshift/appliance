@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coreos/stream-metadata-go/arch"
 	"github.com/go-openapi/swag"
 	"github.com/openconfig/goyang/pkg/indent"
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -59,6 +60,7 @@ type Release interface {
 	GetImageFromRelease(imageName string) (string, error)
 	ExtractCommand(command string, dest string) (string, error)
 	GetMappingFile() ([]byte, error)
+	GetArchitecture() (string, error)
 	IsStableRelease() (bool, error)
 }
 
@@ -71,11 +73,15 @@ type ReleaseConfig struct {
 
 type release struct {
 	ReleaseConfig
+	arch    *string
 	version *string
 }
 
 // releaseInfo represents the structure of oc adm release info output
 type releaseInfo struct {
+	Config struct {
+		Architecture string `json:"architecture"`
+	} `json:"config"`
 	Metadata struct {
 		Version string `json:"version"`
 	} `json:"metadata"`
@@ -219,7 +225,6 @@ func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *boo
 	if err != nil {
 		return err
 	}
-
 	// Iterate over all yaml files and replace the localhost with the internal registry URI
 	for _, yamlPath := range yamlPaths {
 		logrus.Debugf("Copying ymals from oc-mirror output: %s", yamlPath)
@@ -326,16 +331,16 @@ func (r *release) GetMappingFile() ([]byte, error) {
 	return r.OSInterface.ReadFile(mappingFilePath)
 }
 
-// getMetadata fetches release metadata (version) if not already cached.
-// This lazy loading approach avoids redundant oc adm release info calls by fetching
-// version in a single JSON command execution.
+// getMetadata fetches release metadata (architecture and version) if not already cached.
+// This lazy loading approach avoids redundant oc adm release info calls by fetching both
+// architecture and version in a single JSON command execution.
 func (r *release) getMetadata() error {
-	if r.version != nil {
+	if r.arch != nil && r.version != nil {
 		return nil
 	}
 
 	cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
-	logrus.Debugf("Fetching version from OCP release (%s)", cmd)
+	logrus.Debugf("Fetching architecture and version from OCP release (%s)", cmd)
 
 	output, err := r.execute(cmd)
 	if err != nil {
@@ -347,11 +352,27 @@ func (r *release) getMetadata() error {
 		return fmt.Errorf("failed to parse release metadata JSON: %w", err)
 	}
 
+	architecture := metadata.Config.Architecture
 	version := metadata.Metadata.Version
 
+	// Convert to RpmArch if architecture is defined (amd64 -> x86_64, arm64 -> aarch64)
+	if architecture != "" {
+		architecture = arch.RpmArch(architecture)
+	}
+
+	r.arch = &architecture
 	r.version = &version
 
 	return nil
+}
+
+// GetArchitecture retrieves the CPU architecture from the release metadata.
+// Uses lazy loading to avoid redundant external calls.
+func (r *release) GetArchitecture() (string, error) {
+	if err := r.getMetadata(); err != nil {
+		return "", err
+	}
+	return *r.arch, nil
 }
 
 // IsStableRelease checks if the release is a stable/production release by validating the version string.
