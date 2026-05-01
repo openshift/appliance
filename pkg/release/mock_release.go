@@ -33,6 +33,21 @@ func (m *MockRelease) EXPECT() *MockReleaseMockRecorder {
 	return m.recorder
 }
 
+// ExtractCommand mocks base method.
+func (m *MockRelease) ExtractCommand(command, dest string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtractCommand", command, dest)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExtractCommand indicates an expected call of ExtractCommand.
+func (mr *MockReleaseMockRecorder) ExtractCommand(command, dest interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractCommand", reflect.TypeOf((*MockRelease)(nil).ExtractCommand), command, dest)
+}
+
 // ExtractFile mocks base method.
 func (m *MockRelease) ExtractFile(image, filename string) (string, error) {
 	m.ctrl.T.Helper()
@@ -46,19 +61,6 @@ func (m *MockRelease) ExtractFile(image, filename string) (string, error) {
 func (mr *MockReleaseMockRecorder) ExtractFile(image, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractFile", reflect.TypeOf((*MockRelease)(nil).ExtractFile), image, filename)
-}
-
-func (m *MockRelease) ExtractCommand(command string, dest string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExtractCommand", command, dest)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockReleaseMockRecorder) ExtractCommand(command string, dest string) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractCommand", reflect.TypeOf((*MockRelease)(nil).ExtractCommand), command, dest)
 }
 
 // GetImageFromRelease mocks base method.
@@ -76,16 +78,31 @@ func (mr *MockReleaseMockRecorder) GetImageFromRelease(imageName interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImageFromRelease", reflect.TypeOf((*MockRelease)(nil).GetImageFromRelease), imageName)
 }
 
+// IsStableRelease mocks base method.
+func (m *MockRelease) IsStableRelease() (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsStableRelease")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsStableRelease indicates an expected call of IsStableRelease.
+func (mr *MockReleaseMockRecorder) IsStableRelease() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsStableRelease", reflect.TypeOf((*MockRelease)(nil).IsStableRelease))
+}
+
 // MirrorInstallImages mocks base method.
 func (m *MockRelease) MirrorInstallImages() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MirrorReleaseImages")
+	ret := m.ctrl.Call(m, "MirrorInstallImages")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// MirrorReleaseImages indicates an expected call of MirrorReleaseImages.
-func (mr *MockReleaseMockRecorder) MirrorReleaseImages() *gomock.Call {
+// MirrorInstallImages indicates an expected call of MirrorInstallImages.
+func (mr *MockReleaseMockRecorder) MirrorInstallImages() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MirrorReleaseImages", reflect.TypeOf((*MockRelease)(nil).MirrorInstallImages))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MirrorInstallImages", reflect.TypeOf((*MockRelease)(nil).MirrorInstallImages))
 }
