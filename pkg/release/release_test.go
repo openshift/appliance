@@ -93,6 +93,12 @@ var _ = Describe("Test Release", func() {
 	})
 
 	It("MirrorInstallImages - success", func() {
+		// Mock IsStableRelease call
+		metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+		jsonOutput := `{"metadata":{"version":"4.13.1"}}`
+		mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
+
+		// Mock oc mirror command
 		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", nil).Times(1)
 
 		err = testRelease.MirrorInstallImages()
@@ -100,10 +106,112 @@ var _ = Describe("Test Release", func() {
 	})
 
 	It("MirrorInstallImages - fail oc mirror", func() {
+		// Mock IsStableRelease call
+		metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+		jsonOutput := `{"metadata":{"version":"4.13.1"}}`
+		mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
+
+		// Mock oc mirror command failure
 		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(1)
 
 		err = testRelease.MirrorInstallImages()
 		Expect(err).To(HaveOccurred())
+	})
+	Context("MirrorInstallImages with signature handling", func() {
+		It("should add --ignore-release-signature for CI release", func() {
+			// Set up CI release
+			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.ci-2026-04-23-153053")
+
+			// Expect IsStableRelease call (returns CI release metadata)
+			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"metadata":{"version":"5.0.0-0.ci-2026-04-23-153053"}}`
+			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
+
+			// Expect oc mirror command with --ignore-release-signature flag
+			mockExecuter.EXPECT().Execute(gomock.Any()).DoAndReturn(func(cmd string) (string, error) {
+				Expect(cmd).To(ContainSubstring("--ignore-release-signature"))
+				return "", nil
+			}).Times(1)
+
+			err = testRelease.MirrorInstallImages()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should NOT add --ignore-release-signature for stable release", func() {
+			// Set up stable release
+			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-x86_64")
+
+			// Expect IsStableRelease call (returns stable release metadata)
+			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"metadata":{"version":"4.22.0"}}`
+			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
+
+			// Expect oc mirror command WITHOUT --ignore-release-signature flag
+			mockExecuter.EXPECT().Execute(gomock.Any()).DoAndReturn(func(cmd string) (string, error) {
+				Expect(cmd).ToNot(ContainSubstring("--ignore-release-signature"))
+				return "", nil
+			}).Times(1)
+
+			err = testRelease.MirrorInstallImages()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should add --ignore-release-signature for nightly release", func() {
+			// Set up nightly release
+			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.nightly-2026-04-23-082815")
+
+			// Expect IsStableRelease call (returns nightly release metadata)
+			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"metadata":{"version":"5.0.0-0.nightly-2026-04-23-082815"}}`
+			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
+
+			// Expect oc mirror command with --ignore-release-signature flag
+			mockExecuter.EXPECT().Execute(gomock.Any()).DoAndReturn(func(cmd string) (string, error) {
+				Expect(cmd).To(ContainSubstring("--ignore-release-signature"))
+				return "", nil
+			}).Times(1)
+
+			err = testRelease.MirrorInstallImages()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should NOT add --ignore-release-signature for EC release", func() {
+			// Set up EC release
+			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-ec.5-x86_64")
+
+			// Expect IsStableRelease call (returns EC release metadata)
+			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"metadata":{"version":"4.22.0-ec.5"}}`
+			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
+
+			// Expect oc mirror command WITHOUT --ignore-release-signature flag
+			mockExecuter.EXPECT().Execute(gomock.Any()).DoAndReturn(func(cmd string) (string, error) {
+				Expect(cmd).ToNot(ContainSubstring("--ignore-release-signature"))
+				return "", nil
+			}).Times(1)
+
+			err = testRelease.MirrorInstallImages()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should NOT add --ignore-release-signature for RC release", func() {
+			// Set up RC release
+			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-rc.0-x86_64")
+
+			// Expect IsStableRelease call (returns RC release metadata)
+			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"metadata":{"version":"4.22.0-rc.0"}}`
+			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
+
+			// Expect oc mirror command WITHOUT --ignore-release-signature flag
+			mockExecuter.EXPECT().Execute(gomock.Any()).DoAndReturn(func(cmd string) (string, error) {
+				Expect(cmd).ToNot(ContainSubstring("--ignore-release-signature"))
+				return "", nil
+			}).Times(1)
+
+			err = testRelease.MirrorInstallImages()
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 
 	It("GetImageFromRelease - success", func() {
@@ -121,6 +229,71 @@ var _ = Describe("Test Release", func() {
 
 		_, err := testRelease.GetImageFromRelease(imageName)
 		Expect(err).To(HaveOccurred())
+	})
+
+	Context("IsStableRelease", func() {
+		It("should return true for stable release version", func() {
+			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-x86_64")
+			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"metadata":{"version":"4.22.0"}}`
+			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
+
+			isStable, err := testRelease.IsStableRelease()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(isStable).To(BeTrue())
+		})
+
+		It("should return true for EC release", func() {
+			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-ec.5-x86_64")
+			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"metadata":{"version":"4.22.0-ec.5"}}`
+			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
+
+			isStable, err := testRelease.IsStableRelease()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(isStable).To(BeTrue())
+		})
+
+		It("should return true for RC release version", func() {
+			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-rc.0-x86_64")
+			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"metadata":{"version":"4.22.0-rc.0"}}`
+			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
+
+			isStable, err := testRelease.IsStableRelease()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(isStable).To(BeTrue())
+		})
+
+		It("should return false for nightly release version", func() {
+			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.nightly-2026-04-23-082815")
+			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"metadata":{"version":"5.0.0-0.nightly-2026-04-23-082815"}}`
+			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
+
+			isStable, err := testRelease.IsStableRelease()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(isStable).To(BeFalse())
+		})
+
+		It("should return false for CI release", func() {
+			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.ci-2026-04-23-153053")
+			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			jsonOutput := `{"metadata":{"version":"5.0.0-0.ci-2026-04-23-153053"}}`
+			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
+
+			isStable, err := testRelease.IsStableRelease()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(isStable).To(BeFalse())
+		})
+
+		It("should handle error when getting version", func() {
+			applianceConfig.Config.OcpRelease.URL = swag.String("invalid-url")
+			mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("failed to get version")).Times(1)
+
+			_, err := testRelease.IsStableRelease()
+			Expect(err).To(HaveOccurred())
+		})
 	})
 })
 

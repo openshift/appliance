@@ -1,10 +1,12 @@
 package release
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -35,7 +37,15 @@ const (
 	templateGetImage     = "oc adm release info --image-for=%s --insecure=%t %s"
 	templateExtractCmd   = "oc adm release extract --command=%s --to=%s %s"
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
+	templateGetMetadata  = "oc adm release info %s -o json"
 	ocMirror             = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=4 --parallel-layers=4 --retry-times=5"
+)
+
+var (
+	// stableReleaseVersionRegex matches stable/production release versions (stable, EC, RC)
+	// Matches: x.y.z, x.y.z-ec.N, x.y.z-rc.N
+	// Does not match: x.y.z-0.ci-*, x.y.z-0.nightly-* (development/test builds)
+	stableReleaseVersionRegex = regexp.MustCompile(`^\d+\.\d+\.\d+(?:-(?:ec|rc)\.\d+)?$`)
 )
 
 // Release is the interface to use the oc command to the get image info
@@ -46,6 +56,7 @@ type Release interface {
 	MirrorInstallImages() error
 	GetImageFromRelease(imageName string) (string, error)
 	ExtractCommand(command string, dest string) (string, error)
+	IsStableRelease() (bool, error)
 }
 
 type ReleaseConfig struct {
@@ -57,6 +68,14 @@ type ReleaseConfig struct {
 
 type release struct {
 	ReleaseConfig
+	version *string
+}
+
+// releaseInfo represents the structure of oc adm release info output
+type releaseInfo struct {
+	Metadata struct {
+		Version string `json:"version"`
+	} `json:"metadata"`
 }
 
 // NewRelease is used to set up the executor to run oc commands
@@ -135,6 +154,10 @@ func (r *release) execute(command string) (string, error) {
 }
 
 func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, operators string) error {
+	isStable, err := r.IsStableRelease()
+	if err != nil {
+		return err
+	}
 	if err := templates.RenderTemplateFile(
 		imageSetFile,
 		templates.GetImageSetTemplateData(r.ApplianceConfig, blockedImages, additionalImages, operators),
@@ -154,6 +177,14 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 	tempDir := filepath.Join(r.EnvConfig.TempDir, "oc-mirror")
 	registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
 	cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)
+
+	if !isStable {
+		// For CI/nightly builds, add --ignore-release-signature flag
+		cmd += " --ignore-release-signature"
+		logrus.Info("CI/Nightly release found - signature-configmap.yaml will not be generated. Setting --ignore-release-signature")
+	} else {
+		logrus.Info("Stable release found - signature-configmap.yaml will be generated for image signature verification")
+	}
 
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 	result, err := r.execute(cmd)
@@ -253,4 +284,43 @@ func (r *release) MirrorInstallImages() error {
 		r.generateImagesList(r.ApplianceConfig.Config.AdditionalImages),
 		r.generateOperatorsList(r.ApplianceConfig.Config.Operators),
 	)
+}
+
+// getMetadata fetches release metadata (version) if not already cached.
+// This lazy loading approach avoids redundant oc adm release info calls by fetching
+// version in a single JSON command execution.
+func (r *release) getMetadata() error {
+	if r.version != nil {
+		return nil
+	}
+
+	cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
+	logrus.Debugf("Fetching version from OCP release (%s)", cmd)
+
+	output, err := r.execute(cmd)
+	if err != nil {
+		return err
+	}
+
+	var metadata releaseInfo
+	if err := json.Unmarshal([]byte(output), &metadata); err != nil {
+		return fmt.Errorf("failed to parse release metadata JSON: %w", err)
+	}
+
+	version := metadata.Metadata.Version
+
+	r.version = &version
+
+	return nil
+}
+
+// IsStableRelease checks if the release is a stable/production release by validating the version string.
+// Stable releases match pattern: x.y.z, x.y.z-ec.N, x.y.z-rc.N
+// Returns true for stable/EC/RC releases, false for CI/nightly development builds.
+// Uses lazy loading to avoid redundant external calls.
+func (r *release) IsStableRelease() (bool, error) {
+	if err := r.getMetadata(); err != nil {
+		return false, err
+	}
+	return stableReleaseVersionRegex.MatchString(*r.version), nil
 }
