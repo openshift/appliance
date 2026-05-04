@@ -11,6 +11,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/installer"
+	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -79,7 +80,26 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 		if err != nil {
 			return err
 		}
-		ifi := NewInteractiveFlowIgnition(releaseVersion)
+
+		releaseConfig := release.ReleaseConfig{
+			ApplianceConfig: applianceConfig,
+		}
+		rel := release.NewRelease(releaseConfig)
+
+		isStable, err := rel.IsStableRelease()
+		if err != nil {
+			return errors.Wrapf(err, "failed to determine if release is stable")
+		}
+
+		arch := ""
+		if isStable {
+			arch, err = rel.GetArchitecture()
+			if err != nil {
+				return errors.Wrapf(err, "failed to get architecture from release metadata")
+			}
+		}
+
+		ifi := NewInteractiveFlowIgnition(releaseVersion, arch)
 		ifi.AppendToIgnition(&bootstrapIgnition.Config)
 	}
 
