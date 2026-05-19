@@ -651,7 +651,7 @@ cat $APPLIANCE_ASSETS/post.sh
 
 #!/bin/bash
 echo Shutting down the machine...
-shutdown -a
+shutdown -P now
 ```
 
 ```bash
