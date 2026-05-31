@@ -196,13 +196,13 @@ pullSecret: pull-secret
 # [Optional]
 # useDefaultSourceNames: %t
 
-# Disable sigstore attachments for all registries referenced in additionalImages.
-# This can be required for disconnected mirroring when signature attachment manifests
-# are unavailable in source registries.
-# Note: this is a workaround for images that do not publish OCI .sig manifests (failing oc-mirror v2).
-# Default: false
+# Disable sigstore attachments for the listed registry hosts during oc-mirror.
+# Required when source registries do not publish OCI .sig attachment manifests (failing oc-mirror v2).
+# Example: certified operator bundles on registry.connect.redhat.com.
+# Registries that already have configuration under /etc/containers/registries.d/ are skipped.
 # [Optional]
-# disableSigstoreForAdditionalImages: false
+# disableSigstoreRegistries:
+#   - registry.connect.redhat.com
 
 # Additional images to be included in the appliance disk image.
 # [Optional]
