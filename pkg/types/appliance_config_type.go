@@ -26,7 +26,7 @@ type ApplianceConfig struct {
 	CreatePinnedImageSets              *bool          `json:"createPinnedImageSets"`
 	EnableInteractiveFlow              *bool          `json:"enableInteractiveFlow"`
 	UseDefaultSourceNames              *bool          `json:"useDefaultSourceNames"`
-	DisableSigstoreForAdditionalImages *bool          `json:"disableSigstoreForAdditionalImages,omitempty"`
+	DisableSigstoreRegistries          *[]string      `json:"disableSigstoreRegistries,omitempty"`
 	AdditionalImages                   *[]Image       `json:"additionalImages,omitempty"`
 	BlockedImages                      *[]Image       `json:"blockedImages,omitempty"`
 	Operators                          *[]Operator    `json:"operators,omitempty"`
