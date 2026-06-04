@@ -160,13 +160,12 @@ enableInteractiveFlow: enable-interactive-flow
 # Default: false
 # [Optional]
 useDefaultSourceNames: use-default-source-names
-# Disable sigstore attachments for all registries referenced in additionalImages.
-# This can be required for disconnected mirroring when signature attachment manifests
-# are unavailable in source registries.
-# Note: this is a workaround for images that do not publish OCI .sig manifests (failing oc-mirror v2).
-# Default: false
+# Disable sigstore attachments for the listed registry hosts during oc-mirror.
+# Required when source registries do not publish OCI .sig attachment manifests (failing oc-mirror v2).
+# Example: certified operator bundles on registry.connect.redhat.com.
 # [Optional]
-disableSigstoreForAdditionalImages: disable-sigstore-for-additional-images
+# disableSigstoreRegistries:
+#   - registry.connect.redhat.com
 # Additional images to be included in the appliance disk image.
 # [Optional]
 additionalImages:
@@ -290,6 +289,19 @@ operators:
 Note: for each operator, ensure the name and channel are correct by listing the available operators in catalog:
 ```bash
 oc-mirror list operators --catalog=registry.redhat.io/redhat/redhat-operator-index:v4.14
+```
+
+Certified operators that pull bundle images from `registry.connect.redhat.com` may require disabling sigstore attachments during mirroring:
+
+```yaml
+disableSigstoreRegistries:
+  - registry.connect.redhat.com
+operators:
+  - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.19
+    packages:
+      - name: gpu-operator-certified
+        channels:
+          - name: v26.3
 ```
 
 #### Install operators in cluster

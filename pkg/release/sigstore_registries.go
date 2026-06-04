@@ -1,30 +1,53 @@
 package release
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/go-openapi/swag"
-	"github.com/openshift/appliance/pkg/types"
 )
 
-const (
-	disableSigstoreFilePath = "/etc/containers/registries.d/00-appliance-disable-sigstore.yaml"
-	registriesDDir          = "/etc/containers/registries.d"
-)
+const registriesDDir = "/etc/containers/registries.d"
 
-func additionalImageRegistryHosts(images *[]types.Image) []string {
-	if images == nil {
+func isValidRegistryHost(host string) bool {
+	return strings.Contains(host, ".") || host == "localhost"
+}
+
+func normalizeRegistryHost(entry string) string {
+	entry = strings.TrimSpace(entry)
+	if entry == "" {
+		return ""
+	}
+	if host := imageReferenceRegistryHost(entry); host != "" {
+		if isValidRegistryHost(host) {
+			return host
+		}
+		return ""
+	}
+	host := strings.TrimPrefix(entry, "docker://")
+	if strings.Contains(host, "/") {
+		return ""
+	}
+	if colon := strings.LastIndex(host, ":"); colon > 0 && !strings.Contains(host, "]") {
+		host = host[:colon]
+	}
+	if !isValidRegistryHost(host) {
+		return ""
+	}
+	return host
+}
+
+func disableSigstoreRegistryHosts(registries *[]string) []string {
+	if registries == nil {
 		return nil
 	}
 
 	registryHostsMap := map[string]struct{}{}
-	for _, img := range *images {
-		registryHost := imageReferenceRegistryHost(img.Name)
-		if registryHost == "" {
-			continue
+	for _, entry := range *registries {
+		if host := normalizeRegistryHost(entry); host != "" {
+			registryHostsMap[host] = struct{}{}
 		}
-		registryHostsMap[registryHost] = struct{}{}
 	}
 
 	registryHosts := make([]string, 0, len(registryHostsMap))
@@ -52,6 +75,25 @@ func imageReferenceRegistryHost(name string) string {
 	return ""
 }
 
+func disableSigstoreRegistryConfigPath(host string) string {
+	return filepath.Join(registriesDDir, host+".yaml")
+}
+
+func hostHasRegistriesDConfig(registriesDir, host string, stat func(string) (os.FileInfo, error)) bool {
+	_, err := stat(filepath.Join(registriesDir, host+".yaml"))
+	return err == nil
+}
+
+func filterHostsWithoutExistingRegistriesDConfig(hosts []string, registriesDir string, stat func(string) (os.FileInfo, error)) []string {
+	filtered := make([]string, 0, len(hosts))
+	for _, host := range hosts {
+		if !hostHasRegistriesDConfig(registriesDir, host, stat) {
+			filtered = append(filtered, host)
+		}
+	}
+	return filtered
+}
+
 // buildDisableSigstoreRegistriesConfig creates a containers-registries.d snippet
 // that disables sigstore attachments for the given registry hosts.
 // This is used as a workaround for oc-mirror v2 flows where some registries do not
@@ -72,11 +114,12 @@ func buildDisableSigstoreRegistriesConfig(registryHosts []string) []byte {
 }
 
 func (r *release) disableSigstoreForRelevantRegistries() error {
-	if !swag.BoolValue(r.ApplianceConfig.Config.DisableSigstoreForAdditionalImages) {
+	registryHosts := disableSigstoreRegistryHosts(r.ApplianceConfig.Config.DisableSigstoreRegistries)
+	if len(registryHosts) == 0 {
 		return nil
 	}
 
-	registryHosts := additionalImageRegistryHosts(r.ApplianceConfig.Config.AdditionalImages)
+	registryHosts = filterHostsWithoutExistingRegistriesDConfig(registryHosts, registriesDDir, r.OSInterface.Stat)
 	if len(registryHosts) == 0 {
 		return nil
 	}
@@ -85,5 +128,12 @@ func (r *release) disableSigstoreForRelevantRegistries() error {
 		return err
 	}
 
-	return r.OSInterface.WriteFile(disableSigstoreFilePath, buildDisableSigstoreRegistriesConfig(registryHosts), 0o644)
+	for _, host := range registryHosts {
+		configPath := disableSigstoreRegistryConfigPath(host)
+		if err := r.OSInterface.WriteFile(configPath, buildDisableSigstoreRegistriesConfig([]string{host}), 0o644); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
