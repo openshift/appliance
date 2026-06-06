@@ -252,7 +252,7 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 			cmd += " --ignore-release-signature"
 			logrus.Info("CI/Nightly release found - signature-configmap.yaml will not be generated. Setting --ignore-release-signature")
 		} else {
-			logrus.Info("Stable release found - signature-configmap.yaml will be generated for image signature verification")
+			logrus.Debug("Stable release found - signature-configmap.yaml will be generated for image signature verification")
 		}
 
 		logrus.Debugf("Fetching image from OCP release (%s)", cmd)
