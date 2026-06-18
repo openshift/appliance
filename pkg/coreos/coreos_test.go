@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-openapi/swag"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/types"
 
 	"github.com/golang/mock/gomock"
@@ -46,13 +47,13 @@ var _ = Describe("Test CoreOS", func() {
 	})
 
 	It("DownloadISO - success", func() {
-		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf(coreOsFileName, config.CpuArchitectureX86)).Return("/path/to/file", nil).Times(1)
+		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf("coreos/%s", fmt.Sprintf(consts.CoreosIsoName, config.CpuArchitectureX86))).Return("/path/to/file", nil).Times(1)
 		_, err := testCoreOs.DownloadISO()
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("DownloadISO - fail", func() {
-		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf(coreOsFileName, config.CpuArchitectureX86)).Return("", errors.New("some error")).Times(1)
+		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf("coreos/%s", fmt.Sprintf(consts.CoreosIsoName, config.CpuArchitectureX86))).Return("", errors.New("some error")).Times(1)
 		_, err := testCoreOs.DownloadISO()
 		Expect(err).To(HaveOccurred())
 	})
@@ -71,7 +72,7 @@ var _ = Describe("Test CoreOS", func() {
 			Executer:  mockExecuter,
 			EnvConfig: &config.EnvConfig{},
 		})
-		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf(coreOs10FileName, config.CpuArchitectureX86)).Return("/path/to/file", nil).Times(1)
+		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf("coreos/%s", fmt.Sprintf(consts.Coreos10IsoName, config.CpuArchitectureX86))).Return("/path/to/file", nil).Times(1)
 		_, err := coreOS5.DownloadISO()
 		Expect(err).ToNot(HaveOccurred())
 	})

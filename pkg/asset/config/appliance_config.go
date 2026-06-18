@@ -343,6 +343,14 @@ func (a *ApplianceConfig) GetCpuArchitecture() string {
 	return swag.StringValue(a.Config.OcpRelease.CpuArchitecture)
 }
 
+func (a *ApplianceConfig) GetCoreosIsoName() string {
+	ocpVer, err := version.NewVersion(a.Config.OcpRelease.Version)
+	if err == nil && ocpVer.Segments()[0] >= 5 {
+		return consts.Coreos10IsoName
+	}
+	return consts.CoreosIsoName
+}
+
 func GetReleaseArchitectureByCPU(arch string) string {
 	switch arch {
 	case CpuArchitectureX86:

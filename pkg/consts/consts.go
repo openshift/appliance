@@ -59,6 +59,7 @@ const (
 
 	// Deployment ISO
 	CoreosIsoName      = "coreos-%s.iso"
+	Coreos10IsoName    = "coreos10-%s.iso"
 	DeployIsoName      = "appliance.iso"
 	DeployDir          = "deploy"
 	ApplianceImageName = "appliance"
