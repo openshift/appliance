@@ -10,6 +10,7 @@ import (
 
 	"github.com/cavaliercoder/go-cpio"
 	"github.com/cavaliergopher/grab/v3"
+	version "github.com/hashicorp/go-version"
 	"github.com/itchyny/gojq"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/executer"
@@ -22,6 +23,7 @@ const (
 	templateEmbedIgnition   = "coreos-installer iso ignition embed -f --ignition-file %s %s"
 	machineOsImageName      = "machine-os-images"
 	coreOsFileName          = "coreos/coreos-%s.iso"
+	coreOs10FileName        = "coreos/coreos10-%s.iso"
 	coreOsStream            = "coreos/coreos-stream.json"
 	coreOsDiskImageUrlQuery = ".architectures.x86_64.artifacts.metal.formats[\"raw.gz\"].disk.location"
 
@@ -90,7 +92,15 @@ func (c *coreos) DownloadDiskImage() (string, error) {
 }
 
 func (c *coreos) DownloadISO() (string, error) {
-	fileName := fmt.Sprintf(coreOsFileName, c.ApplianceConfig.GetCpuArchitecture())
+	fileNameFmt := coreOsFileName
+	ocpVer, err := version.NewVersion(c.ApplianceConfig.Config.OcpRelease.Version)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to parse OCP version")
+	}
+	if ocpVer.Segments()[0] >= 5 {
+		fileNameFmt = coreOs10FileName
+	}
+	fileName := fmt.Sprintf(fileNameFmt, c.ApplianceConfig.GetCpuArchitecture())
 	return c.Release.ExtractFile(machineOsImageName, fileName)
 }
 
