@@ -11,10 +11,11 @@ mkdir -p /etc/iri-registry/certs
 # Only generate self-signed certs if they don't already exist (e.g., from IRI TLS)
 if [[ ! -s /etc/iri-registry/certs/tls.crt ]] || [[ ! -s /etc/iri-registry/certs/tls.key ]]; then
     echo "Generating self-signed certificate for local registry"
-    openssl req -newkey rsa:4096 -nodes -sha256 -keyout /etc/iri-registry/certs/tls.key \
+    podman run --rm --user 0 --entrypoint openssl -v /etc/iri-registry/certs:/certs:Z "$REGISTRY_IMAGE" \
+        req -newkey rsa:4096 -nodes -sha256 -keyout /certs/tls.key \
         -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN={{.RegistryDomain}}" \
         -addext "subjectAltName=DNS:{{.RegistryDomain}},DNS:quay.io" \
-        -x509 -days 36500 -out /etc/iri-registry/certs/tls.crt
+        -x509 -days 36500 -out /certs/tls.crt
 else
     echo "Using existing certificates at /etc/iri-registry/certs/"
 fi

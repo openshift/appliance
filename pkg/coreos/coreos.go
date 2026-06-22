@@ -21,7 +21,6 @@ import (
 const (
 	templateEmbedIgnition   = "coreos-installer iso ignition embed -f --ignition-file %s %s"
 	machineOsImageName      = "machine-os-images"
-	coreOsFileName          = "coreos/coreos-%s.iso"
 	coreOsStream            = "coreos/coreos-stream.json"
 	coreOsDiskImageUrlQuery = ".architectures.x86_64.artifacts.metal.formats[\"raw.gz\"].disk.location"
 
@@ -90,7 +89,8 @@ func (c *coreos) DownloadDiskImage() (string, error) {
 }
 
 func (c *coreos) DownloadISO() (string, error) {
-	fileName := fmt.Sprintf(coreOsFileName, c.ApplianceConfig.GetCpuArchitecture())
+	isoName := c.ApplianceConfig.GetCoreosIsoName()
+	fileName := fmt.Sprintf("coreos/%s", fmt.Sprintf(isoName, c.ApplianceConfig.GetCpuArchitecture()))
 	return c.Release.ExtractFile(machineOsImageName, fileName)
 }
 

@@ -15,10 +15,6 @@ type BaseISO struct {
 	File *asset.File
 }
 
-const (
-	coreosIsoName = "coreos-%s.iso"
-)
-
 var _ asset.Asset = (*BaseISO)(nil)
 
 // Name returns the human-friendly name of the asset.
@@ -41,7 +37,7 @@ func (i *BaseISO) Generate(dependencies asset.Parents) error {
 	dependencies.Get(envConfig, applianceConfig)
 
 	// Search for disk image in cache dir
-	filePattern := fmt.Sprintf(coreosIsoName, applianceConfig.GetCpuArchitecture())
+	filePattern := fmt.Sprintf(applianceConfig.GetCoreosIsoName(), applianceConfig.GetCpuArchitecture())
 	if fileName := envConfig.FindInCache(filePattern); fileName != "" {
 		logrus.Info("Reusing base CoreOS ISO from cache")
 		i.File = &asset.File{Filename: fileName}

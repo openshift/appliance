@@ -48,7 +48,7 @@ func (a *RecoveryISO) Generate(dependencies asset.Parents) error {
 	recoveryIgnition := &ignition.RecoveryIgnition{}
 	dependencies.Get(envConfig, baseISO, applianceConfig, recoveryIgnition)
 
-	coreosIsoFileName := fmt.Sprintf(coreosIsoName, applianceConfig.GetCpuArchitecture())
+	coreosIsoFileName := fmt.Sprintf(applianceConfig.GetCoreosIsoName(), applianceConfig.GetCpuArchitecture())
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
 	recoveryIsoPath := filepath.Join(envConfig.CacheDir, consts.RecoveryIsoFileName)
 	recoveryIsoDirPath := filepath.Join(envConfig.TempDir, recoveryIsoDirName)

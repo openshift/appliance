@@ -125,7 +125,7 @@ func (a *ApplianceLiveISO) buildLiveISO(
 	spinner.DirToMonitor = workDir
 
 	// Extract base ISO
-	coreosIsoFileName := fmt.Sprintf(consts.CoreosIsoName, applianceConfig.GetCpuArchitecture())
+	coreosIsoFileName := fmt.Sprintf(applianceConfig.GetCoreosIsoName(), applianceConfig.GetCpuArchitecture())
 	coreosIsoPath := filepath.Join(envConfig.CacheDir, coreosIsoFileName)
 	if err = isoeditor.Extract(coreosIsoPath, workDir); err != nil {
 		logrus.Errorf("Failed to extract ISO: %s", err.Error())

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-openapi/swag"
+	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/types"
 
 	"github.com/golang/mock/gomock"
@@ -34,6 +35,7 @@ var _ = Describe("Test CoreOS", func() {
 					PullSecret: "'{\"auths\":{\"\":{\"auth\":\"dXNlcjpwYXNz\"}}}'",
 					OcpRelease: types.ReleaseImage{
 						CpuArchitecture: swag.String(config.CpuArchitectureX86),
+						Version:         "4.16.0",
 					},
 				},
 			},
@@ -45,15 +47,34 @@ var _ = Describe("Test CoreOS", func() {
 	})
 
 	It("DownloadISO - success", func() {
-		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf(coreOsFileName, config.CpuArchitectureX86)).Return("/path/to/file", nil).Times(1)
+		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf("coreos/%s", fmt.Sprintf(consts.CoreosIsoName, config.CpuArchitectureX86))).Return("/path/to/file", nil).Times(1)
 		_, err := testCoreOs.DownloadISO()
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("DownloadISO - fail", func() {
-		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf(coreOsFileName, config.CpuArchitectureX86)).Return("", errors.New("some error")).Times(1)
+		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf("coreos/%s", fmt.Sprintf(consts.CoreosIsoName, config.CpuArchitectureX86))).Return("", errors.New("some error")).Times(1)
 		_, err := testCoreOs.DownloadISO()
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("DownloadISO - OCP 5.x uses coreos10 filename", func() {
+		coreOS5 := NewCoreOS(CoreOSConfig{
+			ApplianceConfig: &config.ApplianceConfig{
+				Config: &types.ApplianceConfig{
+					OcpRelease: types.ReleaseImage{
+						CpuArchitecture: swag.String(config.CpuArchitectureX86),
+						Version:         "5.0.0",
+					},
+				},
+			},
+			Release:   mockRelease,
+			Executer:  mockExecuter,
+			EnvConfig: &config.EnvConfig{},
+		})
+		mockRelease.EXPECT().ExtractFile(machineOsImageName, fmt.Sprintf("coreos/%s", fmt.Sprintf(consts.Coreos10IsoName, config.CpuArchitectureX86))).Return("/path/to/file", nil).Times(1)
+		_, err := coreOS5.DownloadISO()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("FetchCoreOSStream - fail", func() {
