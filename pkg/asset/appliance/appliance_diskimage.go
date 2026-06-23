@@ -60,7 +60,8 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 		consts.UserCfgTemplateFile,
 		templates.GetUserCfgTemplateData(
 			consts.GrubMenuEntryName,
-			swag.BoolValue(applianceConfig.Config.EnableFips)),
+			swag.BoolValue(applianceConfig.Config.EnableFips),
+			true),
 		envConfig.TempDir); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
