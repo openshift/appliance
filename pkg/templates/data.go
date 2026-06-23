@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetUserCfgTemplateData(grubMenuEntryName string, enableFips bool) interface{} {
+func GetUserCfgTemplateData(grubMenuEntryName string, enableFips bool, setDefault bool) interface{} {
 	var fipsArg string
 	if enableFips {
 		fipsArg = "fips=1"
@@ -23,11 +23,13 @@ func GetUserCfgTemplateData(grubMenuEntryName string, enableFips bool) interface
 		GrubTimeout                              int
 		GrubMenuEntryName, RecoveryPartitionName string
 		FipsArg                                  string
+		SetDefault                               bool
 	}{
 		GrubTimeout:           consts.GrubTimeout,
 		RecoveryPartitionName: consts.RecoveryPartitionName,
 		GrubMenuEntryName:     grubMenuEntryName,
 		FipsArg:               fipsArg,
+		SetDefault:            setDefault,
 	}
 }
 

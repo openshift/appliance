@@ -1,4 +1,6 @@
+{{- if .SetDefault}}
 set default='{{.GrubMenuEntryName}}'
+{{end -}}
 set timeout={{.GrubTimeout}}
 menuentry '{{.GrubMenuEntryName}}' --class gnu-linux --class gnu --class os {
   search --set=root --label {{.RecoveryPartitionName}}
