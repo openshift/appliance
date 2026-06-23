@@ -185,7 +185,7 @@ func (i *InstallIgnition) addRecoveryGrubConfigFile(tempDir string, enableFips *
 	// Generate user.cfg
 	if err := templates.RenderTemplateFile(
 		consts.UserCfgTemplateFile,
-		templates.GetUserCfgTemplateData(consts.GrubMenuEntryNameRecovery, swag.BoolValue(enableFips)),
+		templates.GetUserCfgTemplateData(consts.GrubMenuEntryNameRecovery, swag.BoolValue(enableFips), false),
 		tempDir); err != nil {
 		return err
 	}
