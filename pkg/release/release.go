@@ -30,6 +30,10 @@ const (
 	OcDefaultTries = 5
 	// OcDefaultRetryDelay is the time between retries
 	OcDefaultRetryDelay = time.Second * 5
+	// OcMirrorRetries is the number of times to retry the oc mirror command
+	OcMirrorRetries = 3
+	// OcMirrorRetryDelay is the time between oc mirror retries
+	OcMirrorRetryDelay = time.Second * 30
 	// QueryPattern formats the image names for a given release
 	QueryPattern = ".references.spec.tags[] | .name + \" \" + .from.name"
 )
@@ -39,7 +43,7 @@ const (
 	templateExtractCmd   = "oc adm release extract --command=%s --to=%s %s"
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
 	templateGetMetadata  = "oc adm release info %s -o json"
-	ocMirror             = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=4 --parallel-layers=4 --retry-times=10"
+	ocMirror             = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=3 --parallel-layers=4 --retry-times=5"
 	// ocMirrorDryRun is the command template for running oc mirror in dry-run mode to generate mapping.txt
 	ocMirrorDryRun = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --dry-run"
 )
@@ -252,8 +256,7 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 		}
 
 		logrus.Debugf("Fetching image from OCP release (%s)", cmd)
-		result, err := r.execute(cmd)
-		logrus.Debugf("mirroring result: %s", result)
+		_, err = retry.Do(OcMirrorRetries, OcMirrorRetryDelay, r.execute, cmd)
 		if err != nil {
 			return err
 		}
