@@ -118,8 +118,8 @@ var _ = Describe("Test Release", func() {
 		jsonOutput := `{"metadata":{"version":"4.13.1"}}`
 		mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
-		// Mock oc mirror command failure
-		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(1)
+		// Mock oc mirror command failure (retried OcMirrorRetries times)
+		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(OcMirrorRetries)
 
 		err = testRelease.MirrorInstallImages()
 		Expect(err).To(HaveOccurred())
