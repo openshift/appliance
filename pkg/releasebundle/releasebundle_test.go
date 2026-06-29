@@ -49,13 +49,15 @@ func TestBundlePush(t *testing.T) {
 	const port = 5005
 	tag := Tag("4.22.0-0.ci-2026-03-23-012741")
 	imageRef := registryImageRef(port, tag)
-	mockExec.EXPECT().Execute("podman build -f bundle/Dockerfile.bundle -t " + imageRef + " bundle").Return("", nil)
-	mockExec.EXPECT().Execute("podman push --tls-verify=false " + imageRef).Return("", nil)
+	relDigest := "sha256:58bdf24405449be5c78a1f27a7b64fc9ee980e4bc3c9b169e8b3da08e50e0388"
+	mockExec.EXPECT().Execute("podman build --annotation 'com.openshift.release-image-digest="+relDigest+"' -f bundle/Dockerfile.bundle -t "+imageRef+" bundle").Return("", nil)
+	mockExec.EXPECT().Execute("podman push --tls-verify=false "+imageRef).Return("", nil)
 
 	b := NewBundle(BundleConfig{
 		Executer:       mockExec,
 		Port:           port,
 		ReleaseVersion: "4.22.0-0.ci-2026-03-23-012741",
+		ReleaseImage:   "registry.ci.openshift.org/ocp/release@" + relDigest,
 	})
 
 	if err := b.Push(); err != nil {
@@ -74,12 +76,14 @@ func TestBundlePushBuildFails(t *testing.T) {
 	const port = 5005
 	tag := Tag("4.20.5-x86_64")
 	imageRef := registryImageRef(port, tag)
-	mockExec.EXPECT().Execute("podman build -f bundle/Dockerfile.bundle -t " + imageRef + " bundle").Return("", errors.New("boom"))
+	relDigest := "sha256:58bdf24405449be5c78a1f27a7b64fc9ee980e4bc3c9b169e8b3da08e50e0388"
+	mockExec.EXPECT().Execute("podman build --annotation 'com.openshift.release-image-digest="+relDigest+"' -f bundle/Dockerfile.bundle -t "+imageRef+" bundle").Return("", errors.New("boom"))
 
 	b := NewBundle(BundleConfig{
 		Executer:       mockExec,
 		Port:           port,
 		ReleaseVersion: "4.20.5-x86_64",
+		ReleaseImage:   "registry.ci.openshift.org/ocp/release@" + relDigest,
 	})
 
 	err := b.Push()
@@ -103,13 +107,15 @@ func TestBundlePushPushFails(t *testing.T) {
 	const port = 5005
 	tag := Tag("4.20.5-x86_64")
 	imageRef := registryImageRef(port, tag)
-	mockExec.EXPECT().Execute("podman build -f bundle/Dockerfile.bundle -t " + imageRef + " bundle").Return("", nil)
-	mockExec.EXPECT().Execute("podman push --tls-verify=false " + imageRef).Return("", errors.New("push boom"))
+	relDigest := "sha256:58bdf24405449be5c78a1f27a7b64fc9ee980e4bc3c9b169e8b3da08e50e0388"
+	mockExec.EXPECT().Execute("podman build --annotation 'com.openshift.release-image-digest="+relDigest+"' -f bundle/Dockerfile.bundle -t "+imageRef+" bundle").Return("", nil)
+	mockExec.EXPECT().Execute("podman push --tls-verify=false "+imageRef).Return("", errors.New("push boom"))
 
 	b := NewBundle(BundleConfig{
 		Executer:       mockExec,
 		Port:           port,
 		ReleaseVersion: "4.20.5-x86_64",
+		ReleaseImage:   "registry.ci.openshift.org/ocp/release@" + relDigest,
 	})
 
 	err := b.Push()

@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/openshift/appliance/pkg/executer"
 	"github.com/pkg/errors"
 )
 
 const (
-	bundleBuildCmd = "podman build -f %s -t %s %s"
+	bundleBuildCmd = "podman build --annotation 'com.openshift.release-image-digest=%s' -f %s -t %s %s"
 	bundlePushCmd  = "podman push --tls-verify=false %s"
 )
 
@@ -18,6 +19,7 @@ type BundleConfig struct {
 	Executer       executer.Executer
 	Port           int
 	ReleaseVersion string
+	ReleaseImage   string
 }
 
 type Bundle struct {
@@ -31,15 +33,28 @@ func NewBundle(config BundleConfig) *Bundle {
 	return &Bundle{BundleConfig: config}
 }
 
+func (b *Bundle) getReleaseDigest() (string, error) {
+	parts := strings.Split(b.ReleaseImage, "@")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("cannot extract digest from release image %s", b.ReleaseImage)
+	}
+	return parts[1], nil
+}
+
 func (b *Bundle) Push() error {
 	dockerfilePath, ctx, err := resolveDockerfile()
 	if err != nil {
 		return err
 	}
 
+	releaseDigest, err := b.getReleaseDigest()
+	if err != nil {
+		return err
+	}
+
 	tag := Tag(b.ReleaseVersion)
 	imageRef := registryImageRef(b.Port, tag)
-	buildCmd := fmt.Sprintf(bundleBuildCmd, dockerfilePath, imageRef, ctx)
+	buildCmd := fmt.Sprintf(bundleBuildCmd, releaseDigest, dockerfilePath, imageRef, ctx)
 	if _, err := b.Executer.Execute(buildCmd); err != nil {
 		return errors.Wrap(err, "build release bundle image")
 	}
