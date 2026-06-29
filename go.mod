@@ -1,6 +1,6 @@
 module github.com/openshift/appliance
 
-go 1.25.0
+go 1.25.8
 
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
@@ -219,7 +219,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.23 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/xattr v0.4.12 // indirect
-	github.com/ppc64le-cloud/powervs-utils v0.0.0-20250820090732-d58d915fd4b6 // indirect
+	github.com/ppc64le-cloud/powervs-utils v0.0.0-20260417184652-84e90bc52f3d // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
