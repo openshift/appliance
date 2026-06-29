@@ -11,7 +11,7 @@ require (
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coreos/ignition/v2 v2.21.0
 	github.com/coreos/stream-metadata-go v0.4.10
-	github.com/diskfs/go-diskfs v1.7.1-0.20251217162235-58541aa8f559
+	github.com/diskfs/go-diskfs v1.9.3
 	github.com/distribution/distribution/v3 v3.0.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-openapi/swag v0.23.0
@@ -100,7 +100,7 @@ require (
 	github.com/docker/go-events v0.0.0-20250808211157-605354379745 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/elliotwutingfeng/asciiset v0.0.0-20251209210403-59ed57bd7b86 // indirect
+	github.com/elliotwutingfeng/asciiset v0.0.0-20260129054604-cfde2086bc57 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/erofs/go-erofs v0.0.0-20250726210804-e84d089fc453 // indirect
 	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
@@ -170,7 +170,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kdomanski/iso9660 v0.2.1 // indirect
-	github.com/klauspost/compress v1.18.2 // indirect
+	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
@@ -216,7 +216,7 @@ require (
 	github.com/ovirt/go-ovirt v0.0.0-20210809163552-d4276e35d3db // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/pierrec/lz4/v4 v4.1.23 // indirect
+	github.com/pierrec/lz4/v4 v4.1.26 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/xattr v0.4.12 // indirect
 	github.com/ppc64le-cloud/powervs-utils v0.0.0-20250820090732-d58d915fd4b6 // indirect
