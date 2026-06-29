@@ -21,7 +21,7 @@ import (
 	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/sirupsen/logrus"
-	"github.com/thedevsaddam/retry"
+	"github.com/thedevsaddam/retry/v2"
 	"sigs.k8s.io/yaml"
 )
 
