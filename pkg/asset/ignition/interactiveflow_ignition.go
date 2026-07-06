@@ -25,6 +25,7 @@ func NewInteractiveFlowIgnition(releaseVersion, arch string) *interactiveFlowIgn
 func (i *interactiveFlowIgnition) AppendToIgnition(ign *igntypes.Config) {
 	i.appendControlFiles(ign)
 	i.appendInternalReleaseImageManifest(ign)
+	i.appendInternalReleaseImageManifestV1Alpha1(ign)
 }
 
 func (i *interactiveFlowIgnition) appendControlFiles(ign *igntypes.Config) {
@@ -47,7 +48,7 @@ func (i *interactiveFlowIgnition) appendInternalReleaseImageManifest(ign *igntyp
 
 	ocpBundleStr := releasebundle.Tag(versionForTag)
 
-	iriContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1alpha1
+	iriContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1
 kind: InternalReleaseImage
 metadata:
   name: cluster
@@ -58,5 +59,27 @@ spec:
 
 	// Keep the filepath in sync with openshift/installer#10176 until the installer min storage will be more robust.
 	iriFile := ignition.FileFromString("/etc/assisted/extra-manifests/internalreleaseimage.yaml", "root", 0644, iriContent)
+	ign.Storage.Files = append(ign.Storage.Files, iriFile)
+}
+
+func (i *interactiveFlowIgnition) appendInternalReleaseImageManifestV1Alpha1(ign *igntypes.Config) {
+	versionForTag := i.releaseVersion
+
+	if i.arch != "" {
+		versionForTag = fmt.Sprintf("%s-%s", i.releaseVersion, i.arch)
+	}
+
+	ocpBundleStr := releasebundle.Tag(versionForTag)
+
+	iriContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1alpha1
+kind: InternalReleaseImage
+metadata:
+  name: cluster-v1alpha1
+spec:
+  releases:
+  - name: %s
+`, ocpBundleStr)
+
+	iriFile := ignition.FileFromString("/etc/assisted/extra-manifests/internalreleaseimage-v1alpha1.yaml", "root", 0644, iriContent)
 	ign.Storage.Files = append(ign.Storage.Files, iriFile)
 }
