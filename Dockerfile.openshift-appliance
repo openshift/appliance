@@ -30,8 +30,8 @@ ENV LIBGUESTFS_BACKEND=direct
 RUN curl -sL -o /tmp/openshift-client-linux.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.22.1/openshift-client-linux.tar.gz || true
 RUN tar xvzf /tmp/openshift-client-linux.tar.gz -C /usr/local/bin && chmod +x /usr/local/bin/oc
 
-# Download oc-mirror
-RUN curl -sL -o /tmp/oc-mirror.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.22.1/oc-mirror.tar.gz || true
+# Download oc-mirror from CGW (Content Gateway)
+RUN curl -sL -o /tmp/oc-mirror.tar.gz https://mirror.openshift.com/pub/cgw/oc-mirror/oc-mirror.tar.gz || true
 RUN tar xvzf /tmp/oc-mirror.tar.gz -C /usr/local/bin && chmod +x /usr/local/bin/oc-mirror
 
 # Copy openshift-appliance binary
