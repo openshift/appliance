@@ -47,7 +47,7 @@ func (i *interactiveFlowIgnition) appendInternalReleaseImageManifest(ign *igntyp
 
 	ocpBundleStr := releasebundle.Tag(versionForTag)
 
-	iriContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1alpha1
+	iriContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1
 kind: InternalReleaseImage
 metadata:
   name: cluster
