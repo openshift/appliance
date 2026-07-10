@@ -118,8 +118,8 @@ var _ = Describe("Test Release", func() {
 		jsonOutput := `{"metadata":{"version":"4.13.1"}}`
 		mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
-		// Mock oc mirror command failure
-		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(1)
+		// Mock oc mirror command failure (retried OcMirrorRetries times)
+		mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("some error")).Times(OcMirrorRetries)
 
 		err = testRelease.MirrorInstallImages()
 		Expect(err).To(HaveOccurred())
@@ -271,7 +271,7 @@ var _ = Describe("Test Release", func() {
 		cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
 		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
 
-		_, err := testRelease.GetImageFromRelease(imageName)
+		_, err = testRelease.GetImageFromRelease(imageName)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
