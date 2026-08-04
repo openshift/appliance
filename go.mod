@@ -38,7 +38,7 @@ require (
 	golang.org/x/term v0.44.0
 	k8s.io/api v0.30.3
 	k8s.io/apimachinery v0.30.3
-	sigs.k8s.io/yaml v1.4.0
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
