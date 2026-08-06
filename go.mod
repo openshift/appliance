@@ -25,7 +25,7 @@ require (
 	github.com/openshift/assisted-image-service v0.0.0-20260130223312-503834119b3e
 	github.com/openshift/assisted-service/api v0.0.0
 	github.com/openshift/hive/apis v0.0.0-20231220215202-ad99b9e52d27
-	github.com/openshift/installer v0.0.0-20241029183827-aa89bb16f585
+	github.com/openshift/installer v1.4.17-0.20241029183827-aa89bb16f585
 	github.com/openshift/machine-config-operator v0.0.1-0.20201023110058-6c8bd9b2915c
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pkg/errors v0.9.1
@@ -301,7 +301,7 @@ require (
 	k8s.io/kubectl v0.30.3 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
 	sigs.k8s.io/cluster-api v1.8.4 // indirect
-	sigs.k8s.io/cluster-api-provider-aws/v2 v2.6.1 // indirect
+	sigs.k8s.io/cluster-api-provider-aws/v2 v2.6.2-0.20251023220133-66942942ff92 // indirect
 	sigs.k8s.io/cluster-api-provider-azure v1.15.1-0.20240617212811-a52056dfb88c // indirect
 	sigs.k8s.io/cluster-api-provider-gcp v1.7.1-0.20240724153512-c3b8b533143c // indirect
 	sigs.k8s.io/cluster-api-provider-ibmcloud v0.7.0 // indirect
