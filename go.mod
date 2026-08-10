@@ -16,7 +16,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-openapi/swag v0.23.0
 	github.com/golang/mock v1.7.0-rc.1
-	github.com/hashicorp/go-version v1.8.0
+	github.com/hashicorp/go-version v1.9.0
 	github.com/itchyny/gojq v0.12.18
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
