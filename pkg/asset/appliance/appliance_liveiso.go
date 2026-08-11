@@ -216,6 +216,15 @@ func (a *ApplianceLiveISO) buildLiveISO(
 		logrus.Errorf("Error creating isohybrid: %s", err)
 	}
 
+	// Clean up work directory now that appliance.iso has been created
+	if envConfig.PreserveTempDirs {
+		logrus.Infof("Preserving work directory for debugging: %s", workDir)
+	} else {
+		if err = os.RemoveAll(workDir); err != nil {
+			logrus.Warnf("Failed to clean up work directory %s: %v", workDir, err)
+		}
+	}
+
 	return log.StopSpinner(spinner, nil)
 }
 
