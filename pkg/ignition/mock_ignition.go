@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	types "github.com/coreos/ignition/v2/config/v3_2/types"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockIgnition is a mock of Ignition interface.
