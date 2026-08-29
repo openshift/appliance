@@ -29,7 +29,7 @@ require (
 	github.com/openshift/machine-config-operator v0.0.1-0.20201023110058-6c8bd9b2915c
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pkg/errors v0.9.1
-	github.com/sirupsen/logrus v1.9.4
+	github.com/sirupsen/logrus v1.10.2
 	github.com/spf13/cobra v1.10.2
 	github.com/thedevsaddam/retry v1.2.1
 	github.com/thoas/go-funk v0.9.3
@@ -265,7 +265,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
 	golang.org/x/mod v0.36.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
