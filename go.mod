@@ -1,6 +1,6 @@
 module github.com/openshift/appliance
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
@@ -316,6 +316,6 @@ require (
 
 replace (
 	github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20250922204150-a52b83145bea
-	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20250922204150-a52b83145bea
+	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20260827101608-ddaa6f5c1eb1
 	sigs.k8s.io/cluster-api-provider-ibmcloud => sigs.k8s.io/cluster-api-provider-ibmcloud v0.9.0-beta.0.0.20241029051454-9b0770491a76
 )
