@@ -1,6 +1,6 @@
 module github.com/openshift/appliance
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
@@ -272,7 +272,7 @@ require (
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.39.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
