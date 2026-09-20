@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	"github.com/openshift/appliance/pkg/executer"
 )
 
