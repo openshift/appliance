@@ -19,7 +19,7 @@ require (
 	github.com/hashicorp/go-version v1.8.0
 	github.com/itchyny/gojq v0.12.18
 	github.com/onsi/ginkgo/v2 v2.28.1
-	github.com/onsi/gomega v1.39.1
+	github.com/onsi/gomega v1.43.1
 	github.com/openconfig/goyang v1.6.3
 	github.com/openshift/api v0.0.0-20240808203820-e69593239e49
 	github.com/openshift/assisted-image-service v0.0.0-20260130223312-503834119b3e
@@ -267,7 +267,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
