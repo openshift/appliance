@@ -73,7 +73,9 @@ func (*ApplianceConfig) Name() string {
 // Dependencies returns all the dependencies directly needed to generate
 // the asset.
 func (*ApplianceConfig) Dependencies() []asset.Asset {
-	return []asset.Asset{}
+	return []asset.Asset{
+		&ApplianceConfigProvider{},
+	}
 }
 
 // GetConfigFilename returns the filename of the config file.
@@ -83,6 +85,26 @@ func (a *ApplianceConfig) GetConfigFilename() string {
 
 // Generate generates the Agent Config manifest.
 func (a *ApplianceConfig) Generate(dependencies asset.Parents) error {
+	base := &ApplianceConfigProvider{}
+	dependencies.Get(base)
+
+	// When no config was injected via the provider, Generate falls through
+	// to produce the sample template below (legacy appliance flow).
+	// When a caller has pre-populated the provider (e.g. iso-builder),
+	// we use it directly and finalize (validate, resolve release, etc.).
+	if base.Config != nil {
+		a.Config = base.Config
+		data, err := yaml.Marshal(a.Config)
+		if err != nil {
+			return errors.Wrap(err, "failed to marshal injected config")
+		}
+		a.File = &asset.File{
+			Filename: ApplianceConfigFilename,
+			Data:     data,
+		}
+		return a.finalize()
+	}
+
 	applianceConfigTemplate := `#
 # Note: This is a sample ApplianceConfig file showing
 # which fields are available to aid you in creating your
@@ -293,49 +315,54 @@ func (a *ApplianceConfig) Load(f asset.FileFetcher) (bool, error) {
 
 	a.File, a.Config = file, config
 
-	if err = a.validateConfig(f).ToAggregate(); err != nil {
-		return false, errors.Wrapf(err, "invalid Appliance Config configuration")
+	if err := a.finalize(); err != nil {
+		return false, err
 	}
 
-	// Fallback to x86_64
-	if config.OcpRelease.CpuArchitecture == nil {
-		config.OcpRelease.CpuArchitecture = swag.String(CpuArchitectureX86)
+	return true, nil
+}
+
+func (a *ApplianceConfig) finalize() error {
+	if err := a.validateConfig(nil).ToAggregate(); err != nil {
+		return errors.Wrapf(err, "invalid Appliance Config configuration")
 	}
 
-	cpuArch := strings.ToLower(*config.OcpRelease.CpuArchitecture)
+	if a.Config.OcpRelease.CpuArchitecture == nil {
+		a.Config.OcpRelease.CpuArchitecture = swag.String(CpuArchitectureX86)
+	}
+
+	cpuArch := strings.ToLower(*a.Config.OcpRelease.CpuArchitecture)
 	if !funk.Contains(cpuArchitectures, cpuArch) {
-		return false, errors.Errorf("Unsupported CPU architecture: %s", cpuArch)
+		return errors.Errorf("Unsupported CPU architecture: %s", cpuArch)
 	}
-	config.OcpRelease.CpuArchitecture = swag.String(cpuArch)
+	a.Config.OcpRelease.CpuArchitecture = swag.String(cpuArch)
 
-	// Store pull secret in a tmp file
-	if err = a.storePullSecret(); err != nil {
-		return false, err
+	if err := a.storePullSecret(); err != nil {
+		return err
 	}
 
-	// Get OCP release image URL and version
-	releaseImage, releaseVersion, err = a.GetRelease()
+	releaseImage, releaseVersion, err := a.GetRelease()
 	if err != nil {
-		return false, err
+		return err
 	}
-	config.OcpRelease.URL = &releaseImage
-	config.OcpRelease.Version = releaseVersion
+	a.Config.OcpRelease.URL = &releaseImage
+	a.Config.OcpRelease.Version = releaseVersion
 
-	if config.ImageRegistry == nil {
-		config.ImageRegistry = &types.ImageRegistry{
+	if a.Config.ImageRegistry == nil {
+		a.Config.ImageRegistry = &types.ImageRegistry{
 			URI:  swag.String(""),
 			Port: swag.Int(consts.RegistryPort),
 		}
 	} else {
-		if config.ImageRegistry.URI == nil {
-			config.ImageRegistry.URI = swag.String("")
+		if a.Config.ImageRegistry.URI == nil {
+			a.Config.ImageRegistry.URI = swag.String("")
 		}
-		if config.ImageRegistry.Port == nil {
-			config.ImageRegistry.Port = swag.Int(consts.RegistryPort)
+		if a.Config.ImageRegistry.Port == nil {
+			a.Config.ImageRegistry.Port = swag.Int(consts.RegistryPort)
 		}
 	}
 
-	return true, nil
+	return nil
 }
 
 func (a *ApplianceConfig) GetCpuArchitecture() string {

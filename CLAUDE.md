@@ -41,11 +41,12 @@ Refer to `docs/iso-builder/iso-builder-spec.md` for the full design specificatio
 
 - Test framework: golang
 - Unit test files live next to the code they test
-- When testing different cases for the same scenario, use the cases := []struct{} to capture the relevant key fields for the test. Add always a speaking
-  name field to represent the current case.
+- When testing different cases for the same scenario, use the cases := []struct{} to capture the
+  relevant key fields for the test. Add always a speaking name field to represent the current case.
 - Reuse the existing test methods if possible.
 - Keep the test focused on the behaviors, avoid testing unnecessary technical details.
 - Do not add too many comments to the tests
+- Try to use only the exported methods for a given type in the tests. 
 
 ### Error handling
 

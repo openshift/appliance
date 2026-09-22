@@ -1,4 +1,5 @@
 IMAGE := $(or ${IMAGE}, quay.io/edge-infrastructure/openshift-appliance:latest)
+ISO_BUILDER_IMAGE := $(or ${ISO_BUILDER_IMAGE}, quay.io/edge-infrastructure/openshift-iso-builder:latest)
 PWD = $(shell pwd)
 LOG_LEVEL := $(or ${LOG_LEVEL}, info)
 CMD := $(or ${CMD}, build)
@@ -30,6 +31,13 @@ build:
 build-appliance:
 	mkdir -p build
 	cd ./cmd && CGO_ENABLED=1 GOFLAGS="" go build -o ../build/openshift-appliance
+
+build-iso-builder:
+	mkdir -p build
+	cd ./cmd/iso-builder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/openshift-iso-builder
+
+build-iso-builder-image:
+	podman build -f Dockerfile.iso-builder . -t $(ISO_BUILDER_IMAGE)
 
 build-openshift-ci-test-bin:
 	./hack/setup_env.sh
