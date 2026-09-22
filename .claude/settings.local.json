@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export GOMODCACHE=/tmp/claude-1000/gomodcache)",
+      "Bash(export GOCACHE=/tmp/claude-1000/gobuildcache)",
+      "Bash(go build *)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
+  }
+}
