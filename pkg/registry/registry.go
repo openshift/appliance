@@ -13,8 +13,8 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
+	"github.com/openshift/appliance/pkg/imagecopy"
 	"github.com/openshift/appliance/pkg/release"
-	"github.com/openshift/appliance/pkg/skopeo"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -25,7 +25,6 @@ const (
 	registryStopCmd      = "podman rm registry -f"
 	registryBuildCmd     = "podman build -f Dockerfile.registry -t registry ."
 	registrySaveCmd      = "podman push %s dir:%s/registry"
-	registryLoadCmd      = "skopeo copy dir:%s/registry containers-storage:localhost/registry:latest"
 	registryRunBinaryCmd = "/registry serve config.yml"
 
 	registryAttempts             = 3
@@ -184,11 +183,9 @@ func BuildRegistryImage(destDir string) error {
 	return err
 }
 
-func LoadRegistryImage(cacheDir string) error {
-	exec := executer.NewExecuter()
-	// Load image
-	_, err := exec.Execute(fmt.Sprintf(registryLoadCmd, cacheDir))
-	return err
+func LoadRegistryImage(cacheDir, arch string) error {
+	dirPath := filepath.Join(cacheDir, "registry")
+	return imagecopy.LoadToStorage(dirPath, consts.RegistryImage, arch)
 }
 
 // ShouldUseOcpRegistry determines if the OCP docker-registry image should be used
@@ -298,7 +295,7 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 			// Pull the source registry image (docker-registry from OCP release or from appliance config)
 			// and copy it to dir format to preserve digests
 			logrus.Infof("Copying registry image from %s to %s", sourceRegistryUri, consts.RegistryImage)
-			if err := skopeo.NewSkopeo(nil).CopyToFile(
+			if err := imagecopy.CopyToFile(
 				sourceRegistryUri,
 				consts.RegistryImage,
 				fileInCachePath); err != nil {
@@ -310,7 +307,8 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 	}
 
 	// Load the registry image into podman storage
-	if err := LoadRegistryImage(envConfig.CacheDir); err != nil {
+	arch := config.GetReleaseArchitectureByCPU(applianceConfig.GetCpuArchitecture())
+	if err := LoadRegistryImage(envConfig.CacheDir, arch); err != nil {
 		return "", err
 	}
 
