@@ -8,7 +8,6 @@ packages:
   - genisoimage
   - coreos-installer
   - syslinux
-  - skopeo
   - podman
 arches:
   - x86_64

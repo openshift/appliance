@@ -18,7 +18,6 @@ of an OpenShift cluster. Thus, all required images are included in the appliance
 * coreos-installer
 * oc
 * oc-mirror
-* skopeo
 * podman
 * go >= 1.19
 

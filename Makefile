@@ -18,7 +18,7 @@ GINKGO_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo
 
 TIMEOUT = 30m
 GINKGO_REPORTFILE := $(or $(GINKGO_REPORTFILE), ./junit_unit_test.xml)
-GO_UNITTEST_FLAGS = --format=$(GO_TEST_FORMAT) $(GOTEST_PUBLISH_FLAGS) -- -count=1 -cover -coverprofile=$(COVER_PROFILE)
+GO_UNITTEST_FLAGS = --format=$(GO_TEST_FORMAT) $(GOTEST_PUBLISH_FLAGS) -- -tags containers_image_openpgp -count=1 -cover -coverprofile=$(COVER_PROFILE)
 GINKGO_UNITTEST_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo.v -ginkgo.junit-report=$(GINKGO_REPORTFILE)
 
 
@@ -29,16 +29,16 @@ build:
 
 build-appliance:
 	mkdir -p build
-	cd ./cmd && CGO_ENABLED=1 GOFLAGS="" go build -o ../build/openshift-appliance
+	cd ./cmd && CGO_ENABLED=1 GOFLAGS="" go build -tags containers_image_openpgp -o ../build/openshift-appliance
 
 build-openshift-ci-test-bin:
 	./hack/setup_env.sh
 
 lint:
-	golangci-lint run -v --timeout=20m
+	golangci-lint run -v --timeout=20m --build-tags containers_image_openpgp
 
 test: $(REPORTS)
-	go test -v -count=1 -cover -coverprofile=$(COVER_PROFILE) ./...
+	go test -tags containers_image_openpgp -v -count=1 -cover -coverprofile=$(COVER_PROFILE) ./...
 	$(MAKE) _coverage
 
 _coverage:
@@ -47,7 +47,7 @@ ifeq ($(CI), true)
 endif
 
 test-short:
-	go test -short ./...
+	go test -tags containers_image_openpgp -short ./...
 
 generate:
 	go generate $(shell go list ./...)

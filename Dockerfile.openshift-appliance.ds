@@ -4,7 +4,7 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
 COPY . .
-RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/openshift-appliance
+RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -tags containers_image_openpgp -o /tmp/openshift-appliance
 
 # Build registry
 RUN cd registry && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/registry
@@ -24,8 +24,8 @@ RUN mkdir $ASSETS_DIR && chmod 775 $ASSETS_DIR
 VOLUME $ASSETS_DIR
 ENV ASSETS_DIR=$ASSETS_DIR
 
-# Install skopeo/podman/libguestfs
-RUN microdnf -y install skopeo podman guestfs-tools genisoimage coreos-installer syslinux && microdnf clean all
+# Install podman/libguestfs
+RUN microdnf -y install podman guestfs-tools genisoimage coreos-installer syslinux && microdnf clean all
 
 # Config libguestfs
 ENV LIBGUESTFS_BACKEND=direct
