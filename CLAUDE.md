@@ -30,6 +30,7 @@ Refer to `docs/iso-builder/iso-builder-spec.md` for the full design specificatio
 - Do not perform broad refactors unless needed to make the behavior testable.
 - Minimize comments, and keep them short.
 - Ensure that any new portion of code is covered at least by one or more unit tests.
+- Ensure to add a brief doc for each export symbol
 
 ### Naming
 

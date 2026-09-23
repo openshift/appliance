@@ -21,18 +21,22 @@ import (
 )
 
 const (
+	// OutputISOPattern is the naming pattern for the generated ISO file.
 	OutputISOPattern = "agent.%s.iso"
 	outputArch       = "x86_64"
 )
 
+// Builder orchestrates the ISO build process.
 type Builder struct {
 	workingDir string
 }
 
+// NewBuilder creates a Builder that writes artifacts to workingDir.
 func NewBuilder(workingDir string) *Builder {
 	return &Builder{workingDir: workingDir}
 }
 
+// Build generates the installation ISO using the embedded configuration.
 func (b *Builder) Build(ctx context.Context) error {
 	store, err := assetstore.NewStore(b.workingDir)
 	if err != nil {
@@ -73,6 +77,7 @@ func (b *Builder) renameOutput(outputISO string) error {
 	return nil
 }
 
+// DefaultConfig returns the hard-coded appliance configuration used for building.
 func DefaultConfig() *types.ApplianceConfig {
 	channel := graph.ReleaseChannelStable
 
