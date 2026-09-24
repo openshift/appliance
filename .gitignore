@@ -5,3 +5,5 @@
 /assets
 
 .DS_Store
+.claude/settings.local.json
+pkg/iso-builder/config_embed_area.bin

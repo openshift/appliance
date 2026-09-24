@@ -4,11 +4,11 @@ COPY go.sum go.sum
 COPY pkg/iso-builder/config/go.mod pkg/iso-builder/config/go.mod
 RUN go mod download
 COPY . .
-RUN cd cmd/iso-builder && CGO_ENABLED=0 GOFLAGS="" GO111MODULE=on go build -o /tmp/openshift-iso-builder
+RUN make build-iso-builder
 
 FROM registry.access.redhat.com/ubi9/ubi-micro:9.7
 
-COPY --from=builder /tmp/openshift-iso-builder /openshift-iso-builder
+COPY --from=builder build/openshift-iso-builder /openshift-iso-builder
 
 LABEL summary="OpenShift ISO Builder" \
       name="openshift-iso-builder" \
