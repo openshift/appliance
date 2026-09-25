@@ -5,7 +5,7 @@ RUN go mod download
 COPY . .
 RUN cd cmd/iso-builder && CGO_ENABLED=0 GOFLAGS="" GO111MODULE=on go build -o /tmp/openshift-iso-builder
 
-FROM registry.access.redhat.com/ubi9/ubi-micro:9.7
+FROM registry.access.redhat.com/ubi9/ubi-micro:9.8-1789345812
 
 COPY --from=builder /tmp/openshift-iso-builder /openshift-iso-builder
 
