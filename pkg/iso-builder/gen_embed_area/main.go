@@ -17,7 +17,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}()
 
 	if _, err := f.WriteString(isobuilder.ConfigStartMarker); err != nil {
 		panic(err)
