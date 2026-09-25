@@ -43,13 +43,10 @@ build-iso-builder-image:
 build-openshift-ci-test-bin:
 	./hack/setup_env.sh
 
-generate-embed:
-	cd pkg/iso-builder && go generate ./...
-
-lint: generate-embed
+lint:
 	golangci-lint run -v --timeout=20m
 
-test: $(REPORTS) generate-embed
+test: $(REPORTS)
 	go test -v -count=1 -cover -coverprofile=$(COVER_PROFILE) ./...
 	$(MAKE) _coverage
 
