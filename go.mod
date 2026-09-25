@@ -6,7 +6,6 @@ require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/briandowns/spinner v1.23.2
-	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coreos/ignition/v2 v2.21.0
@@ -80,6 +79,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bshuster-repo/logrus-logstash-hook v1.0.0 // indirect
+	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
@@ -228,7 +228,6 @@ require (
 	github.com/redis/go-redis/extra/rediscmd/v9 v9.0.5 // indirect
 	github.com/redis/go-redis/extra/redisotel/v9 v9.0.5 // indirect
 	github.com/redis/go-redis/v9 v9.7.3 // indirect
-	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/shurcooL/httpfs v0.0.0-20230704072500-f1e31cf0ba5c // indirect
@@ -240,11 +239,11 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.mongodb.org/mongo-driver v1.17.10 // indirect
-	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/bridges/prometheus v0.57.0 // indirect
 	go.opentelemetry.io/contrib/exporters/autoexport v0.57.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 // indirect
-	go.opentelemetry.io/otel v1.34.0 // indirect
+	go.opentelemetry.io/otel v1.38.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.8.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.8.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.32.0 // indirect
@@ -257,11 +256,11 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.32.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.32.0 // indirect
 	go.opentelemetry.io/otel/log v0.8.0 // indirect
-	go.opentelemetry.io/otel/metric v1.34.0 // indirect
+	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
 	go.opentelemetry.io/otel/sdk/log v0.8.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.34.0 // indirect
-	go.opentelemetry.io/otel/trace v1.34.0 // indirect
+	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.starlark.net v0.0.0-20251029211736-7849196f18cf // indirect
 	go.uber.org/multierr v1.11.0 // indirect
