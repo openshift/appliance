@@ -25,7 +25,7 @@ VOLUME $ASSETS_DIR
 ENV ASSETS_DIR=$ASSETS_DIR
 
 # Install skopeo/podman/libguestfs
-RUN microdnf -y install skopeo podman guestfs-tools genisoimage coreos-installer syslinux && microdnf clean all
+RUN microdnf -y install skopeo podman guestfs-tools coreos-installer syslinux && microdnf clean all
 
 # Config libguestfs
 ENV LIBGUESTFS_BACKEND=direct
