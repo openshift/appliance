@@ -34,6 +34,7 @@ build-appliance:
 
 build-iso-builder:
 	mkdir -p build
+	cd ./pkg/iso-builder && go generate ./...
 	cd ./cmd/iso-builder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/openshift-iso-builder
 
 build-iso-builder-image:
