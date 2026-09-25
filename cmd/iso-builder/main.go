@@ -1,15 +1,18 @@
 package main
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	appliancedata "github.com/openshift/appliance/data"
 	"github.com/openshift/appliance/pkg/log"
 
 	isobuilder "github.com/openshift/appliance/pkg/iso-builder"
+	installerdata "github.com/openshift/installer/data"
 )
 
 var (
@@ -22,6 +25,11 @@ var (
 )
 
 func main() {
+	// Embed the data/ directory (systemd units, scripts, udev rules) into
+	// the binary so iso-builder runs standalone without needing the repo
+	// layout on disk.
+	installerdata.Assets = http.FS(appliancedata.EmbeddedAssets)
+
 	rootCmd := newRootCmd()
 	rootCmd.AddCommand(newBuildCmd())
 
