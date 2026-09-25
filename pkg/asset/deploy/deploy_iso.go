@@ -13,7 +13,7 @@ import (
 	"github.com/openshift/appliance/pkg/coreos"
 	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/log"
-	"github.com/openshift/appliance/pkg/skopeo"
+	"github.com/openshift/appliance/pkg/imagecopy"
 	"github.com/openshift/appliance/pkg/syslinux"
 	"github.com/openshift/assisted-image-service/pkg/isoeditor"
 	"github.com/openshift/installer/pkg/asset"
@@ -126,7 +126,7 @@ func (i *DeployISO) buildDeploymentIso(envConfig *config.EnvConfig, applianceCon
 		envConfig,
 	)
 	applianceTarFile := filepath.Join(deployDir, consts.ApplianceImageTar)
-	if err = skopeo.NewSkopeo(nil).CopyToFile(
+	if err = imagecopy.NewImageCopier().CopyToFile(
 		consts.ApplianceImage, consts.ApplianceImageName, applianceTarFile); err != nil {
 		return err
 	}

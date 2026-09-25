@@ -13,8 +13,8 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
+	"github.com/openshift/appliance/pkg/imagecopy"
 	"github.com/openshift/appliance/pkg/release"
-	"github.com/openshift/appliance/pkg/skopeo"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -25,7 +25,8 @@ const (
 	registryStopCmd      = "podman rm registry -f"
 	registryBuildCmd     = "podman build -f Dockerfile.registry -t registry ."
 	registrySaveCmd      = "podman push %s dir:%s/registry"
-	registryLoadCmd      = "skopeo copy dir:%s/registry containers-storage:localhost/registry:latest"
+	registryPullDirCmd = "podman pull -q dir:%s/registry"
+	registryTagCmd     = "podman tag %s localhost/registry:latest"
 	registryRunBinaryCmd = "/registry serve config.yml"
 
 	registryAttempts             = 3
@@ -186,9 +187,24 @@ func BuildRegistryImage(destDir string) error {
 
 func LoadRegistryImage(cacheDir string) error {
 	exec := executer.NewExecuter()
-	// Load image
-	_, err := exec.Execute(fmt.Sprintf(registryLoadCmd, cacheDir))
-	return err
+
+	// Pull the dir-format image into podman storage
+	output, err := exec.Execute(fmt.Sprintf(registryPullDirCmd, cacheDir))
+	if err != nil {
+		return errors.Wrap(err, "failed to pull registry image from dir")
+	}
+
+	// podman pull -q outputs the image ID; tag it as localhost/registry:latest
+	imageID := strings.TrimSpace(output)
+	if imageID == "" {
+		return errors.New("podman pull did not return an image ID")
+	}
+	_, err = exec.Execute(fmt.Sprintf(registryTagCmd, imageID))
+	if err != nil {
+		return errors.Wrapf(err, "failed to tag registry image as %s", consts.RegistryImage)
+	}
+
+	return nil
 }
 
 // ShouldUseOcpRegistry determines if the OCP docker-registry image should be used
@@ -298,7 +314,7 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 			// Pull the source registry image (docker-registry from OCP release or from appliance config)
 			// and copy it to dir format to preserve digests
 			logrus.Infof("Copying registry image from %s to %s", sourceRegistryUri, consts.RegistryImage)
-			if err := skopeo.NewSkopeo(nil).CopyToFile(
+			if err := imagecopy.NewImageCopier().CopyToFile(
 				sourceRegistryUri,
 				consts.RegistryImage,
 				fileInCachePath); err != nil {
