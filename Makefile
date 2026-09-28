@@ -37,6 +37,10 @@ build-iso-builder:
 	cd ./pkg/iso-builder && go generate ./...
 	cd ./cmd/iso-builder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/openshift-iso-builder
 
+build-iso-config-embedder:
+	mkdir -p build
+	cd ./cmd/iso-config-embedder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/iso-config-embedder
+
 build-iso-builder-image:
 	podman build -f Dockerfile.iso-builder . -t $(ISO_BUILDER_IMAGE)
 

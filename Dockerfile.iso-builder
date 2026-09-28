@@ -5,10 +5,12 @@ COPY pkg/iso-builder/config/go.mod pkg/iso-builder/config/go.mod
 RUN go mod download
 COPY . .
 RUN make build-iso-builder
+RUN make build-iso-config-embedder
 
 FROM registry.access.redhat.com/ubi9/ubi-micro:9.7
 
 COPY --from=builder build/openshift-iso-builder /openshift-iso-builder
+COPY --from=builder build/iso-config-embedder /iso-config-embedder
 
 LABEL summary="OpenShift ISO Builder" \
       name="openshift-iso-builder" \
