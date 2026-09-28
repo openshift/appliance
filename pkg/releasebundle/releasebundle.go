@@ -3,6 +3,7 @@ package releasebundle
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/openshift/appliance/pkg/executer"
@@ -33,15 +34,26 @@ func NewBundle(config BundleConfig) *Bundle {
 
 func (b *Bundle) Push() error {
 	dockerfilePath, ctx, err := resolveDockerfile()
-	if err != nil {
-		return err
-	}
 
 	tag := Tag(b.ReleaseVersion)
 	imageRef := registryImageRef(b.Port, tag)
-	buildCmd := fmt.Sprintf(bundleBuildCmd, dockerfilePath, imageRef, ctx)
-	if _, err := b.Executer.Execute(buildCmd); err != nil {
-		return errors.Wrap(err, "build release bundle image")
+
+	// When running inside the appliance container, Dockerfile.bundle is at
+	// /Dockerfile.bundle; from the repo root it's at bundle/Dockerfile.bundle.
+	// For standalone iso-builder neither path exists, so we fall back to piping
+	// a minimal "FROM scratch" Dockerfile via stdin to avoid any file dependency.
+	// The fallback uses exec.Command directly because the Executer splits on
+	// spaces and cannot handle shell pipes.
+	if err == nil {
+		buildCmd := fmt.Sprintf(bundleBuildCmd, dockerfilePath, imageRef, ctx)
+		if _, err := b.Executer.Execute(buildCmd); err != nil {
+			return errors.Wrap(err, "build release bundle image")
+		}
+	} else {
+		pipeline := fmt.Sprintf("echo 'FROM scratch' | podman build -f - -t %s", imageRef)
+		if out, cmdErr := exec.Command("bash", "-c", pipeline).CombinedOutput(); cmdErr != nil {
+			return errors.Wrap(fmt.Errorf("%s: %s", cmdErr, string(out)), "build release bundle image")
+		}
 	}
 
 	pushCmd := fmt.Sprintf(bundlePushCmd, imageRef)
