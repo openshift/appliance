@@ -124,10 +124,15 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return log.StopSpinner(spinner, err)
 	}
 
-	// Build and push release bundle image
+	// Build and push release bundle image. The version must match the one used
+	// for the InternalReleaseImage manifest in the recovery ignition.
+	bundleVersion, err := r.BundleVersion(releaseVersion)
+	if err != nil {
+		return log.StopSpinner(spinner, err)
+	}
 	bundle := releasebundle.NewBundle(releasebundle.BundleConfig{
 		Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
-		ReleaseVersion: releaseVersion,
+		ReleaseVersion: bundleVersion,
 	})
 	if err = bundle.Push(); err != nil {
 		return log.StopSpinner(spinner, err)
