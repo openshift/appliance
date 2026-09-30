@@ -85,20 +85,14 @@ func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
 		}
 		rel := release.NewRelease(releaseConfig)
 
-		isStable, err := rel.IsStableRelease()
+		// Must match the version used for the release bundle pushed to the
+		// registry in the data ISO.
+		bundleVersion, err := rel.BundleVersion(releaseVersion)
 		if err != nil {
-			return errors.Wrapf(err, "failed to determine if release is stable")
+			return err
 		}
 
-		arch := ""
-		if isStable {
-			arch, err = rel.GetArchitecture()
-			if err != nil {
-				return errors.Wrapf(err, "failed to get architecture from release metadata")
-			}
-		}
-
-		ifi := NewInteractiveFlowIgnition(releaseVersion, arch)
+		ifi := NewInteractiveFlowIgnition(bundleVersion)
 		ifi.AppendToIgnition(&bootstrapIgnition.Config)
 	}
 
