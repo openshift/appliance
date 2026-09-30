@@ -30,6 +30,7 @@ Refer to `docs/iso-builder/iso-builder-spec.md` for the full design specificatio
 - Do not perform broad refactors unless needed to make the behavior testable.
 - Minimize comments, and keep them short.
 - Ensure that any new portion of code is covered at least by one or more unit tests.
+- Ensure to add a brief doc for each export symbol
 
 ### Naming
 
@@ -39,6 +40,9 @@ Refer to `docs/iso-builder/iso-builder-spec.md` for the full design specificatio
 
 ### Testing
 
+- `make lint` — runs `golangci-lint`; run before committing
+- `make test` — default command to verify both legacy appliance code and new iso-builder
+- `make unit-test` — runs tests via `gotestsum` with JUnit reporting; supports `TEST=./pkg/foo` to scope
 - Test framework: golang
 - Unit test files live next to the code they test
 - When testing different cases for the same scenario, use the cases := []struct{} to capture the
