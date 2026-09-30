@@ -20,7 +20,7 @@ ENV ASSETS_DIR=$ASSETS_DIR
 
 # Install skopeo/podman/libguestfs
 RUN DNF=$(command -v microdnf || command -v dnf) && \
-    $DNF -y install skopeo podman guestfs-tools genisoimage coreos-installer syslinux && \
+    $DNF -y install skopeo podman guestfs-tools coreos-installer syslinux && \
     $DNF clean all
 
 # Config libguestfs

@@ -15,11 +15,11 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
-	"github.com/openshift/appliance/pkg/genisoimage"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/appliance/pkg/templates"
+	"github.com/openshift/assisted-image-service/pkg/isoeditor"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
 )
@@ -167,12 +167,11 @@ func (u *UpgradeISO) Generate(dependencies asset.Parents) error {
 		envConfig,
 	)
 	spinner.FileToMonitor = upgradeISOName
-	imageGen := genisoimage.NewGenIsoImage(nil)
 	upgradeVolumeName := fmt.Sprintf(upgradeVolumeNamePattern, releaseVersion)
-	if err = imageGen.GenerateImage(envConfig.AssetsDir, upgradeISOName, filepath.Join(envConfig.TempDir, upgradeDataDir), upgradeVolumeName); err != nil {
+	upgradeIsoPath := filepath.Join(envConfig.AssetsDir, upgradeISOName)
+	if err = isoeditor.Create(upgradeIsoPath, filepath.Join(envConfig.TempDir, upgradeDataDir), upgradeVolumeName); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
-	upgradeIsoPath := filepath.Join(envConfig.AssetsDir, upgradeISOName)
 	return log.StopSpinner(spinner, u.updateAsset(upgradeIsoPath, machineConfigFileName))
 }
 

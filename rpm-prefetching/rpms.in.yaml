@@ -5,7 +5,6 @@ context:
 packages:
   - yum-utils
   - guestfs-tools
-  - genisoimage
   - coreos-installer
   - syslinux
   - skopeo
