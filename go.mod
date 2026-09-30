@@ -26,7 +26,7 @@ require (
 	github.com/openshift/assisted-image-service v0.0.0-20260130223312-503834119b3e
 	github.com/openshift/assisted-service/api v0.0.0
 	github.com/openshift/hive/apis v0.0.0-20231220215202-ad99b9e52d27
-	github.com/openshift/installer v0.0.0-20241029183827-aa89bb16f585
+	github.com/openshift/installer v0.0.0-20260928153737-6d44cca7d82f
 	github.com/openshift/machine-config-operator v0.0.1-0.20201023110058-6c8bd9b2915c
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pkg/errors v0.9.1
@@ -319,7 +319,6 @@ require (
 
 replace (
 	github.com/openshift/appliance/pkg/iso-builder/config => ./pkg/iso-builder/config
-	github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20250922204150-a52b83145bea
-	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20250922204150-a52b83145bea
-	sigs.k8s.io/cluster-api-provider-ibmcloud => sigs.k8s.io/cluster-api-provider-ibmcloud v0.9.0-beta.0.0.20241029051454-9b0770491a76
+	github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20260722223301-f50c5b20c7e1
+	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20260722223301-f50c5b20c7e1
 )
