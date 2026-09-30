@@ -11,14 +11,15 @@ import (
 // interactiveFlowIgnition takes care of generating the additional
 // igntion files required to support the interactive flow.
 type interactiveFlowIgnition struct {
-	releaseVersion string
-	arch           string
+	// bundleVersion is the release version used to name the release bundle, as
+	// returned by release.BundleVersion. The same value names the bundle pushed
+	// to the registry in the data ISO.
+	bundleVersion string
 }
 
-func NewInteractiveFlowIgnition(releaseVersion, arch string) *interactiveFlowIgnition {
+func NewInteractiveFlowIgnition(bundleVersion string) *interactiveFlowIgnition {
 	return &interactiveFlowIgnition{
-		releaseVersion: releaseVersion,
-		arch:           arch,
+		bundleVersion: bundleVersion,
 	}
 }
 
@@ -38,14 +39,7 @@ func (i *interactiveFlowIgnition) appendControlFiles(ign *igntypes.Config) {
 }
 
 func (i *interactiveFlowIgnition) appendInternalReleaseImageManifest(ign *igntypes.Config) {
-	versionForTag := i.releaseVersion
-
-	// For non-CI/nightly builds (stable, RC, DevPreview), append architecture suffix
-	if i.arch != "" {
-		versionForTag = fmt.Sprintf("%s-%s", i.releaseVersion, i.arch)
-	}
-
-	ocpBundleStr := releasebundle.Tag(versionForTag)
+	ocpBundleStr := releasebundle.Tag(i.bundleVersion)
 
 	iriContent := fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1
 kind: InternalReleaseImage

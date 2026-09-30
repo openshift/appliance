@@ -33,6 +33,21 @@ func (m *MockRelease) EXPECT() *MockReleaseMockRecorder {
 	return m.recorder
 }
 
+// BundleVersion mocks base method.
+func (m *MockRelease) BundleVersion(releaseVersion string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BundleVersion", releaseVersion)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BundleVersion indicates an expected call of BundleVersion.
+func (mr *MockReleaseMockRecorder) BundleVersion(releaseVersion interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BundleVersion", reflect.TypeOf((*MockRelease)(nil).BundleVersion), releaseVersion)
+}
+
 // ExtractCommand mocks base method.
 func (m *MockRelease) ExtractCommand(command, dest string) (string, error) {
 	m.ctrl.T.Helper()
