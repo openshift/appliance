@@ -66,6 +66,7 @@ type Release interface {
 	GetMappingFile() ([]byte, error)
 	GetArchitecture() (string, error)
 	IsStableRelease() (bool, error)
+	BundleVersion(releaseVersion string) (string, error)
 }
 
 type ReleaseConfig struct {
@@ -524,4 +525,25 @@ func (r *release) IsStableRelease() (bool, error) {
 		return false, err
 	}
 	return stableReleaseVersionRegex.MatchString(*r.version), nil
+}
+
+// BundleVersion returns the version used to name the release bundle image.
+// Stable/EC/RC versions are arch-qualified: the InternalReleaseImage API
+// requires a suffix after x.y.z, which CI and nightly versions already have.
+// Both the bundle pushed to the registry and the InternalReleaseImage manifest
+// must use this value, otherwise the two names do not match.
+func (r *release) BundleVersion(releaseVersion string) (string, error) {
+	isStable, err := r.IsStableRelease()
+	if err != nil {
+		return "", fmt.Errorf("failed to determine if release is stable: %w", err)
+	}
+	if !isStable {
+		return releaseVersion, nil
+	}
+
+	arch, err := r.GetArchitecture()
+	if err != nil {
+		return "", fmt.Errorf("failed to get architecture from release metadata: %w", err)
+	}
+	return fmt.Sprintf("%s-%s", releaseVersion, arch), nil
 }

@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/ginkgo/v2/dsl/table"
 	. "github.com/onsi/gomega"
+	"github.com/openshift/appliance/pkg/releasebundle"
 	"github.com/vincent-petithory/dataurl"
 	"sigs.k8s.io/yaml"
 )
@@ -32,7 +33,7 @@ var _ = Describe("Test InteractiveFlow Ignition", func() {
 	})
 
 	It("Default additional files", func() {
-		i := *NewInteractiveFlowIgnition("4.20.5", "")
+		i := *NewInteractiveFlowIgnition("4.20.5")
 		i.AppendToIgnition(ign)
 		Expect(ign.Storage.Files).To(HaveLen(3))
 
@@ -48,8 +49,8 @@ var _ = Describe("Test InteractiveFlow Ignition", func() {
 	})
 
 	DescribeTable("Release names",
-		func(releaseVersion, arch string, expectedReleaseStr string) {
-			i := *NewInteractiveFlowIgnition(releaseVersion, arch)
+		func(bundleVersion string, expectedReleaseStr string) {
+			i := *NewInteractiveFlowIgnition(bundleVersion)
 			i.AppendToIgnition(ign)
 
 			data, err := ignitionGetFileData(ign, "/etc/assisted/extra-manifests/internalreleaseimage.yaml")
@@ -67,13 +68,18 @@ var _ = Describe("Test InteractiveFlow Ignition", func() {
 			err = yaml.Unmarshal(data, &iri)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(iri.Spec.Releases[0].Name).To(Equal(expectedReleaseStr))
+
+			// The bundle pushed to the registry by the data ISO is named with the
+			// same helper and the same version. Both names must be identical,
+			// otherwise the MCO cannot match the manifest to the pushed bundle.
+			Expect(iri.Spec.Releases[0].Name).To(Equal(releasebundle.Tag(bundleVersion)))
 		},
-		Entry("stable release with arch suffix", "4.21.0-ec.3", "x86_64", "ocp-release-bundle-4.21.0-ec.3-x86_64"),
-		Entry("stable release with arch suffix", "4.20.5", "x86_64", "ocp-release-bundle-4.20.5-x86_64"),
-		Entry("nightly release without arch suffix", "4.14.0-0.nightly-2025-11-23-025204", "", "ocp-release-bundle-4.14.0-0.nightly-2025-11-23-025204"),
-		Entry("stable release with arch suffix", "4.21.0-ec.2", "s390x", "ocp-release-bundle-4.21.0-ec.2-s390x"),
-		Entry("CI release without arch suffix", "4.15.0-0.ci-2025-11-22-162639", "", "ocp-release-bundle-4.15.0-0.ci-2025-11-22-162639"),
-		Entry("trim releases longer than 64 chars", "4.22.0-0.ci-2026-02-09-204741-test-ci-op-phx0mrh8-latest", "", "ocp-release-bundle-4.22.0-0.ci-2026-02-09-204741-test-ci-op-phx0"),
+		Entry("EC release, arch-qualified", "4.21.0-ec.3-x86_64", "ocp-release-bundle-4.21.0-ec.3-x86_64"),
+		Entry("GA release, arch-qualified", "4.20.5-x86_64", "ocp-release-bundle-4.20.5-x86_64"),
+		Entry("EC release on s390x", "4.21.0-ec.2-s390x", "ocp-release-bundle-4.21.0-ec.2-s390x"),
+		Entry("nightly release, already suffixed", "4.14.0-0.nightly-2025-11-23-025204", "ocp-release-bundle-4.14.0-0.nightly-2025-11-23-025204"),
+		Entry("CI release, already suffixed", "4.15.0-0.ci-2025-11-22-162639", "ocp-release-bundle-4.15.0-0.ci-2025-11-22-162639"),
+		Entry("trim releases longer than 64 chars", "4.22.0-0.ci-2026-02-09-204741-test-ci-op-phx0mrh8-latest", "ocp-release-bundle-4.22.0-0.ci-2026-02-09-204741-test-ci-op-phx0"),
 	)
 })
 
@@ -89,7 +95,7 @@ var _ = Describe("RecoveryIgnition interactive flow placement", func() {
 	It("places interactive flow files in Bootstrap and Merged, not in Unconfigured", func() {
 		unconfigured := types.Config{Storage: types.Storage{}}
 		bootstrap := types.Config{Storage: types.Storage{}}
-		NewInteractiveFlowIgnition("4.20.5", "").AppendToIgnition(&bootstrap)
+		NewInteractiveFlowIgnition("4.20.5").AppendToIgnition(&bootstrap)
 
 		for _, p := range interactiveFlowPaths {
 			Expect(hasStorageFile(unconfigured, p)).To(BeFalse(), "interactive flow file %q should not be in Unconfigured", p)
