@@ -1,6 +1,7 @@
 package appliance
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -47,7 +48,7 @@ func (a *ApplianceLiveISO) Dependencies() []asset.Asset {
 }
 
 // Generate the appliance disk.
-func (a *ApplianceLiveISO) Generate(dependencies asset.Parents) error {
+func (a *ApplianceLiveISO) Generate(_ context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	dataISO := &data.DataISO{}

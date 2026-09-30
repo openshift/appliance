@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -84,7 +85,7 @@ func (a *ApplianceConfig) GetConfigFilename() string {
 }
 
 // Generate generates the Agent Config manifest.
-func (a *ApplianceConfig) Generate(dependencies asset.Parents) error {
+func (a *ApplianceConfig) Generate(_ context.Context, dependencies asset.Parents) error {
 	base := &ApplianceConfigProvider{}
 	dependencies.Get(base)
 

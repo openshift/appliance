@@ -1,6 +1,7 @@
 package manifests
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -38,7 +39,7 @@ func (*ClusterImageSet) Dependencies() []asset.Asset {
 }
 
 // Generate generates the ClusterImageSet manifest.
-func (a *ClusterImageSet) Generate(dependencies asset.Parents) error {
+func (a *ClusterImageSet) Generate(_ context.Context, dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(applianceConfig)
 
