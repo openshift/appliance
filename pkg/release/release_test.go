@@ -10,6 +10,7 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2/dsl/core"
+	. "github.com/onsi/ginkgo/v2/dsl/table"
 	. "github.com/onsi/gomega"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/executer"
@@ -376,6 +377,38 @@ var _ = Describe("Test Release", func() {
 			mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("failed to get version")).Times(1)
 
 			_, err := testRelease.IsStableRelease()
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("BundleVersion", func() {
+		DescribeTable("resolves the version used to name the release bundle",
+			func(releaseVersion, architecture, expected string) {
+				applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:" + releaseVersion)
+				cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+				jsonOutput := fmt.Sprintf(`{"config":{"architecture":%q},"metadata":{"version":%q}}`, architecture, releaseVersion)
+				mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
+
+				bundleVersion, err := testRelease.BundleVersion(releaseVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(bundleVersion).To(Equal(expected))
+			},
+			// Stable/EC/RC are arch-qualified: the InternalReleaseImage API
+			// requires a suffix after x.y.z.
+			Entry("GA release", "4.22.16", "amd64", "4.22.16-x86_64"),
+			Entry("EC release", "4.22.0-ec.5", "amd64", "4.22.0-ec.5-x86_64"),
+			Entry("RC release", "4.22.0-rc.0", "amd64", "4.22.0-rc.0-x86_64"),
+			Entry("arm64 uses the RPM arch name", "4.22.16", "arm64", "4.22.16-aarch64"),
+			// CI and nightly already carry a suffix, so they are left alone.
+			Entry("nightly release", "5.0.0-0.nightly-2026-04-23-082815", "amd64", "5.0.0-0.nightly-2026-04-23-082815"),
+			Entry("CI release", "5.0.0-0.ci-2026-04-23-153053", "amd64", "5.0.0-0.ci-2026-04-23-153053"),
+		)
+
+		It("should handle error when getting release metadata", func() {
+			applianceConfig.Config.OcpRelease.URL = swag.String("invalid-url")
+			mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("failed to get version")).Times(1)
+
+			_, err := testRelease.BundleVersion("4.22.16")
 			Expect(err).To(HaveOccurred())
 		})
 	})
