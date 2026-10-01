@@ -32,7 +32,7 @@ build-appliance:
 	mkdir -p build
 	cd ./cmd && CGO_ENABLED=1 GOFLAGS="" go build -o ../build/openshift-appliance
 
-build-iso-builder:
+build-iso-builder: vendor
 	mkdir -p build
 	cd ./pkg/iso-builder && go generate ./...
 	cd ./cmd/iso-builder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/openshift-iso-builder
@@ -50,7 +50,7 @@ build-iso-builder-image:
 build-openshift-ci-test-bin:
 	./hack/setup_env.sh
 
-lint:
+lint: vendor
 	golangci-lint run -v --timeout=20m
 
 test: $(REPORTS)
@@ -91,7 +91,7 @@ generate-mocks:
 	find . -name 'mock_*.go' -type f -not -path './vendor/*' -delete
 	go generate -v $(shell go list ./...)
 
-unit-test:
+unit-test: vendor
 	$(MAKE) _unit_test TIMEOUT=30m TEST="$(or $(TEST),$(shell go list ./...))"
 
 _unit_test: $(REPORTS)
