@@ -6,7 +6,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/briandowns/spinner v1.23.2
-	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e
+	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e // indirect
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coreos/ignition/v2 v2.21.0
@@ -22,6 +22,7 @@ require (
 	github.com/onsi/gomega v1.39.1
 	github.com/openconfig/goyang v1.6.3
 	github.com/openshift/api v0.0.0-20240808203820-e69593239e49
+	github.com/openshift/appliance/pkg/iso-builder/config v0.0.0-00010101000000-000000000000
 	github.com/openshift/assisted-image-service v0.0.0-20260130223312-503834119b3e
 	github.com/openshift/assisted-service/api v0.0.0
 	github.com/openshift/hive/apis v0.0.0-20231220215202-ad99b9e52d27
@@ -39,8 +40,6 @@ require (
 	k8s.io/api v0.30.3
 	k8s.io/apimachinery v0.30.3
 	sigs.k8s.io/yaml v1.4.0
-
-	github.com/openshift/appliance/pkg/iso-builder/config v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -148,7 +147,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.7 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
-	github.com/gophercloud/gophercloud v1.7.0 // indirect
+	github.com/gophercloud/gophercloud v1.14.1 // indirect
 	github.com/gophercloud/utils v0.0.0-20231010081019-80377eca5d56 // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
