@@ -445,7 +445,7 @@ func (i *BootstrapIgnition) addPinnedImageSetConfigFiles(envConfig *config.EnvCo
 		image := strings.Split(mapping, "=")[0]
 		image = strings.TrimPrefix(image, "docker://")
 		if image != "" {
-			builder.WriteString(fmt.Sprintf("  - name: %s\n", image))
+			fmt.Fprintf(&builder, "  - name: %s\n", image)
 		}
 	}
 	images := builder.String()
