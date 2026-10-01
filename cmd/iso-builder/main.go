@@ -32,6 +32,7 @@ func main() {
 
 	rootCmd := newRootCmd()
 	rootCmd.AddCommand(newBuildCmd())
+	rootCmd.AddCommand(newShowConfigCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		logrus.Fatalf("Error executing %s: %v", filepath.Base(os.Args[0]), err)
@@ -50,6 +51,16 @@ func newRootCmd() *cobra.Command {
 	}
 	cmd.PersistentFlags().StringVar(&rootOpts.logLevel, "log-level", "info", "log level (e.g. \"debug | info | warn | error\")")
 	return cmd
+}
+
+func newShowConfigCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show-config",
+		Short: "Display the embedded configuration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return isobuilder.ShowConfig(os.Stdout)
+		},
+	}
 }
 
 func newBuildCmd() *cobra.Command {

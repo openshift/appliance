@@ -44,6 +44,8 @@ build-iso-config-embedder: vendor
 vendor:
 	go mod vendor
 
+build-iso-builder-tools: build-iso-builder build-iso-config-embedder
+
 build-iso-builder-image:
 	podman build -f Dockerfile.iso-builder . -t $(ISO_BUILDER_IMAGE)
 

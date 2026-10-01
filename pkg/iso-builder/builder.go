@@ -46,9 +46,9 @@ func NewBuilder(workingDir string) *Builder {
 
 // Build generates the installation ISO using the embedded configuration.
 func (b *Builder) Build(ctx context.Context) error {
-	embeddedCfg, err := b.loadEmbeddedConfig()
+	embeddedCfg, err := loadEmbeddedConfig()
 	if err != nil {
-		return errors.Wrap(err, "no embedded configuration found; use iso-config-embedder to embed one")
+		return fmt.Errorf("no configuration has been found in this binary")
 	}
 	logrus.Infof("Configuration loaded: version=%s arch=%s", embeddedCfg.OpenshiftVersion, embeddedCfg.Architecture)
 
@@ -179,7 +179,4 @@ func (b *Builder) renameOutput(outputISO string) error {
 	return nil
 }
 
-func (b *Builder) loadEmbeddedConfig() (*isobuilderconfig.Config, error) {
-	return isobuilderconfig.ReadFromData([]byte(rawConfigArea))
-}
 
