@@ -60,7 +60,7 @@ The only required field is `pullSecret`. All other fields are optional.
 
 | Field                   | Type            | Description                                                            |
 |-------------------------|-----------------|------------------------------------------------------------------------|
-| `pullSecret`            | string          | Secret to use when pulling images (**required**)                       |
+| `pullSecret`            | string          | Secret to use when pulling images (see [Pull secret](#pull-secret))    |
 | `openshiftVersion`      | string          | OCP version to be mirrored                                             |
 | `releaseImageURL`       | string          | Pullspec for the release image; used instead of `openshiftVersion`     |
 | `sshKey`                | string list     | Public SSH keys to provide access to instances                         |
@@ -98,12 +98,44 @@ The only required field is `pullSecret`. All other fields are optional.
 | `name`    | string | Manifest file name   |
 | `content` | string | Raw manifest content |
 
+### Pull secret
+
+The pull secret can be provided in two ways:
+
+1. **Inline in the YAML** (takes precedence):
+
+   ```yaml
+   pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"..."}}}'
+   ```
+
+2. **Via the `REGISTRY_AUTH_FILE` environment variable**: if `pullSecret` is not set in the
+   YAML, the tool reads the file at the path given by `REGISTRY_AUTH_FILE` and uses its
+   contents as the pull secret. This avoids embedding credentials in YAML artifacts
+   (e.g. CI job outputs).
+
+   ```bash
+   export REGISTRY_AUTH_FILE=/path/to/pull-secret.json
+   iso-config-embedder embed -c config.yaml -o patched-iso-builder openshift-iso-builder
+   ```
+
 ## Example
 
 A minimal configuration:
 
 ```yaml
 pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"..."}}}'
+```
+
+A CI-friendly configuration using `REGISTRY_AUTH_FILE`:
+
+```yaml
+openshiftVersion: "4.22"
+architecture: x86_64
+```
+
+```bash
+export REGISTRY_AUTH_FILE=/run/secrets/pull-secret.json
+iso-config-embedder embed -c config.yaml -o patched-iso-builder openshift-iso-builder
 ```
 
 A full configuration:

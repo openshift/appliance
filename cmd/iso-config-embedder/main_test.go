@@ -44,6 +44,15 @@ func outputPath(t *testing.T) string {
 	return filepath.Join(t.TempDir(), "output-binary")
 }
 
+func writeAuthFile(t *testing.T, content string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "auth.json")
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+		t.Fatalf("writing auth file: %v", err)
+	}
+	return path
+}
+
 func TestEmbedAndReadRoundTrip(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -117,6 +126,97 @@ extraManifests:
 				if !strings.Contains(tc.yaml, key) {
 					t.Errorf("test setup: expected YAML to contain %q", key)
 				}
+			}
+		})
+	}
+}
+
+func TestEmbedPullSecretFromRegistryAuthFile(t *testing.T) {
+	secret := `{"auths":{"registry.example.com":{"auth":"dGVzdA=="}}}`
+
+	cases := []struct {
+		name       string
+		yaml       string
+		authFile   string
+		setEnv     bool
+		wantErr    string
+		wantSecret string
+	}{
+		{
+			name:       "env var provides pull secret when YAML omits it",
+			yaml:       "openshiftVersion: \"4.22\"\n",
+			setEnv:     true,
+			wantSecret: secret,
+		},
+		{
+			name:       "YAML pullSecret takes precedence over env var",
+			yaml:       "pullSecret: '{\"auths\":{}}'\n",
+			setEnv:     true,
+			wantSecret: `{"auths":{}}`,
+		},
+		{
+			name:    "env var points to nonexistent file",
+			yaml:    "openshiftVersion: \"4.22\"\n",
+			setEnv:  true,
+			wantErr: "reading pull secret from REGISTRY_AUTH_FILE",
+		},
+		{
+			name:       "env var not set and no pull secret in YAML",
+			yaml:       "openshiftVersion: \"4.22\"\n",
+			setEnv:     false,
+			wantSecret: "",
+		},
+		{
+			name:       "trailing whitespace in auth file is trimmed",
+			yaml:       "openshiftVersion: \"4.22\"\n",
+			setEnv:     true,
+			wantSecret: secret,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			binaryPath := writeFakeBinary(t)
+			configPath := writeYAMLFile(t, tc.yaml)
+			out := outputPath(t)
+
+			if tc.setEnv {
+				switch tc.name {
+				case "env var points to nonexistent file":
+					t.Setenv("REGISTRY_AUTH_FILE", "/nonexistent/auth.json")
+				case "trailing whitespace in auth file is trimmed":
+					t.Setenv("REGISTRY_AUTH_FILE", writeAuthFile(t, secret+"\n\n"))
+				default:
+					t.Setenv("REGISTRY_AUTH_FILE", writeAuthFile(t, secret))
+				}
+			}
+
+			err := runEmbed(configPath, binaryPath, out, false)
+
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tc.wantErr)
+				}
+				if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("expected error containing %q, got: %v", tc.wantErr, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("runEmbed: %v", err)
+			}
+
+			if tc.wantSecret == "" {
+				return
+			}
+
+			cfg, err := isobuilder.ReadFromBinary(out)
+			if err != nil {
+				t.Fatalf("ReadFromBinary: %v", err)
+			}
+			if cfg.PullSecret != tc.wantSecret {
+				t.Errorf("pullSecret: got %q, want %q", cfg.PullSecret, tc.wantSecret)
 			}
 		})
 	}

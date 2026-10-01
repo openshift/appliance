@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -93,6 +94,17 @@ func runEmbed(configPath, binaryPath, outputPath string, force bool) error {
 	var cfg isobuilder.Config
 	if err := yaml.UnmarshalStrict(data, &cfg); err != nil {
 		return fmt.Errorf("parsing YAML config: %w", err)
+	}
+
+	if cfg.PullSecret == "" {
+		if authFile, ok := os.LookupEnv("REGISTRY_AUTH_FILE"); ok && authFile != "" {
+			secret, err := os.ReadFile(authFile)
+			if err != nil {
+				return fmt.Errorf("reading pull secret from REGISTRY_AUTH_FILE: %w", err)
+			}
+			cfg.PullSecret = strings.TrimSpace(string(secret))
+			logrus.Infof("Pull secret loaded from REGISTRY_AUTH_FILE")
+		}
 	}
 
 	if !force {
