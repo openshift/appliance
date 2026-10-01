@@ -23,7 +23,7 @@ GO_UNITTEST_FLAGS = --format=$(GO_TEST_FORMAT) $(GOTEST_PUBLISH_FLAGS) -- -count
 GINKGO_UNITTEST_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo.v -ginkgo.junit-report=$(GINKGO_REPORTFILE)
 
 
-.PHONY: build
+.PHONY: build vendor
 
 build:
 	podman build -f Dockerfile.openshift-appliance . -t $(IMAGE)
@@ -37,9 +37,12 @@ build-iso-builder:
 	cd ./pkg/iso-builder && go generate ./...
 	cd ./cmd/iso-builder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/openshift-iso-builder
 
-build-iso-config-embedder:
+build-iso-config-embedder: vendor
 	mkdir -p build
 	cd ./cmd/iso-config-embedder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/iso-config-embedder
+
+vendor:
+	go mod vendor
 
 build-iso-builder-image:
 	podman build -f Dockerfile.iso-builder . -t $(ISO_BUILDER_IMAGE)

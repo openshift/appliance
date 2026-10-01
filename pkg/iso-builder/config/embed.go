@@ -8,14 +8,18 @@ import (
 	"os"
 )
 
-const (
-	// ConfigStartMarker is the sentinel that marks the beginning of the embed area.
-	ConfigStartMarker = "\x00_ISO_BUILDER_CONFIG_START_\x00"
-	// ConfigEndMarker is the sentinel that marks the end of the embed area.
-	ConfigEndMarker = "\x00_ISO_BUILDER_CONFIG_END_\x00"
-	// ConfigEmbedSize is the size of the payload area between the markers.
-	ConfigEmbedSize = 1 << 20 // 1 MiB
-)
+// ConfigEmbedSize is the size of the payload area between the markers.
+const ConfigEmbedSize = 1 << 20 // 1 MiB
+
+// markerPrefix is a var so the compiler cannot fold the full marker strings
+// into rodata, which would create duplicate copies alongside the go:embed blob.
+var markerPrefix = "\x00_ISO_BUILDER_CONFIG_"
+
+// ConfigStartMarker is the sentinel that marks the beginning of the embed area.
+var ConfigStartMarker = markerPrefix + "START_\x00"
+
+// ConfigEndMarker is the sentinel that marks the end of the embed area.
+var ConfigEndMarker = markerPrefix + "END_\x00"
 
 // Encode serialises a Config to a base64-encoded JSON payload.
 func Encode(cfg *Config) ([]byte, error) {
@@ -60,16 +64,11 @@ func ReadFromBinary(path string) (*Config, error) {
 	return ReadFromData(data)
 }
 
-// WriteToBinary writes a config into the embed area of an iso-builder binary file.
-func WriteToBinary(path string, cfg *Config) error {
+// WriteToData encodes a config into the embed area of raw binary data in place.
+func WriteToData(data []byte, cfg *Config) error {
 	encoded, err := Encode(cfg)
 	if err != nil {
 		return err
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("reading binary: %w", err)
 	}
 
 	areaStart, areaEnd, err := findEmbedArea(data)
@@ -85,7 +84,18 @@ func WriteToBinary(path string, cfg *Config) error {
 		data[i] = 0
 	}
 	copy(data[areaStart:], encoded)
+	return nil
+}
 
+// WriteToBinary writes a config into the embed area of an iso-builder binary file.
+func WriteToBinary(path string, cfg *Config) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading binary: %w", err)
+	}
+	if err := WriteToData(data, cfg); err != nil {
+		return err
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("stating binary: %w", err)
@@ -107,14 +117,17 @@ func extractPayload(data []byte) ([]byte, error) {
 }
 
 // findEmbedArea returns the byte offsets of the payload area (between markers).
+// The end marker is searched only after the start marker to avoid matching
+// stray copies (e.g. Go string constants stored elsewhere in the binary).
 func findEmbedArea(data []byte) (start, end int, err error) {
 	startIdx := bytes.Index(data, []byte(ConfigStartMarker))
 	if startIdx == -1 {
 		return 0, 0, fmt.Errorf("start marker not found in binary")
 	}
-	endIdx := bytes.Index(data, []byte(ConfigEndMarker))
+	payloadStart := startIdx + len(ConfigStartMarker)
+	endIdx := bytes.Index(data[payloadStart:], []byte(ConfigEndMarker))
 	if endIdx == -1 {
 		return 0, 0, fmt.Errorf("end marker not found in binary")
 	}
-	return startIdx + len(ConfigStartMarker), endIdx, nil
+	return payloadStart, payloadStart + endIdx, nil
 }

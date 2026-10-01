@@ -88,6 +88,30 @@ func TestDecodeErrors(t *testing.T) {
 	}
 }
 
+func TestWriteToDataReadFromData(t *testing.T) {
+	cfg := &Config{
+		OpenshiftVersion: "4.22",
+		PullSecret:       `{"auths":{}}`,
+		Architecture:     "x86_64",
+	}
+
+	data := buildFakeBinary()
+	if err := WriteToData(data, cfg); err != nil {
+		t.Fatalf("WriteToData: %v", err)
+	}
+
+	got, err := ReadFromData(data)
+	if err != nil {
+		t.Fatalf("ReadFromData: %v", err)
+	}
+
+	gotJSON, _ := json.Marshal(got)
+	wantJSON, _ := json.Marshal(cfg)
+	if string(gotJSON) != string(wantJSON) {
+		t.Errorf("round-trip mismatch\ngot:  %s\nwant: %s", gotJSON, wantJSON)
+	}
+}
+
 func TestReadWriteBinary(t *testing.T) {
 	cfg := &Config{
 		OpenshiftVersion: "4.22",

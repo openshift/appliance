@@ -107,26 +107,23 @@ func runEmbed(configPath, binaryPath, outputPath string, force bool) error {
 		}
 	}
 
+	data, err = os.ReadFile(binaryPath)
+	if err != nil {
+		return fmt.Errorf("reading binary: %w", err)
+	}
+
 	if !force {
-		if _, readErr := isobuilder.ReadFromBinary(binaryPath); readErr == nil {
+		if _, readErr := isobuilder.ReadFromData(data); readErr == nil {
 			return fmt.Errorf("binary already contains an embedded config; use --force to overwrite")
 		}
 	}
 
-	input, err := os.ReadFile(binaryPath)
-	if err != nil {
-		return fmt.Errorf("reading binary: %w", err)
-	}
-	info, err := os.Stat(binaryPath)
-	if err != nil {
-		return fmt.Errorf("stating binary: %w", err)
-	}
-	if err := os.WriteFile(outputPath, input, info.Mode()); err != nil {
-		return fmt.Errorf("writing output file: %w", err)
+	if err := isobuilder.WriteToData(data, &cfg); err != nil {
+		return fmt.Errorf("embedding config: %w", err)
 	}
 
-	if err := isobuilder.WriteToBinary(outputPath, &cfg); err != nil {
-		return fmt.Errorf("embedding config: %w", err)
+	if err := os.WriteFile(outputPath, data, 0755); err != nil {
+		return fmt.Errorf("writing output file: %w", err)
 	}
 
 	logrus.Infof("Configuration embedded into %s", outputPath)
@@ -139,6 +136,8 @@ func runShow(binaryPath string) error {
 	if err != nil {
 		return fmt.Errorf("reading embedded config: %w", err)
 	}
+
+	cfg.PullSecret = "***REDACTED***"
 
 	out, err := yaml.Marshal(cfg)
 	if err != nil {
