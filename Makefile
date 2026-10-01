@@ -44,7 +44,7 @@ build-openshift-ci-test-bin:
 	./hack/setup_env.sh
 
 lint:
-	golangci-lint run -v --timeout=20m
+	golangci-lint run -v --timeout=20m --modules-download-mode=readonly
 
 test: $(REPORTS)
 	go test -v -count=1 -cover -coverprofile=$(COVER_PROFILE) ./...
