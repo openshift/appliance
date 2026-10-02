@@ -2,11 +2,13 @@ package powervs
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/ssh"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/openshift/installer/pkg/types"
@@ -33,8 +35,8 @@ func Validate(config *types.InstallConfig) error {
 			// Each machine pool CIDR must have 24 significant bits (/24)
 			if bits, _ := config.Networking.MachineNetwork[i].CIDR.Mask.Size(); bits != 24 {
 				// If not, create an error displaying the CIDR in the install config vs the expectation (/24)
-				fldPath := field.NewPath("Networking")
-				allErrs = append(allErrs, field.Invalid(fldPath.Child("MachineNetwork").Child("CIDR"), (&config.Networking.MachineNetwork[i].CIDR).String(), "Machine Pool CIDR must be /24."))
+				fldPath := field.NewPath("networking")
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("machineNetwork").Index(i).Child("cidr"), (&config.Networking.MachineNetwork[i].CIDR).String(), "Machine Pool CIDR must be /24."))
 			}
 		}
 	}
@@ -146,7 +148,7 @@ func validatePreExistingPrivateDNS(fldPath *field.Path, client API, ic *types.In
 func ValidateCustomVPCSetup(client API, ic *types.InstallConfig) error {
 	allErrs := field.ErrorList{}
 	var vpcRegion = ic.PowerVS.VPCRegion
-	var vpcName = ic.PowerVS.VPCName
+	var vpcName = ic.PowerVS.VPC
 	var err error
 	fldPath := field.NewPath("VPC")
 
@@ -171,43 +173,49 @@ func ValidateCustomVPCSetup(client API, ic *types.InstallConfig) error {
 	return allErrs.ToAggregate()
 }
 
-func findVPCInRegion(client API, name string, region string, path *field.Path) field.ErrorList {
+func findVPCInRegion(client API, vpcNameOrID string, region string, path *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	if name == "" {
+	if vpcNameOrID == "" {
 		return allErrs
 	}
 
-	vpcs, err := client.GetVPCs(context.TODO(), region)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	defer cancel()
+
+	vpcs, err := client.GetVPCs(ctx, region)
 	if err != nil {
 		return append(allErrs, field.InternalError(path.Child("vpcRegion"), err))
 	}
 
-	found := false
 	for _, vpc := range vpcs {
-		if *vpc.Name == name {
-			found = true
-			break
+		if *vpc.Name == vpcNameOrID || *vpc.ID == vpcNameOrID {
+			return allErrs
 		}
 	}
-	if !found {
-		allErrs = append(allErrs, field.NotFound(path.Child("vpcName"), name))
-	}
+
+	allErrs = append(allErrs, field.NotFound(path.Child("vpcName"), vpcNameOrID))
 
 	return allErrs
 }
 
-func findSubnetInVPC(client API, subnets []string, region string, name string, path *field.Path) field.ErrorList {
+func findSubnetInVPC(client API, subnets []string, region string, vpcNameOrID string, path *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if len(subnets) == 0 {
 		return allErrs
 	}
 
-	subnet, err := client.GetSubnetByName(context.TODO(), subnets[0], region)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	defer cancel()
+
+	subnet, err := client.GetSubnetByName(ctx, subnets[0], region)
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(path.Child("vpcSubnets"), err))
-	} else if *subnet.VPC.Name != name {
+	} else {
+		if *subnet.VPC.Name == vpcNameOrID || *subnet.VPC.ID == vpcNameOrID {
+			return allErrs
+		}
 		allErrs = append(allErrs, field.Invalid(path.Child("vpcSubnets"), nil, "not attached to VPC"))
 	}
 
@@ -255,14 +263,23 @@ func ValidateResourceGroup(client API, ic *types.InstallConfig) error {
 	return nil
 }
 
-// ValidateSystemTypeForRegion checks if the specified sysType is available in the target region.
-func ValidateSystemTypeForRegion(client API, ic *types.InstallConfig) error {
+// ValidateSystemTypeForZone checks if the specified sysType is available in the target zone.
+func ValidateSystemTypeForZone(client API, ic *types.InstallConfig) error {
+	var (
+		availableOnes []string
+		err           error
+	)
+
 	if ic.ControlPlane == nil || ic.ControlPlane.Platform.PowerVS == nil || ic.ControlPlane.Platform.PowerVS.SysType == "" {
 		return nil
 	}
-	availableOnes, err := powervstypes.AvailableSysTypes(ic.PowerVS.Region)
+	availableOnes, err = client.GetDatacenterSupportedSystems(context.Background(), ic.PowerVS.Zone)
 	if err != nil {
-		return fmt.Errorf("failed to obtain available SysTypes for: %s", ic.PowerVS.Region)
+		// Fallback to hardcoded list
+		availableOnes, err = powervstypes.AvailableSysTypes(ic.PowerVS.Region, ic.PowerVS.Zone)
+		if err != nil {
+			return fmt.Errorf("failed to obtain available SysTypes for: %s", ic.PowerVS.Zone)
+		}
 	}
 	requested := ic.ControlPlane.Platform.PowerVS.SysType
 	found := false
@@ -275,7 +292,7 @@ func ValidateSystemTypeForRegion(client API, ic *types.InstallConfig) error {
 	if found {
 		return nil
 	}
-	return fmt.Errorf("%s is not available in: %s", requested, ic.PowerVS.Region)
+	return fmt.Errorf("%s is not available in: %s, these are %v", requested, ic.PowerVS.Zone, availableOnes)
 }
 
 // ValidateServiceInstance validates the optional service instance GUID in our install config.
@@ -306,4 +323,56 @@ func ValidateServiceInstance(client API, ic *types.InstallConfig) error {
 	}
 
 	return nil
+}
+
+// ValidateTransitGateway validates the optional transit gateway name in our install config.
+func ValidateTransitGateway(client API, ic *types.InstallConfig) error {
+	var (
+		id  string
+		err error
+	)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	defer cancel()
+
+	if len(ic.PowerVS.TransitGateway) > 0 {
+		// Is it a valid id?
+		err = client.TransitGatewayIDValid(ctx, ic.PowerVS.TransitGateway)
+		if err == nil {
+			return nil
+		}
+		// Is it a valid name?
+		id, err = client.TransitGatewayNameToID(ctx, ic.PowerVS.TransitGateway)
+		if err != nil {
+			return err
+		}
+		if id == "" {
+			return errors.New("platform:powervs:tgName has an invalid name")
+		}
+	}
+
+	return nil
+}
+
+// ValidateSSHKey checks if the SSH key uses the RSA Algorithm.
+func ValidateSSHKey(ic *types.InstallConfig) error {
+	var (
+		key       ssh.PublicKey
+		keyType   string
+		keyLength int
+		err       error
+	)
+	key, _, _, _, err = ssh.ParseAuthorizedKey([]byte(ic.SSHKey)) //nolint:dogsled
+	if err != nil {
+		return fmt.Errorf("provided ssh public key is not valid: %w", err)
+	}
+	keyType = key.Type()
+	if keyType == "ssh-rsa" {
+		keyLength = key.(ssh.CryptoPublicKey).CryptoPublicKey().(*rsa.PublicKey).N.BitLen()
+		if keyLength >= 2048 {
+			return nil
+		}
+		return fmt.Errorf("ssh public key is %d bits long. It must be minimum 2048 bits", keyLength)
+	}
+	return fmt.Errorf("unsupported ssh public key type %s. The public key must be of type RSA", keyType)
 }

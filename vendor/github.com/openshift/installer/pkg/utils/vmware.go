@@ -1,4 +1,4 @@
-package utils
+package utils //nolint:revive
 
 import (
 	"encoding/hex"
@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	ipamv1 "sigs.k8s.io/cluster-api/exp/ipam/api/v1beta1"
+	ipamv1 "sigs.k8s.io/cluster-api/api/ipam/v1beta1" //nolint:staticcheck //CORS-3563
 
 	machinev1beta1 "github.com/openshift/api/machine/v1beta1"
 	"github.com/openshift/installer/pkg/types"
@@ -115,4 +115,9 @@ func ConstructKargsFromNetworkConfig(ipAddrs []string, nameservers []string, gat
 	outKargs = strings.Trim(outKargs, " ")
 	logrus.Debugf("Generated karg: [%v].", outKargs)
 	return outKargs, nil
+}
+
+// GenerateVSphereTemplateName returns expected template name.
+func GenerateVSphereTemplateName(clusterID, fdName string) string {
+	return fmt.Sprintf("%s-rhcos-%s", clusterID, fdName)
 }

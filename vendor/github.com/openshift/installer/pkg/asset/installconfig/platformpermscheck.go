@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/openshift/installer/pkg/types/nutanix"
 	"github.com/openshift/installer/pkg/types/openstack"
 	"github.com/openshift/installer/pkg/types/ovirt"
+	"github.com/openshift/installer/pkg/types/powervc"
 	"github.com/openshift/installer/pkg/types/powervs"
 	"github.com/openshift/installer/pkg/types/vsphere"
 )
@@ -39,8 +42,7 @@ func (a *PlatformPermsCheck) Dependencies() []asset.Asset {
 }
 
 // Generate queries for input from the user.
-func (a *PlatformPermsCheck) Generate(dependencies asset.Parents) error {
-	ctx := context.TODO()
+func (a *PlatformPermsCheck) Generate(ctx context.Context, dependencies asset.Parents) error {
 	ic := &InstallConfig{}
 	dependencies.Get(ic)
 
@@ -55,18 +57,30 @@ func (a *PlatformPermsCheck) Generate(dependencies asset.Parents) error {
 	switch platform {
 	case aws.Name:
 		permissionGroups := awsconfig.RequiredPermissionGroups(ic.Config)
+		region := ic.Config.Platform.AWS.Region
+		endpoints := ic.Config.AWS.ServiceEndpoints
 
-		ssn, err := ic.AWS.Session(ctx)
+		awsConfig, err := awsconfig.GetConfigWithOptions(ctx, config.WithRegion(region))
 		if err != nil {
 			return err
 		}
 
-		err = awsconfig.ValidateCreds(ssn, permissionGroups, ic.Config.Platform.AWS.Region)
+		endpointResolver := awsconfig.NewServiceEndpointResolver(awsconfig.EndpointOptions{
+			Region:    region,
+			Endpoints: endpoints,
+		})
+
+		var iamEndpoint string
+		if ep, found := endpointResolver.GetCustomEndpoint(iam.ServiceID); found {
+			iamEndpoint = ep.URL
+		}
+
+		err = awsconfig.ValidateCreds(ctx, awsConfig, permissionGroups, region, iamEndpoint)
 		if err != nil {
 			return errors.Wrap(err, "validate AWS credentials")
 		}
 	case gcp.Name:
-		client, err := gcpconfig.NewClient(context.TODO())
+		client, err := gcpconfig.NewClient(ctx, ic.Config.GCP.Endpoint)
 		if err != nil {
 			return err
 		}
@@ -78,7 +92,7 @@ func (a *PlatformPermsCheck) Generate(dependencies asset.Parents) error {
 		// TODO: IBM[#90]: platformpermscheck
 	case powervs.Name:
 		// Nothing needs to be done here
-	case azure.Name, baremetal.Name, external.Name, none.Name, openstack.Name, ovirt.Name, vsphere.Name, nutanix.Name:
+	case azure.Name, baremetal.Name, external.Name, none.Name, openstack.Name, powervc.Name, ovirt.Name, vsphere.Name, nutanix.Name:
 		// no permissions to check
 	default:
 		err = fmt.Errorf("unknown platform type %q", platform)

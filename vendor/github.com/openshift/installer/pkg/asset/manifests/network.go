@@ -1,8 +1,9 @@
 package manifests
 
 import (
+	"context"
 	"fmt"
-	"path/filepath"
+	"path"
 
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,12 +15,13 @@ import (
 	"github.com/openshift/installer/pkg/asset/installconfig"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/aws"
+	"github.com/openshift/installer/pkg/types/baremetal"
 	"github.com/openshift/installer/pkg/types/powervs"
 )
 
 var (
-	noCfgFilename  = filepath.Join(manifestDir, "cluster-network-02-config.yml")
-	cnoCfgFilename = filepath.Join(manifestDir, "cluster-network-03-config.yml")
+	noCfgFilename  = path.Join(manifestDir, "cluster-network-02-config.yml")
+	cnoCfgFilename = path.Join(manifestDir, "cluster-network-03-config.yml")
 	// Cluster Network MTU for AWS Local Zone deployments on edge machine pools.
 	ovnKubernetesNetworkMtuEdge uint32 = 1200
 )
@@ -46,7 +48,7 @@ func (no *Networking) Dependencies() []asset.Asset {
 }
 
 // Generate generates the network operator config.
-func (no *Networking) Generate(dependencies asset.Parents) error {
+func (no *Networking) Generate(_ context.Context, dependencies asset.Parents) error {
 	installConfig := &installconfig.InstallConfig{}
 	dependencies.Get(installConfig)
 
@@ -69,6 +71,23 @@ func (no *Networking) Generate(dependencies asset.Parents) error {
 		serviceNet = append(serviceNet, sn.String())
 	}
 
+	networkSpec := configv1.NetworkSpec{
+		ClusterNetwork: clusterNet,
+		ServiceNetwork: serviceNet,
+		NetworkType:    netConfig.NetworkType,
+		// Block all Service.ExternalIPs by default
+		ExternalIP: &configv1.ExternalIPConfig{
+			Policy: &configv1.ExternalIPPolicy{},
+		},
+	}
+
+	// Set networkObservability from the install config
+	if netConfig.NetworkObservability != nil && netConfig.NetworkObservability.InstallationPolicy != nil {
+		networkSpec.NetworkObservability = configv1.NetworkObservabilitySpec{
+			InstallationPolicy: configv1.NetworkObservabilityInstallationPolicy(*netConfig.NetworkObservability.InstallationPolicy),
+		}
+	}
+
 	no.Config = &configv1.Network{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: configv1.SchemeGroupVersion.String(),
@@ -78,15 +97,7 @@ func (no *Networking) Generate(dependencies asset.Parents) error {
 			Name: "cluster",
 			// not namespaced
 		},
-		Spec: configv1.NetworkSpec{
-			ClusterNetwork: clusterNet,
-			ServiceNetwork: serviceNet,
-			NetworkType:    netConfig.NetworkType,
-			// Block all Service.ExternalIPs by default
-			ExternalIP: &configv1.ExternalIPConfig{
-				Policy: &configv1.ExternalIPPolicy{},
-			},
-		},
+		Spec: networkSpec,
 	}
 
 	configData, err := yaml.Marshal(no.Config)
@@ -101,36 +112,20 @@ func (no *Networking) Generate(dependencies asset.Parents) error {
 		},
 	}
 
-	switch installConfig.Config.Platform.Name() {
-	case aws.Name:
-		defaultNetworkConfig, err := no.GenerateCustomNetworkConfigMTU(installConfig)
-		if err != nil {
-			return err
-		}
-		if defaultNetworkConfig != nil {
-			cnoConfig, err := no.generateCustomCnoConfig(defaultNetworkConfig)
-			if err != nil {
-				return fmt.Errorf("cannot generate DefaultNetworkConfig for %s: %w", netConfig.NetworkType, err)
-			}
-			no.FileList = append(no.FileList, &asset.File{
-				Filename: cnoCfgFilename,
-				Data:     cnoConfig,
-			})
-		}
-
-	case powervs.Name:
-		if netConfig.NetworkType == "OVNKubernetes" {
-			ovnConfig, err := OvnKubeConfig(clusterNet, serviceNet, true)
-			if err != nil {
-				return errors.Wrapf(err, "cannot marshal Power VS OVNKube Config")
-			}
-			no.FileList = append(no.FileList, &asset.File{
-				Filename: cnoCfgFilename,
-				Data:     ovnConfig,
-			})
-		}
+	cnoCfg, err := clusterNetworkOperatorConfig(installConfig, clusterNet, serviceNet)
+	if err != nil {
+		return fmt.Errorf("error generating cluster network operator config: %w", err)
 	}
-
+	if cnoCfg != nil {
+		cnoData, err := yaml.Marshal(cnoCfg)
+		if err != nil {
+			return fmt.Errorf("error marshaling cluster network operator manifest %w", err)
+		}
+		no.FileList = append(no.FileList, &asset.File{
+			Filename: cnoCfgFilename,
+			Data:     cnoData,
+		})
+	}
 	return nil
 }
 
@@ -144,32 +139,46 @@ func (no *Networking) Load(f asset.FileFetcher) (bool, error) {
 	return false, nil
 }
 
-// generateCustomCnoConfig generates the defaultNetwork for Cluster Network Operator
-// configuration, and returns the byte data with Cluster Network Operator manifest.
-func (no *Networking) generateCustomCnoConfig(defaultNetwork *operatorv1.DefaultNetworkDefinition) ([]byte, error) {
-	if defaultNetwork == nil {
-		return nil, errors.New("defaultNetwork must be specified")
-	}
-	dnConfig := operatorv1.Network{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: operatorv1.SchemeGroupVersion.String(),
-			Kind:       "Network",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "cluster",
-		},
-		Spec: operatorv1.NetworkSpec{
-			OperatorSpec:   operatorv1.OperatorSpec{ManagementState: operatorv1.Managed},
-			DefaultNetwork: *defaultNetwork,
-		},
+// clusterNetworkOperatorConfig conditionally generates the operatorv1.Networking config if customizations
+// are needed, otherwise it is omitted to fallback to default behavior.
+func clusterNetworkOperatorConfig(ic *installconfig.InstallConfig, cns []configv1.ClusterNetworkEntry, sn []string) (*operatorv1.Network, error) {
+	var cnoCfg *operatorv1.Network
+	var err error
+	switch ic.Config.Platform.Name() {
+	case aws.Name:
+		cnoCfg, err = generateCustomNetworkConfigMTU(ic, cns, sn)
+		if err != nil {
+			return nil, err
+		}
+	case powervs.Name:
+		if ic.Config.NetworkType == "OVNKubernetes" {
+			cnoCfg = ovnNetworkOperatorConfig(cns, sn)
+			cnoCfg.Spec.DefaultNetwork.OVNKubernetesConfig.GatewayConfig = &operatorv1.GatewayConfig{RoutingViaHost: true}
+		}
+	case baremetal.Name:
+		// BGP-based VIP management needs frr-k8s CRDs/namespace deployed by
+		// CNO; enable the FRR routing capability provider. Non-OVN network
+		// types are rejected by install-config validation.
+		if ic.Config.Platform.BareMetal.BGPVIPConfig != nil && ic.Config.NetworkType == string(operatorv1.NetworkTypeOVNKubernetes) {
+			cnoCfg = ovnNetworkOperatorConfig(cns, sn)
+			cnoCfg.Spec.AdditionalRoutingCapabilities = &operatorv1.AdditionalRoutingCapabilities{
+				Providers: []operatorv1.RoutingCapabilitiesProvider{operatorv1.RoutingCapabilitiesProviderFRR},
+			}
+		}
 	}
 
-	return yaml.Marshal(dnConfig)
+	if ovnCfg := ic.Config.OVNKubernetesConfig; ovnCfg != nil && ovnCfg.IPv4 != nil && ovnCfg.IPv4.InternalJoinSubnet != nil {
+		if cnoCfg == nil {
+			cnoCfg = ovnNetworkOperatorConfig(cns, sn)
+		}
+		cnoCfg.Spec.DefaultNetwork.OVNKubernetesConfig.IPv4 = &operatorv1.IPv4OVNKubernetesConfig{InternalJoinSubnet: ovnCfg.IPv4.InternalJoinSubnet.String()}
+	}
+	return cnoCfg, nil
 }
 
-// GenerateCustomNetworkConfigMTU generates and return the DefaultNetwork configuration, when there are
+// generateCustomNetworkConfigMTU generates and return the DefaultNetwork configuration, when there are
 // customizations in the install-config.yaml.
-func (no *Networking) GenerateCustomNetworkConfigMTU(ic *installconfig.InstallConfig) (*operatorv1.DefaultNetworkDefinition, error) {
+func generateCustomNetworkConfigMTU(ic *installconfig.InstallConfig, cns []configv1.ClusterNetworkEntry, sn []string) (*operatorv1.Network, error) {
 	if ic.Config == nil {
 		return nil, nil
 	}
@@ -177,7 +186,6 @@ func (no *Networking) GenerateCustomNetworkConfigMTU(ic *installconfig.InstallCo
 		return nil, nil
 	}
 
-	var defNetCfg *operatorv1.DefaultNetworkDefinition
 	mtu := uint32(0)
 	hasCustomMTU := false
 	hasEdgePool := false
@@ -207,18 +215,48 @@ func (no *Networking) GenerateCustomNetworkConfigMTU(ic *installconfig.InstallCo
 		return nil, nil
 	}
 
+	var cnoCfg *operatorv1.Network
 	if netConfig.NetworkType == string(operatorv1.NetworkTypeOVNKubernetes) {
 		// User-defined Cluster MTU has precedence over standard edge zone for each plugin.
 		if hasEdgePool && mtu == 0 {
 			mtu = ovnKubernetesNetworkMtuEdge
 		}
-		defNetCfg = &operatorv1.DefaultNetworkDefinition{
-			Type: operatorv1.NetworkTypeOVNKubernetes,
-			OVNKubernetesConfig: &operatorv1.OVNKubernetesConfig{
-				MTU: &mtu,
-			},
-		}
+
+		cnoCfg = ovnNetworkOperatorConfig(cns, sn)
+		cnoCfg.Spec.DefaultNetwork.OVNKubernetesConfig.MTU = &mtu
 	}
 
-	return defNetCfg, nil
+	return cnoCfg, nil
+}
+
+// ovnNetworkOperatorConfig generates a network operator configuration manifest
+// using ovn-kubernetes as the SDN.
+func ovnNetworkOperatorConfig(cns []configv1.ClusterNetworkEntry, sn []string) *operatorv1.Network {
+	operCNs := []operatorv1.ClusterNetworkEntry{}
+	for _, cn := range cns {
+		ocn := operatorv1.ClusterNetworkEntry{
+			CIDR:       cn.CIDR,
+			HostPrefix: cn.HostPrefix,
+		}
+		operCNs = append(operCNs, ocn)
+	}
+	return &operatorv1.Network{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "operator.openshift.io/v1",
+			Kind:       "Network",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: operatorv1.NetworkSpec{
+			OperatorSpec:   operatorv1.OperatorSpec{ManagementState: operatorv1.Managed},
+			ClusterNetwork: operCNs,
+			ServiceNetwork: sn,
+			DefaultNetwork: operatorv1.DefaultNetworkDefinition{
+				Type:                operatorv1.NetworkTypeOVNKubernetes,
+				OVNKubernetesConfig: &operatorv1.OVNKubernetesConfig{},
+			},
+		},
+		Status: operatorv1.NetworkStatus{},
+	}
 }

@@ -7,7 +7,6 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/briandowns/spinner v1.23.2
 	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e // indirect
-	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e // indirect
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coreos/ignition/v2 v2.25.0

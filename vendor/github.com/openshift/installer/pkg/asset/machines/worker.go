@@ -9,14 +9,18 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	meta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
-	ipamv1 "sigs.k8s.io/cluster-api/exp/ipam/api/v1beta1"
+	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta2"
+	capz "sigs.k8s.io/cluster-api-provider-azure/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/yaml"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	machinev1 "github.com/openshift/api/machine/v1"
 	machinev1alpha1 "github.com/openshift/api/machine/v1alpha1"
 	machinev1beta1 "github.com/openshift/api/machine/v1beta1"
@@ -31,8 +35,8 @@ import (
 	"github.com/openshift/installer/pkg/asset/ignition/machine"
 	"github.com/openshift/installer/pkg/asset/installconfig"
 	icaws "github.com/openshift/installer/pkg/asset/installconfig/aws"
-	icazure "github.com/openshift/installer/pkg/asset/installconfig/azure"
 	icgcp "github.com/openshift/installer/pkg/asset/installconfig/gcp"
+	powervsconfig "github.com/openshift/installer/pkg/asset/installconfig/powervs"
 	"github.com/openshift/installer/pkg/asset/machines/aws"
 	"github.com/openshift/installer/pkg/asset/machines/azure"
 	"github.com/openshift/installer/pkg/asset/machines/baremetal"
@@ -59,7 +63,9 @@ import (
 	nutanixtypes "github.com/openshift/installer/pkg/types/nutanix"
 	openstacktypes "github.com/openshift/installer/pkg/types/openstack"
 	ovirttypes "github.com/openshift/installer/pkg/types/ovirt"
+	powervctypes "github.com/openshift/installer/pkg/types/powervc"
 	powervstypes "github.com/openshift/installer/pkg/types/powervs"
+	powervsdefaults "github.com/openshift/installer/pkg/types/powervs/defaults"
 	vspheretypes "github.com/openshift/installer/pkg/types/vsphere"
 	ibmcloudapi "github.com/openshift/machine-api-provider-ibmcloud/pkg/apis"
 	ibmcloudprovider "github.com/openshift/machine-api-provider-ibmcloud/pkg/apis/ibmcloudprovider/v1"
@@ -68,6 +74,12 @@ import (
 const (
 	// workerMachineSetFileName is the format string for constructing the worker MachineSet filenames.
 	workerMachineSetFileName = "99_openshift-cluster-api_worker-machineset-%s.yaml"
+
+	// workerCAPIMachineSetFileName is the format string for constructing the CAPI worker MachineSet filenames.
+	workerCAPIMachineSetFileName = "99_openshift-cluster-api_worker-capi-machineset-%s.yaml"
+
+	// workerMachineTemplateFileName is the format string for constructing the worker MachineTemplate filenames.
+	workerMachineTemplateFileName = "99_openshift-cluster-api_worker-machinetemplate-%s.yaml"
 
 	// workerMachineFileName is the format string for constructing the worker Machine filenames.
 	workerMachineFileName = "99_openshift-cluster-api_worker-machines-%s.yaml"
@@ -87,10 +99,12 @@ const (
 )
 
 var (
-	workerMachineSetFileNamePattern = fmt.Sprintf(workerMachineSetFileName, "*")
-	workerMachineFileNamePattern    = fmt.Sprintf(workerMachineFileName, "*")
-	workerIPClaimFileNamePattern    = fmt.Sprintf(ipClaimFileName, "*worker*")
-	workerIPAddressFileNamePattern  = fmt.Sprintf(ipAddressFileName, "*worker*")
+	workerMachineSetFileNamePattern      = fmt.Sprintf(workerMachineSetFileName, "*")
+	workerCAPIMachineSetFileNamePattern  = fmt.Sprintf(workerCAPIMachineSetFileName, "*")
+	workerMachineTemplateFileNamePattern = fmt.Sprintf(workerMachineTemplateFileName, "*")
+	workerMachineFileNamePattern         = fmt.Sprintf(workerMachineFileName, "*")
+	workerIPClaimFileNamePattern         = fmt.Sprintf(ipClaimFileName, "*worker*")
+	workerIPAddressFileNamePattern       = fmt.Sprintf(ipAddressFileName, "*worker*")
 
 	_ asset.WritableAsset = (*Worker)(nil)
 )
@@ -112,21 +126,28 @@ func defaultAWSMachinePoolPlatform(poolName string) awstypes.MachinePool {
 	}
 }
 
-func defaultAzureMachinePoolPlatform() azuretypes.MachinePool {
+func defaultAzureMachinePoolPlatform(env azuretypes.CloudEnvironment) azuretypes.MachinePool {
+	idType := capz.VMIdentityUserAssigned
+	if env == azuretypes.StackCloud {
+		idType = capz.VMIdentityNone
+	}
+
 	return azuretypes.MachinePool{
 		OSDisk: azuretypes.OSDisk{
 			DiskSizeGB: powerOfTwoRootVolumeSize,
 			DiskType:   azuretypes.DefaultDiskType,
 		},
+		Identity: &azuretypes.VMIdentity{Type: idType},
 	}
 }
 
-func defaultGCPMachinePoolPlatform(arch types.Architecture) gcptypes.MachinePool {
+func defaultGCPMachinePoolPlatform(arch types.Architecture, projectID, region string) gcptypes.MachinePool {
+	instanceType := icgcp.DefaultInstanceTypeForArchAndProjectID(arch, projectID, region)
 	return gcptypes.MachinePool{
-		InstanceType: icgcp.DefaultInstanceTypeForArch(arch),
+		InstanceType: instanceType,
 		OSDisk: gcptypes.OSDisk{
 			DiskSizeGB: powerOfTwoRootVolumeSize,
-			DiskType:   "pd-ssd",
+			DiskType:   gcptypes.DefaultDiskTypeForInstanceAndProjectID(instanceType, projectID, region),
 		},
 	}
 }
@@ -176,26 +197,68 @@ func defaultVSphereMachinePoolPlatform() vspheretypes.MachinePool {
 
 func defaultPowerVSMachinePoolPlatform(ic *types.InstallConfig) powervstypes.MachinePool {
 	var (
-		defaultMp powervstypes.MachinePool
-		sysTypes  []string
-		err       error
+		client   *powervsconfig.Client
+		fallback = false
+		sysTypes []string
+		sysType  = "s922"
+		err      error
 	)
 
-	defaultMp = powervstypes.MachinePool{
+	// Update the saved session storage with the install config since the session
+	// storage is used as the defaults.
+	err = powervsconfig.UpdateSessionStoreToAuthFile(&powervsconfig.SessionStore{
+		ID:                   ic.PowerVS.UserID,
+		DefaultRegion:        ic.PowerVS.Region,
+		DefaultZone:          ic.PowerVS.Zone,
+		PowerVSResourceGroup: ic.PowerVS.PowerVSResourceGroup,
+	})
+	if err != nil {
+		fallback = true
+		logrus.Warnf("could not UpdateSessionStoreToAuthFile in defaultPowerVSMachinePoolPlatform")
+	}
+
+	client, err = powervsconfig.NewClient()
+	if err != nil {
+		fallback = true
+		logrus.Warnf("could not get client in defaultPowerVSMachinePoolPlatform")
+	} else {
+		sysTypes, err = client.GetDatacenterSupportedSystems(context.Background(), ic.PowerVS.Zone)
+		if err != nil {
+			fallback = true
+			logrus.Warnf("For given zone %v, GetDatacenterSupportedSystems returns %v", ic.PowerVS.Zone, err)
+		} else {
+			// Is the hardcoded default of s922 in the list?
+			found := false
+			for _, st := range sysTypes {
+				if st == sysType {
+					found = true
+					break
+				}
+			}
+			if !found {
+				sysType = sysTypes[0]
+			}
+		}
+	}
+
+	if fallback {
+		// Fallback to hardcoded list
+		sysTypes, err = powervstypes.AvailableSysTypes(ic.PowerVS.Region, ic.PowerVS.Zone)
+		if err == nil {
+			sysType = sysTypes[0]
+		} else {
+			logrus.Warnf("For given zone %v, AvailableSysTypes returns %v", ic.PowerVS.Zone, err)
+		}
+	}
+
+	logrus.Debugf("defaultPowerVSMachinePoolPlatform: using a default SysType of %s with values to choose from %v", sysType, sysTypes)
+
+	return powervstypes.MachinePool{
 		MemoryGiB:  32,
 		Processors: intstr.FromString("0.5"),
 		ProcType:   machinev1.PowerVSProcessorTypeShared,
-		SysType:    "s922",
+		SysType:    sysType,
 	}
-
-	sysTypes, err = powervstypes.AvailableSysTypes(ic.PowerVS.Region)
-	if err == nil {
-		defaultMp.SysType = sysTypes[0]
-	} else {
-		logrus.Warnf("For given region %v, AvailableSysTypes returns %v", ic.PowerVS.Region, err)
-	}
-
-	return defaultMp
 }
 
 func defaultNutanixMachinePoolPlatform() nutanixtypes.MachinePool {
@@ -232,12 +295,14 @@ func awsSetPreferredInstanceByEdgeZone(ctx context.Context, defaultTypes []strin
 
 // Worker generates the machinesets for `worker` machine pool.
 type Worker struct {
-	UserDataFile       *asset.File
-	MachineConfigFiles []*asset.File
-	MachineSetFiles    []*asset.File
-	MachineFiles       []*asset.File
-	IPClaimFiles       []*asset.File
-	IPAddrFiles        []*asset.File
+	UserDataFile         *asset.File
+	MachineConfigFiles   []*asset.File
+	MachineSetFiles      []*asset.File
+	MachineTemplateFiles []*asset.File
+	CAPIMachineSetFiles  []*asset.File
+	MachineFiles         []*asset.File
+	IPClaimFiles         []*asset.File
+	IPAddrFiles          []*asset.File
 }
 
 // Name returns a human friendly name for the Worker Asset.
@@ -262,8 +327,9 @@ func (w *Worker) Dependencies() []asset.Asset {
 }
 
 // Generate generates the Worker asset.
-func (w *Worker) Generate(dependencies asset.Parents) error {
-	ctx := context.TODO()
+//
+//nolint:gocyclo
+func (w *Worker) Generate(ctx context.Context, dependencies asset.Parents) error {
 	clusterID := &installconfig.ClusterID{}
 	installConfig := &installconfig.InstallConfig{}
 	rhcosImage := new(rhcos.Image)
@@ -272,14 +338,17 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 	dependencies.Get(clusterID, installConfig, rhcosImage, rhcosRelease, wign)
 
 	workerUserDataSecretName := "worker-user-data"
-
-	machines := []machinev1beta1.Machine{}
 	machineConfigs := []*mcfgv1.MachineConfig{}
-	machineSets := []runtime.Object{}
-	var ipClaims []ipamv1.IPAddressClaim
-	var ipAddrs []ipamv1.IPAddress
+
+	var ipClaims, ipAddrs, machines []runtime.Object
+	// MAPI machineset manifests
+	var machineSets []runtime.Object
+	// CAPI machineset and machine template manifests
+	var machineTemplates, capiMachineSets []runtime.Object
+
 	var err error
 	ic := installConfig.Config
+
 	for _, pool := range ic.Compute {
 		pool := pool // this makes golint happy... G601: Implicit memory aliasing in for loop. (gosec)
 		if pool.Hyperthreading == types.HyperthreadingDisabled {
@@ -319,12 +388,65 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 				}
 				machineConfigs = append(machineConfigs, ignPowerSMT)
 			}
+
+			if installConfig.Config.Publish == types.InternalPublishingStrategy &&
+				(len(installConfig.Config.ImageDigestSources) > 0 || len(installConfig.Config.DeprecatedImageContentSources) > 0) {
+				ignChrony, err := machineconfig.ForCustomNTP("worker", powervsdefaults.DefaultNTPServer)
+				if err != nil {
+					return errors.Wrap(err, "failed to create ignition for custom NTP for worker machines")
+				}
+				machineConfigs = append(machineConfigs, ignChrony)
+
+				ignRoutes, err := machineconfig.ForExtraRoutes("worker", powervsdefaults.DefaultExtraRoutes(), ic.MachineNetwork[0].CIDR.String())
+				if err != nil {
+					return errors.Wrap(err, "failed to create ignition for extra routes for worker machines")
+				}
+				machineConfigs = append(machineConfigs, ignRoutes)
+			}
+		}
+		if installConfig.Config.Enabled(features.FeatureGateMultiDiskSetup) {
+			for i, diskSetup := range pool.DiskSetup {
+				var dataDisk any
+
+				diskName, err := DiskName(diskSetup)
+				if err != nil {
+					return err
+				}
+
+				switch ic.Platform.Name() {
+				// Each platform has their unique dataDisk type
+				case azuretypes.Name:
+					if i < len(pool.Platform.Azure.DataDisks) {
+						dataDisk = pool.Platform.Azure.DataDisks[i]
+					}
+				case vspheretypes.Name:
+					vsphereMachinePool := pool.Platform.VSphere
+					for index, disk := range vsphereMachinePool.DataDisks {
+						if disk.Name == diskName {
+							dataDisk = vsphere.DiskInfo{
+								Index: index,
+								Disk:  disk,
+							}
+							break
+						}
+					}
+				default:
+					return errors.Errorf("disk setup for %s is not supported", ic.Platform.Name())
+				}
+
+				if dataDisk != nil {
+					diskSetupIgn, err := NodeDiskSetup(installConfig, "worker", diskSetup, dataDisk)
+					if err != nil {
+						return errors.Wrap(err, "failed to create ignition to setup disks for compute")
+					}
+					machineConfigs = append(machineConfigs, diskSetupIgn)
+				}
+			}
 		}
 		// The maximum number of networks supported on ServiceNetwork is two, one IPv4 and one IPv6 network.
 		// The cluster-network-operator handles the validation of this field.
 		// Reference: https://github.com/openshift/cluster-network-operator/blob/fc3e0e25b4cfa43e14122bdcdd6d7f2585017d75/pkg/network/cluster_config.go#L45-L52
-		if ic.Networking != nil && len(ic.Networking.ServiceNetwork) == 2 &&
-			(ic.Platform.Name() == openstacktypes.Name || ic.Platform.Name() == vspheretypes.Name) {
+		if ic.Networking != nil && len(ic.Networking.ServiceNetwork) == 2 {
 			// Only configure kernel args for dual-stack clusters.
 			ignIPv6, err := machineconfig.ForDualStackAddresses("worker")
 			if err != nil {
@@ -335,29 +457,23 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 
 		switch ic.Platform.Name() {
 		case awstypes.Name:
-			subnets := icaws.Subnets{}
-			zones := icaws.Zones{}
-			if len(ic.Platform.AWS.Subnets) > 0 {
-				var subnetsMeta icaws.Subnets
-				switch pool.Name {
-				case types.MachinePoolEdgeRoleName:
-					subnetsMeta, err = installConfig.AWS.EdgeSubnets(ctx)
-					if err != nil {
-						return err
-					}
-				default:
-					subnetsMeta, err = installConfig.AWS.PrivateSubnets(ctx)
-					if err != nil {
-						return err
-					}
+			var subnets icaws.SubnetsByZone
+			switch pool.Name {
+			case types.MachinePoolEdgeRoleName:
+				subnets, err = aws.MachineSubnetsByZones(ctx, installConfig, awstypes.EdgeNodeSubnetRole)
+				if err != nil {
+					return err
 				}
-				for _, subnet := range subnetsMeta {
-					subnets[subnet.Zone.Name] = subnet
+			default:
+				subnets, err = aws.MachineSubnetsByZones(ctx, installConfig, awstypes.ClusterNodeSubnetRole)
+				if err != nil {
+					return err
 				}
 			}
+
 			mpool := defaultAWSMachinePoolPlatform(pool.Name)
 
-			osImage := strings.SplitN(string(*rhcosImage), ",", 2)
+			osImage := strings.SplitN(rhcosImage.Compute, ",", 2)
 			osImageID := osImage[0]
 			if len(osImage) == 2 {
 				osImageID = "" // the AMI will be generated later on
@@ -366,6 +482,7 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 
 			mpool.Set(ic.Platform.AWS.DefaultMachinePlatform)
 			mpool.Set(pool.Platform.AWS)
+			zones := icaws.Zones{}
 			zoneDefaults := false
 			if len(mpool.Zones) == 0 {
 				if len(subnets) > 0 {
@@ -398,13 +515,16 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 			}
 
 			if mpool.InstanceType == "" {
-				instanceTypes := awsdefaults.InstanceTypes(installConfig.Config.Platform.AWS.Region, installConfig.Config.ControlPlane.Architecture, configv1.HighlyAvailableTopologyMode)
+				arch := installConfig.Config.ControlPlane.Architecture
+				if len(installConfig.Config.Compute) > 0 {
+					arch = installConfig.Config.Compute[0].Architecture
+				}
+				instanceTypes := awsdefaults.InstanceTypes(installConfig.Config.Platform.AWS.Region, arch, configv1.HighlyAvailableTopologyMode)
 				switch pool.Name {
 				case types.MachinePoolEdgeRoleName:
-					ok := awsSetPreferredInstanceByEdgeZone(ctx, instanceTypes, installConfig.AWS, zones)
-					if !ok {
-						logrus.Warnf("failed to find preferred instance type for one or more zones in the %s pool, using default: %s", pool.Name, instanceTypes[0])
-						mpool.InstanceType = instanceTypes[0]
+					if !awsSetPreferredInstanceByEdgeZone(ctx, instanceTypes, installConfig.AWS, zones) {
+						// Using the default instance type from the non-edge pool often fails.
+						return fmt.Errorf("failed to find instance type for one or more zones in the %s pool. Please specify an instance type in the install-config.yaml", pool.Name)
 					}
 				default:
 					mpool.InstanceType, err = aws.PreferredInstanceType(ctx, installConfig.AWS, instanceTypes, mpool.Zones)
@@ -422,24 +542,51 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 				}
 			}
 
+			dHosts := map[string]icaws.Host{}
+			if mpool.HostPlacement != nil && mpool.HostPlacement.Affinity != nil && *mpool.HostPlacement.Affinity == awstypes.HostAffinityDedicatedHost {
+				dHosts, err = installConfig.AWS.DedicatedHosts(ctx, mpool.HostPlacement.DedicatedHost)
+				if err != nil {
+					return fmt.Errorf("failed to retrieve dedicated hosts for compute pool: %w", err)
+				}
+			}
+
 			pool.Platform.AWS = &mpool
-			sets, err := aws.MachineSets(&aws.MachineSetInput{
+
+			input := &aws.MachineSetInput{
 				ClusterID:                clusterID.InfraID,
 				InstallConfigPlatformAWS: installConfig.Config.Platform.AWS,
 				Subnets:                  subnets,
 				Zones:                    zones,
+				PublicSubnet:             awstypes.IsPublicOnlySubnetsEnabled(),
 				Pool:                     &pool,
 				Role:                     pool.Name,
 				UserDataSecret:           workerUserDataSecretName,
-			})
-			if err != nil {
-				return errors.Wrap(err, "failed to create worker machine objects")
+				Hosts:                    dHosts,
+				Config:                   installConfig.Config,
 			}
-			for _, set := range sets {
-				machineSets = append(machineSets, set)
+
+			if pool.Management == types.ClusterAPI {
+				templates, sets, err := aws.ClusterAPIMachineSets(input)
+				if err != nil {
+					return fmt.Errorf("failed to create CAPI worker machineset objects: %w", err)
+				}
+				for _, template := range templates {
+					machineTemplates = append(machineTemplates, &template)
+				}
+				for _, set := range sets {
+					capiMachineSets = append(capiMachineSets, &set)
+				}
+			} else {
+				sets, err := aws.MachineSets(input)
+				if err != nil {
+					return fmt.Errorf("failed to create worker machine objects: %w", err)
+				}
+				for _, set := range sets {
+					machineSets = append(machineSets, set)
+				}
 			}
 		case azuretypes.Name:
-			mpool := defaultAzureMachinePoolPlatform()
+			mpool := defaultAzureMachinePoolPlatform(installConfig.Config.Platform.Azure.CloudName)
 			mpool.InstanceType = azuredefaults.ComputeInstanceType(
 				installConfig.Config.Platform.Azure.CloudName,
 				installConfig.Config.Platform.Azure.Region,
@@ -448,14 +595,18 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 			mpool.Set(ic.Platform.Azure.DefaultMachinePlatform)
 			mpool.Set(pool.Platform.Azure)
 
-			session, err := installConfig.Azure.Session()
+			client, err := installConfig.Azure.Client()
 			if err != nil {
-				return errors.Wrap(err, "failed to fetch session")
+				return err
 			}
 
-			client := icazure.NewClient(session)
+			session, err := installConfig.Azure.Session()
+			if err != nil {
+				return err
+			}
+
 			if len(mpool.Zones) == 0 {
-				azs, err := client.GetAvailabilityZones(context.TODO(), ic.Platform.Azure.Region, mpool.InstanceType)
+				azs, err := installConfig.Azure.VMAvailabilityZones(ctx, mpool.InstanceType)
 				if err != nil {
 					return errors.Wrap(err, "failed to fetch availability zones")
 				}
@@ -466,28 +617,39 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 					mpool.Zones = []string{""}
 				}
 			}
+			subnetZones := []string{}
+			if ic.Azure.OutboundType == azuretypes.NATGatewayMultiZoneOutboundType {
+				subnetZones, err = installConfig.Azure.AvailabilityZones(ctx)
+				if err != nil {
+					return errors.Wrap(err, "failed to fetch availability zones")
+				}
+				computeSubnet := installConfig.Config.Azure.ComputeSubnetName(clusterID.InfraID)
+				_, err := installConfig.Azure.GenerateZonesSubnetMap(installConfig.Config.Azure.Subnets, computeSubnet)
+				if err != nil {
+					return err
+				}
+			}
 
 			if mpool.OSImage.Publisher != "" {
-				img, ierr := client.GetMarketplaceImage(context.TODO(), ic.Platform.Azure.Region, mpool.OSImage.Publisher, mpool.OSImage.Offer, mpool.OSImage.SKU, mpool.OSImage.Version)
+				img, ierr := client.GetMarketplaceImage(ctx, ic.Platform.Azure.Region, mpool.OSImage.Publisher, mpool.OSImage.Offer, mpool.OSImage.SKU, mpool.OSImage.Version)
 				if ierr != nil {
 					return fmt.Errorf("failed to fetch marketplace image: %w", ierr)
 				}
 				// Publisher is case-sensitive and matched against exactly. Also
 				// the Plan's publisher might not be exactly the same as the
 				// Image's publisher
-				if img.Plan != nil && img.Plan.Publisher != nil {
-					mpool.OSImage.Publisher = *img.Plan.Publisher
+				if img.Properties != nil && img.Properties.Plan != nil && img.Properties.Plan.Publisher != nil {
+					mpool.OSImage.Publisher = *img.Properties.Plan.Publisher
 				}
 			}
 			pool.Platform.Azure = &mpool
 
-			capabilities, err := client.GetVMCapabilities(context.TODO(), mpool.InstanceType, installConfig.Config.Platform.Azure.Region)
+			capabilities, err := installConfig.Azure.ComputeCapabilities()
 			if err != nil {
 				return err
 			}
 
-			useImageGallery := ic.Platform.Azure.CloudName != azuretypes.StackCloud
-			sets, err := azure.MachineSets(clusterID.InfraID, ic, &pool, string(*rhcosImage), "worker", workerUserDataSecretName, capabilities, useImageGallery)
+			sets, err := azure.MachineSets(clusterID.InfraID, installConfig, &pool, rhcosImage.Compute, "worker", workerUserDataSecretName, capabilities, subnetZones, session)
 			if err != nil {
 				return errors.Wrap(err, "failed to create worker machine objects")
 			}
@@ -500,29 +662,32 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 			mpool.Set(pool.Platform.BareMetal)
 			pool.Platform.BareMetal = &mpool
 
-			// Use managed user data secret, since images used by MachineSet
-			// are always up to date
-			workerUserDataSecretName = "worker-user-data-managed"
-			sets, err := baremetal.MachineSets(clusterID.InfraID, ic, &pool, "", "worker", workerUserDataSecretName)
-			if err != nil {
-				return errors.Wrap(err, "failed to create worker machine objects")
-			}
-			for _, set := range sets {
-				machineSets = append(machineSets, set)
+			enabledCaps := installConfig.Config.GetEnabledCapabilities()
+			if enabledCaps.Has(configv1.ClusterVersionCapabilityMachineAPI) {
+				// Use managed user data secret, since images used by MachineSet
+				// are always up to date
+				workerUserDataSecretName = "worker-user-data-managed"
+				sets, err := baremetal.MachineSets(clusterID.InfraID, ic, &pool, "", "worker", workerUserDataSecretName)
+				if err != nil {
+					return errors.Wrap(err, "failed to create worker machine objects")
+				}
+				for _, set := range sets {
+					machineSets = append(machineSets, set)
+				}
 			}
 		case gcptypes.Name:
-			mpool := defaultGCPMachinePoolPlatform(pool.Architecture)
+			mpool := defaultGCPMachinePoolPlatform(pool.Architecture, ic.Platform.GCP.ProjectID, ic.Platform.GCP.Region)
 			mpool.Set(ic.Platform.GCP.DefaultMachinePlatform)
 			mpool.Set(pool.Platform.GCP)
 			if len(mpool.Zones) == 0 {
-				azs, err := gcp.ZonesForInstanceType(ic.Platform.GCP.ProjectID, ic.Platform.GCP.Region, mpool.InstanceType)
+				azs, err := gcp.ZonesForInstanceType(ic.Platform.GCP.ProjectID, ic.Platform.GCP.Region, mpool.InstanceType, ic.Platform.GCP.Endpoint)
 				if err != nil {
 					return errors.Wrap(err, "failed to fetch availability zones")
 				}
 				mpool.Zones = azs
 			}
 			pool.Platform.GCP = &mpool
-			sets, err := gcp.MachineSets(clusterID.InfraID, ic, &pool, string(*rhcosImage), "worker", workerUserDataSecretName)
+			sets, err := gcp.MachineSets(clusterID.InfraID, ic, &pool, rhcosImage.Compute, "worker", workerUserDataSecretName)
 			if err != nil {
 				return errors.Wrap(err, "failed to create worker machine objects")
 			}
@@ -558,23 +723,15 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 			for _, set := range sets {
 				machineSets = append(machineSets, set)
 			}
-		case openstacktypes.Name:
+		case openstacktypes.Name, powervctypes.Name:
 			mpool := defaultOpenStackMachinePoolPlatform()
 			mpool.Set(ic.Platform.OpenStack.DefaultMachinePlatform)
 			mpool.Set(pool.Platform.OpenStack)
 			pool.Platform.OpenStack = &mpool
 
-			imageName, _ := rhcosutils.GenerateOpenStackImageName(string(*rhcosImage), clusterID.InfraID)
+			imageName, _ := rhcosutils.GenerateOpenStackImageName(rhcosImage.Compute, clusterID.InfraID)
 
-			trunkSupport, err := openstack.CheckNetworkExtensionAvailability(
-				ic.Platform.OpenStack.Cloud,
-				"trunk",
-				nil,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to check for trunk support: %w", err)
-			}
-			sets, err := openstack.MachineSets(clusterID.InfraID, ic, &pool, imageName, "worker", workerUserDataSecretName, trunkSupport)
+			sets, err := openstack.MachineSets(ctx, clusterID.InfraID, ic, &pool, imageName, "worker", workerUserDataSecretName)
 			if err != nil {
 				return fmt.Errorf("failed to create worker machine objects: %w", err)
 			}
@@ -586,9 +743,8 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 			mpool.Set(ic.Platform.VSphere.DefaultMachinePlatform)
 			mpool.Set(pool.Platform.VSphere)
 			pool.Platform.VSphere = &mpool
-			templateName := clusterID.InfraID + "-rhcos"
 
-			sets, err := vsphere.MachineSets(clusterID.InfraID, ic, &pool, templateName, "worker", workerUserDataSecretName)
+			sets, err := vsphere.MachineSets(clusterID.InfraID, ic, &pool, "worker", workerUserDataSecretName)
 			if err != nil {
 				return errors.Wrap(err, "failed to create worker machine objects")
 			}
@@ -599,16 +755,21 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 			// If static IPs are configured, we must generate worker machines and scale the machinesets to 0.
 			if ic.Platform.VSphere.Hosts != nil {
 				logrus.Debug("Generating worker machines with static IPs.")
-				templateName := clusterID.InfraID + "-rhcos"
 
-				data, err := vsphere.Machines(clusterID.InfraID, ic, &pool, templateName, "worker", workerUserDataSecretName)
+				data, err := vsphere.Machines(clusterID.InfraID, ic, &pool, "worker", workerUserDataSecretName)
 				if err != nil {
 					return errors.Wrap(err, "failed to create worker machine objects")
 				}
 
-				machines = data.Machines
-				ipClaims = data.IPClaims
-				ipAddrs = data.IPAddresses
+				for _, m := range data.Machines {
+					machines = append(machines, &m)
+				}
+				for _, c := range data.IPClaims {
+					ipClaims = append(ipClaims, &c)
+				}
+				for _, a := range data.IPAddresses {
+					ipAddrs = append(ipAddrs, &a)
+				}
 
 				logrus.Debugf("Generated %v worker machines.", len(machines))
 
@@ -622,7 +783,7 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 			mpool.Set(pool.Platform.Ovirt)
 			pool.Platform.Ovirt = &mpool
 
-			imageName, _ := rhcosutils.GenerateOpenStackImageName(string(*rhcosImage), clusterID.InfraID)
+			imageName, _ := rhcosutils.GenerateOpenStackImageName(rhcosImage.Compute, clusterID.InfraID)
 
 			sets, err := ovirt.MachineSets(clusterID.InfraID, ic, &pool, imageName, "worker", workerUserDataSecretName)
 			if err != nil {
@@ -648,11 +809,11 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 			mpool := defaultNutanixMachinePoolPlatform()
 			mpool.Set(ic.Platform.Nutanix.DefaultMachinePlatform)
 			mpool.Set(pool.Platform.Nutanix)
-			if err = mpool.ValidateConfig(ic.Platform.Nutanix); err != nil {
-				return errors.Wrap(err, "failed to create master machine objects")
+			if err = mpool.ValidateConfig(ic.Platform.Nutanix, "worker"); err != nil {
+				return errors.Wrap(err, "failed to create worker machine objects")
 			}
 			pool.Platform.Nutanix = &mpool
-			imageName := nutanixtypes.RHCOSImageName(clusterID.InfraID)
+			imageName := nutanixtypes.RHCOSImageName(ic.Platform.Nutanix, clusterID.InfraID)
 
 			sets, err := nutanix.MachineSets(clusterID.InfraID, ic, &pool, imageName, "worker", workerUserDataSecretName)
 			if err != nil {
@@ -666,7 +827,7 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 		}
 	}
 
-	data, err := userDataSecret(workerUserDataSecretName, wign.File.Data)
+	data, err := UserDataSecret(workerUserDataSecretName, wign.File.Data)
 	if err != nil {
 		return errors.Wrap(err, "failed to create user-data secret for worker machines")
 	}
@@ -680,58 +841,23 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 		return errors.Wrap(err, "failed to create MachineConfig manifests for worker machines")
 	}
 
-	w.MachineSetFiles = make([]*asset.File, len(machineSets))
-	padFormat := fmt.Sprintf("%%0%dd", len(fmt.Sprintf("%d", len(machineSets))))
-	for i, machineSet := range machineSets {
-		data, err := yaml.Marshal(machineSet)
-		if err != nil {
-			return errors.Wrapf(err, "marshal worker %d", i)
-		}
-
-		padded := fmt.Sprintf(padFormat, i)
-		w.MachineSetFiles[i] = &asset.File{
-			Filename: filepath.Join(directory, fmt.Sprintf(workerMachineSetFileName, padded)),
-			Data:     data,
-		}
+	if w.MachineSetFiles, err = serialize(machineSets, workerMachineSetFileName, false); err != nil {
+		return fmt.Errorf("failed to serialize worker machine sets: %w", err)
 	}
-
-	w.IPClaimFiles = make([]*asset.File, len(ipClaims))
-	for i, claim := range ipClaims {
-		data, err := yaml.Marshal(claim)
-		if err != nil {
-			return errors.Wrapf(err, "marshal ip claim %v", claim.Name)
-		}
-
-		w.IPClaimFiles[i] = &asset.File{
-			Filename: filepath.Join(directory, fmt.Sprintf(ipClaimFileName, claim.Name)),
-			Data:     data,
-		}
+	if w.MachineTemplateFiles, err = serialize(machineTemplates, workerMachineTemplateFileName, false); err != nil {
+		return fmt.Errorf("failed to serialize worker machine templates: %w", err)
 	}
-
-	w.IPAddrFiles = make([]*asset.File, len(ipAddrs))
-	for i, address := range ipAddrs {
-		data, err := yaml.Marshal(address)
-		if err != nil {
-			return errors.Wrapf(err, "marshal ip claim %v", address.Name)
-		}
-
-		w.IPAddrFiles[i] = &asset.File{
-			Filename: filepath.Join(directory, fmt.Sprintf(ipAddressFileName, address.Name)),
-			Data:     data,
-		}
+	if w.CAPIMachineSetFiles, err = serialize(capiMachineSets, workerCAPIMachineSetFileName, false); err != nil {
+		return fmt.Errorf("failed to serialize worker CAPI machine sets: %w", err)
 	}
-	w.MachineFiles = make([]*asset.File, len(machines))
-	for i, machineDef := range machines {
-		data, err := yaml.Marshal(machineDef)
-		if err != nil {
-			return errors.Wrapf(err, "marshal master %d", i)
-		}
-
-		padded := fmt.Sprintf(padFormat, i)
-		w.MachineFiles[i] = &asset.File{
-			Filename: filepath.Join(directory, fmt.Sprintf(workerMachineFileName, padded)),
-			Data:     data,
-		}
+	if w.IPClaimFiles, err = serialize(ipClaims, ipClaimFileName, true); err != nil {
+		return fmt.Errorf("failed to serialize worker ip claims: %w", err)
+	}
+	if w.IPAddrFiles, err = serialize(ipAddrs, ipAddressFileName, true); err != nil {
+		return fmt.Errorf("failed to serialize worker ip addresses: %w", err)
+	}
+	if w.MachineFiles, err = serialize(machines, workerMachineFileName, false); err != nil {
+		return fmt.Errorf("failed to serialize worker machines: %w", err)
 	}
 	return nil
 }
@@ -744,6 +870,8 @@ func (w *Worker) Files() []*asset.File {
 	}
 	files = append(files, w.MachineConfigFiles...)
 	files = append(files, w.MachineSetFiles...)
+	files = append(files, w.MachineTemplateFiles...)
+	files = append(files, w.CAPIMachineSetFiles...)
 	files = append(files, w.MachineFiles...)
 	files = append(files, w.IPClaimFiles...)
 	files = append(files, w.IPAddrFiles...)
@@ -772,6 +900,18 @@ func (w *Worker) Load(f asset.FileFetcher) (found bool, err error) {
 	}
 
 	w.MachineSetFiles = fileList
+
+	fileList, err = f.FetchByPattern(filepath.Join(directory, workerMachineTemplateFileNamePattern))
+	if err != nil {
+		return true, err
+	}
+	w.MachineTemplateFiles = fileList
+
+	fileList, err = f.FetchByPattern(filepath.Join(directory, workerCAPIMachineSetFileNamePattern))
+	if err != nil {
+		return true, err
+	}
+	w.CAPIMachineSetFiles = fileList
 
 	fileList, err = f.FetchByPattern(filepath.Join(directory, workerMachineFileNamePattern))
 	if err != nil {
@@ -844,4 +984,61 @@ func (w *Worker) MachineSets() ([]machinev1beta1.MachineSet, error) {
 	}
 
 	return machineSets, nil
+}
+
+// CAPIMachineSets returns deserialized CAPI MachineSet manifest structures.
+func (w *Worker) CAPIMachineSets() ([]capi.MachineSet, error) {
+	machineSets := make([]capi.MachineSet, 0, len(w.CAPIMachineSetFiles))
+	for i, file := range w.CAPIMachineSetFiles {
+		machineSet := &capi.MachineSet{}
+		if err := yaml.Unmarshal(file.Data, machineSet); err != nil {
+			return nil, errors.Wrapf(err, "unmarshal CAPI worker machineset %d", i)
+		}
+		machineSets = append(machineSets, *machineSet)
+	}
+	return machineSets, nil
+}
+
+// CAPIMachineTemplates returns deserialized CAPI AWSMachineTemplate manifest structures.
+func (w *Worker) CAPIMachineTemplates() ([]capa.AWSMachineTemplate, error) {
+	templates := make([]capa.AWSMachineTemplate, 0, len(w.MachineTemplateFiles))
+	for i, file := range w.MachineTemplateFiles {
+		template := &capa.AWSMachineTemplate{}
+		if err := yaml.Unmarshal(file.Data, template); err != nil {
+			return nil, errors.Wrapf(err, "unmarshal CAPI worker machine template %d", i)
+		}
+		templates = append(templates, *template)
+	}
+	return templates, nil
+}
+
+// serialize marshals a list of runtime.Object manifests into asset files.
+// When useObjectName is true, the object's metadata name is used in the filename,
+// e.g. "99_openshift-machine-api_claim-cluster-worker-0-claim-0-0.yaml".
+// When false, a zero-padded index is used instead,
+// e.g. "99_openshift-cluster-api_worker-machineset-0.yaml".
+func serialize(manifests []runtime.Object, fileNameTemplate string, useObjectName bool) ([]*asset.File, error) {
+	files := make([]*asset.File, len(manifests))
+	padFormat := fmt.Sprintf("%%0%dd", len(fmt.Sprintf("%d", len(manifests))))
+	for i, m := range manifests {
+		key := fmt.Sprintf(padFormat, i)
+		if useObjectName {
+			accessor, err := meta.Accessor(m)
+			if err != nil {
+				return nil, fmt.Errorf("accessing object metadata: %w", err)
+			}
+			key = accessor.GetName()
+		}
+		filename := filepath.Join(directory, fmt.Sprintf(fileNameTemplate, key))
+
+		data, err := yaml.Marshal(m)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling %s: %w", filename, err)
+		}
+		files[i] = &asset.File{
+			Filename: filename,
+			Data:     data,
+		}
+	}
+	return files, nil
 }

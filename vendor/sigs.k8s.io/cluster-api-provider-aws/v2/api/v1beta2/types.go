@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 const (
@@ -54,7 +54,7 @@ type AMIReference struct {
 	ID *string `json:"id,omitempty"`
 
 	// EKSOptimizedLookupType If specified, will look up an EKS Optimized image in SSM Parameter store
-	// +kubebuilder:validation:Enum:=AmazonLinux;AmazonLinuxGPU
+	// +kubebuilder:validation:Enum:=AmazonLinux;AmazonLinuxGPU;AmazonLinux2023;AmazonLinux2023GPU
 	// +optional
 	EKSOptimizedLookupType *EKSAMILookupType `json:"eksLookupType,omitempty"`
 }
@@ -192,10 +192,13 @@ type Instance struct {
 	IAMProfile string `json:"iamProfile,omitempty"`
 
 	// Addresses contains the AWS instance associated addresses.
-	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
+	Addresses []clusterv1beta1.MachineAddress `json:"addresses,omitempty"`
 
 	// The private IPv4 address assigned to the instance.
 	PrivateIP *string `json:"privateIp,omitempty"`
+
+	// The IPv6 address assigned to the instance.
+	IPv6Address *string `json:"ipv6Address,omitempty"`
 
 	// The public IPv4 address assigned to the instance, if applicable.
 	PublicIP *string `json:"publicIp,omitempty"`
@@ -216,6 +219,12 @@ type Instance struct {
 
 	// Specifies ENIs attached to instance
 	NetworkInterfaces []string `json:"networkInterfaces,omitempty"`
+
+	// NetworkInterfaceType is the interface type of the primary network Interface.
+	NetworkInterfaceType NetworkInterfaceType `json:"networkInterfaceType,omitempty"`
+
+	// AssignPrimaryIPv6 specifies whether to enable assigning a primary IPv6 address to the primary network Interface.
+	AssignPrimaryIPv6 *PrimaryIPv6AssignmentState `json:"assignPrimaryIPv6,omitempty"`
 
 	// The tags associated with the instance.
 	Tags map[string]string `json:"tags,omitempty"`
@@ -261,7 +270,107 @@ type Instance struct {
 	// CapacityReservationID specifies the target Capacity Reservation into which the instance should be launched.
 	// +optional
 	CapacityReservationID *string `json:"capacityReservationId,omitempty"`
+
+	// MarketType specifies the type of market for the EC2 instance. Valid values include:
+	// "OnDemand" (default): The instance runs as a standard OnDemand instance.
+	// "Spot": The instance runs as a Spot instance. When SpotMarketOptions is provided, the marketType defaults to "Spot".
+	// "CapacityBlock": The instance utilizes pre-purchased compute capacity (capacity blocks) with AWS Capacity Reservations.
+	//  If this value is selected, CapacityReservationID must be specified to identify the target reservation.
+	// If marketType is not specified and spotMarketOptions is provided, the marketType defaults to "Spot".
+	// +optional
+	MarketType MarketType `json:"marketType,omitempty"`
+
+	// HostAffinity specifies the dedicated host affinity setting for the instance.
+	// When HostAffinity is set to "host", an instance started onto a specific host always restarts on the same host if stopped:
+	// - If HostID is set, the instance launches on the specific host and must return to that same host after any stop/start (Targeted & Pinned).
+	// - If HostID is not set, the instance gets launched on any available and must returns to the same host after any stop/start (Auto-placed & Pinned).
+	// When HostAffinity is set to "default" (the default value), the instance (when restarted) can return on any available host:
+	// - If HostID is set, the instance launches on the specified host now, but (when restarted) can return to any available hosts (Targeted & Flexible).
+	// - If HostID is not set, the instance launches on any available host now, and (when restarted) can return to any available hosts (Auto-placed & Flexible).
+	// +optional
+	// +kubebuilder:validation:Enum:=default;host
+	HostAffinity *string `json:"hostAffinity,omitempty"`
+
+	// HostID specifies the dedicated host on which the instance should be started.
+	// +optional
+	HostID *string `json:"hostID,omitempty"`
+
+	// DynamicHostAllocation enables automatic allocation of dedicated hosts.
+	// This field is mutually exclusive with HostID.
+	// +optional
+	DynamicHostAllocation *DynamicHostAllocationSpec `json:"dynamicHostAllocation,omitempty"`
+
+	// CapacityReservationPreference specifies the preference for use of Capacity Reservations by the instance. Valid values include:
+	// "Open": The instance may make use of open Capacity Reservations that match its AZ and InstanceType
+	// "None": The instance may not make use of any Capacity Reservations. This is to conserve open reservations for desired workloads
+	// "CapacityReservationsOnly": The instance will only run if matched or targeted to a Capacity Reservation. Note that this is incompatible with a MarketType of `Spot`
+	// +kubebuilder:validation:Enum="";None;CapacityReservationsOnly;Open
+	// +optional
+	CapacityReservationPreference CapacityReservationPreference `json:"capacityReservationPreference,omitempty"`
+
+	// CPUOptions defines CPU-related settings for the instance, including the confidential computing policy.
+	// When omitted, this means no opinion and the AWS platform is left to choose a reasonable default.
+	// +optional
+	CPUOptions CPUOptions `json:"cpuOptions,omitempty,omitzero"`
 }
+
+// CapacityReservationPreference describes the preferred use of capacity reservations
+// of an instance
+// +kubebuilder:validation:Enum:="";None;CapacityReservationsOnly;Open
+type CapacityReservationPreference string
+
+const (
+	// CapacityReservationPreferenceNone the instance may not make use of any Capacity Reservations. This is to conserve open reservations for desired workloads
+	CapacityReservationPreferenceNone CapacityReservationPreference = "None"
+
+	// CapacityReservationPreferenceOnly the instance will only run if matched or targeted to a Capacity Reservation. Note that this is incompatible with a MarketType of `Spot`
+	CapacityReservationPreferenceOnly CapacityReservationPreference = "CapacityReservationsOnly"
+
+	// CapacityReservationPreferenceOpen the instance may make use of open Capacity Reservations that match its AZ and InstanceType.
+	CapacityReservationPreferenceOpen CapacityReservationPreference = "Open"
+)
+
+// DedicatedHostInfo contains information about a dedicated host.
+type DedicatedHostInfo struct {
+	// HostID is the ID of the dedicated host.
+	HostID string `json:"hostID"`
+
+	// InstanceFamily is the instance family supported by the host.
+	InstanceFamily string `json:"instanceFamily"`
+
+	// InstanceType is the instance type supported by the host.
+	InstanceType string `json:"instanceType"`
+
+	// AvailabilityZone is the AZ where the host is located.
+	AvailabilityZone string `json:"availabilityZone"`
+
+	// State is the current state of the dedicated host.
+	State string `json:"state"`
+
+	// TotalCapacity is the total number of instances that can be launched on the host.
+	TotalCapacity int32 `json:"totalCapacity"`
+
+	// AvailableCapacity is the number of instances that can still be launched on the host.
+	AvailableCapacity int32 `json:"availableCapacity"`
+
+	// Tags associated with the dedicated host.
+	Tags map[string]string `json:"tags,omitempty"`
+}
+
+// MarketType describes the market type of an Instance
+// +kubebuilder:validation:Enum:=OnDemand;Spot;CapacityBlock
+type MarketType string
+
+const (
+	// MarketTypeOnDemand is a MarketType enum value
+	MarketTypeOnDemand MarketType = "OnDemand"
+
+	// MarketTypeSpot is a MarketType enum value
+	MarketTypeSpot MarketType = "Spot"
+
+	// MarketTypeCapacityBlock is a MarketType enum value
+	MarketTypeCapacityBlock MarketType = "CapacityBlock"
+)
 
 // InstanceMetadataState describes the state of InstanceMetadataOptions.HttpEndpoint and InstanceMetadataOptions.InstanceMetadataTags
 type InstanceMetadataState string
@@ -285,6 +394,24 @@ const (
 	HTTPTokensStateRequired = HTTPTokensState("required")
 )
 
+// PrimaryIPv6AssignmentState describes whether to assign a primary IPv6 address to the primary network interface.
+type PrimaryIPv6AssignmentState string
+
+const (
+	// PrimaryIPv6AssignmentStateEnabled enables assigning a primary IPv6 address
+	PrimaryIPv6AssignmentStateEnabled = PrimaryIPv6AssignmentState("enabled")
+
+	// PrimaryIPv6AssignmentStateDisabled disables assigning a primary IPv6 address
+	PrimaryIPv6AssignmentStateDisabled = PrimaryIPv6AssignmentState("disabled")
+)
+
+// EnclaveOptions defines the options for Nitro Enclave support on the instance.
+type EnclaveOptions struct {
+	// Enabled enables the instance for AWS Nitro Enclaves.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
 // InstanceMetadataOptions describes metadata options for the EC2 instance.
 type InstanceMetadataOptions struct {
 	// Enables or disables the HTTP metadata endpoint on your instances.
@@ -296,6 +423,15 @@ type InstanceMetadataOptions struct {
 	// +kubebuilder:validation:Enum:=enabled;disabled
 	// +kubebuilder:default=enabled
 	HTTPEndpoint InstanceMetadataState `json:"httpEndpoint,omitempty"`
+
+	// Enables or disables the IPv6 endpoint for the instance metadata service.
+	// This applies only if you enabled the HTTP metadata endpoint.
+	//
+	// Default: disabled
+	//
+	// +kubebuilder:validation:Enum:=enabled;disabled
+	// +kubebuilder:default=disabled
+	HTTPProtocolIPv6 InstanceMetadataState `json:"httpProtocolIpv6,omitempty"`
 
 	// The desired HTTP PUT response hop limit for instance metadata requests. The
 	// larger the number, the further instance metadata requests can travel.
@@ -342,6 +478,9 @@ type InstanceMetadataOptions struct {
 func (obj *InstanceMetadataOptions) SetDefaults() {
 	if obj.HTTPEndpoint == "" {
 		obj.HTTPEndpoint = InstanceMetadataEndpointStateEnabled
+	}
+	if obj.HTTPProtocolIPv6 == "" {
+		obj.HTTPProtocolIPv6 = InstanceMetadataEndpointStateDisabled
 	}
 	if obj.HTTPPutResponseHopLimit == 0 {
 		obj.HTTPPutResponseHopLimit = 1
@@ -436,6 +575,10 @@ const (
 	AmazonLinux EKSAMILookupType = "AmazonLinux"
 	// AmazonLinuxGPU is the AmazonLinux GPU AMI type.
 	AmazonLinuxGPU EKSAMILookupType = "AmazonLinuxGPU"
+	// AmazonLinux2023 is the AmazonLinux 2023 AMI type.
+	AmazonLinux2023 EKSAMILookupType = "AmazonLinux2023"
+	// AmazonLinux2023GPU is the AmazonLinux 2023 GPU AMI type.
+	AmazonLinux2023GPU EKSAMILookupType = "AmazonLinux2023GPU"
 )
 
 // PrivateDNSName is the options for the instance hostname.
@@ -467,3 +610,50 @@ var (
 	// SubnetSchemaPreferPublic allocates more subnets in the VPC to public subnets.
 	SubnetSchemaPreferPublic = SubnetSchemaType("PreferPublic")
 )
+
+// AWSConfidentialComputePolicy represents the confidential compute configuration for the instance.
+// +kubebuilder:validation:Enum=Disabled;AMDEncryptedVirtualizationNestedPaging
+type AWSConfidentialComputePolicy string
+
+const (
+	// AWSConfidentialComputePolicyDisabled disables confidential computing for the instance.
+	AWSConfidentialComputePolicyDisabled AWSConfidentialComputePolicy = "Disabled"
+	// AWSConfidentialComputePolicySEVSNP enables AMD SEV-SNP as the confidential computing technology for the instance.
+	AWSConfidentialComputePolicySEVSNP AWSConfidentialComputePolicy = "AMDEncryptedVirtualizationNestedPaging"
+)
+
+// NestedVirtualizationPolicy represents the nested virtualization configuration for the instance.
+// +kubebuilder:validation:Enum=enabled;disabled
+type NestedVirtualizationPolicy string
+
+const (
+	// NestedVirtualizationPolicyEnabled enables nested virtualization for the instance.
+	NestedVirtualizationPolicyEnabled NestedVirtualizationPolicy = "enabled"
+	// NestedVirtualizationPolicyDisabled disables nested virtualization for the instance.
+	NestedVirtualizationPolicyDisabled NestedVirtualizationPolicy = "disabled"
+)
+
+// CPUOptions defines CPU-related settings for the instance, including the confidential computing policy.
+// +kubebuilder:validation:MinProperties=1
+type CPUOptions struct {
+	// ConfidentialCompute specifies whether confidential computing should be enabled for the instance,
+	// and, if so, which confidential computing technology to use.
+	// Valid values are: Disabled, AMDEncryptedVirtualizationNestedPaging
+	// When set to Disabled, confidential computing will be disabled for the instance.
+	// When set to AMDEncryptedVirtualizationNestedPaging, AMD SEV-SNP will be used as the confidential computing technology for the instance.
+	// In this case, ensure the following conditions are met:
+	// 1) The selected instance type supports AMD SEV-SNP.
+	// 2) The selected AWS region supports AMD SEV-SNP.
+	// 3) The selected AMI supports AMD SEV-SNP.
+	// More details can be checked at https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sev-snp.html
+	// When omitted, this means no opinion and the AWS platform is left to choose a reasonable default,
+	// which is subject to change without notice. The current default is Disabled.
+	// +optional
+	ConfidentialCompute AWSConfidentialComputePolicy `json:"confidentialCompute,omitempty"`
+
+	// NestedVirtualization specifies whether to enable nested virtualization on the instance.
+	// Nested virtualization is supported on C8i, M8i, and R8i instance types.
+	// Valid values are: enabled, disabled
+	// +optional
+	NestedVirtualization NestedVirtualizationPolicy `json:"nestedVirtualization,omitempty"`
+}

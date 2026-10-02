@@ -14,7 +14,8 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// AccessConfig Network communication configuration (for satellite locations only)
+// AccessConfig [DEPRECATED]
+// Network communication configuration (for satellite locations only)
 //   - `internal-only` - network is only used for internal host communication
 //   - `outbound-only` - network will be capable of egress traffic
 //   - `bidirectional-static-route` - network will be capable of ingress and egress traffic via static routes
@@ -52,7 +53,7 @@ const (
 )
 
 // for schema
-var accessConfigEnum []interface{}
+var accessConfigEnum []any
 
 func init() {
 	var res []AccessConfig

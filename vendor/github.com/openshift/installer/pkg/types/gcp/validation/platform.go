@@ -5,9 +5,11 @@ import (
 	"regexp"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/openshift/installer/pkg/types"
+	"github.com/openshift/installer/pkg/types/dns"
 	"github.com/openshift/installer/pkg/types/gcp"
 )
 
@@ -116,8 +118,39 @@ func ValidatePlatform(p *gcp.Platform, fldPath *field.Path, ic *types.InstallCon
 		allErrs = append(allErrs, field.Required(fldPath.Child("network"), "must provide a VPC network when supplying subnets"))
 	}
 
+	if p.DNS != nil && p.DNS.PrivateZone != nil {
+		if p.NetworkProjectID == "" {
+			allErrs = append(allErrs, field.Required(fldPath.Child("dns").Child("privateZone"), "must provide a network project id when a private dns zone is specified"))
+		}
+		if p.DNS.PrivateZone.Name == "" {
+			allErrs = append(allErrs, field.Required(fldPath.Child("dns").Child("privateZone").Child("name"), "must provide a zone id when a private dns zone is specified"))
+		}
+	}
+
 	// check if configured userLabels are valid.
 	allErrs = append(allErrs, validateUserLabels(p.UserLabels, fldPath.Child("userLabels"))...)
+
+	customDNSEnabled := p.UserProvisionedDNS == dns.UserProvisionedDNSEnabled
+	customEndpointEnabled := p.Endpoint != nil
+	if customDNSEnabled && customEndpointEnabled {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("userProvisionedDNS"), p.UserProvisionedDNS, "cannot be enabled when endpoint is set"))
+	}
+
+	if p.Endpoint != nil {
+		if p.Network == "" {
+			allErrs = append(allErrs, field.Required(fldPath.Child("network"), "a network must be specified when an endpoint override is set"))
+		}
+		if p.Endpoint.Name == "" {
+			allErrs = append(allErrs, field.Required(fldPath.Child("endpoint", "name"), "endpoint name must be specified"))
+		}
+	}
+
+	if p.FirewallRulesManagement != "" {
+		supportedFirewallRulePolicies := sets.New(gcp.ManagedFirewallRules, gcp.UnmanagedFirewallRules)
+		if !supportedFirewallRulePolicies.Has(p.FirewallRulesManagement) {
+			allErrs = append(allErrs, field.NotSupported(fldPath.Child("firewallRulesManagement"), p.FirewallRulesManagement, sets.List(supportedFirewallRulePolicies)))
+		}
+	}
 
 	return allErrs
 }

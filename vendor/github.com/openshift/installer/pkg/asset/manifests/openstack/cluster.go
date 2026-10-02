@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/apparentlymart/go-cidr/cidr"
+	"github.com/gophercloud/utils/v2/openstack/clientconfig"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	capo "sigs.k8s.io/cluster-api-provider-openstack/api/v1beta1"
 	"sigs.k8s.io/cluster-api-provider-openstack/pkg/utils/optional"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1" //nolint:staticcheck //CORS-3563
 	"sigs.k8s.io/yaml"
 
 	"github.com/openshift/installer/pkg/asset"
@@ -81,14 +82,27 @@ func GenerateClusterAssets(installConfig *installconfig.InstallConfig, clusterID
 			}
 		}
 	} else {
+		networkCIDR := capiutils.CIDRFromInstallConfig(installConfig)
+		allocationStart, err := cidr.Host(&networkCIDR.IPNet, 10)
+		if err != nil {
+			return nil, err
+		}
+		_, broadcastIP := cidr.AddressRange(&networkCIDR.IPNet)
+		allocationEnd := cidr.Dec(broadcastIP)
 		openStackCluster.Spec.ManagedSubnets = []capo.SubnetSpec{
 			{
-				CIDR:           capiutils.CIDRFromInstallConfig(installConfig).String(),
+				CIDR:           networkCIDR.String(),
 				DNSNameservers: openstackInstallConfig.ExternalDNS,
+				AllocationPools: []capo.AllocationPool{
+					{
+						Start: allocationStart.String(),
+						End:   allocationEnd.String(),
+					},
+				},
 			},
 		}
 	}
-	openStackCluster.SetGroupVersionKind(capo.GroupVersion.WithKind("OpenStackCluster"))
+	openStackCluster.SetGroupVersionKind(capo.SchemeGroupVersion.WithKind("OpenStackCluster"))
 
 	manifests = append(manifests, &asset.RuntimeFile{
 		Object: openStackCluster,
@@ -116,11 +130,13 @@ func GenerateClusterAssets(installConfig *installconfig.InstallConfig, clusterID
 
 	return &capiutils.GenerateClusterAssetsOutput{
 		Manifests: manifests,
-		InfrastructureRef: &corev1.ObjectReference{
-			APIVersion: capo.GroupVersion.String(),
-			Kind:       "OpenStackCluster",
-			Name:       openStackCluster.Name,
-			Namespace:  openStackCluster.Namespace,
+		InfrastructureRefs: []*corev1.ObjectReference{
+			{
+				APIVersion: capo.SchemeGroupVersion.String(),
+				Kind:       "OpenStackCluster",
+				Name:       openStackCluster.Name,
+				Namespace:  openStackCluster.Namespace,
+			},
 		},
 	}, nil
 }

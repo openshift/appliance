@@ -15,6 +15,8 @@ import (
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/sirupsen/logrus"
+
+	"github.com/openshift/installer/pkg/types/powervs"
 )
 
 var (
@@ -373,6 +375,10 @@ func getSecondSessionVarsFromUser(psv *SessionVars, pss *SessionStore) error {
 			return fmt.Errorf("failed to list resourceGroups: %w", err)
 		}
 
+		if len(resourceGroups.Resources) == 0 {
+			return fmt.Errorf("there are no resource groups in the account. Follow https://cloud.ibm.com/docs/account?topic=account-rgs for instructions to create a resource group")
+		}
+
 		resourceGroupsSurvey := make([]string, len(resourceGroups.Resources))
 		for i, resourceGroup := range resourceGroups.Resources {
 			resourceGroupsSurvey[i] = *resourceGroup.Name
@@ -382,8 +388,8 @@ func getSecondSessionVarsFromUser(psv *SessionVars, pss *SessionStore) error {
 			{
 				Prompt: &survey.Select{
 					Message: "Resource Group",
-					Help:    "The Power VS resource group to be used for installation.",
-					Default: "",
+					Help:    "The PowerVS resource group to be used for installation.",
+					Default: resourceGroupsSurvey[0],
 					Options: resourceGroupsSurvey,
 				},
 			},
@@ -415,6 +421,41 @@ func saveSessionStoreToAuthFile(pss *SessionStore) error {
 	return os.WriteFile(authFilePath, jsonVars, 0o600)
 }
 
+// UpdateSessionStoreToAuthFile updates the saved session store structure on the disk.
+func UpdateSessionStoreToAuthFile(update *SessionStore) error {
+	var (
+		original SessionStore
+		err      error
+	)
+
+	if update == nil {
+		return fmt.Errorf("empty session store passed to UpdateSessionStoreToAuthFile")
+	}
+
+	err = getSessionStoreFromAuthFile(&original)
+	if err != nil {
+		return err
+	}
+
+	if update.ID != "" {
+		original.ID = update.ID
+	}
+	if update.APIKey != "" {
+		original.APIKey = update.APIKey
+	}
+	if update.DefaultRegion != "" {
+		original.DefaultRegion = update.DefaultRegion
+	}
+	if update.DefaultZone != "" {
+		original.DefaultZone = update.DefaultZone
+	}
+	if update.PowerVSResourceGroup != "" {
+		original.PowerVSResourceGroup = update.PowerVSResourceGroup
+	}
+
+	return saveSessionStoreToAuthFile(&original)
+}
+
 func getEnv(envs []string) string {
 	for _, k := range envs {
 		if v := os.Getenv(k); v != "" {
@@ -422,4 +463,27 @@ func getEnv(envs []string) string {
 		}
 	}
 	return ""
+}
+
+// MapServiceEndpointsForCAPI drops service endpoint overrides that are not supported by PowerVS CAPI provider, while also translating service names.
+func (c *BxClient) MapServiceEndpointsForCAPI(cfg *powervs.Metadata) []string {
+	// Keys are what installer recognizes from install-config.yaml, and values are what PowerVS CAPI accepts
+	// Should contain only mapping for serviceIDs from https://github.com/kubernetes-sigs/cluster-api-provider-ibmcloud/blob/main/pkg/endpoints/endpoints.go
+	capiSupported := map[string]string{
+		"COS":                "cos",
+		"Power":              "powervs",
+		"ResourceController": "", // FIXME CAPI recognizes "rc," but crashes if passed in...
+		"ResourceManager":    "", // FIXME? masters unable to get their ignition if "rm" override is present...
+		"VPC":                "vpc",
+	}
+	overrides := make([]string, 0, len(cfg.ServiceEndpoints))
+	// CAPI expects name=url pairs of service endpoints
+	for _, endpoint := range cfg.ServiceEndpoints {
+		if capiName, ok := capiSupported[endpoint.Name]; ok && capiName != "" {
+			overrides = append(overrides, fmt.Sprintf("%s=%s", capiSupported[endpoint.Name], endpoint.URL))
+		} else {
+			logrus.Infof("Unsupported service endpoint skipped: %s", endpoint.Name)
+		}
+	}
+	return overrides
 }

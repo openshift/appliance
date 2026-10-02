@@ -2,6 +2,7 @@ package ignition
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 
 	"github.com/clarketm/json"
@@ -9,6 +10,7 @@ import (
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/vincent-petithory/dataurl"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 
 	"github.com/openshift/installer/pkg/asset"
 )
@@ -29,7 +31,10 @@ func Marshal(input interface{}) ([]byte, error) {
 func FilesFromAsset(pathPrefix string, username string, mode int, asset asset.WritableAsset) []igntypes.File {
 	var files []igntypes.File
 	for _, f := range asset.Files() {
-		files = append(files, FileFromBytes(filepath.Join(pathPrefix, f.Filename), username, mode, f.Data))
+		// f.Filename is using platform-specific path separators
+		// while its used in CoreOS, thus we need to convert it to Unix path separators
+		normalizedFilename := path.Join(pathPrefix, filepath.ToSlash(f.Filename))
+		files = append(files, FileFromBytes(normalizedFilename, username, mode, f.Data))
 	}
 	return files
 }
@@ -90,4 +95,45 @@ func ConvertToAppendix(file *igntypes.File) {
 	}
 	file.Contents = igntypes.Resource{}
 	file.Overwrite = ignutil.BoolToPtr(false)
+}
+
+// AppendVarPartition appends a /var partition to the ignition configuration to avoid growfs.
+func AppendVarPartition(config *igntypes.Config) {
+	// https://docs.openshift.com/container-platform/4.17/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-user-infra-machines-advanced_vardisk_installing-platform-agnostic
+	config.Storage.Disks = append(config.Storage.Disks, igntypes.Disk{
+		Device: "/dev/disk/by-id/coreos-boot-disk",
+		Partitions: []igntypes.Partition{
+			{
+				Label:    ptr.To("var"),
+				Number:   5,
+				StartMiB: ptr.To(50000),
+				SizeMiB:  ptr.To(0),
+			},
+		},
+	})
+	config.Storage.Filesystems = append(config.Storage.Filesystems, igntypes.Filesystem{
+		Path:         ptr.To("/var"),
+		Device:       "/dev/disk/by-partlabel/var",
+		Format:       ptr.To("xfs"),
+		MountOptions: []igntypes.MountOption{"defaults", "prjquota"},
+	})
+	// generate a mount unit so that this filesystem gets mounted in the real root.
+	config.Systemd.Units = append(config.Systemd.Units, igntypes.Unit{
+		Name:    "var.mount",
+		Enabled: ptr.To(true),
+		Contents: ptr.To(`
+[Unit]
+Requires=systemd-fsck@dev-disk-by\x2dpartlabel-var.service
+After=systemd-fsck@dev-disk-by\x2dpartlabel-var.service
+
+[Mount]
+Where=/var
+What=/dev/disk/by-partlabel/var
+Type=xfs
+Options=defaults,prjquota
+
+[Install]
+RequiredBy=local-fs.target
+`),
+	})
 }

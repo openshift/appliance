@@ -2,10 +2,12 @@
 package aws
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
-	"github.com/aws/aws-sdk-go/aws/session"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -27,8 +29,14 @@ const (
 	// PermissionCreateNetworking is an additional set of permissions required when the installer creates networking resources.
 	PermissionCreateNetworking PermissionGroup = "create-networking"
 
+	// PermissionCreateDualstackNetworking is an additional set of permissions required when the installer creates dualstack networking resources.
+	PermissionCreateDualstackNetworking PermissionGroup = "create-dualstack-networking"
+
 	// PermissionDeleteNetworking is a set of permissions required when the installer destroys networking resources.
 	PermissionDeleteNetworking PermissionGroup = "delete-networking"
+
+	// PermissionDeleteDualstackNetworking is an additional set of permissions required when the installer destroys dualstack networking resources.
+	PermissionDeleteDualstackNetworking PermissionGroup = "delete-dualstack-networking"
 
 	// PermissionDeleteSharedNetworking is a set of permissions required when the installer destroys resources from a shared-network cluster.
 	PermissionDeleteSharedNetworking PermissionGroup = "delete-shared-networking"
@@ -39,6 +47,13 @@ const (
 	// PermissionDeleteSharedInstanceRole is a set of permissions required when the installer destroys resources from a
 	// cluster with user-supplied IAM roles for instances.
 	PermissionDeleteSharedInstanceRole PermissionGroup = "delete-shared-instance-role"
+
+	// PermissionCreateInstanceProfile is a set of permission required when the installer creates instance profiles.
+	PermissionCreateInstanceProfile PermissionGroup = "create-instance-profile"
+
+	// PermissionDeleteSharedInstanceProfile is a set of permissions required when the installer destroys resources from
+	// a cluster with user-supplied IAM instance profiles for instances.
+	PermissionDeleteSharedInstanceProfile PermissionGroup = "delete-shared-instance-profile"
 
 	// PermissionCreateHostedZone is a set of permissions required when the installer creates a route53 hosted zone.
 	PermissionCreateHostedZone PermissionGroup = "create-hosted-zone"
@@ -54,6 +69,34 @@ const (
 
 	// PermissionDeleteIgnitionObjects is a permission set required when `preserveBootstrapIgnition` is not set.
 	PermissionDeleteIgnitionObjects PermissionGroup = "delete-ignition-objects"
+
+	// PermissionValidateInstanceType is a permission set required when validating instance types.
+	PermissionValidateInstanceType PermissionGroup = "permission-validate-instance-type"
+
+	// PermissionDefaultZones is a permission set required when zones are not set in the install-config.
+	PermissionDefaultZones PermissionGroup = "permission-default-zones"
+
+	// PermissionAssumeRole is a permission set required when an IAM role to be assumed is set in the install-config.
+	PermissionAssumeRole PermissionGroup = "permission-assume-role"
+
+	// PermissionCarrierGateway is a permission set required when an edge compute pool with WL zones is set in the install-config.
+	PermissionCarrierGateway PermissionGroup = "permission-create-carrier-gateway"
+
+	// PermissionEdgeDefaultInstance is a permission set required when an edge compute pool is set without an instance
+	// type in the install-config.
+	PermissionEdgeDefaultInstance PermissionGroup = "permission-edge-default-instance"
+
+	// PermissionMintCreds is a permission set required when minting credentials.
+	PermissionMintCreds PermissionGroup = "permission-mint-creds"
+
+	// PermissionPassthroughCreds is a permission set required when using passthrough credentials.
+	PermissionPassthroughCreds PermissionGroup = "permission-passthrough-creds"
+
+	// PermissionDedicatedHosts is a permission set required when using user-provided dedicated hosts.
+	PermissionDedicatedHosts PermissionGroup = "permission-dedicated-hosts"
+
+	// PermissionDynamicHostAllocation is a permission set required when cleaning up dynamic hosts that were allocated during the life of the cluster.
+	PermissionDynamicHostAllocation PermissionGroup = "permission-dynamic-host-allocation"
 )
 
 var permissions = map[PermissionGroup][]string{
@@ -79,6 +122,7 @@ var permissions = map[PermissionGroup][]string{
 		"ec2:DescribeInstanceAttribute",
 		"ec2:DescribeInstanceCreditSpecifications",
 		"ec2:DescribeInstances",
+		"ec2:DescribeInstanceTypeOfferings", // Needed to filter zones by instance type
 		"ec2:DescribeInternetGateways",
 		"ec2:DescribeKeyPairs",
 		"ec2:DescribeNatGateways",
@@ -97,6 +141,7 @@ var permissions = map[PermissionGroup][]string{
 		"ec2:DescribeVpcClassicLinkDnsSupport",
 		"ec2:DescribeVpcEndpoints",
 		"ec2:DescribeVpcs",
+		"ec2:GetConsoleOutput", // for gathering VM console logs in case of failure.
 		"ec2:GetEbsDefaultKmsKeyId",
 		"ec2:ModifyInstanceAttribute",
 		"ec2:ModifyNetworkInterfaceAttribute",
@@ -133,9 +178,6 @@ var permissions = map[PermissionGroup][]string{
 		"elasticloadbalancing:SetSecurityGroups",
 
 		// IAM related perms
-		"iam:AddRoleToInstanceProfile",
-		"iam:CreateInstanceProfile",
-		"iam:DeleteInstanceProfile",
 		"iam:GetInstanceProfile",
 		"iam:GetRole",
 		"iam:GetRolePolicy",
@@ -144,8 +186,6 @@ var permissions = map[PermissionGroup][]string{
 		"iam:ListRoles",
 		"iam:ListUsers",
 		"iam:PassRole",
-		"iam:RemoveRoleFromInstanceProfile",
-		"iam:SimulatePrincipalPolicy",
 		"iam:TagInstanceProfile",
 		"iam:TagRole",
 
@@ -193,7 +233,6 @@ var permissions = map[PermissionGroup][]string{
 	},
 	// Permissions required for deleting base cluster resources
 	PermissionDeleteBase: {
-		"autoscaling:DescribeAutoScalingGroups",
 		"ec2:DeleteNetworkInterface",
 		"ec2:DeletePlacementGroup",
 		"ec2:DeleteTags",
@@ -228,6 +267,13 @@ var permissions = map[PermissionGroup][]string{
 		"ec2:CreateVpcEndpoint",
 		"ec2:ModifySubnetAttribute",
 		"ec2:ModifyVpcAttribute",
+		// Needed by CAPA to update outdated routes
+		"ec2:ReplaceRoute",
+	},
+	// Permissions required for creating dualstack network resources
+	PermissionCreateDualstackNetworking: {
+		"ec2:DescribeEgressOnlyInternetGateways",
+		"ec2:CreateEgressOnlyInternetGateway",
 	},
 	// Permissions required for deleting network resources
 	PermissionDeleteNetworking: {
@@ -244,9 +290,13 @@ var permissions = map[PermissionGroup][]string{
 		"ec2:ReleaseAddress",
 		"ec2:ReplaceRouteTableAssociation",
 	},
+	// Permissions required for deleting dualstack network resources
+	PermissionDeleteDualstackNetworking: {
+		"ec2:DeleteEgressOnlyInternetGateway",
+	},
 	// Permissions required for deleting a cluster with shared network resources
 	PermissionDeleteSharedNetworking: {
-		"tag:UnTagResources",
+		"tag:UntagResources",
 	},
 	// Permissions required for creating an instance role
 	PermissionCreateInstanceRole: {
@@ -258,6 +308,18 @@ var permissions = map[PermissionGroup][]string{
 	// Permissions required for deleting a cluster with shared instance roles
 	PermissionDeleteSharedInstanceRole: {
 		"iam:UntagRole",
+	},
+	// Permissions required for creating an instance profile
+	PermissionCreateInstanceProfile: {
+		"iam:AddRoleToInstanceProfile",
+		"iam:CreateInstanceProfile",
+		"iam:DeleteInstanceProfile",
+		"iam:RemoveRoleFromInstanceProfile",
+	},
+	// Permissions required for deleting a cluster with shared instance profiles
+	PermissionDeleteSharedInstanceProfile: {
+		"iam:UntagInstanceProfile",
+		"tag:UntagResources",
 	},
 	PermissionCreateHostedZone: {
 		"route53:CreateHostedZone",
@@ -276,10 +338,16 @@ var permissions = map[PermissionGroup][]string{
 		"kms:ListGrants",
 	},
 	PermissionPublicIpv4Pool: {
+		// Needed by CAPA to allocate an IP from the pool.
+		"ec2:AllocateAddress",
+		// Needed by CAPA to associate an IP with an instance.
+		"ec2:AssociateAddress",
 		// Needed to check the IP pools during install-config validation
 		"ec2:DescribePublicIpv4Pools",
 		// Needed by terraform because of bootstrap EIP created
 		"ec2:DisassociateAddress",
+		// Needed by openshift-install destroy cluster flow.
+		"ec2:ReleaseAddress",
 	},
 	PermissionDeleteIgnitionObjects: {
 		// Needed by terraform during the bootstrap destroy stage.
@@ -287,19 +355,126 @@ var permissions = map[PermissionGroup][]string{
 		// Needed by capa which always deletes the ignition objects once the VMs are up.
 		"s3:DeleteObject",
 	},
+	PermissionValidateInstanceType: {
+		// Needed to validate instance availability in region
+		"ec2:DescribeInstanceTypes",
+	},
+	PermissionDefaultZones: {
+		// Needed to list the zones available in the region
+		"ec2:DescribeAvailabilityZones",
+	},
+	PermissionAssumeRole: {
+		// Needed so the installer can use the provided custom IAM role
+		"sts:AssumeRole",
+	},
+	PermissionCarrierGateway: {
+		// Needed by CAPA to create Carrier Gateways.
+		"ec2:DescribeCarrierGateways",
+		"ec2:CreateCarrierGateway",
+		// Needed to delete Carrier Gateways.
+		"ec2:DeleteCarrierGateway",
+	},
+	PermissionEdgeDefaultInstance: {
+		// Needed to filter zones by instance type
+		"ec2:DescribeInstanceTypeOfferings",
+	},
+	// From: https://github.com/openshift/cloud-credential-operator/blob/master/pkg/aws/utils.go
+	// TODO: export these in CCO so we don't have to duplicate them here.
+	PermissionMintCreds: {
+		"iam:CreateAccessKey",
+		"iam:CreateUser",
+		"iam:DeleteAccessKey",
+		"iam:DeleteUser",
+		"iam:DeleteUserPolicy",
+		"iam:GetUser",
+		"iam:GetUserPolicy",
+		"iam:ListAccessKeys",
+		"iam:PutUserPolicy",
+		"iam:TagUser",
+		"iam:SimulatePrincipalPolicy", // needed so we can verify the above list of course
+	},
+	PermissionPassthroughCreds: {
+		// so we can query whether we have the below list of creds
+		"iam:GetUser",
+
+		// openshift-ingress
+		"elasticloadbalancing:DescribeLoadBalancers",
+		"route53:ListHostedZones",
+		"route53:ChangeResourceRecordSets",
+		"tag:GetResources",
+
+		// openshift-image-registry
+		"s3:CreateBucket",
+		"s3:DeleteBucket",
+		"s3:PutBucketTagging",
+		"s3:GetBucketTagging",
+		"s3:PutEncryptionConfiguration",
+		"s3:GetEncryptionConfiguration",
+		"s3:PutLifecycleConfiguration",
+		"s3:GetLifecycleConfiguration",
+		"s3:GetBucketLocation",
+		"s3:ListBucket",
+		"s3:GetObject",
+		"s3:PutObject",
+		"s3:DeleteObject",
+		"s3:ListBucketMultipartUploads",
+		"s3:AbortMultipartUpload",
+
+		// openshift-cluster-api
+		"ec2:DescribeImages",
+		"ec2:DescribeVpcs",
+		"ec2:DescribeSubnets",
+		"ec2:DescribeAvailabilityZones",
+		"ec2:DescribeSecurityGroups",
+		"ec2:RunInstances",
+		"ec2:DescribeInstances",
+		"ec2:TerminateInstances",
+		"elasticloadbalancing:RegisterInstancesWithLoadBalancer",
+		"elasticloadbalancing:DescribeLoadBalancers",
+		"elasticloadbalancing:DescribeTargetGroups",
+		"elasticloadbalancing:RegisterTargets",
+		"ec2:DescribeVpcs",
+		"ec2:DescribeSubnets",
+		"ec2:DescribeAvailabilityZones",
+		"ec2:DescribeSecurityGroups",
+		"ec2:RunInstances",
+		"ec2:DescribeInstances",
+		"ec2:TerminateInstances",
+		"elasticloadbalancing:RegisterInstancesWithLoadBalancer",
+		"elasticloadbalancing:DescribeLoadBalancers",
+		"elasticloadbalancing:DescribeTargetGroups",
+		"elasticloadbalancing:RegisterTargets",
+
+		// iam-ro
+		"iam:GetUser",
+		"iam:GetUserPolicy",
+		"iam:ListAccessKeys",
+	},
+	PermissionDedicatedHosts: {
+		// Used when user-provided dedicated hosts are configured in the install-config.yaml or when dynamic dedicated hosts are detected during cluster destroy.
+		"ec2:DescribeHosts",
+	},
+	PermissionDynamicHostAllocation: {
+		// This is only used during cluster destroy if during cluster destroy we detect a dedicated host with appropriate tags on it.
+		"ec2:ReleaseHosts",
+	},
 }
 
 // ValidateCreds will try to create an AWS session, and also verify that the current credentials
 // are sufficient to perform an installation, and that they can be used for cluster runtime
 // as either capable of creating new credentials for components that interact with the cloud or
 // being able to be passed through as-is to the components that need cloud credentials
-func ValidateCreds(ssn *session.Session, groups []PermissionGroup, region string) error {
+func ValidateCreds(ctx context.Context, awsconfig awssdk.Config, groups []PermissionGroup, region string, iamEndpoint string) error {
 	requiredPermissions, err := PermissionsList(groups)
 	if err != nil {
 		return err
 	}
 
-	client := ccaws.NewClientFromSession(ssn)
+	// The CCO helper only accepts a single endpoint for IAM API call
+	client, err := ccaws.NewClientFromConfig(awsconfig, iamEndpoint)
+	if err != nil {
+		return err
+	}
 
 	sParams := &ccaws.SimulateParams{
 		Region: region,
@@ -307,7 +482,7 @@ func ValidateCreds(ssn *session.Session, groups []PermissionGroup, region string
 
 	// Check whether we can do an installation
 	logger := logrus.StandardLogger()
-	canInstall, err := ccaws.CheckPermissionsAgainstActions(client, requiredPermissions, sParams, logger)
+	canInstall, err := ccaws.CheckPermissionsAgainstActions(ctx, client, requiredPermissions, sParams, logger)
 	if err != nil {
 		return fmt.Errorf("checking install permissions: %w", err)
 	}
@@ -316,7 +491,7 @@ func ValidateCreds(ssn *session.Session, groups []PermissionGroup, region string
 	}
 
 	// Check whether we can mint new creds for cluster services needing to interact with the cloud
-	canMint, err := ccaws.CheckCloudCredCreation(client, logger)
+	canMint, err := ccaws.CheckCloudCredCreation(ctx, client, logger)
 	if err != nil {
 		return fmt.Errorf("mint credentials check: %w", err)
 	}
@@ -326,7 +501,7 @@ func ValidateCreds(ssn *session.Session, groups []PermissionGroup, region string
 
 	// Check whether we can use the current credentials in passthrough mode to satisfy
 	// cluster services needing to interact with the cloud
-	canPassthrough, err := ccaws.CheckCloudCredPassthrough(client, sParams, logger)
+	canPassthrough, err := ccaws.CheckCloudCredPassthrough(ctx, client, sParams, logger)
 	if err != nil {
 		return fmt.Errorf("passthrough credentials check: %w", err)
 	}
@@ -340,11 +515,15 @@ func ValidateCreds(ssn *session.Session, groups []PermissionGroup, region string
 // RequiredPermissionGroups returns a set of required permissions for a given cluster configuration.
 func RequiredPermissionGroups(ic *types.InstallConfig) []PermissionGroup {
 	permissionGroups := []PermissionGroup{PermissionCreateBase}
-	usingExistingVPC := len(ic.AWS.Subnets) != 0
+	usingExistingVPC := len(ic.AWS.VPC.Subnets) != 0
 	usingExistingPrivateZone := len(ic.AWS.HostedZone) != 0
 
 	if !usingExistingVPC {
 		permissionGroups = append(permissionGroups, PermissionCreateNetworking)
+
+		if ic.AWS.IPFamily.DualStackEnabled() {
+			permissionGroups = append(permissionGroups, PermissionCreateDualstackNetworking)
+		}
 	}
 
 	if !usingExistingPrivateZone {
@@ -356,13 +535,21 @@ func RequiredPermissionGroups(ic *types.InstallConfig) []PermissionGroup {
 		permissionGroups = append(permissionGroups, PermissionKMSEncryptionKeys)
 	}
 
+	isSecretRegion, err := IsSecretRegion(ic.AWS.Region)
+	if err != nil {
+		logrus.Warnf("Unable to determine if AWS region is secret: %v", err)
+		return permissionGroups
+	}
 	// Add delete permissions for non-C2S installs.
-	if !aws.IsSecretRegion(ic.AWS.Region) {
+	if !isSecretRegion {
 		permissionGroups = append(permissionGroups, PermissionDeleteBase)
 		if usingExistingVPC {
 			permissionGroups = append(permissionGroups, PermissionDeleteSharedNetworking)
 		} else {
 			permissionGroups = append(permissionGroups, PermissionDeleteNetworking)
+			if ic.AWS.IPFamily.DualStackEnabled() {
+				permissionGroups = append(permissionGroups, PermissionDeleteDualstackNetworking)
+			}
 		}
 		if !usingExistingPrivateZone {
 			permissionGroups = append(permissionGroups, PermissionDeleteHostedZone)
@@ -385,6 +572,38 @@ func RequiredPermissionGroups(ic *types.InstallConfig) []PermissionGroup {
 		permissionGroups = append(permissionGroups, PermissionDeleteSharedInstanceRole)
 	}
 
+	if includesExistingInstanceProfile(ic) {
+		permissionGroups = append(permissionGroups, PermissionDeleteSharedInstanceProfile)
+	}
+
+	if includesCreateInstanceProfile(ic) {
+		permissionGroups = append(permissionGroups, PermissionCreateInstanceProfile)
+	}
+
+	if includesInstanceType(ic) {
+		permissionGroups = append(permissionGroups, PermissionValidateInstanceType)
+	}
+
+	if !includesZones(ic) {
+		permissionGroups = append(permissionGroups, PermissionDefaultZones)
+	}
+
+	if includesAssumeRole(ic) {
+		permissionGroups = append(permissionGroups, PermissionAssumeRole)
+	}
+
+	if includesWavelengthZones(ic) {
+		permissionGroups = append(permissionGroups, PermissionCarrierGateway)
+	}
+
+	if includesEdgeDefaultInstanceType(ic) {
+		permissionGroups = append(permissionGroups, PermissionEdgeDefaultInstance)
+	}
+
+	if includesDedicatedHosts(ic) {
+		permissionGroups = append(permissionGroups, PermissionDedicatedHosts)
+	}
+
 	return permissionGroups
 }
 
@@ -392,14 +611,23 @@ func RequiredPermissionGroups(ic *types.InstallConfig) []PermissionGroup {
 func PermissionsList(required []PermissionGroup) ([]string, error) {
 	requiredPermissions := sets.New[string]()
 	for _, group := range required {
-		groupPerms, ok := permissions[group]
-		if !ok {
-			return nil, fmt.Errorf("unable to access permissions group %s", group)
+		groupPerms, err := Permissions(group)
+		if err != nil {
+			return nil, err
 		}
 		requiredPermissions.Insert(groupPerms...)
 	}
 
 	return sets.List(requiredPermissions), nil
+}
+
+// Permissions returns the list of permissions associated with `group`.
+func Permissions(group PermissionGroup) ([]string, error) {
+	groupPerms, ok := permissions[group]
+	if !ok {
+		return nil, fmt.Errorf("unable to access permissions group %s", group)
+	}
+	return groupPerms, nil
 }
 
 // includesExistingInstanceRole checks if at least one BYO instance role is included in the install-config.
@@ -419,6 +647,7 @@ func includesExistingInstanceRole(installConfig *types.InstallConfig) bool {
 }
 
 // includesCreateInstanceRole checks if at least one instance role will be created by the installer.
+// Note: instance profiles have a role attached to them.
 func includesCreateInstanceRole(installConfig *types.InstallConfig) bool {
 	{
 		mpool := aws.MachinePool{}
@@ -426,7 +655,7 @@ func includesCreateInstanceRole(installConfig *types.InstallConfig) bool {
 		if mp := installConfig.ControlPlane; mp != nil {
 			mpool.Set(mp.Platform.AWS)
 		}
-		if len(mpool.IAMRole) == 0 {
+		if len(mpool.IAMRole) == 0 && len(mpool.IAMProfile) == 0 {
 			return true
 		}
 	}
@@ -435,7 +664,7 @@ func includesCreateInstanceRole(installConfig *types.InstallConfig) bool {
 		mpool := aws.MachinePool{}
 		mpool.Set(installConfig.AWS.DefaultMachinePlatform)
 		mpool.Set(compute.Platform.AWS)
-		if len(mpool.IAMRole) == 0 {
+		if len(mpool.IAMRole) == 0 && len(mpool.IAMProfile) == 0 {
 			return true
 		}
 	}
@@ -447,7 +676,7 @@ func includesCreateInstanceRole(installConfig *types.InstallConfig) bool {
 	// If compute stanza is not defined, we know it'll inherit the value from DefaultMachinePlatform
 	mpool := aws.MachinePool{}
 	mpool.Set(installConfig.AWS.DefaultMachinePlatform)
-	return len(mpool.IAMRole) == 0
+	return len(mpool.IAMRole) == 0 && len(mpool.IAMProfile) == 0
 }
 
 // includesKMSEncryptionKey checks if any KMS encryption keys are included in the install-config.
@@ -464,4 +693,135 @@ func includesKMSEncryptionKey(installConfig *types.InstallConfig) bool {
 	}
 
 	return len(mpool.KMSKeyARN) > 0
+}
+
+// includesExistingInstanceProfile checks if at least one BYO instance profile is included in the install-config.
+func includesExistingInstanceProfile(installConfig *types.InstallConfig) bool {
+	mpool := aws.MachinePool{}
+	mpool.Set(installConfig.AWS.DefaultMachinePlatform)
+
+	if mp := installConfig.ControlPlane; mp != nil {
+		mpool.Set(mp.Platform.AWS)
+	}
+
+	for _, compute := range installConfig.Compute {
+		mpool.Set(compute.Platform.AWS)
+	}
+
+	return len(mpool.IAMProfile) > 0
+}
+
+// includesCreateInstanceProfile checks if at least one instance profile will be created by the Installer.
+func includesCreateInstanceProfile(installConfig *types.InstallConfig) bool {
+	{
+		mpool := aws.MachinePool{}
+		mpool.Set(installConfig.AWS.DefaultMachinePlatform)
+		if mp := installConfig.ControlPlane; mp != nil {
+			mpool.Set(mp.Platform.AWS)
+		}
+		if len(mpool.IAMProfile) == 0 {
+			return true
+		}
+	}
+
+	for _, compute := range installConfig.Compute {
+		mpool := aws.MachinePool{}
+		mpool.Set(installConfig.AWS.DefaultMachinePlatform)
+		mpool.Set(compute.Platform.AWS)
+		if len(mpool.IAMProfile) == 0 {
+			return true
+		}
+	}
+
+	if len(installConfig.Compute) > 0 {
+		return false
+	}
+
+	// If compute stanza is not defined, we know it'll inherit the value from DefaultMachinePlatform
+	mpool := aws.MachinePool{}
+	mpool.Set(installConfig.AWS.DefaultMachinePlatform)
+	return len(mpool.IAMProfile) == 0
+}
+
+// includesInstanceType checks if at least one instance type is specified in the install-config.
+func includesInstanceType(installConfig *types.InstallConfig) bool {
+	mpool := aws.MachinePool{}
+	mpool.Set(installConfig.AWS.DefaultMachinePlatform)
+
+	if mp := installConfig.ControlPlane; mp != nil {
+		mpool.Set(mp.Platform.AWS)
+	}
+
+	for _, compute := range installConfig.Compute {
+		mpool.Set(compute.Platform.AWS)
+	}
+
+	return len(mpool.InstanceType) > 0
+}
+
+// includesZones checks if zones are specified in the install-config. It also returns true if zones will be derived from
+// the specified subnets.
+func includesZones(installConfig *types.InstallConfig) bool {
+	mpool := aws.MachinePool{}
+	mpool.Set(installConfig.AWS.DefaultMachinePlatform)
+
+	if mp := installConfig.ControlPlane; mp != nil {
+		mpool.Set(mp.Platform.AWS)
+	}
+
+	for _, compute := range installConfig.Compute {
+		mpool.Set(compute.Platform.AWS)
+	}
+
+	return len(mpool.Zones) > 0 || len(installConfig.AWS.VPC.Subnets) > 0
+}
+
+// includesAssumeRole checks if a custom IAM role is specified in the install-config.
+func includesAssumeRole(installConfig *types.InstallConfig) bool {
+	return len(installConfig.AWS.HostedZoneRole) > 0
+}
+
+func includesWavelengthZones(installConfig *types.InstallConfig) bool {
+	// Examples of WL zones: us-east-1-wl1-atl-wlz-1, eu-west-2-wl1-lon-wlz-1, eu-west-2-wl2-man-wlz-1, etc
+	// https://docs.aws.amazon.com/wavelength/latest/developerguide/available-wavelength-zones.html
+	isWLZoneRegex := regexp.MustCompile(`-wlz.*$`)
+
+	for _, mpool := range installConfig.Compute {
+		if mpool.Name != types.MachinePoolEdgeRoleName || mpool.Platform.AWS == nil {
+			continue
+		}
+		for _, zone := range mpool.Platform.AWS.Zones {
+			if isWLZoneRegex.MatchString(zone) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// includesEdgeDefaultInstanceType checks if any edge machine pool is specified without an instance type.
+func includesEdgeDefaultInstanceType(installConfig *types.InstallConfig) bool {
+	for _, mpool := range installConfig.Compute {
+		if mpool.Name != types.MachinePoolEdgeRoleName {
+			continue
+		}
+		if mpool.Platform.AWS == nil || len(mpool.Platform.AWS.InstanceType) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// includesDedicatedHosts checks if any dedicated hosts are specified for worker machine pools.
+func includesDedicatedHosts(installConfig *types.InstallConfig) bool {
+	for _, mpool := range installConfig.Compute {
+		if mpool.Name != types.MachinePoolComputeRoleName {
+			continue
+		}
+		if mpool.Platform.AWS != nil && mpool.Platform.AWS.HostPlacement != nil {
+			return true
+		}
+	}
+	return false
 }

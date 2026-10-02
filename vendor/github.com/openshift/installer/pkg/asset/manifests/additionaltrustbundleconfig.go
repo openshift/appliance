@@ -1,10 +1,11 @@
 package manifests
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -19,7 +20,7 @@ import (
 )
 
 var (
-	additionalTrustBundleConfigFileName = filepath.Join(manifestDir, "user-ca-bundle-config.yaml")
+	additionalTrustBundleConfigFileName = path.Join(manifestDir, "user-ca-bundle-config.yaml")
 )
 
 const (
@@ -49,7 +50,7 @@ func (*AdditionalTrustBundleConfig) Dependencies() []asset.Asset {
 }
 
 // Generate generates the CloudProviderConfig.
-func (atbc *AdditionalTrustBundleConfig) Generate(dependencies asset.Parents) error {
+func (atbc *AdditionalTrustBundleConfig) Generate(_ context.Context, dependencies asset.Parents) error {
 	installConfig := &installconfig.InstallConfig{}
 	dependencies.Get(installConfig)
 

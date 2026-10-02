@@ -1,7 +1,8 @@
 package manifests
 
 import (
-	"path/filepath"
+	"context"
+	"path"
 
 	"github.com/pkg/errors"
 
@@ -18,7 +19,7 @@ import (
 )
 
 var (
-	clusterCSIDriverConfigFileName = filepath.Join(manifestDir, "cluster-csi-driver-config.yaml")
+	clusterCSIDriverConfigFileName = path.Join(manifestDir, "cluster-csi-driver-config.yaml")
 )
 
 // ClusterCSIDriverConfig generates the cluster-csi-driver-config.yaml file.
@@ -44,7 +45,7 @@ func (*ClusterCSIDriverConfig) Dependencies() []asset.Asset {
 }
 
 // Generate the ClusterCSIDriverConfig.
-func (csi *ClusterCSIDriverConfig) Generate(dependencies asset.Parents) error {
+func (csi *ClusterCSIDriverConfig) Generate(_ context.Context, dependencies asset.Parents) error {
 	installConfig := &installconfig.InstallConfig{}
 	clusterID := &installconfig.ClusterID{}
 	dependencies.Get(installConfig, clusterID)
@@ -97,6 +98,7 @@ func (csi *ClusterCSIDriverConfig) Generate(dependencies asset.Parents) error {
 			return nil
 		}
 		kmsKey := platform.OSDisk.EncryptionKey.KMSKey
+
 		configData, err := gcp.ClusterCSIDriverConfig{
 			Name:      kmsKey.Name,
 			KeyRing:   kmsKey.KeyRing,

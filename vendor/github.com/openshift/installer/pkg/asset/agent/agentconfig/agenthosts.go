@@ -1,12 +1,14 @@
 package agentconfig
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	goyaml "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/yaml"
 
@@ -15,6 +17,7 @@ import (
 	agentAsset "github.com/openshift/installer/pkg/asset/agent"
 	"github.com/openshift/installer/pkg/asset/agent/joiner"
 	"github.com/openshift/installer/pkg/asset/agent/workflow"
+	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/agent"
 	"github.com/openshift/installer/pkg/types/baremetal/validation"
 	"github.com/openshift/installer/pkg/validate"
@@ -25,8 +28,9 @@ var (
 )
 
 const (
-	masterRole string = "master"
-	workerRole string = "worker"
+	masterRole  string = "master"
+	workerRole  string = "worker"
+	arbiterRole string = "arbiter"
 )
 
 type nmStateInterface struct {
@@ -39,8 +43,9 @@ type nmStateInterface struct {
 // AgentHosts generates the hosts information from the AgentConfig and
 // OptionalInstallConfig assets.
 type AgentHosts struct {
-	Hosts        []agent.Host
-	rendezvousIP string
+	Hosts                  []agent.Host
+	FencingCredentialsHost []types.Credential
+	rendezvousIP           string
 }
 
 // Name returns a human friendly name.
@@ -59,7 +64,7 @@ func (a *AgentHosts) Dependencies() []asset.Asset {
 }
 
 // Generate generates the Hosts data.
-func (a *AgentHosts) Generate(dependencies asset.Parents) error {
+func (a *AgentHosts) Generate(_ context.Context, dependencies asset.Parents) error {
 	agentWorkflow := &workflow.AgentWorkflow{}
 	addNodesConfig := &joiner.AddNodesConfig{}
 	agentConfig := &AgentConfig{}
@@ -74,6 +79,9 @@ func (a *AgentHosts) Generate(dependencies asset.Parents) error {
 			if len(a.Hosts) > 0 {
 				// Hosts defined in agent-config take precedence
 				logrus.Debugf("Using hosts from %s", agentConfigFilename)
+				for i, host := range a.Hosts {
+					warnInterfaceNamesNotInNetworkConfig(host, i)
+				}
 			}
 		}
 
@@ -84,12 +92,18 @@ func (a *AgentHosts) Generate(dependencies asset.Parents) error {
 					return errors.Wrapf(err, "invalid host definition in %s", agentAsset.InstallConfigFilename)
 				}
 			} else {
-				logrus.Warnf(fmt.Sprintf("hosts from %s are ignored", agentAsset.InstallConfigFilename))
+				logrus.Warnf("hosts from %s are ignored", agentAsset.InstallConfigFilename)
 			}
 		}
 
+		// store per host fencing-credentials only when MAC address is used
+		a.populateFencingCredentialHosts(installConfig)
+
 	case workflow.AgentWorkflowTypeAddNodes:
 		a.Hosts = append(a.Hosts, addNodesConfig.Config.Hosts...)
+		for i, host := range a.Hosts {
+			warnInterfaceNamesNotInNetworkConfig(host, i)
+		}
 
 	default:
 		return fmt.Errorf("AgentWorkflowType value not supported: %s", agentWorkflow.Workflow)
@@ -117,7 +131,7 @@ func (a *AgentHosts) validateAgentHosts() field.ErrorList {
 
 	macs := make(map[string]bool)
 	for i, host := range a.Hosts {
-		hostPath := field.NewPath("Hosts").Index(i)
+		hostPath := field.NewPath("hosts").Index(i)
 
 		if err := a.validateHostInterfaces(hostPath, host, macs); err != nil {
 			allErrs = append(allErrs, err...)
@@ -142,7 +156,7 @@ func (a *AgentHosts) validateAgentHosts() field.ErrorList {
 func (a *AgentHosts) validateHostInterfaces(hostPath *field.Path, host agent.Host, macs map[string]bool) field.ErrorList {
 	var allErrs field.ErrorList
 
-	interfacePath := hostPath.Child("Interfaces")
+	interfacePath := hostPath.Child("interfaces")
 	if len(host.Interfaces) == 0 {
 		allErrs = append(allErrs, field.Required(interfacePath, "at least one interface must be defined for each node"))
 	}
@@ -169,6 +183,42 @@ func (a *AgentHosts) validateHostInterfaces(hostPath *field.Path, host agent.Hos
 	return allErrs
 }
 
+func warnInterfaceNamesNotInNetworkConfig(host agent.Host, hostIdx int) {
+	if len(host.NetworkConfig.Raw) == 0 || len(host.Interfaces) == 0 {
+		return
+	}
+
+	var netInterfaces nmStateInterface
+	if err := yaml.Unmarshal(host.NetworkConfig.Raw, &netInterfaces); err != nil {
+		return
+	}
+
+	ncNames := make(map[string]bool, len(netInterfaces.Interfaces))
+	var ncNameList []string
+	for _, iface := range netInterfaces.Interfaces {
+		if iface.Name != "" {
+			ncNames[iface.Name] = true
+			ncNameList = append(ncNameList, iface.Name)
+		}
+	}
+	if len(ncNames) == 0 {
+		return
+	}
+
+	hostPath := field.NewPath("hosts").Index(hostIdx)
+	for i, iface := range host.Interfaces {
+		if iface.Name == "" {
+			continue
+		}
+		if !ncNames[iface.Name] {
+			ifacePath := hostPath.Child("interfaces").Index(i).Child("name")
+			logrus.Warnf("%s: interface name %q not found in networkConfig interfaces %v; "+
+				"connectivity may fail if interface names do not match at boot time",
+				ifacePath, iface.Name, ncNameList)
+		}
+	}
+}
+
 func (a *AgentHosts) validateHostRootDeviceHints(hostPath *field.Path, host agent.Host) field.ErrorList {
 	rdhPath := hostPath.Child("rootDeviceHints")
 	allErrs := validation.ValidateHostRootDeviceHints(&host.RootDeviceHints, rdhPath)
@@ -188,8 +238,9 @@ func (a *AgentHosts) validateHostRootDeviceHints(hostPath *field.Path, host agen
 func (a *AgentHosts) validateRoles(hostPath *field.Path, host agent.Host) field.ErrorList {
 	var allErrs field.ErrorList
 
-	if len(host.Role) > 0 && host.Role != masterRole && host.Role != workerRole {
-		allErrs = append(allErrs, field.Forbidden(hostPath.Child("Host"), "host role has incorrect value. Role must either be 'master' or 'worker'"))
+	if len(host.Role) > 0 && host.Role != masterRole && host.Role != arbiterRole && host.Role != workerRole {
+		allErrs = append(allErrs, field.NotSupported(hostPath.Child("role"), host.Role,
+			[]string{masterRole, workerRole, arbiterRole}))
 	}
 
 	return allErrs
@@ -200,10 +251,19 @@ func (a *AgentHosts) validateRendezvousIPNotWorker(rendezvousIP string, hosts []
 
 	if rendezvousIP != "" {
 		for i, host := range hosts {
-			hostPath := field.NewPath("Hosts").Index(i)
-			if strings.Contains(string(host.NetworkConfig.Raw), rendezvousIP) && host.Role == workerRole {
+			if host.Role != workerRole {
+				continue
+			}
+			hostPath := field.NewPath("hosts").Index(i)
+			hostIPs, err := agentAsset.GetAllHostIPs(host.NetworkConfig)
+			if err != nil {
+				allErrs = append(allErrs, field.Invalid(hostPath, host.NetworkConfig, err.Error()))
+				continue
+			}
+			_, found := hostIPs[rendezvousIP]
+			if found {
 				errMsg := "Host " + host.Hostname + " has role 'worker' and has the rendezvousIP assigned to it. The rendezvousIP must be assigned to a control plane host."
-				allErrs = append(allErrs, field.Forbidden(hostPath.Child("Host"), errMsg))
+				allErrs = append(allErrs, field.Forbidden(hostPath.Child("role"), errMsg))
 			}
 		}
 	}
@@ -313,5 +373,52 @@ func (a *AgentHosts) HostConfigFiles() (HostConfigFileMap, error) {
 			files[filepath.Join(name, "role")] = []byte(host.Role)
 		}
 	}
+
+	maxNewDirs := len(a.Hosts)
+	for i := range a.FencingCredentialsHost {
+		cred := &a.FencingCredentialsHost[i]
+		dirName := findHostDirForMAC(files, cred.MACAddress)
+		if dirName == "" {
+			dirName = fmt.Sprintf("host-%d", maxNewDirs)
+			maxNewDirs++
+			files[filepath.Join(dirName, "mac_addresses")] = []byte(strings.ToLower(cred.MACAddress) + "\n")
+		}
+		cfg := &FencingCredentialsConfig{Credentials: []*types.Credential{cred}}
+		data, err := goyaml.Marshal(cfg)
+		if err != nil {
+			return nil, err
+		}
+		files[filepath.Join(dirName, "fencing-credentials.yaml")] = data
+	}
+
 	return files, nil
+}
+
+func (a *AgentHosts) populateFencingCredentialHosts(installConfig *agentAsset.OptionalInstallConfig) {
+	if installConfig.Config == nil || installConfig.Config.ControlPlane == nil ||
+		installConfig.Config.ControlPlane.Fencing == nil {
+		return
+	}
+
+	for _, cred := range installConfig.Config.ControlPlane.Fencing.Credentials {
+		if cred.HostName == "" && cred.MACAddress != "" {
+			a.FencingCredentialsHost = append(a.FencingCredentialsHost, *cred)
+		}
+	}
+}
+
+func findHostDirForMAC(files HostConfigFileMap, macAddress string) string {
+	normalizedMAC := strings.ToLower(macAddress)
+	for key, content := range files {
+		if !strings.HasSuffix(key, "/mac_addresses") {
+			continue
+		}
+		dirName := strings.TrimSuffix(key, "/mac_addresses")
+		for _, mac := range strings.Split(strings.TrimSpace(string(content)), "\n") {
+			if strings.TrimSpace(mac) == normalizedMAC {
+				return dirName
+			}
+		}
+	}
+	return ""
 }

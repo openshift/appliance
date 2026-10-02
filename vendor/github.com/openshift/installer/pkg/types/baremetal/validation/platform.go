@@ -6,8 +6,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/go-playground/validator/v10"
@@ -20,9 +22,11 @@ import (
 	"sigs.k8s.io/yaml"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/installer/pkg/ipnet"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/baremetal"
+	"github.com/openshift/installer/pkg/types/common"
 	"github.com/openshift/installer/pkg/validate"
 )
 
@@ -101,6 +105,32 @@ func validateNoOverlapMachineCIDR(target *net.IPNet, n *types.Networking) error 
 	return nil
 }
 
+// isNetworkOrBroadcastAddress checks if the IP is a network or broadcast address.
+// For IPv4 with masks narrower than /31, network and broadcast addresses are not usable.
+func isNetworkOrBroadcastAddress(ip net.IP, cidr *net.IPNet) bool {
+	ones, bits := cidr.Mask.Size()
+	// Only apply network/broadcast checks to IPv4.
+	if bits != 32 {
+		return false
+	}
+	// For IPv4 /31 and /32, all addresses are usable.
+	if ones >= 31 {
+		return false
+	}
+	// Regular IPv4 → check network/broadcast
+	networkAddr := cidr.IP.Mask(cidr.Mask)
+	if ip.Equal(networkAddr) {
+		return true
+	}
+	// IPv4 broadcast address check (all host bits are 1).
+	broadcast := make(net.IP, len(networkAddr))
+	copy(broadcast, networkAddr)
+	for i := range broadcast {
+		broadcast[i] |= ^cidr.Mask[i]
+	}
+	return ip.Equal(broadcast)
+}
+
 func validateOSImageURI(uri string) error {
 	// Check for valid URI and sha256 checksum part of the URL
 	parsedURL, err := url.ParseRequestURI(uri)
@@ -122,6 +152,18 @@ func validateOSImageURI(uri string) error {
 		return fmt.Errorf("the URI provided: %s must begin with http/https", uri)
 	}
 	return nil
+}
+
+// ValidateNTPServers checks list of NTP servers strings are valid IPs or domain names.
+func ValidateNTPServers(servers []string, fldPath *field.Path) (allErrs field.ErrorList) {
+	for i, server := range servers {
+		if ipErr := validate.IP(server); ipErr != nil {
+			if domainErr := validate.DomainName(server, true); domainErr != nil {
+				allErrs = append(allErrs, field.Invalid(fldPath, servers[i], "NTP server is not a valid IP or domain name"))
+			}
+		}
+	}
+	return
 }
 
 // validateDHCPRange ensures the provided range is valid, and that provisioning service IP's do not overlap.
@@ -161,6 +203,11 @@ func validateDHCPRange(p *baremetal.Platform, fldPath *field.Path) (allErrs fiel
 		if bootstrapProvisioningIP := net.ParseIP(p.BootstrapProvisioningIP); bootstrapProvisioningIP != nil && bytes.Compare(bootstrapProvisioningIP, start) >= 0 && bytes.Compare(bootstrapProvisioningIP, end) <= 0 {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("bootstrapProvisioningIP"), p.BootstrapProvisioningIP, fmt.Sprintf("%q overlaps with the allocated DHCP range", p.BootstrapProvisioningIP)))
 		}
+
+		// Validate ProvisioningNetworkGateway is not in DHCP range
+		if provisioningNetworkGateway := net.ParseIP(p.ProvisioningNetworkGateway); provisioningNetworkGateway != nil && bytes.Compare(provisioningNetworkGateway, start) >= 0 && bytes.Compare(provisioningNetworkGateway, end) <= 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("provisioningNetworkGateway"), p.ProvisioningNetworkGateway, fmt.Sprintf("%q overlaps with the allocated DHCP range", p.ProvisioningNetworkGateway)))
+		}
 	}
 
 	return
@@ -168,53 +215,7 @@ func validateDHCPRange(p *baremetal.Platform, fldPath *field.Path) (allErrs fiel
 
 // validateHostsBase validates the hosts based on a filtering function
 func validateHostsBase(hosts []*baremetal.Host, fldPath *field.Path, filter validator.FilterFunc) field.ErrorList {
-	hostErrs := field.ErrorList{}
-
-	values := make(map[string]map[interface{}]struct{})
-
-	//Initialize a new validator and register a custom validation rule for the tag `uniqueField`
-	validate := validator.New()
-	validate.RegisterValidation("uniqueField", func(fl validator.FieldLevel) bool {
-		valueFound := false
-		fieldName := fl.Parent().Type().Name() + "." + fl.FieldName()
-		fieldValue := fl.Field().Interface()
-
-		if fl.Field().Type().Comparable() {
-			if _, present := values[fieldName]; !present {
-				values[fieldName] = make(map[interface{}]struct{})
-			}
-
-			fieldValues := values[fieldName]
-			if _, valueFound = fieldValues[fieldValue]; !valueFound {
-				fieldValues[fieldValue] = struct{}{}
-			}
-		} else {
-			panic(fmt.Sprintf("Cannot apply validation rule 'uniqueField' on field %s", fl.FieldName()))
-		}
-
-		return !valueFound
-	})
-
-	//Apply validations and translate errors
-	fldPath = fldPath.Child("hosts")
-
-	for idx, host := range hosts {
-		err := validate.StructFiltered(host, filter)
-		if err != nil {
-			hostType := reflect.TypeOf(hosts).Elem().Elem().Name()
-			for _, err := range err.(validator.ValidationErrors) {
-				childName := fldPath.Index(idx).Child(err.Namespace()[len(hostType)+1:])
-				switch err.Tag() {
-				case "required":
-					hostErrs = append(hostErrs, field.Required(childName, "missing "+err.Field()))
-				case "uniqueField":
-					hostErrs = append(hostErrs, field.Duplicate(childName, err.Value()))
-				}
-			}
-		}
-	}
-
-	return hostErrs
+	return common.ValidateUniqueAndRequiredFields(hosts, fldPath, filter)
 }
 
 // filterHostsBMC is a function to control whether to filter BMC details of Hosts
@@ -235,40 +236,26 @@ func validateHostsBMCOnly(hosts []*baremetal.Host, fldPath *field.Path) field.Er
 }
 
 func validateOSImages(p *baremetal.Platform, fldPath *field.Path) field.ErrorList {
-	platformErrs := field.ErrorList{}
+	var errs field.ErrorList
 
-	validate := validator.New()
-
-	customErrs := make(map[string]error)
-	validate.RegisterValidation("osimageuri", func(fl validator.FieldLevel) bool {
-		err := validateOSImageURI(fl.Field().String())
-		if err != nil {
-			customErrs[fl.FieldName()] = err
-		}
-		return err == nil
-	})
-	validate.RegisterValidation("urlexist", func(fl validator.FieldLevel) bool {
-		if res, err := http.Head(fl.Field().String()); err == nil {
-			return res.StatusCode == http.StatusOK
-		}
-		return false
-	})
-	err := validate.Struct(p)
-
-	if err != nil {
-		baseType := reflect.TypeOf(p).Elem().Name()
-		for _, err := range err.(validator.ValidationErrors) {
-			childName := fldPath.Child(err.Namespace()[len(baseType)+1:])
-			switch err.Tag() {
-			case "osimageuri":
-				platformErrs = append(platformErrs, field.Invalid(childName, err.Value(), customErrs[err.Field()].Error()))
-			case "urlexist":
-				platformErrs = append(platformErrs, field.NotFound(childName, err.Value()))
-			}
-		}
+	fields := map[string]string{
+		"bootstrapOSImage": p.DeprecatedBootstrapOSImage,
+		"clusterOSImage":   p.DeprecatedClusterOSImage,
 	}
 
-	return platformErrs
+	for fieldName, url := range fields {
+		if url == "" {
+			continue
+		}
+		path := fldPath.Child(fieldName)
+		logrus.Infof("%s is no longer required", path.String())
+		if err := validateOSImageURI(url); err != nil {
+			errs = append(errs, field.Invalid(path, url, err.Error()))
+		} else if res, err := http.Head(url); err != nil || res.StatusCode != http.StatusOK /* #nosec G107 */ {
+			errs = append(errs, field.NotFound(path, url))
+		}
+	}
+	return errs
 }
 
 func validateHostsName(hosts []*baremetal.Host, fldPath *field.Path) (errors field.ErrorList) {
@@ -299,18 +286,28 @@ func validateHostsCount(hosts []*baremetal.Host, installConfig *types.InstallCon
 		}
 	}
 
+	numRequiredArbiters := int64(0)
+	if installConfig.Arbiter != nil && installConfig.Arbiter.Replicas != nil {
+		numRequiredArbiters += *installConfig.Arbiter.Replicas
+	}
+
 	numMasters := int64(0)
+	numArbiters := int64(0)
 	numWorkers := int64(0)
 
 	for _, h := range hosts {
 		if h.IsMaster() {
 			numMasters++
+		} else if h.IsArbiter() {
+			numArbiters++
 		} else if h.IsWorker() {
 			numWorkers++
 		} else {
 			logrus.Warn(fmt.Sprintf("Host %s hasn't any role configured", h.Name))
 			if numMasters < numRequiredMasters {
 				numMasters++
+			} else if numArbiters < numRequiredArbiters {
+				numArbiters++
 			} else if numWorkers < numRequiredWorkers {
 				numWorkers++
 			}
@@ -321,11 +318,72 @@ func validateHostsCount(hosts []*baremetal.Host, installConfig *types.InstallCon
 		return fmt.Errorf("not enough hosts found (%v) to support all the configured ControlPlane replicas (%v)", numMasters, numRequiredMasters)
 	}
 
+	if numArbiters < numRequiredArbiters {
+		return fmt.Errorf("not enough hosts found (%v) to support all the configured Arbiter replicas (%v)", numArbiters, numRequiredArbiters)
+	}
+
 	if numWorkers < numRequiredWorkers {
 		return fmt.Errorf("not enough hosts found (%v) to support all the configured Compute replicas (%v)", numWorkers, numRequiredWorkers)
 	}
 
 	return nil
+}
+
+func validateMTUIsInteger(nmstateYAML []byte, fldPath *field.Path) field.ErrorList {
+	var config map[string]interface{}
+	if err := yaml.Unmarshal(nmstateYAML, &config); err != nil {
+		return field.ErrorList{
+			field.Invalid(fldPath, string(nmstateYAML), fmt.Sprintf("failed to unmarshal NMState config: %v", err)),
+		}
+	}
+
+	interfaces, ok := config["interfaces"].([]interface{})
+	if !ok {
+		return nil // no interfaces, nothing to check
+	}
+
+	var allErrs field.ErrorList
+	for idx, iface := range interfaces {
+		ifaceMap, ok := iface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		if mtu, exists := ifaceMap["mtu"]; exists {
+			switch v := mtu.(type) {
+			case int, int64, float64: // yaml unmarshals numbers as float64
+				// ok
+			case string:
+				// check if string is actually numeric
+				if _, err := strconv.Atoi(v); err != nil {
+					allErrs = append(allErrs,
+						field.Invalid(
+							fldPath.Child("interfaces").Index(idx).Child("mtu"),
+							v,
+							"mtu must be an integer",
+						),
+					)
+				} else {
+					allErrs = append(allErrs,
+						field.Invalid(
+							fldPath.Child("interfaces").Index(idx).Child("mtu"),
+							v,
+							"mtu must be an integer (not quoted string)",
+						),
+					)
+				}
+			default:
+				allErrs = append(allErrs,
+					field.Invalid(
+						fldPath.Child("interfaces").Index(idx).Child("mtu"),
+						v,
+						fmt.Sprintf("mtu must be an integer, got %T", v),
+					),
+				)
+			}
+		}
+	}
+	return allErrs
 }
 
 // ensure that the NetworkConfig field contains a valid Yaml string
@@ -337,6 +395,10 @@ func validateNetworkConfig(hosts []*baremetal.Host, fldPath *field.Path) (errors
 			if err != nil {
 				errors = append(errors, field.Invalid(fldPath.Index(idx).Child("networkConfig"), host.NetworkConfig, fmt.Sprintf("Not a valid yaml: %s", err.Error())))
 			}
+
+			errors = append(errors,
+				validateMTUIsInteger(host.NetworkConfig.Raw, fldPath.Index(idx).Child("networkConfig"))...,
+			)
 		}
 	}
 	return
@@ -399,10 +461,10 @@ func validateProvisioningNetworkDisabledSupported(hosts []*baremetal.Host, fldPa
 	for idx, host := range hosts {
 		accessDetails, err := bmc.NewAccessDetails(host.BMC.Address, host.BMC.DisableCertificateVerification)
 		if err != nil {
-			errors = append(errors, field.Invalid(fldPath.Index(idx).Child("BMC"), host.BMC.Address, err.Error()))
+			errors = append(errors, field.Invalid(fldPath.Index(idx).Child("bmc"), host.BMC.Address, err.Error()))
 		} else if accessDetails.RequiresProvisioningNetwork() {
 			msg := fmt.Sprintf("driver %s requires provisioning network", accessDetails.Driver())
-			errors = append(errors, field.Invalid(fldPath.Index(idx).Child("BMC"), host.BMC.Address, msg))
+			errors = append(errors, field.Invalid(fldPath.Index(idx).Child("bmc"), host.BMC.Address, msg))
 		}
 	}
 
@@ -433,7 +495,14 @@ func ValidatePlatform(p *baremetal.Platform, agentBasedInstallation bool, n *typ
 		}
 	}
 
-	if !agentBasedInstallation && p.Hosts == nil {
+	if p.ProvisioningNetworkGateway != "" {
+		if err := validate.IP(p.ProvisioningNetworkGateway); err != nil {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("provisioningNetworkGateway"), p.ProvisioningNetworkGateway, err.Error()))
+		}
+	}
+
+	enabledCaps := c.GetEnabledCapabilities()
+	if !agentBasedInstallation && enabledCaps.Has(configv1.ClusterVersionCapabilityMachineAPI) && p.Hosts == nil {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("hosts"), p.Hosts, "bare metal hosts are missing"))
 	}
 
@@ -441,16 +510,10 @@ func ValidatePlatform(p *baremetal.Platform, agentBasedInstallation bool, n *typ
 		allErrs = append(allErrs, ValidateMachinePool(p.DefaultMachinePlatform, fldPath.Child("defaultMachinePlatform"))...)
 	}
 
-	if !agentBasedInstallation {
-		if err := validateHostsCount(p.Hosts, c); err != nil {
-			allErrs = append(allErrs, field.Required(fldPath.Child("Hosts"), err.Error()))
+	if !agentBasedInstallation && enabledCaps.Has(configv1.ClusterVersionCapabilityMachineAPI) {
+		if err := ValidateHosts(p, fldPath, c); err != nil {
+			allErrs = append(allErrs, err...)
 		}
-		allErrs = append(allErrs, validateHostsWithoutBMC(p.Hosts, fldPath)...)
-		allErrs = append(allErrs, validateBootMode(p.Hosts, fldPath.Child("Hosts"))...)
-		allErrs = append(allErrs, validateRootDeviceHints(p.Hosts, fldPath.Child("Hosts"))...)
-		allErrs = append(allErrs, validateNetworkConfig(p.Hosts, fldPath.Child("Hosts"))...)
-
-		allErrs = append(allErrs, validateHostsName(p.Hosts, fldPath.Child("Hosts"))...)
 	}
 
 	if c.BareMetal.LoadBalancer != nil {
@@ -459,6 +522,55 @@ func ValidatePlatform(p *baremetal.Platform, agentBasedInstallation bool, n *typ
 		}
 	}
 
+	if c.BareMetal.DNSRecordsType == configv1.DNSRecordsTypeExternal && (c.BareMetal.LoadBalancer == nil || c.BareMetal.LoadBalancer.Type != configv1.LoadBalancerTypeUserManaged) {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("dnsRecordsType"), c.BareMetal.DNSRecordsType, "external DNS records can only be configured with user-managed loadbalancers"))
+	}
+
+	if p.BGPVIPConfig != nil {
+		allErrs = append(allErrs, validateBGPVIPConfig(p.BGPVIPConfig, fldPath.Child("bgpVIPConfig"))...)
+		// The BGP VIP rendering path configures the cluster network
+		// operator's OVN-Kubernetes configuration.
+		if n != nil && n.NetworkType != string(operv1.NetworkTypeOVNKubernetes) {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("bgpVIPConfig"), n.NetworkType,
+				"BGP-based VIP management requires the OVNKubernetes network type"))
+		}
+	}
+
+	for i, host := range p.Hosts {
+		if host == nil {
+			continue
+		}
+		hostsPath := fldPath.Child("hosts").Index(i).Child("bgpPeers")
+		if len(host.BGPPeers) > 0 && p.BGPVIPConfig == nil {
+			allErrs = append(allErrs, field.Forbidden(hostsPath,
+				"host-level BGP peer overrides require platform.baremetal.bgpVIPConfig"))
+			continue
+		}
+		if len(host.BGPPeers) > 16 {
+			allErrs = append(allErrs, field.TooMany(hostsPath, len(host.BGPPeers), 16))
+		}
+		for j, peer := range host.BGPPeers {
+			allErrs = append(allErrs, validateBGPPeer(peer, hostsPath.Index(j))...)
+		}
+	}
+
+	return allErrs
+}
+
+// ValidateHosts returns an error if the Hosts are not valid.
+func ValidateHosts(p *baremetal.Platform, fldPath *field.Path, c *types.InstallConfig) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	fldPath = fldPath.Child("hosts")
+	if err := validateHostsCount(p.Hosts, c); err != nil {
+		allErrs = append(allErrs, field.Required(fldPath, err.Error()))
+	}
+	allErrs = append(allErrs, validateHostsWithoutBMC(p.Hosts, fldPath)...)
+	allErrs = append(allErrs, validateBootMode(p.Hosts, fldPath)...)
+	allErrs = append(allErrs, validateRootDeviceHints(p.Hosts, fldPath)...)
+	allErrs = append(allErrs, validateNetworkConfig(p.Hosts, fldPath)...)
+
+	allErrs = append(allErrs, validateHostsName(p.Hosts, fldPath)...)
 	return allErrs
 }
 
@@ -470,6 +582,100 @@ func validateLoadBalancer(lbType configv1.PlatformLoadBalancerType) bool {
 	default:
 		return false
 	}
+}
+
+func validateBGPVIPConfig(bgpConfig *baremetal.BGPVIPConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if bgpConfig == nil {
+		return allErrs
+	}
+
+	// Validate LocalASN
+	if bgpConfig.LocalASN < 1 || bgpConfig.LocalASN > 4294967295 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("localASN"), bgpConfig.LocalASN,
+			"must be between 1 and 4294967295"))
+	}
+
+	// Validate Peers
+	if len(bgpConfig.Peers) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath.Child("peers"), "at least one BGP peer is required"))
+	}
+	if len(bgpConfig.Peers) > 16 {
+		allErrs = append(allErrs, field.TooMany(fldPath.Child("peers"), len(bgpConfig.Peers), 16))
+	}
+
+	for i, peer := range bgpConfig.Peers {
+		peerPath := fldPath.Child("peers").Index(i)
+		allErrs = append(allErrs, validateBGPPeer(peer, peerPath)...)
+	}
+
+	for i, community := range bgpConfig.Communities {
+		if !bgpCommunityRe.MatchString(community) {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("communities").Index(i), community,
+				"must be a standard (AA:NN) or large (AA:BB:CC) BGP community"))
+		}
+	}
+
+	return allErrs
+}
+
+// bgpCommunityRe matches standard (AA:NN) and large (AA:BB:CC) BGP community
+// values.
+var bgpCommunityRe = regexp.MustCompile(`^\d+:\d+(:\d+)?$`)
+
+func validateBGPPeer(peer baremetal.BGPPeerConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if peer.PeerAddress == "" {
+		allErrs = append(allErrs, field.Required(fldPath.Child("peerAddress"), "peer address is required"))
+	} else if ip := net.ParseIP(peer.PeerAddress); ip == nil {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("peerAddress"), peer.PeerAddress, "must be a valid IP address"))
+	}
+
+	if peer.PeerASN < 1 || peer.PeerASN > 4294967295 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("peerASN"), peer.PeerASN,
+			"must be between 1 and 4294967295"))
+	}
+
+	if peer.BFDEnabled != "" && peer.BFDEnabled != "true" && peer.BFDEnabled != "false" {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("bfdEnabled"), peer.BFDEnabled,
+			`must be "true", "false", or empty`))
+	}
+
+	if peer.EBGPMultiHop != "" && peer.EBGPMultiHop != "true" && peer.EBGPMultiHop != "false" {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("ebgpMultiHop"), peer.EBGPMultiHop,
+			`must be "true", "false", or empty`))
+	}
+
+	if peer.Port != 0 && (peer.Port < 1 || peer.Port > 65535) {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("port"), peer.Port,
+			"must be between 1 and 65535, or omitted for the default 179"))
+	}
+
+	// FRR's "timers <keepalive> <hold>" takes whole seconds and requires the
+	// pair; the install-config accepts human-friendly duration strings and
+	// the manifest generation converts them to bare seconds for rendering.
+	if (peer.HoldTime == "") != (peer.KeepaliveTime == "") {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("holdTime"), peer.HoldTime,
+			"holdTime and keepaliveTime must be set together"))
+	}
+	for name, value := range map[string]string{"holdTime": peer.HoldTime, "keepaliveTime": peer.KeepaliveTime} {
+		if value == "" {
+			continue
+		}
+		d, err := time.ParseDuration(value)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child(name), value,
+				"must be a valid duration (e.g. 90s)"))
+			continue
+		}
+		if d != d.Truncate(time.Second) || d < 0 || d > 65535*time.Second {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child(name), value,
+				"must be a whole number of seconds between 0 and 65535 (BGP timers are second-granular)"))
+		}
+	}
+
+	return allErrs
 }
 
 // ValidateProvisioning checks that provisioning network requirements specified is valid.
@@ -538,7 +744,7 @@ func ValidateProvisioningNetworking(p *baremetal.Platform, n *types.Networking, 
 	// will be run on the external network. Users must provide IP's on the
 	// machine networks to host those services.
 	case baremetal.DisabledProvisioningNetwork:
-		allErrs = validateProvisioningNetworkDisabledSupported(p.Hosts, fldPath.Child("Hosts"))
+		allErrs = validateProvisioningNetworkDisabledSupported(p.Hosts, fldPath.Child("hosts"))
 
 		// If set, ensure clusterProvisioningIP is in one of the machine networks
 		if p.ClusterProvisioningIP != "" {
@@ -558,8 +764,43 @@ func ValidateProvisioningNetworking(p *baremetal.Platform, n *types.Networking, 
 		}
 
 		// Ensure clusterProvisioningIP is in the provisioningNetworkCIDR
-		if !p.ProvisioningNetworkCIDR.Contains(net.ParseIP(p.ClusterProvisioningIP)) {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("clusterProvisioningIP"), p.ClusterProvisioningIP, fmt.Sprintf("%q is not in the provisioning network", p.ClusterProvisioningIP)))
+		if p.ClusterProvisioningIP != "" {
+			if !p.ProvisioningNetworkCIDR.Contains(net.ParseIP(p.ClusterProvisioningIP)) {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("clusterProvisioningIP"), p.ClusterProvisioningIP, fmt.Sprintf("%q is not in the provisioning network", p.ClusterProvisioningIP)))
+			}
+		}
+
+		// Ensure provisioningNetworkGateway is in the provisioningNetworkCIDR
+		if p.ProvisioningNetworkGateway != "" {
+			gatewayIP := net.ParseIP(p.ProvisioningNetworkGateway)
+			if gatewayIP == nil {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("provisioningNetworkGateway"), p.ProvisioningNetworkGateway, fmt.Sprintf("%q is not a valid IP", p.ProvisioningNetworkGateway)))
+			} else {
+				if !p.ProvisioningNetworkCIDR.Contains(gatewayIP) {
+					allErrs = append(allErrs, field.Invalid(fldPath.Child("provisioningNetworkGateway"), p.ProvisioningNetworkGateway, fmt.Sprintf("%q is not in the provisioning network", p.ProvisioningNetworkGateway)))
+				}
+				// Ensure gateway is not the same as clusterProvisioningIP
+				if p.ProvisioningNetworkGateway == p.ClusterProvisioningIP {
+					allErrs = append(allErrs, field.Invalid(fldPath.Child("provisioningNetworkGateway"), p.ProvisioningNetworkGateway, fmt.Sprintf("%q overlaps with the IP address of the node that runs the bootstrap VM or provision server", p.ProvisioningNetworkGateway)))
+				}
+				// Ensure gateway is not network or broadcast address
+				if isNetworkOrBroadcastAddress(gatewayIP, &p.ProvisioningNetworkCIDR.IPNet) {
+					networkAddr := p.ProvisioningNetworkCIDR.IP.Mask(p.ProvisioningNetworkCIDR.Mask)
+					if gatewayIP.Equal(networkAddr) {
+						allErrs = append(allErrs, field.Invalid(fldPath.Child("provisioningNetworkGateway"), p.ProvisioningNetworkGateway, fmt.Sprintf("%q is the network address of the provisioning network", p.ProvisioningNetworkGateway)))
+					} else {
+						// It's the broadcast address
+						broadcast := make(net.IP, len(networkAddr))
+						copy(broadcast, networkAddr)
+						for i := range broadcast {
+							broadcast[i] |= ^p.ProvisioningNetworkCIDR.Mask[i]
+						}
+						if gatewayIP.Equal(broadcast) {
+							allErrs = append(allErrs, field.Invalid(fldPath.Child("provisioningNetworkGateway"), p.ProvisioningNetworkGateway, fmt.Sprintf("%q is the broadcast address of the provisioning network", p.ProvisioningNetworkGateway)))
+						}
+					}
+				}
+			}
 		}
 
 		// Ensure provisioningNetworkCIDR does not have any host bits set
@@ -570,12 +811,16 @@ func ValidateProvisioningNetworking(p *baremetal.Platform, n *types.Networking, 
 				fmt.Sprintf("provisioningNetworkCIDR has host bits set, expected %s/%d", expectedIP, expectedLen)))
 		}
 
+		if len(p.AdditionalNTPServers) > 0 {
+			allErrs = append(allErrs, ValidateNTPServers(p.AdditionalNTPServers, fldPath)...)
+		}
+
 		if p.ProvisioningDHCPRange != "" {
 			allErrs = append(allErrs, validateDHCPRange(p, fldPath)...)
 		}
 	}
 
-	allErrs = append(allErrs, validateHostsBMCOnly(p.Hosts, fldPath)...)
+	allErrs = append(allErrs, validateHostsBMCOnly(p.Hosts, fldPath.Child("hosts"))...)
 
 	return allErrs
 }

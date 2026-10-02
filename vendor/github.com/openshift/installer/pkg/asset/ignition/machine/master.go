@@ -1,16 +1,20 @@
 package machine
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/openshift/installer/pkg/asset/installconfig"
 	"github.com/openshift/installer/pkg/asset/tls"
+	"github.com/openshift/installer/pkg/types"
+	"github.com/openshift/installer/pkg/types/azure"
 )
 
 const (
@@ -34,12 +38,29 @@ func (a *Master) Dependencies() []asset.Asset {
 }
 
 // Generate generates the ignition config for the Master asset.
-func (a *Master) Generate(dependencies asset.Parents) error {
+func (a *Master) Generate(_ context.Context, dependencies asset.Parents) error {
 	installConfig := &installconfig.InstallConfig{}
 	rootCA := &tls.RootCA{}
 	dependencies.Get(installConfig, rootCA)
 
 	a.Config = pointerIgnitionConfig(installConfig.Config, rootCA.Cert(), "master")
+
+	if installConfig.Config.Platform.Name() == azure.Name {
+		varClaimed := false
+		if installConfig.Config.ControlPlane != nil {
+			for _, ds := range installConfig.Config.ControlPlane.DiskSetup {
+				if ds.Type == types.UserDefined && ds.UserDefined != nil && ds.UserDefined.MountPath == "/var" {
+					varClaimed = true
+					break
+				}
+			}
+		}
+		if !varClaimed {
+			logrus.Debugf("Adding /var partition to skip CoreOS growfs step")
+			// See https://issues.redhat.com/browse/OCPBUGS-43625
+			ignition.AppendVarPartition(a.Config)
+		}
+	}
 
 	data, err := ignition.Marshal(a.Config)
 	if err != nil {

@@ -22,7 +22,7 @@ type WorkspaceNetworkSecurityGroupsDetails struct {
 
 	// The state of a Network Security Groups configuration
 	// Required: true
-	// Enum: ["active","error","configuring","removing","inactive"]
+	// Enum: ["active","error","configuring","removing","inactive","inaccessible"]
 	State *string `json:"state"`
 }
 
@@ -40,11 +40,11 @@ func (m *WorkspaceNetworkSecurityGroupsDetails) Validate(formats strfmt.Registry
 	return nil
 }
 
-var workspaceNetworkSecurityGroupsDetailsTypeStatePropEnum []interface{}
+var workspaceNetworkSecurityGroupsDetailsTypeStatePropEnum []any
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["active","error","configuring","removing","inactive"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["active","error","configuring","removing","inactive","inaccessible"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -68,6 +68,9 @@ const (
 
 	// WorkspaceNetworkSecurityGroupsDetailsStateInactive captures enum value "inactive"
 	WorkspaceNetworkSecurityGroupsDetailsStateInactive string = "inactive"
+
+	// WorkspaceNetworkSecurityGroupsDetailsStateInaccessible captures enum value "inaccessible"
+	WorkspaceNetworkSecurityGroupsDetailsStateInaccessible string = "inaccessible"
 )
 
 // prop value enum

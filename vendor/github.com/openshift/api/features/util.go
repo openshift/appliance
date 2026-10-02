@@ -2,7 +2,11 @@ package features
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
+
 	configv1 "github.com/openshift/api/config/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // FeatureGateDescription is a golang-only interface used to contains details for a feature gate.
@@ -18,6 +22,8 @@ type FeatureGateDescription struct {
 	ResponsiblePerson string
 	// OwningProduct is the product that owns the lifecycle of the gate.
 	OwningProduct OwningProduct
+	// EnhancementPR is the PR for the enhancement.
+	EnhancementPR string
 }
 
 type FeatureGateEnabledDisabled struct {
@@ -40,29 +46,111 @@ var (
 	kubernetes  = OwningProduct("Kubernetes")
 )
 
+type featureGateEnableOption func(s *featureGateStatus)
+
+type versionOperator string
+
+var (
+	equal              = versionOperator("=")
+	greaterThan        = versionOperator(">")
+	greaterThanOrEqual = versionOperator(">=")
+	lessThan           = versionOperator("<")
+	lessThanOrEqual    = versionOperator("<=")
+)
+
+func inVersion(version uint64, op versionOperator) featureGateEnableOption {
+	return func(s *featureGateStatus) {
+		switch op {
+		case equal:
+			s.version.Insert(version)
+		case greaterThan:
+			for v := version + 1; v <= maxOpenshiftVersion; v++ {
+				s.version.Insert(v)
+			}
+		case greaterThanOrEqual:
+			for v := version; v <= maxOpenshiftVersion; v++ {
+				s.version.Insert(v)
+			}
+		case lessThan:
+			for v := minOpenshiftVersion; v < version; v++ {
+				s.version.Insert(v)
+			}
+		case lessThanOrEqual:
+			for v := minOpenshiftVersion; v <= version; v++ {
+				s.version.Insert(v)
+			}
+		default:
+			panic(fmt.Sprintf("invalid version operator: %s", op))
+		}
+	}
+}
+
+func inClusterProfile(clusterProfile ClusterProfileName) featureGateEnableOption {
+	return func(s *featureGateStatus) {
+		s.clusterProfile.Insert(clusterProfile)
+	}
+}
+
+func withFeatureSet(featureSet configv1.FeatureSet) featureGateEnableOption {
+	return func(s *featureGateStatus) {
+		s.featureSets.Insert(featureSet)
+	}
+}
+
+func inDefault() featureGateEnableOption {
+	return withFeatureSet(configv1.Default)
+}
+
+func inTechPreviewNoUpgrade() featureGateEnableOption {
+	return withFeatureSet(configv1.TechPreviewNoUpgrade)
+}
+
+func inDevPreviewNoUpgrade() featureGateEnableOption {
+	return withFeatureSet(configv1.DevPreviewNoUpgrade)
+}
+
+func inCustomNoUpgrade() featureGateEnableOption {
+	return withFeatureSet(configv1.CustomNoUpgrade)
+}
+
+func inOKD() featureGateEnableOption {
+	return withFeatureSet(configv1.OKD)
+}
+
 type featureGateBuilder struct {
 	name                string
 	owningJiraComponent string
 	responsiblePerson   string
 	owningProduct       OwningProduct
+	enhancementPRURL    string
 
-	statusByClusterProfileByFeatureSet map[ClusterProfileName]map[configv1.FeatureSet]bool
+	status []featureGateStatus
 }
+type featureGateStatus struct {
+	version        sets.Set[uint64]
+	clusterProfile sets.Set[ClusterProfileName]
+	featureSets    sets.Set[configv1.FeatureSet]
+}
+
+func (s *featureGateStatus) isEnabled(version uint64, clusterProfile ClusterProfileName, featureSet configv1.FeatureSet) bool {
+	// If either version or clusterprofile are empty, match all.
+	matchesVersion := len(s.version) == 0 || s.version.Has(version)
+	matchesClusterProfile := len(s.clusterProfile) == 0 || s.clusterProfile.Has(clusterProfile)
+
+	matchesFeatureSet := s.featureSets.Has(featureSet)
+
+	return matchesVersion && matchesClusterProfile && matchesFeatureSet
+}
+
+const (
+	legacyFeatureGateWithoutEnhancement = "FeatureGate predates 4.18"
+)
 
 // newFeatureGate featuregate are disabled in every FeatureSet and selectively enabled
 func newFeatureGate(name string) *featureGateBuilder {
-	b := &featureGateBuilder{
-		name:                               name,
-		statusByClusterProfileByFeatureSet: map[ClusterProfileName]map[configv1.FeatureSet]bool{},
+	return &featureGateBuilder{
+		name: name,
 	}
-	for _, clusterProfile := range AllClusterProfiles {
-		byFeatureSet := map[configv1.FeatureSet]bool{}
-		for _, featureSet := range configv1.AllFixedFeatureSets {
-			byFeatureSet[featureSet] = false
-		}
-		b.statusByClusterProfileByFeatureSet[clusterProfile] = byFeatureSet
-	}
-	return b
 }
 
 func (b *featureGateBuilder) reportProblemsToJiraComponent(owningJiraComponent string) *featureGateBuilder {
@@ -80,19 +168,24 @@ func (b *featureGateBuilder) productScope(owningProduct OwningProduct) *featureG
 	return b
 }
 
-func (b *featureGateBuilder) enableIn(featureSets ...configv1.FeatureSet) *featureGateBuilder {
-	for clusterProfile := range b.statusByClusterProfileByFeatureSet {
-		for _, featureSet := range featureSets {
-			b.statusByClusterProfileByFeatureSet[clusterProfile][featureSet] = true
-		}
-	}
+func (b *featureGateBuilder) enhancementPR(url string) *featureGateBuilder {
+	b.enhancementPRURL = url
 	return b
 }
 
-func (b *featureGateBuilder) enableForClusterProfile(clusterProfile ClusterProfileName, featureSets ...configv1.FeatureSet) *featureGateBuilder {
-	for _, featureSet := range featureSets {
-		b.statusByClusterProfileByFeatureSet[clusterProfile][featureSet] = true
+func (b *featureGateBuilder) enable(opts ...featureGateEnableOption) *featureGateBuilder {
+	status := featureGateStatus{
+		version:        sets.New[uint64](),
+		clusterProfile: sets.New[ClusterProfileName](),
+		featureSets:    sets.New[configv1.FeatureSet](),
 	}
+
+	for _, opt := range opts {
+		opt(&status)
+	}
+
+	b.status = append(b.status, status)
+
 	return b
 }
 
@@ -109,34 +202,28 @@ func (b *featureGateBuilder) register() (configv1.FeatureGateName, error) {
 	if len(b.owningProduct) == 0 {
 		return "", fmt.Errorf("missing owningProduct")
 	}
+	_, enhancementPRErr := url.Parse(b.enhancementPRURL)
+	switch {
+	case b.enhancementPRURL == legacyFeatureGateWithoutEnhancement:
+		if !legacyFeatureGates.Has(b.name) {
+			return "", fmt.Errorf("FeatureGate/%s is a new feature gate, not an existing one.  It must have an enhancementPR with GA Graduation Criteria like https://github.com/openshift/enhancements/pull/#### or https://github.com/kubernetes/enhancements/issues/####", b.name)
+		}
+
+	case len(b.enhancementPRURL) == 0:
+		return "", fmt.Errorf("FeatureGate/%s is missing an enhancementPR with GA Graduation Criteria like https://github.com/openshift/enhancements/pull/#### or https://github.com/kubernetes/enhancements/issues/####", b.name)
+
+	case !strings.HasPrefix(b.enhancementPRURL, "https://github.com/openshift/enhancements/pull/") &&
+		!strings.HasPrefix(b.enhancementPRURL, "https://github.com/kubernetes/enhancements/issues/") &&
+		!strings.HasPrefix(b.enhancementPRURL, "https://github.com/ovn-kubernetes/ovn-kubernetes/pull/"):
+		return "", fmt.Errorf("FeatureGate/%s enhancementPR format is incorrect; must be like https://github.com/openshift/enhancements/pull/#### or https://github.com/kubernetes/enhancements/issues/#### or https://github.com/ovn-kubernetes/ovn-kubernetes/pull/####", b.name)
+
+	case enhancementPRErr != nil:
+		return "", fmt.Errorf("FeatureGate/%s is enhancementPR is invalid: %w", b.name, enhancementPRErr)
+	}
 
 	featureGateName := configv1.FeatureGateName(b.name)
-	description := FeatureGateDescription{
-		FeatureGateAttributes: configv1.FeatureGateAttributes{
-			Name: featureGateName,
-		},
-		OwningJiraComponent: b.owningJiraComponent,
-		ResponsiblePerson:   b.responsiblePerson,
-		OwningProduct:       b.owningProduct,
-	}
 
-	// statusByClusterProfileByFeatureSet is initialized by constructor to be false for every combination
-	for clusterProfile, byFeatureSet := range b.statusByClusterProfileByFeatureSet {
-		for featureSet, enabled := range byFeatureSet {
-			if _, ok := allFeatureGates[clusterProfile]; !ok {
-				allFeatureGates[clusterProfile] = map[configv1.FeatureSet]*FeatureGateEnabledDisabled{}
-			}
-			if _, ok := allFeatureGates[clusterProfile][featureSet]; !ok {
-				allFeatureGates[clusterProfile][featureSet] = &FeatureGateEnabledDisabled{}
-			}
-
-			if enabled {
-				allFeatureGates[clusterProfile][featureSet].Enabled = append(allFeatureGates[clusterProfile][featureSet].Enabled, description)
-			} else {
-				allFeatureGates[clusterProfile][featureSet].Disabled = append(allFeatureGates[clusterProfile][featureSet].Disabled, description)
-			}
-		}
-	}
+	allFeatureGates[featureGateName] = b.status
 
 	return featureGateName, nil
 }
@@ -155,12 +242,16 @@ func (in *FeatureGateEnabledDisabled) DeepCopyInto(out *FeatureGateEnabledDisabl
 	if in.Enabled != nil {
 		in, out := &in.Enabled, &out.Enabled
 		*out = make([]FeatureGateDescription, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.Disabled != nil {
 		in, out := &in.Disabled, &out.Disabled
 		*out = make([]FeatureGateDescription, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	return
 }

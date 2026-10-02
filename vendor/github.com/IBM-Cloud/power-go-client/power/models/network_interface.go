@@ -7,6 +7,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -42,15 +43,18 @@ type NetworkInterface struct {
 	// Required: true
 	Name *string `json:"name"`
 
-	// ID of the Network Security Group the network interface will be added to
+	// (deprecated - replaced by networkSecurityGroupIDs) ID of the Network Security Group the network interface will be added to
 	NetworkSecurityGroupID string `json:"networkSecurityGroupID,omitempty"`
+
+	// Network security groups that the network interface is a member of.
+	NetworkSecurityGroupIDs []string `json:"networkSecurityGroupIDs"`
 
 	// The status of the network address group
 	// Required: true
 	Status *string `json:"status"`
 
-	// The user tags associated with this resource.
-	UserTags []string `json:"userTags,omitempty"`
+	// user tags
+	UserTags Tags `json:"userTags,omitempty"`
 }
 
 // Validate validates this network interface
@@ -85,6 +89,10 @@ func (m *NetworkInterface) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
+	if err := m.validateUserTags(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -116,11 +124,15 @@ func (m *NetworkInterface) validateInstance(formats strfmt.Registry) error {
 
 	if m.Instance != nil {
 		if err := m.Instance.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("instance")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("instance")
 			}
+
 			return err
 		}
 	}
@@ -164,11 +176,36 @@ func (m *NetworkInterface) validateStatus(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *NetworkInterface) validateUserTags(formats strfmt.Registry) error {
+	if swag.IsZero(m.UserTags) { // not required
+		return nil
+	}
+
+	if err := m.UserTags.Validate(formats); err != nil {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
+			return ve.ValidateName("userTags")
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
+			return ce.ValidateName("userTags")
+		}
+
+		return err
+	}
+
+	return nil
+}
+
 // ContextValidate validate this network interface based on the context it is used
 func (m *NetworkInterface) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.contextValidateInstance(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateUserTags(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -187,13 +224,35 @@ func (m *NetworkInterface) contextValidateInstance(ctx context.Context, formats 
 		}
 
 		if err := m.Instance.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("instance")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("instance")
 			}
+
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *NetworkInterface) contextValidateUserTags(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.UserTags.ContextValidate(ctx, formats); err != nil {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
+			return ve.ValidateName("userTags")
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
+			return ce.ValidateName("userTags")
+		}
+
+		return err
 	}
 
 	return nil

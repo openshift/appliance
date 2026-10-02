@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	capo "sigs.k8s.io/cluster-api-provider-openstack/api/v1beta1"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1" //nolint:staticcheck //CORS-3563
 
 	configv1 "github.com/openshift/api/config/v1"
 	machinev1 "github.com/openshift/api/machine/v1"
@@ -16,23 +16,28 @@ import (
 	"github.com/openshift/installer/pkg/asset/manifests/capiutils"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/openstack"
+	"github.com/openshift/installer/pkg/types/powervc"
+	"github.com/openshift/installer/pkg/utils"
 )
 
 // GenerateMachines returns manifests and runtime objects to provision the control plane (including bootstrap, if applicable) nodes using CAPI.
-func GenerateMachines(clusterID string, config *types.InstallConfig, pool *types.MachinePool, osImage, role string, trunkSupport bool) ([]*asset.RuntimeFile, error) {
-	if configPlatform := config.Platform.Name(); configPlatform != openstack.Name {
+func GenerateMachines(clusterID string, config *types.InstallConfig, pool *types.MachinePool, osImage, role string) ([]*asset.RuntimeFile, error) {
+	if configPlatform := config.Platform.Name(); configPlatform != openstack.Name && configPlatform != powervc.Name {
 		return nil, fmt.Errorf("non-OpenStack configuration: %q", configPlatform)
 	}
-	if poolPlatform := pool.Platform.Name(); poolPlatform != openstack.Name {
+	if poolPlatform := pool.Platform.Name(); poolPlatform != openstack.Name && poolPlatform != powervc.Name {
 		return nil, fmt.Errorf("non-OpenStack machine-pool: %q", poolPlatform)
 	}
 
 	mpool := pool.Platform.OpenStack
 
 	total := int64(1)
-	if role == "master" && pool.Replicas != nil {
+	if role == masterRole && pool.Replicas != nil {
 		total = *pool.Replicas
 	}
+
+	// Only enable config drive when using single stack IPv6
+	configDrive := isSingleStackIPv6(config.Networking.MachineNetwork)
 
 	var result []*asset.RuntimeFile
 	failureDomains := failureDomainsFromSpec(*mpool)
@@ -40,12 +45,12 @@ func GenerateMachines(clusterID string, config *types.InstallConfig, pool *types
 		failureDomain := failureDomains[uint(idx)%uint(len(failureDomains))]
 		machineSpec, err := generateMachineSpec(
 			clusterID,
-			config.Platform.OpenStack,
+			config,
 			mpool,
 			osImage,
 			role,
-			trunkSupport,
 			failureDomain,
+			&configDrive,
 		)
 		if err != nil {
 			return nil, err
@@ -55,7 +60,7 @@ func GenerateMachines(clusterID string, config *types.InstallConfig, pool *types
 		machineLabels := map[string]string{
 			"cluster.x-k8s.io/control-plane": "",
 		}
-		if role == "bootstrap" {
+		if role == bootstrapRole {
 			machineName = capiutils.GenerateBoostrapMachineName(clusterID)
 			machineLabels = map[string]string{
 				"cluster.x-k8s.io/control-plane": "",
@@ -69,7 +74,8 @@ func GenerateMachines(clusterID string, config *types.InstallConfig, pool *types
 			},
 			Spec: *machineSpec,
 		}
-		openStackMachine.SetGroupVersionKind(capo.GroupVersion.WithKind("OpenStackMachine"))
+		openStackMachine.SetGroupVersionKind(capo.SchemeGroupVersion.WithKind("OpenStackMachine"))
+		utils.SetMachineOSStreamLabels(openStackMachine, config)
 
 		result = append(result, &asset.RuntimeFile{
 			File:   asset.File{Filename: fmt.Sprintf("10_inframachine_%s.yaml", openStackMachine.Name)},
@@ -93,7 +99,7 @@ func GenerateMachines(clusterID string, config *types.InstallConfig, pool *types
 					DataSecretName: ptr.To(fmt.Sprintf("%s-%s", clusterID, role)),
 				},
 				InfrastructureRef: v1.ObjectReference{
-					APIVersion: capo.GroupVersion.String(),
+					APIVersion: capo.SchemeGroupVersion.String(),
 					Kind:       "OpenStackMachine",
 					Name:       openStackMachine.Name,
 				},
@@ -101,6 +107,7 @@ func GenerateMachines(clusterID string, config *types.InstallConfig, pool *types
 			},
 		}
 		machine.SetGroupVersionKind(capi.GroupVersion.WithKind("Machine"))
+		utils.SetMachineOSStreamLabels(machine, config)
 
 		result = append(result, &asset.RuntimeFile{
 			File:   asset.File{Filename: fmt.Sprintf("10_machine_%s.yaml", machine.Name)},
@@ -110,7 +117,9 @@ func GenerateMachines(clusterID string, config *types.InstallConfig, pool *types
 	return result, nil
 }
 
-func generateMachineSpec(clusterID string, platform *openstack.Platform, mpool *openstack.MachinePool, osImage string, role string, trunkSupport bool, failureDomain machinev1.OpenStackFailureDomain) (*capo.OpenStackMachineSpec, error) {
+func generateMachineSpec(clusterID string, config *types.InstallConfig, mpool *openstack.MachinePool, osImage string, role string, failureDomain machinev1.OpenStackFailureDomain, configDrive *bool) (*capo.OpenStackMachineSpec, error) {
+	platform := config.Platform.OpenStack
+
 	port := capo.PortOpts{}
 
 	addressPairs := populateAllowedAddressPairs(platform)
@@ -164,17 +173,30 @@ func generateMachineSpec(clusterID string, platform *openstack.Platform, mpool *
 
 	securityGroups := []capo.SecurityGroupParam{
 		{
-			// Bootstrap and Master share the same security group
+			// Bootstrap and Master share the same security group, though
+			// we layer on additional security groups for the bootstrap later.
 			Filter: &capo.SecurityGroupFilter{Name: fmt.Sprintf("%s-master", clusterID)},
 		},
+	}
+
+	// Add bootstrap sec group to bootstrap vm to allow collecting logs using ssh
+	// Notice: bootstrap SG is added by name and removed by tag
+	if role == bootstrapRole {
+		securityGroups = append(securityGroups, capo.SecurityGroupParam{
+			Filter: &capo.SecurityGroupFilter{Name: fmt.Sprintf("%s-bootstrap", clusterID)},
+		})
 	}
 
 	for i := range mpool.AdditionalSecurityGroupIDs {
 		securityGroups = append(securityGroups, capo.SecurityGroupParam{ID: &mpool.AdditionalSecurityGroupIDs[i]})
 	}
 
+	if config.Platform.Name() == powervc.Name {
+		securityGroups = nil
+	}
+
 	spec := capo.OpenStackMachineSpec{
-		Flavor: mpool.FlavorName,
+		Flavor: ptr.To(mpool.FlavorName),
 		IdentityRef: &capo.OpenStackIdentityReference{
 			Name:      clusterID + "-cloud-config",
 			CloudName: CloudName,
@@ -192,14 +214,14 @@ func generateMachineSpec(clusterID string, platform *openstack.Platform, mpool *
 				Value: clusterID,
 			},
 		},
-
-		Trunk: trunkSupport,
+		Trunk: false,
 		Tags: []string{
 			fmt.Sprintf("openshiftClusterID=%s", clusterID),
 		},
+		ConfigDrive: configDrive,
 	}
 
-	if role != "bootstrap" {
+	if role != bootstrapRole {
 		spec.ServerGroup = &capo.ServerGroupParam{Filter: &capo.ServerGroupFilter{Name: ptr.To(clusterID + "-" + role)}}
 	}
 
@@ -231,4 +253,9 @@ func populateAllowedAddressPairs(platform *openstack.Platform) []capo.AddressPai
 		addressPairs = append(addressPairs, capo.AddressPair{IPAddress: ingressVIP})
 	}
 	return addressPairs
+}
+
+// isSingleStackIPv6 returns true if the machineNetwork contains a single IPv6 CIDR.
+func isSingleStackIPv6(machineNetwork []types.MachineNetworkEntry) bool {
+	return len(machineNetwork) == 1 && machineNetwork[0].CIDR.IPNet.IP.To4() == nil
 }

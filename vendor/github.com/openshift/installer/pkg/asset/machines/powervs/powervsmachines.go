@@ -8,12 +8,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	capibm "sigs.k8s.io/cluster-api-provider-ibmcloud/api/v1beta2"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1" //nolint:staticcheck //CORS-3563
 
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/manifests/capiutils"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/powervs"
+	"github.com/openshift/installer/pkg/utils"
 )
 
 // GenerateMachines returns manifests and runtime objects to provision the control plane (including bootstrap, if applicable) nodes using CAPI.
@@ -64,7 +65,7 @@ func GenerateMachines(clusterID string, ic *types.InstallConfig, pool *types.Mac
 		})
 
 		dataSecret = fmt.Sprintf("%s-%s", clusterID, "master")
-		machine = GenerateCAPIMachine(clusterID, powerVSMachine.Name, dataSecret)
+		machine = GenerateCAPIMachine(clusterID, powerVSMachine.Name, dataSecret, ic)
 
 		result = append(result, &asset.RuntimeFile{
 			File:   asset.File{Filename: fmt.Sprintf("10_machine_%s.yaml", machine.Name)},
@@ -82,7 +83,7 @@ func GenerateMachines(clusterID string, ic *types.InstallConfig, pool *types.Mac
 	})
 
 	dataSecret = fmt.Sprintf("%s-%s", clusterID, "bootstrap")
-	machine = GenerateCAPIMachine(clusterID, powerVSMachine.Name, dataSecret)
+	machine = GenerateCAPIMachine(clusterID, powerVSMachine.Name, dataSecret, ic)
 	machine.Labels["install.openshift.io/bootstrap"] = ""
 
 	result = append(result, &asset.RuntimeFile{
@@ -95,7 +96,7 @@ func GenerateMachines(clusterID string, ic *types.InstallConfig, pool *types.Mac
 
 // GenerateMachine creates a capibm.IBMPowerVSMachine struct.
 func GenerateMachine(ic *types.InstallConfig, service capibm.IBMPowerVSResourceReference, mpool *powervs.MachinePool, name string, image string) *capibm.IBMPowerVSMachine {
-	return &capibm.IBMPowerVSMachine{
+	machine := &capibm.IBMPowerVSMachine{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: capibm.GroupVersion.String(),
 			Kind:       "IBMPowerVSMachine",
@@ -120,11 +121,13 @@ func GenerateMachine(ic *types.InstallConfig, service capibm.IBMPowerVSResourceR
 			MemoryGiB:     mpool.MemoryGiB,
 		},
 	}
+	utils.SetMachineOSStreamLabels(machine, ic)
+	return machine
 }
 
 // GenerateCAPIMachine creates a capi.Machine struct.
-func GenerateCAPIMachine(clusterID string, name string, dataSecret string) *capi.Machine {
-	return &capi.Machine{
+func GenerateCAPIMachine(clusterID, name, dataSecret string, config *types.InstallConfig) *capi.Machine {
+	machine := &capi.Machine{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Machine",
 			APIVersion: capi.GroupVersion.String(),
@@ -147,4 +150,6 @@ func GenerateCAPIMachine(clusterID string, name string, dataSecret string) *capi
 			},
 		},
 	}
+	utils.SetMachineOSStreamLabels(machine, config)
+	return machine
 }

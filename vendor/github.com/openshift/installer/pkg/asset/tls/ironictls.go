@@ -1,6 +1,7 @@
 package tls
 
 import (
+	"context"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"net"
@@ -29,7 +30,7 @@ func (a *IronicTLSCert) Dependencies() []asset.Asset {
 }
 
 // Generate generates the cert/key pair based on its dependencies.
-func (a *IronicTLSCert) Generate(dependencies asset.Parents) error {
+func (a *IronicTLSCert) Generate(ctx context.Context, dependencies asset.Parents) error {
 	installConfig := &installconfig.InstallConfig{}
 	dependencies.Get(installConfig)
 	if installConfig.Config.Platform.BareMetal == nil {
@@ -40,7 +41,7 @@ func (a *IronicTLSCert) Generate(dependencies asset.Parents) error {
 		Subject:      pkix.Name{CommonName: "ironic", OrganizationalUnit: []string{"openshift"}},
 		KeyUsages:    x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		Validity:     ValidityOneDay,
+		Validity:     ValidityOneDay(installConfig),
 	}
 
 	vips := installConfig.Config.BareMetal.APIVIPs
@@ -55,7 +56,7 @@ func (a *IronicTLSCert) Generate(dependencies asset.Parents) error {
 	cfg.DNSNames = []string{hostname}
 
 	logrus.Debugf("Generating TLS certificate for ironic (virtual media)")
-	return a.SelfSignedCertKey.Generate(cfg, "ironic/tls")
+	return a.SelfSignedCertKey.Generate(ctx, cfg, "ironic/tls", nil)
 }
 
 // Name returns the human-friendly name of the asset.

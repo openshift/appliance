@@ -7,6 +7,7 @@ package p_cloud_volumes
 
 import (
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 
@@ -22,7 +23,7 @@ type PcloudV2VolumesClonePostReader struct {
 }
 
 // ReadResponse reads a server response into the received o.
-func (o *PcloudV2VolumesClonePostReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
+func (o *PcloudV2VolumesClonePostReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (any, error) {
 	switch response.Code() {
 	case 202:
 		result := NewPcloudV2VolumesClonePostAccepted()
@@ -50,6 +51,12 @@ func (o *PcloudV2VolumesClonePostReader) ReadResponse(response runtime.ClientRes
 		return nil, result
 	case 404:
 		result := NewPcloudV2VolumesClonePostNotFound()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 409:
+		result := NewPcloudV2VolumesClonePostConflict()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -128,7 +135,7 @@ func (o *PcloudV2VolumesClonePostAccepted) readResponse(response runtime.ClientR
 	o.Payload = new(models.CloneTaskReference)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -198,7 +205,7 @@ func (o *PcloudV2VolumesClonePostBadRequest) readResponse(response runtime.Clien
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -268,7 +275,7 @@ func (o *PcloudV2VolumesClonePostUnauthorized) readResponse(response runtime.Cli
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -338,7 +345,7 @@ func (o *PcloudV2VolumesClonePostForbidden) readResponse(response runtime.Client
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -408,7 +415,77 @@ func (o *PcloudV2VolumesClonePostNotFound) readResponse(response runtime.ClientR
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPcloudV2VolumesClonePostConflict creates a PcloudV2VolumesClonePostConflict with default headers values
+func NewPcloudV2VolumesClonePostConflict() *PcloudV2VolumesClonePostConflict {
+	return &PcloudV2VolumesClonePostConflict{}
+}
+
+/*
+PcloudV2VolumesClonePostConflict describes a response with status code 409, with default header values.
+
+Conflict
+*/
+type PcloudV2VolumesClonePostConflict struct {
+	Payload *models.Error
+}
+
+// IsSuccess returns true when this pcloud v2 volumes clone post conflict response has a 2xx status code
+func (o *PcloudV2VolumesClonePostConflict) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this pcloud v2 volumes clone post conflict response has a 3xx status code
+func (o *PcloudV2VolumesClonePostConflict) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this pcloud v2 volumes clone post conflict response has a 4xx status code
+func (o *PcloudV2VolumesClonePostConflict) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this pcloud v2 volumes clone post conflict response has a 5xx status code
+func (o *PcloudV2VolumesClonePostConflict) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this pcloud v2 volumes clone post conflict response a status code equal to that given
+func (o *PcloudV2VolumesClonePostConflict) IsCode(code int) bool {
+	return code == 409
+}
+
+// Code gets the status code for the pcloud v2 volumes clone post conflict response
+func (o *PcloudV2VolumesClonePostConflict) Code() int {
+	return 409
+}
+
+func (o *PcloudV2VolumesClonePostConflict) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /pcloud/v2/cloud-instances/{cloud_instance_id}/volumes/clone][%d] pcloudV2VolumesClonePostConflict %s", 409, payload)
+}
+
+func (o *PcloudV2VolumesClonePostConflict) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /pcloud/v2/cloud-instances/{cloud_instance_id}/volumes/clone][%d] pcloudV2VolumesClonePostConflict %s", 409, payload)
+}
+
+func (o *PcloudV2VolumesClonePostConflict) GetPayload() *models.Error {
+	return o.Payload
+}
+
+func (o *PcloudV2VolumesClonePostConflict) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.Error)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -478,7 +555,7 @@ func (o *PcloudV2VolumesClonePostInternalServerError) readResponse(response runt
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 

@@ -1,8 +1,9 @@
 package openshiftinstall
 
 import (
+	"context"
 	"os"
-	"path/filepath"
+	"path"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -14,7 +15,7 @@ import (
 )
 
 var (
-	configPath = filepath.Join("openshift", "openshift-install-manifests.yaml")
+	configPath = path.Join("openshift", "openshift-install-manifests.yaml")
 )
 
 // Config generates the openshift-install ConfigMap.
@@ -36,7 +37,7 @@ func (*Config) Dependencies() []asset.Asset {
 }
 
 // Generate generates the openshift-install ConfigMap.
-func (i *Config) Generate(dependencies asset.Parents) error {
+func (i *Config) Generate(_ context.Context, dependencies asset.Parents) error {
 	cm, err := CreateInstallConfigMap("openshift-install-manifests")
 	if err != nil {
 		return err

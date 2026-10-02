@@ -19,8 +19,7 @@ package v1beta2
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/errors"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 const (
@@ -30,6 +29,16 @@ const (
 
 	// DefaultIgnitionVersion represents default Ignition version generated for machine userdata.
 	DefaultIgnitionVersion = "2.3"
+
+	// DefaultIgnitionStorageType represents the default storage type of Ignition userdata
+	DefaultIgnitionStorageType = IgnitionStorageTypeOptionClusterObjectStore
+
+	// DefaultMachinePoolIgnitionStorageType represents the default storage type of Ignition userdata for machine pools.
+	//
+	// This is only different from DefaultIgnitionStorageType because of backward compatibility. Machine pools used to
+	// default to store Ignition user data directly on the EC2 instance. Since the choice between remote storage (S3)
+	// and direct storage was introduced, the default was kept, but might change in newer API versions.
+	DefaultMachinePoolIgnitionStorageType = IgnitionStorageTypeOptionUnencryptedUserData
 )
 
 // SecretBackend defines variants for backend secret storage.
@@ -54,7 +63,19 @@ const (
 	IgnitionStorageTypeOptionUnencryptedUserData = IgnitionStorageTypeOption("UnencryptedUserData")
 )
 
+// NetworkInterfaceType is the type of network interface.
+type NetworkInterfaceType string
+
+const (
+	// NetworkInterfaceTypeENI means the network interface type is Elastic Network Interface.
+	NetworkInterfaceTypeENI NetworkInterfaceType = NetworkInterfaceType("interface")
+	// NetworkInterfaceTypeEFAWithENAInterface means the network interface type is Elastic Fabric Adapter with Elastic Network Adapter.
+	NetworkInterfaceTypeEFAWithENAInterface NetworkInterfaceType = NetworkInterfaceType("efa")
+)
+
 // AWSMachineSpec defines the desired state of an Amazon EC2 instance.
+// +kubebuilder:validation:XValidation:rule="!has(self.capacityReservationId) || !has(self.marketType) || self.marketType != 'Spot'",message="capacityReservationId may not be set when marketType is Spot"
+// +kubebuilder:validation:XValidation:rule="!has(self.capacityReservationId) || !has(self.spotMarketOptions)",message="capacityReservationId cannot be set when spotMarketOptions is specified"
 type AWSMachineSpec struct {
 	// ProviderID is the unique identifier as specified by the cloud provider.
 	ProviderID *string `json:"providerID,omitempty"`
@@ -94,6 +115,11 @@ type AWSMachineSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength:=2
 	InstanceType string `json:"instanceType"`
+
+	// CPUOptions defines CPU-related settings for the instance, including the confidential computing policy.
+	// When omitted, this means no opinion and the AWS platform is left to choose a reasonable default.
+	// +optional
+	CPUOptions CPUOptions `json:"cpuOptions,omitempty,omitzero"`
 
 	// AdditionalTags is an optional set of tags to add to an instance, in addition to the ones added by default by the
 	// AWS provider. If both the AWSCluster and the AWSMachine specify the same tag name with different values, the
@@ -153,6 +179,24 @@ type AWSMachineSpec struct {
 	// +kubebuilder:validation:MaxItems=2
 	NetworkInterfaces []string `json:"networkInterfaces,omitempty"`
 
+	// NetworkInterfaceType is the interface type of the primary network Interface.
+	// If not specified, AWS applies a default value.
+	// +kubebuilder:validation:Enum=interface;efa
+	// +optional
+	NetworkInterfaceType NetworkInterfaceType `json:"networkInterfaceType,omitempty"`
+
+	// AssignPrimaryIPv6 specifies whether to enable assigning a primary IPv6 address to the primary network Interface.
+	// When set to enabled, the instance will be assigned a primary IPv6 address from the subnet's IPv6 CIDR block.
+	// This is required when registering instances by ID to IPv6 target groups of dual-stack load balancers.
+	//
+	// When not specified, the default value varies based on the subnet that the instance is launched in:
+	// - disabled if subnet is ipv4 only
+	// - enabled if subnet is ipv6 only or dual-stack
+	//
+	// +kubebuilder:validation:Enum=enabled;disabled
+	// +optional
+	AssignPrimaryIPv6 *PrimaryIPv6AssignmentState `json:"assignPrimaryIPv6,omitempty"`
+
 	// UncompressedUserData specify whether the user data is gzip-compressed before it is sent to ec2 instance.
 	// cloud-init has built-in support for gzip-compressed user data
 	// user data stored in aws secret manager is always gzip-compressed.
@@ -186,6 +230,10 @@ type AWSMachineSpec struct {
 	PlacementGroupPartition int64 `json:"placementGroupPartition,omitempty"`
 
 	// Tenancy indicates if instance should run on shared or single-tenant hardware.
+	// When Tenancy=host, AWS will attempt to find a suitable host from:
+	// - Preexisting allocated hosts that have auto-placement enabled
+	// - A specific host ID, if configured
+	// - Allocating a new dedicated host if DynamicHostAllocation is configured
 	// +optional
 	// +kubebuilder:validation:Enum:=default;dedicated;host
 	Tenancy string `json:"tenancy,omitempty"`
@@ -197,6 +245,58 @@ type AWSMachineSpec struct {
 	// CapacityReservationID specifies the target Capacity Reservation into which the instance should be launched.
 	// +optional
 	CapacityReservationID *string `json:"capacityReservationId,omitempty"`
+
+	// MarketType specifies the type of market for the EC2 instance. Valid values include:
+	// "OnDemand" (default): The instance runs as a standard OnDemand instance.
+	// "Spot": The instance runs as a Spot instance. When SpotMarketOptions is provided, the marketType defaults to "Spot".
+	// "CapacityBlock": The instance utilizes pre-purchased compute capacity (capacity blocks) with AWS Capacity Reservations.
+	//  If this value is selected, CapacityReservationID must be specified to identify the target reservation.
+	// If marketType is not specified and spotMarketOptions is provided, the marketType defaults to "Spot".
+	// +optional
+	MarketType MarketType `json:"marketType,omitempty"`
+
+	// HostID specifies the Dedicated Host on which the instance must be started.
+	// This field is mutually exclusive with DynamicHostAllocation.
+	// +kubebuilder:validation:Pattern=`^h-[0-9a-f]{17}$`
+	// +kubebuilder:validation:MaxLength=19
+	// +optional
+	HostID *string `json:"hostID,omitempty"`
+
+	// HostAffinity specifies the dedicated host affinity setting for the instance.
+	// When HostAffinity is set to "host", an instance started onto a specific host always restarts on the same host if stopped:
+	// - If HostID is set, the instance launches on the specific host and must return to that same host after any stop/start (Targeted & Pinned).
+	// - If HostID is not set, the instance gets launched on any available and must returns to the same host after any stop/start (Auto-placed & Pinned).
+	// When HostAffinity is set to "default" (the default value), the instance (when restarted) can return on any available host:
+	// - If HostID is set, the instance launches on the specified host now, but (when restarted) can return to any available hosts (Targeted & Flexible).
+	// - If HostID is not set, the instance launches on any available host now, and (when restarted) can return to any available hosts (Auto-placed & Flexible).
+	// If HostAffinity is not specified, it defaults to "default".
+	// +optional
+	// +kubebuilder:validation:Enum:=default;host
+	// +kubebuilder:default=default
+	HostAffinity *string `json:"hostAffinity,omitempty"`
+
+	// DynamicHostAllocation enables automatic allocation of a single dedicated host.
+	// Cost effectiveness of allocating a single instance on a dedicated host may vary
+	// depending on the instance type and the region.
+	// This field is mutually exclusive with HostID and always allocates exactly one host.
+	// +optional
+	DynamicHostAllocation *DynamicHostAllocationSpec `json:"dynamicHostAllocation,omitempty"`
+
+	// CapacityReservationPreference specifies the preference for use of Capacity Reservations by the instance. Valid values include:
+	// "Open": The instance may make use of open Capacity Reservations that match its AZ and InstanceType
+	// "None": The instance may not make use of any Capacity Reservations. This is to conserve open reservations for desired workloads
+	// "CapacityReservationsOnly": The instance will only run if matched or targeted to a Capacity Reservation. Note that this is incompatible with a MarketType of `Spot`
+	// +kubebuilder:validation:Enum="";None;CapacityReservationsOnly;Open
+	// +optional
+	CapacityReservationPreference CapacityReservationPreference `json:"capacityReservationPreference,omitempty"`
+}
+
+// DynamicHostAllocationSpec defines the configuration for dynamic dedicated host allocation.
+// This specification always allocates exactly one dedicated host per machine.
+type DynamicHostAllocationSpec struct {
+	// Tags to apply to the allocated dedicated host.
+	// +optional
+	Tags map[string]string `json:"tags,omitempty"`
 }
 
 // CloudInit defines options related to the bootstrapping systems where
@@ -230,9 +330,10 @@ type CloudInit struct {
 // For more information on Ignition configuration, see https://coreos.github.io/butane/specs/
 type Ignition struct {
 	// Version defines which version of Ignition will be used to generate bootstrap data.
+	// Defaults to `2.3` if storageType is set to `ClusterObjectStore`.
+	// It will be ignored if storageType is set to `UnencryptedUserData`, as the userdata defines its own version.
 	//
 	// +optional
-	// +kubebuilder:default="2.3"
 	// +kubebuilder:validation:Enum="2.3";"3.0";"3.1";"3.2";"3.3";"3.4"
 	Version string `json:"version,omitempty"`
 
@@ -329,7 +430,7 @@ type AWSMachineStatus struct {
 	Interruptible bool `json:"interruptible,omitempty"`
 
 	// Addresses contains the AWS instance associated addresses.
-	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
+	Addresses []clusterv1beta1.MachineAddress `json:"addresses,omitempty"`
 
 	// InstanceState is the state of the AWS instance for this machine.
 	// +optional
@@ -352,7 +453,7 @@ type AWSMachineStatus struct {
 	// can be added as events to the Machine object and/or logged in the
 	// controller's output.
 	// +optional
-	FailureReason *errors.MachineStatusError `json:"failureReason,omitempty"`
+	FailureReason *string `json:"failureReason,omitempty"`
 
 	// FailureMessage will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a more verbose string suitable
@@ -375,7 +476,21 @@ type AWSMachineStatus struct {
 
 	// Conditions defines current service state of the AWSMachine.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+
+	// DedicatedHost tracks the dynamically allocated dedicated host.
+	// This field is populated when DynamicHostAllocation is used.
+	// +optional
+	DedicatedHost *DedicatedHostStatus `json:"dedicatedHost,omitempty"`
+}
+
+// DedicatedHostStatus defines the observed state of a dynamically allocated dedicated host
+// associated with an AWSMachine. This struct is used to track the ID of the dedicated host.
+type DedicatedHostStatus struct {
+	// ID tracks the dynamically allocated dedicated host ID.
+	// This field is populated when DynamicHostAllocation is used.
+	// +optional
+	ID *string `json:"id,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -399,12 +514,12 @@ type AWSMachine struct {
 }
 
 // GetConditions returns the observations of the operational state of the AWSMachine resource.
-func (r *AWSMachine) GetConditions() clusterv1.Conditions {
+func (r *AWSMachine) GetConditions() clusterv1beta1.Conditions {
 	return r.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the AWSMachine to the predescribed clusterv1.Conditions.
-func (r *AWSMachine) SetConditions(conditions clusterv1.Conditions) {
+// SetConditions sets the underlying service state of the AWSMachine to the predescribed clusterv1beta1.Conditions.
+func (r *AWSMachine) SetConditions(conditions clusterv1beta1.Conditions) {
 	r.Status.Conditions = conditions
 }
 

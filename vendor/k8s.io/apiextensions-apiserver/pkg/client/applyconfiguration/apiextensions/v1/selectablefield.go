@@ -18,13 +18,23 @@ limitations under the License.
 
 package v1
 
-// SelectableFieldApplyConfiguration represents an declarative configuration of the SelectableField type for use
+// SelectableFieldApplyConfiguration represents a declarative configuration of the SelectableField type for use
 // with apply.
+//
+// SelectableField specifies the JSON path of a field that may be used with field selectors.
 type SelectableFieldApplyConfiguration struct {
+	// jsonPath is a simple JSON path which is evaluated against each custom resource to produce a
+	// field selector value.
+	// Only JSON paths without the array notation are allowed.
+	// Must point to a field of type string, boolean or integer. Types with enum values
+	// and strings with formats are allowed.
+	// If jsonPath refers to absent field in a resource, the jsonPath evaluates to an empty string.
+	// Must not point to metdata fields.
+	// Required.
 	JSONPath *string `json:"jsonPath,omitempty"`
 }
 
-// SelectableFieldApplyConfiguration constructs an declarative configuration of the SelectableField type for use with
+// SelectableFieldApplyConfiguration constructs a declarative configuration of the SelectableField type for use with
 // apply.
 func SelectableField() *SelectableFieldApplyConfiguration {
 	return &SelectableFieldApplyConfiguration{}

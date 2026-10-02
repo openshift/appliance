@@ -12,6 +12,7 @@ import (
 	machineapi "github.com/openshift/api/machine/v1beta1"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/powervs"
+	"github.com/openshift/installer/pkg/utils"
 )
 
 // Machines returns a list of machines for a machinepool.
@@ -63,6 +64,7 @@ func Machines(clusterID string, config *types.InstallConfig, pool *types.Machine
 				},
 			},
 		}
+		utils.SetMachineOSStreamLabels(&machine, config)
 		machines = append(machines, machine)
 	}
 	replicas := int32(total)
@@ -80,7 +82,7 @@ func Machines(clusterID string, config *types.InstallConfig, pool *types.Machine
 		},
 		Spec: machinev1.ControlPlaneMachineSetSpec{
 			Replicas: &replicas,
-			State:    machinev1.ControlPlaneMachineSetStateInactive,
+			State:    machinev1.ControlPlaneMachineSetStateActive,
 			Selector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"machine.openshift.io/cluster-api-machine-role": role,
@@ -107,6 +109,7 @@ func Machines(clusterID string, config *types.InstallConfig, pool *types.Machine
 			},
 		},
 	}
+	utils.SetCPMSOSStreamLabels(controlPlaneMachineSet, config)
 	return machines, controlPlaneMachineSet, nil
 }
 

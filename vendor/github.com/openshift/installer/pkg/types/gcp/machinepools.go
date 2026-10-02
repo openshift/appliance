@@ -1,6 +1,10 @@
 package gcp
 
-import "k8s.io/apimachinery/pkg/util/sets"
+import (
+	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+)
 
 // FeatureSwitch indicates whether the feature is enabled or disabled.
 type FeatureSwitch string
@@ -9,12 +13,82 @@ type FeatureSwitch string
 // applicable when ConfidentialCompute is Enabled.
 type OnHostMaintenanceType string
 
+// ConfidentialComputePolicy indicates the setting for the ConfidentialCompute feature.
+type ConfidentialComputePolicy string
+
+const (
+	// PDSSD is the constant string representation for persistent disk ssd disk types.
+	PDSSD = "pd-ssd"
+	// PDStandard is the constant string representation for persistent disk standard disk types.
+	PDStandard = "pd-standard"
+	// PDBalanced is the constant string representation for persistent disk balanced disk types.
+	PDBalanced = "pd-balanced"
+	// HyperDiskBalanced is the constant string representation for hyperdisk balanced disk types.
+	HyperDiskBalanced = "hyperdisk-balanced"
+)
+
 var (
 	// ControlPlaneSupportedDisks contains the supported disk types for control plane nodes.
-	ControlPlaneSupportedDisks = sets.New("hyperdisk-balanced", "pd-balanced", "pd-ssd")
+	ControlPlaneSupportedDisks = sets.New(HyperDiskBalanced, PDBalanced, PDSSD)
 
 	// ComputeSupportedDisks contains the supported disk types for control plane nodes.
-	ComputeSupportedDisks = sets.New("hyperdisk-balanced", "pd-balanced", "pd-ssd", "pd-standard")
+	ComputeSupportedDisks = sets.New(HyperDiskBalanced, PDBalanced, PDSSD, PDStandard)
+
+	// DefaultCustomInstanceType is the default instance type on the GCP server side. The default custom
+	// instance type can be changed on the client side with gcloud.
+	DefaultCustomInstanceType = "n1"
+
+	// InstanceTypeToDiskTypeMap contains a map where the key is the Instance Type, and the
+	// values are a list of disk types that are supported by the installer and correlate to the Instance Type.
+	InstanceTypeToDiskTypeMap = map[string][]string{
+		// General Purpose Machine Family
+		// https://docs.cloud.google.com/compute/docs/general-purpose-machines
+		"c4d": {HyperDiskBalanced},
+		"c4":  {HyperDiskBalanced},
+		"c4a": {HyperDiskBalanced},
+		"c3":  {PDSSD, PDBalanced, HyperDiskBalanced},
+		"c3d": {PDSSD, PDBalanced, HyperDiskBalanced},
+		"n4":  {HyperDiskBalanced},
+		"n4a": {HyperDiskBalanced},
+		"n4d": {HyperDiskBalanced},
+		"n2":  {PDStandard, PDSSD, PDBalanced},
+		"n2d": {PDStandard, PDSSD, PDBalanced},
+		"n1":  {PDStandard, PDSSD, PDBalanced},
+		"e2":  {PDStandard, PDSSD, PDBalanced},
+		"t2a": {PDStandard, PDSSD, PDBalanced},
+		"t2d": {PDStandard, PDSSD, PDBalanced},
+
+		// Storage Optimized Machine Family
+		// https://docs.cloud.google.com/compute/docs/storage-optimized-machines
+		"z3": {PDSSD, PDBalanced, HyperDiskBalanced},
+
+		// Compute Optimized Machine Family
+		// https://docs.cloud.google.com/compute/docs/compute-optimized-machines
+		"h4d": {HyperDiskBalanced},
+		"h3":  {PDBalanced, HyperDiskBalanced},
+		"c2":  {PDStandard, PDSSD, PDBalanced},
+		"c2d": {PDStandard, PDSSD, PDBalanced},
+
+		// Memory Optimized Machine Family
+		// https://docs.cloud.google.com/compute/docs/memory-optimized-machines
+		"x4": {HyperDiskBalanced},
+		"m4": {HyperDiskBalanced},
+		"m3": {PDSSD, PDBalanced, HyperDiskBalanced},
+		"m2": {PDSSD, PDBalanced, HyperDiskBalanced},
+		"m1": {PDSSD, PDBalanced, HyperDiskBalanced},
+
+		// Accelerator Optimized Machine Family
+		// https://docs.cloud.google.com/compute/docs/accelerator-optimized-machines
+		"a4x": {HyperDiskBalanced},
+		"a4":  {HyperDiskBalanced},
+		// A3 machines are separated into A3 Ultra, A3 Mega, A3 High, and A3 Edge machine types. The
+		// A3 Ultra machines only support Hyperdisk Balanced, but all types listed below are available
+		// for the other A3 machine types.
+		"a3": {PDSSD, PDBalanced, HyperDiskBalanced},
+		"a2": {PDStandard, PDSSD, PDBalanced},
+		"g4": {HyperDiskBalanced},
+		"g2": {PDSSD, PDBalanced},
+	}
 )
 
 const (
@@ -29,6 +103,24 @@ const (
 
 	// OnHostMaintenanceTerminate indicates that the OnHostMaintenance feature is set to Terminate.
 	OnHostMaintenanceTerminate OnHostMaintenanceType = "Terminate"
+
+	// ConfidentialComputePolicySEV indicates that the ConfidentialCompute feature is set to AMDEncryptedVirtualization.
+	ConfidentialComputePolicySEV ConfidentialComputePolicy = "AMDEncryptedVirtualization"
+
+	// ConfidentialComputePolicySEVSNP indicates that the ConfidentialCompute feature is set to AMDEncryptedVirtualizationNestedPaging.
+	ConfidentialComputePolicySEVSNP ConfidentialComputePolicy = "AMDEncryptedVirtualizationNestedPaging"
+
+	// ConfidentialComputePolicyTDX indicates that the ConfidentialCompute feature is set to IntelTrustedDomainExtensions.
+	ConfidentialComputePolicyTDX ConfidentialComputePolicy = "IntelTrustedDomainExtensions"
+)
+
+var (
+	// ConfidentialComputePolicyToSupportedInstanceType is a map containing machine types and the list of confidential computing technologies each of them support.
+	ConfidentialComputePolicyToSupportedInstanceType = map[ConfidentialComputePolicy][]string{
+		ConfidentialComputePolicySEV:    {"c2d", "n2d", "c3d"},
+		ConfidentialComputePolicySEVSNP: {"n2d"},
+		ConfidentialComputePolicyTDX:    {"c3"},
+	}
 )
 
 // MachinePool stores the configuration for a machine pool installed on GCP.
@@ -75,19 +167,34 @@ type MachinePool struct {
 	// +optional
 	OnHostMaintenance string `json:"onHostMaintenance,omitempty"`
 
-	// ConfidentialCompute Defines whether the instance should have confidential compute enabled.
-	// If enabled OnHostMaintenance is required to be set to "Terminate".
-	// If omitted, the platform chooses a default, which is subject to change over time, currently that default is false.
+	// confidentialCompute is an optional field defining whether the instance should have
+	// Confidential Computing enabled or not, and the Confidential Computing technology of choice.
+	//     With Disabled, Confidential Computing is disabled.
+	//     With Enabled, Confidential Computing is enabled with no preference on the
+	// Confidential Computing technology. The platform chooses a default i.e. AMD SEV,
+	// which is subject to change over time.
+	//     With AMDEncryptedVirtualization, Confidential Computing is enabled with
+	// AMD Secure Encrypted Virtualization (AMD SEV).
+	//     With AMDEncryptedVirtualizationNestedPaging, Confidential Computing is
+	// enabled with AMD Secure Encrypted Virtualization Secure Nested Paging
+	// (AMD SEV-SNP).
+	//     With IntelTrustedDomainExtensions, Confidential Computing is enabled with
+	// Intel Trusted Domain Extensions (Intel TDX).
+	//     If any value other than Disabled is set, a machine type and region that supports
+	// Confidential Computing must be specified. Machine series and regions supporting
+	// Confidential Computing technologies can be checked at
+	// https://cloud.google.com/confidential-computing/confidential-vm/docs/supported-configurations#machine-type-cpu-zone
+	//     If any value other than Disabled is set, onHostMaintenance is required to be set
+	// to "Terminate".
 	// +kubebuilder:default="Disabled"
 	// +default="Disabled"
-	// +kubebuilder:validation:Enum=Enabled;Disabled
+	// +kubebuilder:validation:Enum="";Enabled;Disabled;AMDEncryptedVirtualization;AMDEncryptedVirtualizationNestedPaging;IntelTrustedDomainExtensions
 	// +optional
 	ConfidentialCompute string `json:"confidentialCompute,omitempty"`
 
-	// ServiceAccount is the email of a gcp service account to be used for shared
-	// vpc installations. The provided service account will be attached to control-plane nodes
-	// in order to provide the permissions required by the cloud provider in the host project.
-	// This field is only supported in the control-plane machinepool.
+	// ServiceAccount is the email of a gcp service account to be used during installations.
+	// The provided service account can be attached to both control-plane nodes
+	// and worker nodes in order to provide the permissions required by the cloud provider.
 	//
 	// +optional
 	ServiceAccount string `json:"serviceAccount,omitempty"`
@@ -253,4 +360,57 @@ func (k *KMSKeyReference) Set(required *KMSKeyReference) {
 	if required.Location != "" {
 		k.Location = required.Location
 	}
+}
+
+// GetGCPInstanceFamily extracts the instance family from the instance type (for instance c4-standard-4 returns c4).
+func GetGCPInstanceFamily(instanceType string) string {
+	family, _, _ := strings.Cut(instanceType, "-")
+	if family == "custom" {
+		family = DefaultCustomInstanceType
+	}
+	return family
+}
+
+// DefaultDiskTypeForInstance returns the default disk type for a GCP instance type. If instance type is not
+// recognized, pd-ssd is returned. For sovereign cloud instances, hyperdisk-balanced is preferred when available.
+func DefaultDiskTypeForInstance(instanceType, projectID, region string) string {
+	return DefaultDiskTypeForInstanceAndProjectID(instanceType, projectID, region)
+}
+
+// DefaultDiskTypeForInstanceAndProjectID returns the default disk type for a GCP instance type and project ID.
+// The cloud environment is automatically detected from the project ID and region.
+// For sovereign cloud, hyperdisk-balanced is preferred. For public GCP, pd-ssd is preferred.
+func DefaultDiskTypeForInstanceAndProjectID(instanceType, projectID, region string) string {
+	diskTypes, ok := GetDiskTypes(instanceType)
+	if !ok {
+		return PDSSD
+	}
+
+	preferred := []string{PDSSD, HyperDiskBalanced}
+	if GetCloudEnvironment(projectID, region) == CloudEnvironmentSovereign {
+		preferred = []string{HyperDiskBalanced, PDSSD}
+	}
+
+	supportedDiskTypes := sets.New(diskTypes...)
+	for _, dt := range preferred {
+		if supportedDiskTypes.Has(dt) {
+			return dt
+		}
+	}
+	return diskTypes[0]
+}
+
+// GetDiskTypes gets the disk types associated with a (supported) GCP instance type.
+func GetDiskTypes(instanceType string) ([]string, bool) {
+	family := GetGCPInstanceFamily(instanceType)
+
+	// https://docs.cloud.google.com/compute/docs/accelerator-optimized-machines#a3-ultra
+	// a3-ultra machines are special, unlike a3-mega, a3-high, and a3-edge the only supported
+	// disk type is hyperdisk-balanced.
+	if family == "a3" && strings.Contains(instanceType, "ultra") {
+		return []string{HyperDiskBalanced}, true
+	}
+
+	diskTypes, ok := InstanceTypeToDiskTypeMap[family]
+	return diskTypes, ok
 }

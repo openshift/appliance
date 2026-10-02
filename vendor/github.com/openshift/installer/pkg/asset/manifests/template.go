@@ -34,8 +34,9 @@ type IBMCloudCredsSecretData struct {
 
 // OpenStackCredsSecretData holds encoded credentials and is used to generate cloud-creds secret
 type OpenStackCredsSecretData struct {
-	Base64encodeCloudCreds    string
-	Base64encodeCloudCredsINI string
+	Base64encodeCloudsYAML string
+	Base64encodeCloudsConf string
+	Base64encodeCACert     string
 }
 
 // VSphereCredsSecretData holds encoded credentials and is used to generated cloud-creds secret
@@ -66,6 +67,7 @@ type cloudCredsSecretData struct {
 
 type bootkubeTemplateData struct {
 	CVOCapabilities            *types.Capabilities
+	CVOChannel                 string
 	CVOClusterID               string
 	EtcdCaBundle               string
 	EtcdMetricCaCert           string
@@ -77,13 +79,19 @@ type bootkubeTemplateData struct {
 	EtcdSignerClientCert       string
 	EtcdSignerClientKey        string
 	EtcdSignerKey              string
-	IsFCOS                     bool
-	IsSCOS                     bool
 	IsOKD                      bool
 	McsTLSCert                 string
 	McsTLSKey                  string
+	McsHostName                string
+	McsTLSCertNotAfter         string
+	McsTLSCertNotBefore        string
 	PullSecretBase64           string
 	RootCaCert                 string
+	RootCACertBase64           string
+	RootCASignerKeyBase64      string
+	RootCAIssuerName           string
+	RootCANotAfter             string
+	RootCANotBefore            string
 	WorkerIgnConfig            string
 }
 
@@ -95,4 +103,8 @@ type baremetalTemplateData struct {
 type openshiftTemplateData struct {
 	CloudCreds                   cloudCredsSecretData
 	Base64EncodedKubeadminPwHash string
+}
+
+type mcoTemplateData struct {
+	DisableMachinesetBootMgmt bool
 }

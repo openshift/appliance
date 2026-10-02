@@ -2,14 +2,18 @@
 
 package v1
 
-// AWSResourceFilterApplyConfiguration represents an declarative configuration of the AWSResourceFilter type for use
+// AWSResourceFilterApplyConfiguration represents a declarative configuration of the AWSResourceFilter type for use
 // with apply.
+//
+// AWSResourceFilter is a filter used to identify an AWS resource
 type AWSResourceFilterApplyConfiguration struct {
-	Name   *string  `json:"name,omitempty"`
+	// name of the filter. Filter names are case-sensitive.
+	Name *string `json:"name,omitempty"`
+	// values includes one or more filter values. Filter values are case-sensitive.
 	Values []string `json:"values,omitempty"`
 }
 
-// AWSResourceFilterApplyConfiguration constructs an declarative configuration of the AWSResourceFilter type for use with
+// AWSResourceFilterApplyConfiguration constructs a declarative configuration of the AWSResourceFilter type for use with
 // apply.
 func AWSResourceFilter() *AWSResourceFilterApplyConfiguration {
 	return &AWSResourceFilterApplyConfiguration{}

@@ -7,6 +7,7 @@ package p_cloud_p_vm_instances
 
 import (
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 
@@ -22,7 +23,7 @@ type PcloudPvminstancesConsolePostReader struct {
 }
 
 // ReadResponse reads a server response into the received o.
-func (o *PcloudPvminstancesConsolePostReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
+func (o *PcloudPvminstancesConsolePostReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (any, error) {
 	switch response.Code() {
 	case 201:
 		result := NewPcloudPvminstancesConsolePostCreated()
@@ -50,6 +51,12 @@ func (o *PcloudPvminstancesConsolePostReader) ReadResponse(response runtime.Clie
 		return nil, result
 	case 404:
 		result := NewPcloudPvminstancesConsolePostNotFound()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 409:
+		result := NewPcloudPvminstancesConsolePostConflict()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -134,7 +141,7 @@ func (o *PcloudPvminstancesConsolePostCreated) readResponse(response runtime.Cli
 	o.Payload = new(models.PVMInstanceConsole)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -204,7 +211,7 @@ func (o *PcloudPvminstancesConsolePostBadRequest) readResponse(response runtime.
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -274,7 +281,7 @@ func (o *PcloudPvminstancesConsolePostUnauthorized) readResponse(response runtim
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -344,7 +351,7 @@ func (o *PcloudPvminstancesConsolePostForbidden) readResponse(response runtime.C
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -414,7 +421,77 @@ func (o *PcloudPvminstancesConsolePostNotFound) readResponse(response runtime.Cl
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPcloudPvminstancesConsolePostConflict creates a PcloudPvminstancesConsolePostConflict with default headers values
+func NewPcloudPvminstancesConsolePostConflict() *PcloudPvminstancesConsolePostConflict {
+	return &PcloudPvminstancesConsolePostConflict{}
+}
+
+/*
+PcloudPvminstancesConsolePostConflict describes a response with status code 409, with default header values.
+
+Conflict
+*/
+type PcloudPvminstancesConsolePostConflict struct {
+	Payload *models.Error
+}
+
+// IsSuccess returns true when this pcloud pvminstances console post conflict response has a 2xx status code
+func (o *PcloudPvminstancesConsolePostConflict) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this pcloud pvminstances console post conflict response has a 3xx status code
+func (o *PcloudPvminstancesConsolePostConflict) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this pcloud pvminstances console post conflict response has a 4xx status code
+func (o *PcloudPvminstancesConsolePostConflict) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this pcloud pvminstances console post conflict response has a 5xx status code
+func (o *PcloudPvminstancesConsolePostConflict) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this pcloud pvminstances console post conflict response a status code equal to that given
+func (o *PcloudPvminstancesConsolePostConflict) IsCode(code int) bool {
+	return code == 409
+}
+
+// Code gets the status code for the pcloud pvminstances console post conflict response
+func (o *PcloudPvminstancesConsolePostConflict) Code() int {
+	return 409
+}
+
+func (o *PcloudPvminstancesConsolePostConflict) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /pcloud/v1/cloud-instances/{cloud_instance_id}/pvm-instances/{pvm_instance_id}/console][%d] pcloudPvminstancesConsolePostConflict %s", 409, payload)
+}
+
+func (o *PcloudPvminstancesConsolePostConflict) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /pcloud/v1/cloud-instances/{cloud_instance_id}/pvm-instances/{pvm_instance_id}/console][%d] pcloudPvminstancesConsolePostConflict %s", 409, payload)
+}
+
+func (o *PcloudPvminstancesConsolePostConflict) GetPayload() *models.Error {
+	return o.Payload
+}
+
+func (o *PcloudPvminstancesConsolePostConflict) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.Error)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -484,7 +561,7 @@ func (o *PcloudPvminstancesConsolePostUnprocessableEntity) readResponse(response
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -554,7 +631,7 @@ func (o *PcloudPvminstancesConsolePostInternalServerError) readResponse(response
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 

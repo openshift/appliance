@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"slices"
+
 	"github.com/pkg/errors"
 	"k8s.io/utils/net"
 )
@@ -75,6 +77,11 @@ type NetworkTemplateSpec struct {
 	// This is different from APIServerLB, and is used only in private clusters (optionally) for enabling outbound traffic.
 	// +optional
 	ControlPlaneOutboundLB *LoadBalancerClassSpec `json:"controlPlaneOutboundLB,omitempty"`
+
+	// AdditionalAPIServerLBPorts is the configuration for the additional inbound control-plane load balancer ports
+	// Each port specified (e.g., 9345) creates an inbound rule where the frontend port and the backend port are the same.
+	// +optional
+	AdditionalAPIServerLBPorts []LoadBalancerPort `json:"additionalAPIServerLBPorts,omitempty"`
 }
 
 // GetSubnetTemplate returns the subnet template based on the subnet role.
@@ -128,12 +135,7 @@ func (s SubnetTemplateSpec) IsNatGatewayEnabled() bool {
 
 // IsIPv6Enabled returns whether or not IPv6 is enabled on the subnet.
 func (s SubnetTemplateSpec) IsIPv6Enabled() bool {
-	for _, cidr := range s.CIDRBlocks {
-		if net.IsIPv6CIDRString(cidr) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(s.CIDRBlocks, net.IsIPv6CIDRString)
 }
 
 // SubnetTemplatesSpec specifies a list of subnet templates.

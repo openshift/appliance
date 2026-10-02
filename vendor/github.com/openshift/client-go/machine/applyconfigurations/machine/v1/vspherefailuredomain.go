@@ -2,13 +2,19 @@
 
 package v1
 
-// VSphereFailureDomainApplyConfiguration represents an declarative configuration of the VSphereFailureDomain type for use
+// VSphereFailureDomainApplyConfiguration represents a declarative configuration of the VSphereFailureDomain type for use
 // with apply.
+//
+// VSphereFailureDomain configures failure domain information for the vSphere platform
 type VSphereFailureDomainApplyConfiguration struct {
+	// name of the failure domain in which the vSphere machine provider will create the VM.
+	// Failure domains are defined in a cluster's config.openshift.io/Infrastructure resource.
+	// When balancing machines across failure domains, the control plane machine set will inject configuration from the
+	// Infrastructure resource into the machine providerSpec to allocate the machine to a failure domain.
 	Name *string `json:"name,omitempty"`
 }
 
-// VSphereFailureDomainApplyConfiguration constructs an declarative configuration of the VSphereFailureDomain type for use with
+// VSphereFailureDomainApplyConfiguration constructs a declarative configuration of the VSphereFailureDomain type for use with
 // apply.
 func VSphereFailureDomain() *VSphereFailureDomainApplyConfiguration {
 	return &VSphereFailureDomainApplyConfiguration{}

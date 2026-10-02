@@ -28,7 +28,13 @@ type OpenStackMachineTemplateResource struct {
 	Spec OpenStackMachineSpec `json:"spec"`
 }
 
-// ImageParam describes a glance image. It can be specified by ID or filter.
+type ResourceReference struct {
+	// Name is the name of the referenced resource
+	Name string `json:"name"`
+}
+
+// ImageParam describes a glance image. It can be specified by ID, filter, or a
+// reference to an ORC Image.
 // +kubebuilder:validation:MaxProperties:=1
 // +kubebuilder:validation:MinProperties:=1
 type ImageParam struct {
@@ -42,6 +48,11 @@ type ImageParam struct {
 	// be raised.
 	// +optional
 	Filter *ImageFilter `json:"filter,omitempty"`
+
+	// ImageRef is a reference to an ORC Image in the same namespace as the
+	// referring object.
+	// +optional
+	ImageRef *ResourceReference `json:"imageRef,omitempty"`
 }
 
 // ImageFilter describes a query for an image.
@@ -422,6 +433,8 @@ type PortStatus struct {
 
 type BindingProfile struct {
 	// OVSHWOffload enables or disables the OVS hardware offload feature.
+	// This flag is not required on OpenStack clouds since Yoga as Nova will set it automatically when the port is attached.
+	// See: https://bugs.launchpad.net/nova/+bug/2020813
 	// +optional
 	OVSHWOffload *bool `json:"ovsHWOffload,omitempty"`
 
@@ -710,12 +723,12 @@ type SecurityGroupRuleSpec struct {
 	// security group rule is applied to incoming (ingress) traffic for that
 	// instance. An egress rule is applied to traffic leaving the instance.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:enum=ingress;egress
+	// +kubebuilder:validation:Enum=ingress;egress
 	Direction string `json:"direction"`
 
 	// etherType must be IPv4 or IPv6, and addresses represented in CIDR must match the
 	// ingress or egress rules.
-	// +kubebuilder:validation:enum=IPv4;IPv6
+	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +optional
 	EtherType *string `json:"etherType,omitempty"`
 
@@ -778,6 +791,11 @@ var (
 
 	// InstanceStateDeleted is the string representing an instance in a deleted state.
 	InstanceStateDeleted = InstanceState("DELETED")
+
+	// InstanceStateSoftDeleted is the string representing an instance in a soft-deleted state.
+	// This state occurs when OpenStack is configured with a reclaim_instance_interval > 0,
+	// allowing recovery of deleted instances within the reclaim period.
+	InstanceStateSoftDeleted = InstanceState("SOFT_DELETED")
 
 	// InstanceStateUndefined is the string representing an undefined instance state.
 	InstanceStateUndefined = InstanceState("")
@@ -862,6 +880,43 @@ type APIServerLoadBalancer struct {
 	// AvailabilityZone is the failure domain that will be used to create the APIServerLoadBalancer Spec.
 	//+optional
 	AvailabilityZone optional.String `json:"availabilityZone,omitempty"`
+
+	// Flavor is the flavor name that will be used to create the APIServerLoadBalancer Spec.
+	//+optional
+	Flavor optional.String `json:"flavor,omitempty"`
+
+	// Monitor contains configuration for the load balancer health monitor.
+	//+optional
+	Monitor *APIServerLoadBalancerMonitor `json:"monitor,omitempty"`
+}
+
+// APIServerLoadBalancerMonitor contains configuration for the load balancer health monitor.
+type APIServerLoadBalancerMonitor struct {
+	// Delay is the time in seconds between sending probes to members.
+	//+optional
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:default:10
+	Delay int `json:"delay,omitempty"`
+
+	// Timeout is the maximum time in seconds for a monitor to wait for a connection to be established before it times out.
+	//+optional
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:default:5
+	Timeout int `json:"timeout,omitempty"`
+
+	// MaxRetries is the number of successful checks before changing the operating status of the member to ONLINE.
+	//+optional
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:validation:Maximum=10
+	//+kubebuilder:default:5
+	MaxRetries int `json:"maxRetries,omitempty"`
+
+	// MaxRetriesDown is the number of allowed check failures before changing the operating status of the member to ERROR.
+	//+optional
+	//+kubebuilder:validation:Minimum=1
+	//+kubebuilder:validation:Maximum=10
+	//+kubebuilder:default:3
+	MaxRetriesDown int `json:"maxRetriesDown,omitempty"`
 }
 
 func (s *APIServerLoadBalancer) IsZero() bool {
@@ -882,6 +937,10 @@ type ResolvedMachineSpec struct {
 	// ImageID is the ID of the image to use for the machine and is calculated based on ImageFilter.
 	// +optional
 	ImageID string `json:"imageID,omitempty"`
+
+	// FlavorID is the ID of the flavor to use.
+	// +optional
+	FlavorID string `json:"flavorID,omitempty"`
 
 	// Ports is the fully resolved list of ports to create for the machine.
 	// +optional

@@ -166,6 +166,16 @@ var generatorConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 		for _, chart := range kt.kustomization.HelmCharts {
 			c.HelmGlobals = globals
 			c.HelmChart = chart
+			// Pass kustomize namespace to helm
+			// Fixes https://github.com/kubernetes-sigs/kustomize/issues/5566
+			// Also propagate parent namespace for multi-level kustomization hierarchies
+			if c.HelmChart.Namespace == "" {
+				if kt.kustomization.Namespace != "" {
+					c.HelmChart.Namespace = kt.kustomization.Namespace
+				} else if kt.helmRootNamespace != "" {
+					c.HelmChart.Namespace = kt.helmRootNamespace
+				}
+			}
 			p := f()
 			if err = kt.configureBuiltinPlugin(p, c, bpt); err != nil {
 				return nil, err
@@ -250,10 +260,10 @@ var transformerConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 			return
 		}
 		var c struct {
-			Path    string          `json:"path,omitempty" yaml:"path,omitempty"`
-			Patch   string          `json:"patch,omitempty" yaml:"patch,omitempty"`
-			Target  *types.Selector `json:"target,omitempty" yaml:"target,omitempty"`
-			Options map[string]bool `json:"options,omitempty" yaml:"options,omitempty"`
+			Path    string           `json:"path,omitempty"    yaml:"path,omitempty"`
+			Patch   string           `json:"patch,omitempty"   yaml:"patch,omitempty"`
+			Target  *types.Selector  `json:"target,omitempty"  yaml:"target,omitempty"`
+			Options *types.PatchArgs `json:"options,omitempty" yaml:"options,omitempty"`
 		}
 		for _, pc := range kt.kustomization.Patches {
 			c.Target = pc.Target
@@ -275,13 +285,25 @@ var transformerConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 		if len(kt.kustomization.Labels) == 0 && len(kt.kustomization.CommonLabels) == 0 {
 			return
 		}
+
+		type labelStruct struct {
+			Labels     map[string]string
+			FieldSpecs []types.FieldSpec
+		}
+
 		for _, label := range kt.kustomization.Labels {
-			var c struct {
-				Labels     map[string]string
-				FieldSpecs []types.FieldSpec
-			}
+			var c labelStruct
+
 			c.Labels = label.Pairs
 			fss := types.FsSlice(label.FieldSpecs)
+
+			// merge labels specified in the label section of transformer configs
+			// these apply to selectors and templates
+			fss, err := fss.MergeAll(tc.Labels)
+			if err != nil {
+				return nil, fmt.Errorf("failed to merge labels: %w", err)
+			}
+
 			// merge the custom fieldSpecs with the default
 			if label.IncludeSelectors {
 				fss, err = fss.MergeAll(tc.CommonLabels)
@@ -297,7 +319,7 @@ var transformerConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 				fss, err = fss.MergeOne(types.FieldSpec{Path: "metadata/labels", CreateIfNotPresent: true})
 			}
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to merge labels: %w", err)
 			}
 			c.FieldSpecs = fss
 			p := f()
@@ -307,10 +329,9 @@ var transformerConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 			}
 			result = append(result, p)
 		}
-		var c struct {
-			Labels     map[string]string
-			FieldSpecs []types.FieldSpec
-		}
+
+		var c labelStruct
+
 		c.Labels = kt.kustomization.CommonLabels
 		c.FieldSpecs = tc.CommonLabels
 		p := f()

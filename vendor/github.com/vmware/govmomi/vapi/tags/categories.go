@@ -1,18 +1,6 @@
-/*
-Copyright (c) 2018 VMware, Inc. All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// © Broadcom. All Rights Reserved.
+// The term "Broadcom" refers to Broadcom Inc. and/or its subsidiaries.
+// SPDX-License-Identifier: Apache-2.0
 
 package tags
 
@@ -34,6 +22,7 @@ type Category struct {
 	Cardinality     string   `json:"cardinality,omitempty"`
 	AssociableTypes []string `json:"associable_types,omitempty"`
 	UsedBy          []string `json:"used_by,omitempty"`
+	CategoryID      string   `json:"category_id,omitempty"`
 }
 
 func (c *Category) hasType(kind string) bool {
@@ -74,6 +63,7 @@ func (c *Manager) CreateCategory(ctx context.Context, category *Category) (strin
 		Description     string   `json:"description"`
 		Cardinality     string   `json:"cardinality"`
 		AssociableTypes []string `json:"associable_types"`
+		CategoryID      string   `json:"category_id,omitempty"`
 	}
 	spec := struct {
 		Category create `json:"create_spec"`
@@ -83,6 +73,7 @@ func (c *Manager) CreateCategory(ctx context.Context, category *Category) (strin
 			Description:     category.Description,
 			Cardinality:     category.Cardinality,
 			AssociableTypes: category.AssociableTypes,
+			CategoryID:      category.CategoryID,
 		},
 	}
 	if spec.Category.AssociableTypes == nil {
@@ -91,7 +82,10 @@ func (c *Manager) CreateCategory(ctx context.Context, category *Category) (strin
 	}
 	url := c.Resource(internal.CategoryPath)
 	var res string
-	return res, c.Do(ctx, url.Request(http.MethodPost, spec), &res)
+	if err := c.Do(ctx, url.Request(http.MethodPost, spec), &res); err != nil {
+		return "", err
+	}
+	return res, nil
 }
 
 // UpdateCategory updates one or more of the AssociableTypes, Cardinality,
@@ -134,14 +128,20 @@ func (c *Manager) GetCategory(ctx context.Context, id string) (*Category, error)
 	}
 	url := c.Resource(internal.CategoryPath).WithID(id)
 	var res Category
-	return &res, c.Do(ctx, url.Request(http.MethodGet), &res)
+	if err := c.Do(ctx, url.Request(http.MethodGet), &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 // ListCategories returns all category IDs in the system.
 func (c *Manager) ListCategories(ctx context.Context) ([]string, error) {
 	url := c.Resource(internal.CategoryPath)
 	var res []string
-	return res, c.Do(ctx, url.Request(http.MethodGet), &res)
+	if err := c.Do(ctx, url.Request(http.MethodGet), &res); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 // GetCategories fetches a list of category information in the system.

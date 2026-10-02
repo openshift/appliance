@@ -11,12 +11,11 @@ import (
 	machineapi "github.com/openshift/api/machine/v1beta1"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/ovirt"
+	"github.com/openshift/installer/pkg/utils"
 )
 
 // MachineSets returns a list of machinesets for a machinepool.
-func MachineSets(clusterID string, config *types.InstallConfig, pool *types.MachinePool, osImage, role,
-	userDataSecret string) ([]*machineapi.MachineSet, error) {
-
+func MachineSets(clusterID string, config *types.InstallConfig, pool *types.MachinePool, osImage, role, userDataSecret string) ([]*machineapi.MachineSet, error) {
 	if configPlatform := config.Platform.Name(); configPlatform != ovirt.Name {
 		return nil, fmt.Errorf("non-ovirt configuration: %q", configPlatform)
 	}
@@ -72,6 +71,6 @@ func MachineSets(clusterID string, config *types.InstallConfig, pool *types.Mach
 			},
 		},
 	}
-
+	utils.SetMachineSetOSStreamLabels(mset, config)
 	return []*machineapi.MachineSet{mset}, nil
 }

@@ -1,8 +1,12 @@
 package tls
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/installconfig"
+	awsic "github.com/openshift/installer/pkg/asset/installconfig/aws"
 	awstypes "github.com/openshift/installer/pkg/types/aws"
 )
 
@@ -23,7 +27,7 @@ func (a *CloudProviderCABundle) Dependencies() []asset.Asset {
 }
 
 // Generate generates the CA bundle based on its dependencies.
-func (a *CloudProviderCABundle) Generate(deps asset.Parents) error {
+func (a *CloudProviderCABundle) Generate(_ context.Context, deps asset.Parents) error {
 	ic := &installconfig.InstallConfig{}
 	deps.Get(ic)
 
@@ -33,7 +37,12 @@ func (a *CloudProviderCABundle) Generate(deps asset.Parents) error {
 	if ic.Config.Platform.Name() != awstypes.Name {
 		return nil
 	}
-	if !awstypes.IsSecretRegion(ic.Config.Platform.AWS.Region) {
+
+	isSecretRegion, err := awsic.IsSecretRegion(ic.Config.Platform.AWS.Region)
+	if err != nil {
+		return fmt.Errorf("failed to determine if AWS region is secret: %w", err)
+	}
+	if !isSecretRegion {
 		return nil
 	}
 

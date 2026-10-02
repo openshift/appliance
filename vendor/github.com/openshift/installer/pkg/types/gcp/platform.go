@@ -2,18 +2,61 @@ package gcp
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/openshift/installer/pkg/types/dns"
 )
 
-// UserProvisionedDNS indicates whether the DNS solution is provisioned by the Installer or the user.
-type UserProvisionedDNS string
+// FirewallRulesManagementPolicy defines the management policy for firewall rules in the cluster.
+// +kubebuilder:validation:Enum:="Managed";"Unmanaged"
+type FirewallRulesManagementPolicy string
 
 const (
-	// UserProvisionedDNSEnabled indicates that the DNS solution is provisioned and provided by the user.
-	UserProvisionedDNSEnabled UserProvisionedDNS = "Enabled"
+	// ManagedFirewallRules indicates that the firewall rules should be managed by the cluster.
+	ManagedFirewallRules FirewallRulesManagementPolicy = "Managed"
 
-	// UserProvisionedDNSDisabled indicates that the DNS solution is provisioned by the Installer.
-	UserProvisionedDNSDisabled UserProvisionedDNS = "Disabled"
+	// UnmanagedFirewallRules indicates that the firewall rules should be managed by the user. The
+	// firewall rules should exist prior to the installation occurs.
+	UnmanagedFirewallRules FirewallRulesManagementPolicy = "Unmanaged"
+
+	// CloudEnvironmentSovereign is the cloud environment identifier for GCP sovereign clouds.
+	CloudEnvironmentSovereign = "sovereign"
 )
+
+// DNS contains the gcp dns zone information for the cluster.
+type DNS struct {
+	// PrivateZone contains the information for a private DNS zone. The Private DNS Zone can
+	// only be supplied during Shared VPC (XPN) installs. The PrivateZone can exist or be
+	// created in a second service project; a project other than the one matching projectID
+	// or networkProjectID.
+	// +optional
+	PrivateZone *DNSZone `json:"privateZone,omitempty"`
+}
+
+// DNSZone contains the information about a specific DNS public or private zone.
+type DNSZone struct {
+	// ProjectID is the project where the zone resides.
+	// +optional
+	ProjectID string `json:"projectID,omitempty"`
+
+	// Name is the name of the dns-managed zone.
+	Name string `json:"name"`
+}
+
+// PSCEndpoint contains the information to describe a Private Service Connect
+// endpoint.
+type PSCEndpoint struct {
+	// Name contains the name of the private service connect endpoint.
+	Name string `json:"name"`
+
+	// ClusterUseOnly should be set to true when the installer should use
+	// the public api endpoints and all cluster operators should use the
+	// api endpoint overrides. The value should be false when the installer
+	// and cluster operators should use the api endpoint overrides; that is,
+	// the installer is being run in the same network as the cluster.
+	// +optional
+	ClusterUseOnly *bool `json:"clusterUseOnly,omitempty"`
+}
 
 // Platform stores all the global configuration that all machinesets
 // use.
@@ -52,17 +95,13 @@ type Platform struct {
 
 	// userLabels has additional keys and values that the installer will add as
 	// labels to all resources that it creates on GCP. Resources created by the
-	// cluster itself may not include these labels. This is a TechPreview feature
-	// and requires setting CustomNoUpgrade featureSet with GCPLabelsTags featureGate
-	// enabled or TechPreviewNoUpgrade featureSet to configure labels.
+	// cluster itself may not include these labels.
 	UserLabels []UserLabel `json:"userLabels,omitempty"`
 
 	// userTags has additional keys and values that the installer will add as
 	// tags to all resources that it creates on GCP. Resources created by the
 	// cluster itself may not include these tags. Tag key and tag value should
-	// be the shortnames of the tag key and tag value resource. This is a TechPreview
-	// feature and requires setting CustomNoUpgrade featureSet with GCPLabelsTags
-	// featureGate enabled or TechPreviewNoUpgrade featureSet to configure tags.
+	// be the shortnames of the tag key and tag value resource.
 	UserTags []UserTag `json:"userTags,omitempty"`
 
 	// UserProvisionedDNS indicates if the customer is providing their own DNS solution in place of the default
@@ -70,7 +109,27 @@ type Platform struct {
 	// +kubebuilder:default:="Disabled"
 	// +default="Disabled"
 	// +kubebuilder:validation:Enum="Enabled";"Disabled"
-	UserProvisionedDNS UserProvisionedDNS `json:"userProvisionedDNS,omitempty"`
+	UserProvisionedDNS dns.UserProvisionedDNS `json:"userProvisionedDNS,omitempty"`
+
+	// Endpoint is the private service connect endpoint.
+	// +optional
+	Endpoint *PSCEndpoint `json:"endpoint,omitempty"`
+
+	// DNS contains the dns zone information for the cluster. The DNS information can
+	// only be supplied during Shared VPC (XPN) installs.
+	// +optional
+	DNS *DNS `json:"dns,omitempty"`
+
+	// FirewallRulesManagement specifies the management policy for the cluster. "Managed" indicates that
+	// the firewall rules will be created and destroyed by the cluster. "Unmanaged" indicates that the
+	// user should create and destroy the firewall rules. For Shared VPC installation, if the installer
+	// credential doesn't have firewall rules management permissions, the "firewallRulesManagement" settings
+	// can be absent or set to "Unmanaged" explicitly. For non-Shared VPC installation, if the installer
+	// credential doesn't have firewall rules management permissions, the "firewallRulesManagement" settings
+	// must be set to "Unmanaged" explicitly. And in this case, the user needs to pre-configure the VPC network
+	// and the firewall rules before the installation.
+	// +optional
+	FirewallRulesManagement FirewallRulesManagementPolicy `json:"firewallRulesManagement,omitempty"`
 }
 
 // UserLabel is a label to apply to GCP resources created for the cluster.
@@ -113,4 +172,83 @@ type UserTag struct {
 // DefaultSubnetName sets a default name for the subnet.
 func DefaultSubnetName(infraID, role string) string {
 	return fmt.Sprintf("%s-%s-subnet", infraID, role)
+}
+
+// GetConfiguredServiceAccount returns the service account email from a configured service account for
+// a control plane or compute node. Returns empty string if not configured.
+func GetConfiguredServiceAccount(platform *Platform, mpool *MachinePool) string {
+	if mpool != nil && mpool.ServiceAccount != "" {
+		return mpool.ServiceAccount
+	} else if platform.DefaultMachinePlatform != nil {
+		return platform.DefaultMachinePlatform.ServiceAccount
+	}
+
+	return ""
+}
+
+// GetDefaultServiceAccount returns the default service account email to use based on role.
+// The default should be used when an existing service account is not configured.
+func GetDefaultServiceAccount(platform *Platform, clusterID string, role string) string {
+	projectID := platform.ProjectID
+
+	// Domain-scoped project IDs (e.g. "eu0:openshift") use a reversed
+	// dot-separated format in SA emails: "openshift.eu0".
+	if parts := strings.SplitN(projectID, ":", 2); len(parts) == 2 {
+		projectID = parts[1] + "." + parts[0]
+	}
+
+	return fmt.Sprintf("%s-%s@%s.iam.gserviceaccount.com", clusterID, role[0:1], projectID)
+}
+
+// ShouldUseEndpointForInstaller returns true when the endpoint should be used for GCP api endpoint overrides in the
+// installer.
+func ShouldUseEndpointForInstaller(endpoint *PSCEndpoint) bool {
+	return endpoint != nil && endpoint.ClusterUseOnly != nil && !(*endpoint.ClusterUseOnly)
+}
+
+// GetCloudEnvironment determines the cloud environment from the project ID and region.
+// Returns CloudEnvironmentSovereign for sovereign cloud environments, empty string for public GCP.
+// Sovereign cloud is identified by both a domain-scoped project ID (containing ":")
+// and a sovereign region (prefixed with "u-").
+func GetCloudEnvironment(projectID, region string) string {
+	if strings.Contains(projectID, ":") && strings.HasPrefix(region, "u-") {
+		return CloudEnvironmentSovereign
+	}
+	return ""
+}
+
+// IsNonDefaultUniverseDomain returns true if the universe domain is non-empty
+// and not the default "googleapis.com" value.
+// This indicates a sovereign cloud or custom universe domain configuration.
+func IsNonDefaultUniverseDomain(universeDomain string) bool {
+	return universeDomain != "" && universeDomain != "googleapis.com"
+}
+
+// GetDefaultEncryptionKey returns the KMS key to use for GCS bucket encryption.
+// Returns the key from defaultMachinePlatform.osDisk.encryptionKey.kmsKey if configured,
+// otherwise returns nil.
+func GetDefaultEncryptionKey(platform *Platform) *KMSKeyReference {
+	if platform != nil &&
+		platform.DefaultMachinePlatform != nil &&
+		platform.DefaultMachinePlatform.OSDisk.EncryptionKey != nil &&
+		platform.DefaultMachinePlatform.OSDisk.EncryptionKey.KMSKey != nil {
+		return platform.DefaultMachinePlatform.OSDisk.EncryptionKey.KMSKey
+	}
+	return nil
+}
+
+// FormatKMSKeyResourcePath formats a KMSKeyReference into a full GCP resource path.
+// If the KMSKeyReference specifies a ProjectID, it uses that; otherwise, it uses the provided default projectID.
+func FormatKMSKeyResourcePath(kmsKey *KMSKeyReference, projectID string) string {
+	if kmsKey == nil {
+		return ""
+	}
+
+	keyProjectID := projectID
+	if kmsKey.ProjectID != "" {
+		keyProjectID = kmsKey.ProjectID
+	}
+
+	return fmt.Sprintf("projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s",
+		keyProjectID, kmsKey.Location, kmsKey.KeyRing, kmsKey.Name)
 }

@@ -1,18 +1,6 @@
-/*
-Copyright (c) 2024-2024 VMware, Inc. All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// © Broadcom. All Rights Reserved.
+// The term "Broadcom" refers to Broadcom Inc. and/or its subsidiaries.
+// SPDX-License-Identifier: Apache-2.0
 
 package types
 
@@ -23,30 +11,80 @@ import (
 )
 
 // HardwareVersion is a VMX hardware version.
+//
+// Please see https://knowledge.broadcom.com/external/article/315655 for more
+// information on when a hardware version was introduced.
+//
+// Please refer to https://knowledge.broadcom.com/external/article/312100 for
+// what ESX/ESXi versions support which hardware versions.
 type HardwareVersion uint8
 
 const (
+	invalidHardwareVersion HardwareVersion = 0
+)
+
+const (
+	// VMX3 was introduced in ESX 2.x.
 	VMX3 HardwareVersion = iota + 3
+
+	// VMX4 was introduced in ESX 3.x.
 	VMX4
 
 	vmx5 // invalid
 
+	// VMX6 was introduced in Workstation 6.0.x and is not supported by
+	// ESX/ESXi per https://knowledge.broadcom.com/external/article/312100.
 	VMX6
+
+	// VMX7 was introduced in ESXi 4.x.
 	VMX7
+
+	// VMX8 was introduced in ESXi 5.0.
 	VMX8
+
+	// VMX9 was introduced in ESXi 5.1.
 	VMX9
+
+	// VMX10 was introduced in ESXi 5.5.
 	VMX10
+
+	// VMX11 was introduced in ESXi 6.0.
 	VMX11
+
+	// VMX12 was introduced in Workstation 12.x. and is not supported by
+	// ESX/ESXi per https://knowledge.broadcom.com/external/article/312100.
 	VMX12
+
+	// VMX13 was introduced in ESXi 6.5.
 	VMX13
+
+	// VMX14 was introduced in ESXi 6.7.
 	VMX14
+
+	// VMX15 was introduced in ESXi 6.7 U2.
 	VMX15
+
+	// VMX16 was introduced in Workstation 15.x and is not supported by
+	// ESX/ESXi per https://knowledge.broadcom.com/external/article/312100.
 	VMX16
+
+	// VMX17 was introduced in ESXi 7.0.
 	VMX17
+
+	// VMX18 was introduced in ESXi 7.0 U1 (7.0.1).
 	VMX18
+
+	// VMX19 was introduced in ESXi 7.0 U2 (7.0.2).
 	VMX19
+
+	// VMX20 was introduced in ESXi 8.0.
 	VMX20
+
+	// VMX21 was introduced in ESXi 8.0 U2 (8.0.2).
 	VMX21
+
+	// VMX22 was introduced in ESX 9.0.
+	VMX22
 )
 
 const (
@@ -56,13 +94,25 @@ const (
 
 	// MaxValidHardwareVersion is the maximum, valid hardware version supported
 	// by VMware hypervisors in the wild.
-	MaxValidHardwareVersion = VMX21
+	MaxValidHardwareVersion = VMX22
 )
 
-func (hv HardwareVersion) IsValid() bool {
-	return hv != vmx5 &&
+// IsSupported returns true if the hardware version is known to and supported by
+// GoVmomi's generated types.
+func (hv HardwareVersion) IsSupported() bool {
+	return hv.IsValid() &&
+		hv != vmx5 &&
 		hv >= MinValidHardwareVersion &&
 		hv <= MaxValidHardwareVersion
+}
+
+// IsValid returns true if the hardware version is not valid.
+// Unlike IsSupported, this function returns true as long as the hardware
+// version is greater than 0.
+// For example, the result of parsing "abc" or "vmx-abc" is an invalid hardware
+// version, whereas the result of parsing "vmx-99" is valid, just not supported.
+func (hv HardwareVersion) IsValid() bool {
+	return hv != invalidHardwareVersion
 }
 
 func (hv HardwareVersion) String() string {
@@ -85,7 +135,10 @@ func (hv *HardwareVersion) UnmarshalText(text []byte) error {
 	return nil
 }
 
-var vmxRe = regexp.MustCompile(`(?i)^vmx-(\d+)$`)
+var (
+	vmxRe        = regexp.MustCompile(`(?i)^vmx-(\d+)$`)
+	vmxNumOnlyRe = regexp.MustCompile(`^(\d+)$`)
+)
 
 // MustParseHardwareVersion parses the provided string into a hardware version.
 func MustParseHardwareVersion(s string) HardwareVersion {
@@ -97,25 +150,35 @@ func MustParseHardwareVersion(s string) HardwareVersion {
 }
 
 // ParseHardwareVersion parses the provided string into a hardware version.
+// Supported formats include vmx-123 or 123. Please note that the parser will
+// only return an error if the supplied version does not match the supported
+// formats.
+// Once parsed, use the function IsSupported to determine if the hardware
+// version falls into the range of versions known to GoVmomi.
 func ParseHardwareVersion(s string) (HardwareVersion, error) {
-	var u uint64
 	if m := vmxRe.FindStringSubmatch(s); len(m) > 0 {
-		u, _ = strconv.ParseUint(m[1], 10, 8)
-	} else {
-		u, _ = strconv.ParseUint(s, 10, 8)
+		u, err := strconv.ParseUint(m[1], 10, 8)
+		if err != nil {
+			return invalidHardwareVersion, fmt.Errorf(
+				"failed to parse %s from %q as uint8: %w", m[1], s, err)
+		}
+		return HardwareVersion(u), nil
+	} else if m := vmxNumOnlyRe.FindStringSubmatch(s); len(m) > 0 {
+		u, err := strconv.ParseUint(m[1], 10, 8)
+		if err != nil {
+			return invalidHardwareVersion, fmt.Errorf(
+				"failed to parse %s as uint8: %w", m[1], err)
+		}
+		return HardwareVersion(u), nil
 	}
-	v := HardwareVersion(u)
-	if !v.IsValid() {
-		return 0, fmt.Errorf("invalid version: %q", s)
-	}
-	return v, nil
+	return invalidHardwareVersion, fmt.Errorf("invalid version: %q", s)
 }
 
 var hardwareVersions []HardwareVersion
 
 func init() {
 	for i := MinValidHardwareVersion; i <= MaxValidHardwareVersion; i++ {
-		if i.IsValid() {
+		if i.IsSupported() {
 			hardwareVersions = append(hardwareVersions, i)
 		}
 	}

@@ -2,14 +2,18 @@
 
 package v1
 
-// AWSFailureDomainApplyConfiguration represents an declarative configuration of the AWSFailureDomain type for use
+// AWSFailureDomainApplyConfiguration represents a declarative configuration of the AWSFailureDomain type for use
 // with apply.
+//
+// AWSFailureDomain configures failure domain information for the AWS platform.
 type AWSFailureDomainApplyConfiguration struct {
-	Subnet    *AWSResourceReferenceApplyConfiguration      `json:"subnet,omitempty"`
+	// subnet is a reference to the subnet to use for this instance.
+	Subnet *AWSResourceReferenceApplyConfiguration `json:"subnet,omitempty"`
+	// placement configures the placement information for this instance.
 	Placement *AWSFailureDomainPlacementApplyConfiguration `json:"placement,omitempty"`
 }
 
-// AWSFailureDomainApplyConfiguration constructs an declarative configuration of the AWSFailureDomain type for use with
+// AWSFailureDomainApplyConfiguration constructs a declarative configuration of the AWSFailureDomain type for use with
 // apply.
 func AWSFailureDomain() *AWSFailureDomainApplyConfiguration {
 	return &AWSFailureDomainApplyConfiguration{}

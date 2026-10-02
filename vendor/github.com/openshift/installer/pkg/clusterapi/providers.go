@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -36,6 +37,9 @@ var (
 	AWS = infrastructureProvider("aws")
 	// Azure is the provider for creating resources in Azure.
 	Azure = infrastructureProvider("azure")
+	// AzureStack is the provider for creating resources in AzureStack.
+	// The AzureStack provider is maintained in an OpenShift fork of CAPZ.
+	AzureStack = infrastructureProvider("azurestack")
 	// AzureASO is a companion component to Azure that is used to create resources declaratively.
 	AzureASO = infrastructureProvider("azureaso")
 	// GCP is the provider for creating resources in GCP.
@@ -46,6 +50,8 @@ var (
 	Nutanix = infrastructureProvider("nutanix")
 	// OpenStack is the provider for creating resources in OpenStack.
 	OpenStack = infrastructureProvider("openstack")
+	// OpenStackORC is a companion component to OpenStack that is used to create resources declaratively.
+	OpenStackORC = infrastructureProvider("openstackorc")
 	// VSphere is the provider for creating resources in vSphere.
 	VSphere = infrastructureProvider("vsphere")
 )
@@ -75,7 +81,7 @@ var Mirror embed.FS
 
 // Extract extracts the provider from the embedded data into the specified directory.
 func (p Provider) Extract(dir string) error {
-	f, err := Mirror.Open(filepath.Join("mirror", zipFile))
+	f, err := Mirror.Open(path.Join("mirror", zipFile))
 	if err != nil {
 		return errors.Wrap(err, "failed to open cluster api zip from mirror")
 	}
@@ -110,9 +116,11 @@ func (p Provider) Extract(dir string) error {
 	// Extract the files.
 	for _, f := range r.File {
 		name := f.Name
-		if !p.Sources.Has(name) {
+		nameWithoutExt := strings.TrimSuffix(name, ".exe")
+		if !p.Sources.Has(name) && !p.Sources.Has(nameWithoutExt) {
 			continue
 		}
+
 		path, err := sanitizeArchivePath(dir, name)
 		if err != nil {
 			return errors.Wrapf(err, "failed to sanitize archive file %q", name)

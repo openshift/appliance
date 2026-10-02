@@ -38,8 +38,11 @@ type ControllerConfig struct {
 	// TODO(jkyros): inconsistent historical generation resulted in the controllerconfig CRD being
 	// generated with all fields required, while everything else was generated with optional
 
-	// +kubebuilder:validation:Required
+	// spec contains the desired controller config configuration.
+	// +required
 	Spec ControllerConfigSpec `json:"spec"`
+
+	// status contains observed information about the controller config.
 	// +optional
 	Status ControllerConfigStatus `json:"status"`
 }
@@ -47,11 +50,11 @@ type ControllerConfig struct {
 // ControllerConfigSpec is the spec for ControllerConfig resource.
 type ControllerConfigSpec struct {
 	// clusterDNSIP is the cluster DNS IP address
-	// +kubebuilder:validation:Required
+	// +required
 	ClusterDNSIP string `json:"clusterDNSIP"`
 
 	// cloudProviderConfig is the configuration for the given cloud provider
-	// +kubebuilder:validation:Required
+	// +required
 	CloudProviderConfig string `json:"cloudProviderConfig"`
 
 	// platform is deprecated, use Infra.Status.PlatformStatus.Type instead
@@ -65,21 +68,21 @@ type ControllerConfigSpec struct {
 	// TODO: Use string for CA data
 
 	// kubeAPIServerServingCAData managed Kubelet to API Server Cert... Rotated automatically
-	// +kubebuilder:validation:Required
+	// +required
 	KubeAPIServerServingCAData []byte `json:"kubeAPIServerServingCAData"`
 
 	// rootCAData specifies the root CA data
-	// +kubebuilder:validation:Required
+	// +required
 	RootCAData []byte `json:"rootCAData"`
 
-	// cloudProvider specifies the cloud provider CA data
-	// +kubebuilder:validation:Required
+	// cloudProviderCAData specifies the cloud provider CA data
+	// +required
 	// +nullable
 	CloudProviderCAData []byte `json:"cloudProviderCAData"`
 
 	// additionalTrustBundle is a certificate bundle that will be added to the nodes
 	// trusted certificate store.
-	// +kubebuilder:validation:Required
+	// +required
 	// +nullable
 	AdditionalTrustBundle []byte `json:"additionalTrustBundle"`
 
@@ -107,44 +110,57 @@ type ControllerConfigSpec struct {
 	InternalRegistryPullSecret []byte `json:"internalRegistryPullSecret"`
 
 	// images is map of images that are used by the controller to render templates under ./templates/
-	// +kubebuilder:validation:Required
+	// +required
 	Images map[string]string `json:"images"`
 
-	// BaseOSContainerImage is the new-format container image for operating system updates.
-	// +kubebuilder:validation:Required
+	// bgpVIPPeersJSON carries the BGP VIP peer configuration (the config.json
+	// payload of the bgp-vip-config ConfigMap) for rendering the frr-k8s
+	// static pod peer file on control plane nodes. Only set when BGP-based
+	// VIP management is enabled.
+	// When omitted, BGP-based VIP management is not configured and no
+	// frr-k8s peer file is rendered.
+	// When set, the value must be between 1 and 65536 characters long.
+	// +openshift:enable:FeatureGate=BGPBasedVIPManagement
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=65536
+	// +optional
+	BGPVIPPeersJSON string `json:"bgpVIPPeersJSON,omitempty"`
+
+	// baseOSContainerImage is the new-format container image for operating system updates.
+	// +required
 	BaseOSContainerImage string `json:"baseOSContainerImage"`
 
-	// BaseOSExtensionsContainerImage is the matching extensions container for the new-format container
+	// baseOSExtensionsContainerImage is the matching extensions container for the new-format container
 	// +optional
 	BaseOSExtensionsContainerImage string `json:"baseOSExtensionsContainerImage"`
 
-	// OSImageURL is the old-format container image that contains the OS update payload.
+	// osImageURL is the old-format container image that contains the OS update payload.
 	// +optional
 	OSImageURL string `json:"osImageURL"`
 
 	// releaseImage is the image used when installing the cluster
-	// +kubebuilder:validation:Required
+	// +required
 	ReleaseImage string `json:"releaseImage"`
 
 	// proxy holds the current proxy configuration for the nodes
-	// +kubebuilder:validation:Required
+	// +required
 	// +nullable
 	Proxy *configv1.ProxyStatus `json:"proxy"`
 
 	// infra holds the infrastructure details
 	// +kubebuilder:validation:EmbeddedResource
-	// +kubebuilder:validation:Required
+	// +required
 	// +nullable
 	Infra *configv1.Infrastructure `json:"infra"`
 
 	// dns holds the cluster dns details
 	// +kubebuilder:validation:EmbeddedResource
-	// +kubebuilder:validation:Required
+	// +required
 	// +nullable
 	DNS *configv1.DNS `json:"dns"`
 
 	// ipFamilies indicates the IP families in use by the cluster network
-	// +kubebuilder:validation:Required
+	// +required
 	IPFamilies IPFamiliesType `json:"ipFamilies"`
 
 	// networkType holds the type of network the cluster is using
@@ -155,8 +171,8 @@ type ControllerConfigSpec struct {
 	// +optional
 	NetworkType string `json:"networkType,omitempty"`
 
-	// Network contains additional network related information
-	// +kubebuilder:validation:Required
+	// network contains additional network related information
+	// +required
 	// +nullable
 	Network *NetworkInfo `json:"network"`
 }
@@ -164,10 +180,10 @@ type ControllerConfigSpec struct {
 // ImageRegistryBundle contains information for writing image registry certificates
 type ImageRegistryBundle struct {
 	// file holds the name of the file where the bundle will be written to disk
-	// +kubebuilder:validation:Required
+	// +required
 	File string `json:"file"`
 	// data holds the contents of the bundle that will be written to the file location
-	// +kubebuilder:validation:Required
+	// +required
 	Data []byte `json:"data"`
 }
 
@@ -183,8 +199,8 @@ const (
 
 // Network contains network related configuration
 type NetworkInfo struct {
-	// MTUMigration contains the MTU migration configuration.
-	// +kubebuilder:validation:Required
+	// mtuMigration contains the MTU migration configuration.
+	// +required
 	// +nullable
 	MTUMigration *configv1.MTUMigration `json:"mtuMigration"`
 }
@@ -196,7 +212,8 @@ type ControllerConfigStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// conditions represents the latest available observations of current state.
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=type
 	// +optional
 	Conditions []ControllerConfigStatusCondition `json:"conditions"`
 
@@ -209,38 +226,38 @@ type ControllerConfigStatus struct {
 // ControllerCertificate contains info about a specific cert.
 type ControllerCertificate struct {
 	// subject is the cert subject
-	// +kubebuilder:validation:Required
+	// +required
 	Subject string `json:"subject"`
 
 	// signer is the  cert Issuer
-	// +kubebuilder:validation:Required
+	// +required
 	Signer string `json:"signer"`
 
 	// notBefore is the lower boundary for validity
 	// +optional
-	NotBefore *metav1.Time `json:"notBefore"`
+	NotBefore *metav1.Time `json:"notBefore,omitempty"`
 
 	// notAfter is the upper boundary for validity
 	// +optional
-	NotAfter *metav1.Time `json:"notAfter"`
+	NotAfter *metav1.Time `json:"notAfter,omitempty"`
 
 	// bundleFile is the larger bundle a cert comes from
-	// +kubebuilder:validation:Required
+	// +required
 	BundleFile string `json:"bundleFile"`
 }
 
 // ControllerConfigStatusCondition contains condition information for ControllerConfigStatus
 type ControllerConfigStatusCondition struct {
 	// type specifies the state of the operator's reconciliation functionality.
-	// +kubebuilder:validation:Required
+	// +required
 	Type ControllerConfigStatusConditionType `json:"type"`
 
 	// status of the condition, one of True, False, Unknown.
-	// +kubebuilder:validation:Required
+	// +required
 	Status corev1.ConditionStatus `json:"status"`
 
 	// lastTransitionTime is the time of the last update to the current status object.
-	// +kubebuilder:validation:Required
+	// +required
 	// +nullable
 	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
 
@@ -307,19 +324,19 @@ type MachineConfig struct {
 
 // MachineConfigSpec is the spec for MachineConfig
 type MachineConfigSpec struct {
-	// OSImageURL specifies the remote location that will be used to
+	// osImageURL specifies the remote location that will be used to
 	// fetch the OS.
 	// +optional
 	OSImageURL string `json:"osImageURL"`
 
-	// BaseOSExtensionsContainerImage specifies the remote location that will be used
+	// baseOSExtensionsContainerImage specifies the remote location that will be used
 	// to fetch the extensions container matching a new-format OS image
 	// +optional
 	BaseOSExtensionsContainerImage string `json:"baseOSExtensionsContainerImage"`
 
-	// Config is a Ignition Config object.
+	// config is a Ignition Config object.
 	// +optional
-	Config runtime.RawExtension `json:"config"`
+	Config runtime.RawExtension `json:"config,omitempty"`
 
 	// kernelArguments contains a list of kernel arguments to be added
 	// +listType=atomic
@@ -382,8 +399,11 @@ type MachineConfigPool struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:validation:Required
+	// spec contains the desired machine config pool configuration.
+	// +required
 	Spec MachineConfigPoolSpec `json:"spec"`
+
+	// status contains observed information about the machine config pool.
 	// +optional
 	Status MachineConfigPoolStatus `json:"status"`
 }
@@ -439,12 +459,39 @@ type MachineConfigPoolSpec struct {
 	// Resolving these failures is the responsibility of the user. The admin
 	// should be proactive in ensuring adequate storage and proper image
 	// authentication exists in advance.
-	// +openshift:enable:FeatureGate=PinnedImages
 	// +optional
 	// +listType=map
 	// +listMapKey=name
 	// +kubebuilder:validation:MaxItems=100
 	PinnedImageSets []PinnedImageSetRef `json:"pinnedImageSets,omitempty"`
+
+	// osImageStream specifies an OS stream to be used for the pool.
+	//
+	// This field can be optionally set to a known OSImageStream name to change the
+	// OS and Extension images with a well-known, tested, release-provided set of images.
+	// This enables a streamlined way of switching the pool's node OS to a different version
+	// than the cluster default, such as transitioning to a major RHEL version.
+	//
+	// When set, the referenced stream overrides the cluster-wide OS
+	// images for the pool with the OS and Extensions associated to stream.
+	// When omitted, the pool uses the cluster-wide default OS images.
+	//
+	// +openshift:enable:FeatureGate=OSStreams
+	// +optional
+	OSImageStream OSImageStreamReference `json:"osImageStream,omitempty,omitzero"`
+}
+
+type OSImageStreamReference struct {
+	// name is a required reference to an OSImageStream to be used for the pool.
+	//
+	// It must be a valid RFC 1123 subdomain between 1 and 253 characters in length,
+	// consisting of lowercase alphanumeric characters, hyphens ('-'), and periods ('.').
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:XValidation:rule="!format.dns1123Subdomain().validate(self).hasValue()",message="a RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character."
+	Name string `json:"name,omitempty"`
 }
 
 type PinnedImageSetRef struct {
@@ -454,11 +501,10 @@ type PinnedImageSetRef struct {
 	// consists of alphanumeric characters and hyphens (-), must begin and end
 	// with an alphanumeric character, and is at most 63 characters in length.
 	// The total length of the name must not exceed 253 characters.
-	// +openshift:enable:FeatureGate=PinnedImages
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Pattern=`^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])(\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]))*$`
-	// +kubebuilder:validation:Required
+	// +required
 	Name string `json:"name"`
 }
 
@@ -505,11 +551,17 @@ type MachineConfigPoolStatus struct {
 	CertExpirys []CertExpiry `json:"certExpirys"`
 
 	// poolSynchronizersStatus is the status of the machines managed by the pool synchronizers.
-	// +openshift:enable:FeatureGate=PinnedImages
 	// +listType=map
 	// +listMapKey=poolSynchronizerType
 	// +optional
 	PoolSynchronizersStatus []PoolSynchronizerStatus `json:"poolSynchronizersStatus,omitempty"`
+
+	// osImageStream specifies the last updated OSImageStream for the pool.
+	//
+	// When omitted, the pool is using the cluster-wide default OS images.
+	// +openshift:enable:FeatureGate=OSStreams
+	// +optional
+	OSImageStream OSImageStreamReference `json:"osImageStream,omitempty,omitzero"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.machineCount >= self.updatedMachineCount", message="machineCount must be greater than or equal to updatedMachineCount"
@@ -519,26 +571,26 @@ type MachineConfigPoolStatus struct {
 // +kubebuilder:validation:XValidation:rule="self.availableMachineCount >= self.readyMachineCount", message="availableMachineCount must be greater than or equal to readyMachineCount"
 type PoolSynchronizerStatus struct {
 	// poolSynchronizerType describes the type of the pool synchronizer.
-	// +kubebuilder:validation:Required
+	// +required
 	PoolSynchronizerType PoolSynchronizerType `json:"poolSynchronizerType"`
 	// machineCount is the number of machines that are managed by the node synchronizer.
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:Minimum=0
 	MachineCount int64 `json:"machineCount"`
 	// updatedMachineCount is the number of machines that have been updated by the node synchronizer.
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:Minimum=0
 	UpdatedMachineCount int64 `json:"updatedMachineCount"`
 	// readyMachineCount is the number of machines managed by the node synchronizer that are in a ready state.
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:Minimum=0
 	ReadyMachineCount int64 `json:"readyMachineCount"`
 	// availableMachineCount is the number of machines managed by the node synchronizer which are available.
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:Minimum=0
 	AvailableMachineCount int64 `json:"availableMachineCount"`
 	// unavailableMachineCount is the number of machines managed by the node synchronizer but are unavailable.
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:Minimum=0
 	UnavailableMachineCount int64 `json:"unavailableMachineCount"`
 	// +kubebuilder:validation:XValidation:rule="self >= oldSelf || (self == 0 && oldSelf > 0)", message="observedGeneration must not move backwards except to zero"
@@ -562,10 +614,10 @@ const (
 // ceryExpiry contains the bundle name and the expiry date
 type CertExpiry struct {
 	// bundle is the name of the bundle in which the subject certificate resides
-	// +kubebuilder:validation:Required
+	// +required
 	Bundle string `json:"bundle"`
 	// subject is the subject of the certificate
-	// +kubebuilder:validation:Required
+	// +required
 	Subject string `json:"subject"`
 	// expiry is the date after which the certificate will no longer be valid
 	// +optional
@@ -591,7 +643,7 @@ type MachineConfigPoolCondition struct {
 
 	// status of the condition, one of ('True', 'False', 'Unknown').
 	// +optional
-	Status corev1.ConditionStatus `json:"status"`
+	Status corev1.ConditionStatus `json:"status,omitempty"`
 
 	// lastTransitionTime is the timestamp corresponding to the last status
 	// change of this condition.
@@ -629,15 +681,17 @@ const (
 	// MachineConfigPoolRenderDegraded means the rendered configuration for the pool cannot be generated because of an error
 	MachineConfigPoolRenderDegraded MachineConfigPoolConditionType = "RenderDegraded"
 
+	// MachineConfigPoolImageBuildDegraded means the image build for the pool was not successful
+	// This condition is only used when Image Mode is enabled for the pool
+	MachineConfigPoolImageBuildDegraded MachineConfigPoolConditionType = "ImageBuildDegraded"
+
 	// MachineConfigPoolPinnedImageSetsDegraded means the pinned image sets for the pool cannot be populated because of an error
-	// +openshift:enable:FeatureGate=PinnedImages
 	MachineConfigPoolPinnedImageSetsDegraded MachineConfigPoolConditionType = "PinnedImageSetsDegraded"
 
 	// MachineConfigPoolSynchronizerDegraded means the pool synchronizer can not be updated because of an error
-	// +openshift:enable:FeatureGate=PinnedImages
 	MachineConfigPoolSynchronizerDegraded MachineConfigPoolConditionType = "PoolSynchronizerDegraded"
 
-	// MachineConfigPoolDegraded is the overall status of the pool based, today, on whether we fail with NodeDegraded or RenderDegraded
+	// MachineConfigPoolDegraded is the overall status of the pool based, today, on whether we fail with NodeDegraded, RenderDegraded, or ImageBuildDegraded
 	MachineConfigPoolDegraded MachineConfigPoolConditionType = "Degraded"
 
 	MachineConfigPoolBuildPending MachineConfigPoolConditionType = "BuildPending"
@@ -682,35 +736,66 @@ type KubeletConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:validation:Required
+	// spec contains the desired kubelet configuration.
+	// +required
 	Spec KubeletConfigSpec `json:"spec"`
+
+	// status contains observed information about the kubelet configuration.
 	// +optional
 	Status KubeletConfigStatus `json:"status"`
 }
 
-// KubeletConfigSpec defines the desired state of KubeletConfig
+// KubeletConfigSpec configures the kubelet running on cluster nodes.
 type KubeletConfigSpec struct {
+	// autoSizingReserved controls whether system-reserved CPU and memory are automatically
+	// calculated based on each node's installed capacity. When set to true, this prevents node failure
+	// from resource starvation of system components (kubelet, CRI-O) without manual configuration.
+	// When omitted, this means the user has no opinion and the platform is left to choose a reasonable default,
+	// which is subject to change over time. The current default is true for worker nodes and false for control plane nodes.
+	// When set to false, automatic resource reservation is disabled and manual settings must be configured.
 	// +optional
 	AutoSizingReserved *bool `json:"autoSizingReserved,omitempty"`
+	// logLevel sets the kubelet log verbosity, controlling the amount of detail in kubelet logs.
+	// Valid values range from 0 (minimal logging) to 10 (maximum verbosity with trace-level detail).
+	// Higher log levels may impact node performance. When omitted, the platform chooses a reasonable default,
+	// which is subject to change over time. The current default is 2 (standard informational logging).
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=10
 	// +optional
 	LogLevel *int32 `json:"logLevel,omitempty"`
 
-	// MachineConfigPoolSelector selects which pools the KubeletConfig shoud apply to.
-	// A nil selector will result in no pools being selected.
+	// machineConfigPoolSelector selects which pools the KubeletConfig should apply to.
+	// When omitted or set to an empty selector {}, no pools are selected, which is equivalent
+	// to not matching any MachineConfigPool.
 	// +optional
 	MachineConfigPoolSelector *metav1.LabelSelector `json:"machineConfigPoolSelector,omitempty"`
-	// kubeletConfig fields are defined in kubernetes upstream. Please refer to the types defined in the version/commit used by
-	// OpenShift of the upstream kubernetes. It's important to note that, since the fields of the kubelet configuration are directly fetched from
-	// upstream the validation of those values is handled directly by the kubelet. Please refer to the upstream version of the relevant kubernetes
-	// for the valid values of these fields. Invalid values of the kubelet configuration fields may render cluster nodes unusable.
+	// kubeletConfig contains upstream Kubernetes kubelet configuration fields.
+	// Values are validated by the kubelet itself. Invalid values may render nodes unusable.
+	// Refer to OpenShift documentation for the Kubernetes version corresponding to your
+	// OpenShift release to find valid kubelet configuration options.
 	// +optional
 	KubeletConfig *runtime.RawExtension `json:"kubeletConfig,omitempty"`
 
-	// If unset, the default is based on the apiservers.config.openshift.io/cluster resource.
-	// Note that only Old and Intermediate profiles are currently supported, and
-	// the maximum available minTLSVersion is VersionTLS12.
+	// tlsSecurityProfile configures TLS settings for the kubelet.
+	// When omitted, the TLS configuration defaults to the value from apiservers.config.openshift.io/cluster.
+	// When specified, the type field can be set to either "Old", "Intermediate", "Modern", "Custom" or omitted for backward compatibility.
 	// +optional
 	TLSSecurityProfile *configv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
+
+	// systemGomaxprocsBehavior controls whether the kubelet-auto-node-size service automatically configures
+	// GOMAXPROCS for kubelet and CRI-O system services based on the system reserved CPU allocation.
+	// Valid values are "Autosize" and "Disabled".
+	// When set to "Autosize", the GOMAXPROCS environment variable for kubelet and CRI-O is set to
+	// max(ceil(system_reserved_cpu), 1). This optimizes the runtime parallelism of these Go-based system
+	// services based on their CPU allocation rather than total node capacity.
+	// When set to "Disabled", automatic GOMAXPROCS configuration is disabled and the system services
+	// use Go's default GOMAXPROCS behavior.
+	// When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time.
+	// The current default is "Disabled".
+	//
+	// +openshift:enable:FeatureGate=GomaxprocsInjection
+	// +optional
+	SystemGomaxprocsBehavior GomaxprocsBehaviorType `json:"systemGomaxprocsBehavior,omitempty"`
 }
 
 // KubeletConfigStatus defines the observed state of a KubeletConfig
@@ -721,6 +806,7 @@ type KubeletConfigStatus struct {
 
 	// conditions represents the latest available observations of current state.
 	// +optional
+	// +listType=atomic
 	Conditions []KubeletConfigCondition `json:"conditions"`
 }
 
@@ -732,7 +818,7 @@ type KubeletConfigCondition struct {
 
 	// status of the condition, one of True, False, Unknown.
 	// +optional
-	Status corev1.ConditionStatus `json:"status"`
+	Status corev1.ConditionStatus `json:"status,omitempty"`
 
 	// lastTransitionTime is the time of the last update to the current status object.
 	// +optional
@@ -753,10 +839,17 @@ type KubeletConfigCondition struct {
 type KubeletConfigStatusConditionType string
 
 const (
+	// KubeletConfigAccepted designates whether a KubeletConfig CR has been accepted.
+	// When the condition status is True, the KubeletConfig has been accepted successfully.
+	// When the condition status is False, the KubeletConfig has not been accepted.
+	KubeletConfigAccepted KubeletConfigStatusConditionType = "Accepted"
+
 	// KubeletConfigSuccess designates a successful application of a KubeletConfig CR.
+	// Deprecated: Use KubeletConfigAccepted instead. KubeletConfigSuccess will be removed in a future release.
 	KubeletConfigSuccess KubeletConfigStatusConditionType = "Success"
 
 	// KubeletConfigFailure designates a failure applying a KubeletConfig CR.
+	// Deprecated: Use KubeletConfigAccepted with status False instead. KubeletConfigFailure will be removed in a future release.
 	KubeletConfigFailure KubeletConfigStatusConditionType = "Failure"
 )
 
@@ -791,20 +884,24 @@ type ContainerRuntimeConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:validation:Required
+	// spec contains the desired container runtime configuration.
+	// +required
 	Spec ContainerRuntimeConfigSpec `json:"spec"`
+
+	// status contains observed information about the container runtime configuration.
 	// +optional
 	Status ContainerRuntimeConfigStatus `json:"status"`
 }
 
 // ContainerRuntimeConfigSpec defines the desired state of ContainerRuntimeConfig
 type ContainerRuntimeConfigSpec struct {
-	// MachineConfigPoolSelector selects which pools the ContainerRuntimeConfig shoud apply to.
+	// machineConfigPoolSelector selects which pools the ContainerRuntimeConfig shoud apply to.
 	// A nil selector will result in no pools being selected.
 	// +optional
 	MachineConfigPoolSelector *metav1.LabelSelector `json:"machineConfigPoolSelector,omitempty"`
 
-	// +kubebuilder:validation:Required
+	// containerRuntimeConfig defines the tuneables of the container runtime.
+	// +required
 	ContainerRuntimeConfig *ContainerRuntimeConfiguration `json:"containerRuntimeConfig,omitempty"`
 }
 
@@ -830,19 +927,161 @@ type ContainerRuntimeConfiguration struct {
 	// +optional
 	OverlaySize *resource.Quantity `json:"overlaySize,omitempty"`
 
-	// defaultRuntime is the name of the OCI runtime to be used as the default.
+	// defaultRuntime is the name of the OCI runtime to be used as the default for containers.
+	// Allowed values are `runc` and `crun`.
+	// When set to `runc`, OpenShift will use runc to execute the container
+	// When set to `crun`, OpenShift will use crun to execute the container
+	// When omitted, this means no opinion and the platform is left to choose a reasonable default,
+	// which is subject to change over time. Currently, the default is `crun`.
+	// +kubebuilder:validation:Enum=crun;runc
 	// +optional
 	DefaultRuntime ContainerRuntimeDefaultRuntime `json:"defaultRuntime,omitempty"`
+
+	// additionalLayerStores configures additional read-only container image layer store locations for Open Container Initiative (OCI) images.
+	//
+	// Layers are checked in order: additional stores first, then the default location.
+	// Stores are read-only.
+	// Maximum of 5 stores allowed.
+	// Each path must be unique.
+	//
+	// When omitted, only the default layer location is used.
+	// When specified, at least one store must be provided.
+	//
+	// +openshift:enable:FeatureGate=AdditionalStorageConfig
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=5
+	// +kubebuilder:validation:XValidation:rule="self.all(x, self.exists_one(y, x.path == y.path))",message="additionalLayerStores must not contain duplicate paths"
+	AdditionalLayerStores []AdditionalLayerStore `json:"additionalLayerStores,omitempty"`
+
+	// additionalImageStores configures additional read-only container image store locations for Open Container Initiative (OCI) images.
+	//
+	// Images are checked in order: additional stores first, then the default location.
+	// Stores are read-only.
+	// Maximum of 10 stores allowed.
+	// Each path must be unique.
+	//
+	// When omitted, only the default image location is used.
+	// When specified, at least one store must be provided.
+	//
+	// +openshift:enable:FeatureGate=AdditionalStorageConfig
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:XValidation:rule="self.all(x, self.exists_one(y, x.path == y.path))",message="additionalImageStores must not contain duplicate paths"
+	AdditionalImageStores []AdditionalImageStore `json:"additionalImageStores,omitempty"`
+
+	// additionalArtifactStores configures additional read-only artifact storage locations for Open Container Initiative (OCI) artifacts.
+	//
+	// Artifacts are checked in order: additional stores first, then the default location (/var/lib/containers/storage/artifacts).
+	// Stores are read-only.
+	// Maximum of 10 stores allowed.
+	// Each path must be unique.
+	//
+	// When omitted, only the default artifact location is used.
+	// When specified, at least one store must be provided.
+	//
+	// +openshift:enable:FeatureGate=AdditionalStorageConfig
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:XValidation:rule="self.all(x, self.exists_one(y, x.path == y.path))",message="additionalArtifactStores must not contain duplicate paths"
+	AdditionalArtifactStores []AdditionalArtifactStore `json:"additionalArtifactStores,omitempty"`
+
+	// containerGomaxprocsBehavior controls whether CRI-O automatically injects the GOMAXPROCS environment variable into containers
+	// based on their CPU resource requests.
+	// Valid values are "Autosize" and "Disabled".
+	// When set to "Autosize", CRI-O will automatically set GOMAXPROCS proportional to the container's CPU request,
+	// calculated as max(ceil(cpu_request_in_cores * 2), 1). This helps Go applications optimize their runtime parallelism
+	// based on the allocated CPU resources rather than the total node capacity.
+	// When set to "Disabled", GOMAXPROCS injection is disabled and containers will use Go's default GOMAXPROCS behavior.
+	// When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time.
+	// The current default is "Disabled".
+	//
+	// Containers can override the injected GOMAXPROCS value by:
+	// - Setting GOMAXPROCS in the container image Dockerfile (ENV GOMAXPROCS=...)
+	// - Setting GOMAXPROCS in the pod spec (env or envFrom)
+	// - Calling runtime.GOMAXPROCS() programmatically in Go code
+	// - Adding the skip-gomaxprocs.crio.io annotation to the pod
+	//
+	// +openshift:enable:FeatureGate=GomaxprocsInjection
+	// +optional
+	ContainerGomaxprocsBehavior GomaxprocsBehaviorType `json:"containerGomaxprocsBehavior,omitempty"`
 }
 
 type ContainerRuntimeDefaultRuntime string
 
+// These constants are used in the Machine Config Operator (MCO)
 const (
 	ContainerRuntimeDefaultRuntimeEmpty   = ""
 	ContainerRuntimeDefaultRuntimeRunc    = "runc"
 	ContainerRuntimeDefaultRuntimeCrun    = "crun"
-	ContainerRuntimeDefaultRuntimeDefault = ContainerRuntimeDefaultRuntimeRunc
+	ContainerRuntimeDefaultRuntimeDefault = ContainerRuntimeDefaultRuntimeCrun
 )
+
+// GomaxprocsBehaviorType specifies the GOMAXPROCS auto-sizing behavior
+// +kubebuilder:validation:Enum=Autosize;Disabled
+type GomaxprocsBehaviorType string
+
+const (
+	// GomaxprocsBehaviorAutosize enables automatic GOMAXPROCS configuration
+	GomaxprocsBehaviorAutosize GomaxprocsBehaviorType = "Autosize"
+	// GomaxprocsBehaviorDisabled disables automatic GOMAXPROCS configuration
+	GomaxprocsBehaviorDisabled GomaxprocsBehaviorType = "Disabled"
+)
+
+// StorePath is an absolute filesystem path used by additional container storage configurations.
+// The path must be between 1 and 256 characters long, begin with a forward slash, and only contain
+// the characters a-z, A-Z, 0-9, '/', '.', '_', and '-'. Consecutive forward slashes and '..'
+// directory traversal components are not permitted.
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=256
+// +kubebuilder:validation:XValidation:rule="self.matches('^/[a-zA-Z0-9/._-]+$')",message="path must be absolute and contain only alphanumeric characters, '/', '.', '_', and '-'"
+// +kubebuilder:validation:XValidation:rule="!self.contains('//')",message="path must not contain consecutive forward slashes"
+// +kubebuilder:validation:XValidation:rule="self.split('/').filter(s, s == '..').size() == 0",message="path must not contain '..' components"
+type StorePath string
+
+// AdditionalLayerStore defines a read-only storage location for Open Container Initiative (OCI) container image layers.
+type AdditionalLayerStore struct {
+	// path specifies the absolute location of the additional layer store.
+	// The path must exist on the node before configuration is applied.
+	// When a container image is requested, layers found at this location will be used instead of
+	// retrieving from the registry.
+	// The path is required and must be between 1 and 256 characters long, begin with a forward slash,
+	// and only contain the characters a-z, A-Z, 0-9, '/', '.', '_', and '-'.
+	// Consecutive forward slashes and '..' directory traversal components are not permitted.
+	// +required
+	Path StorePath `json:"path,omitempty"`
+}
+
+// AdditionalImageStore defines an additional read-only storage location for Open Container Initiative (OCI) images.
+type AdditionalImageStore struct {
+	// path specifies the absolute location of the additional image store.
+	// The path must exist on the node before configuration is applied.
+	// When a container image is requested, images found at this location will be used instead of
+	// retrieving from the registry.
+	// The path is required and must be between 1 and 256 characters long, begin with a forward slash,
+	// and only contain the characters a-z, A-Z, 0-9, '/', '.', '_', and '-'.
+	// Consecutive forward slashes and '..' directory traversal components are not permitted.
+	// +required
+	Path StorePath `json:"path,omitempty"`
+}
+
+// AdditionalArtifactStore defines an additional read-only storage location for Open Container Initiative (OCI) artifacts.
+type AdditionalArtifactStore struct {
+	// path specifies the absolute location of the additional artifact store.
+	// The path must exist on the node before configuration is applied.
+	// When an artifact is requested, artifacts found at this location will be used instead of
+	// retrieving from the registry.
+	// The path is required and must be between 1 and 256 characters long, begin with a forward slash,
+	// and only contain the characters a-z, A-Z, 0-9, '/', '.', '_', and '-'.
+	// Consecutive forward slashes and '..' directory traversal components are not permitted.
+	// +required
+	Path StorePath `json:"path,omitempty"`
+}
 
 // ContainerRuntimeConfigStatus defines the observed state of a ContainerRuntimeConfig
 type ContainerRuntimeConfigStatus struct {
@@ -864,7 +1103,7 @@ type ContainerRuntimeConfigCondition struct {
 
 	// status of the condition, one of True, False, Unknown.
 	// +optional
-	Status corev1.ConditionStatus `json:"status"`
+	Status corev1.ConditionStatus `json:"status,omitempty"`
 
 	// lastTransitionTime is the time of the last update to the current status object.
 	// +nullable

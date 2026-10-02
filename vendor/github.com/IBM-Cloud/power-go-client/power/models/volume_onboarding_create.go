@@ -7,6 +7,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -26,6 +27,9 @@ type VolumeOnboardingCreate struct {
 
 	// Description of the volume onboarding operation
 	Description string `json:"description,omitempty"`
+
+	// user tags
+	UserTags Tags `json:"userTags,omitempty"`
 }
 
 // Validate validates this volume onboarding create
@@ -33,6 +37,10 @@ func (m *VolumeOnboardingCreate) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateVolumes(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateUserTags(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -55,15 +63,40 @@ func (m *VolumeOnboardingCreate) validateVolumes(formats strfmt.Registry) error 
 
 		if m.Volumes[i] != nil {
 			if err := m.Volumes[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("Volumes" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("Volumes" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
 
+	}
+
+	return nil
+}
+
+func (m *VolumeOnboardingCreate) validateUserTags(formats strfmt.Registry) error {
+	if swag.IsZero(m.UserTags) { // not required
+		return nil
+	}
+
+	if err := m.UserTags.Validate(formats); err != nil {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
+			return ve.ValidateName("userTags")
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
+			return ce.ValidateName("userTags")
+		}
+
+		return err
 	}
 
 	return nil
@@ -74,6 +107,10 @@ func (m *VolumeOnboardingCreate) ContextValidate(ctx context.Context, formats st
 	var res []error
 
 	if err := m.contextValidateVolumes(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateUserTags(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -94,15 +131,37 @@ func (m *VolumeOnboardingCreate) contextValidateVolumes(ctx context.Context, for
 			}
 
 			if err := m.Volumes[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("Volumes" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("Volumes" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
 
+	}
+
+	return nil
+}
+
+func (m *VolumeOnboardingCreate) contextValidateUserTags(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.UserTags.ContextValidate(ctx, formats); err != nil {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
+			return ve.ValidateName("userTags")
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
+			return ce.ValidateName("userTags")
+		}
+
+		return err
 	}
 
 	return nil
