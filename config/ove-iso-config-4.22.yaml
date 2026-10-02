@@ -1,0 +1,35 @@
+openshiftVersion: "4.22"
+architecture: x86_64
+additionalImages:
+  - registry.redhat.io/rhel9/support-tools:latest
+olmOperators:
+  - name: kubevirt-hyperconverged
+    channel: stable
+  - name: mtv-operator
+    channel: release-v2.12
+  - name: kubernetes-nmstate-operator
+    channel: stable
+  - name: node-healthcheck-operator
+    channel: stable
+  - name: node-maintenance-operator
+    channel: stable
+  - name: fence-agents-remediation
+    channel: stable
+  - name: cluster-kube-descheduler-operator
+    channel: stable
+  - name: metallb-operator
+    channel: stable
+  - name: cluster-observability-operator
+    channel: stable
+  - name: redhat-oadp-operator
+    channel: stable
+  - name: local-storage-operator
+    channel: stable
+  - name: lvms-operator
+    channel: stable-4.22
+  - name: numaresources-operator
+    channel: "4.22"
+  - name: loki-operator
+    channel: stable-6.6
+  - name: cluster-logging
+    channel: stable-6.6
