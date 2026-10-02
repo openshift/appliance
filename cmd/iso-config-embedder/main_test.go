@@ -158,7 +158,7 @@ func TestEmbedPullSecretFromRegistryAuthFile(t *testing.T) {
 			name:    "env var points to nonexistent file",
 			yaml:    "openshiftVersion: \"4.22\"\n",
 			setEnv:  true,
-			wantErr: "reading pull secret from REGISTRY_AUTH_FILE",
+			wantErr: "reading pull secret from PULL_SECRET_FILE",
 		},
 		{
 			name:       "env var not set and no pull secret in YAML",
@@ -183,11 +183,11 @@ func TestEmbedPullSecretFromRegistryAuthFile(t *testing.T) {
 			if tc.setEnv {
 				switch tc.name {
 				case "env var points to nonexistent file":
-					t.Setenv("REGISTRY_AUTH_FILE", "/nonexistent/auth.json")
+					t.Setenv("PULL_SECRET_FILE", "/nonexistent/auth.json")
 				case "trailing whitespace in auth file is trimmed":
-					t.Setenv("REGISTRY_AUTH_FILE", writeAuthFile(t, secret+"\n\n"))
+					t.Setenv("PULL_SECRET_FILE", writeAuthFile(t, secret+"\n\n"))
 				default:
-					t.Setenv("REGISTRY_AUTH_FILE", writeAuthFile(t, secret))
+					t.Setenv("PULL_SECRET_FILE", writeAuthFile(t, secret))
 				}
 			}
 

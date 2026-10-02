@@ -108,13 +108,13 @@ The pull secret can be provided in two ways:
    pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"..."}}}'
    ```
 
-2. **Via the `REGISTRY_AUTH_FILE` environment variable**: if `pullSecret` is not set in the
-   YAML, the tool reads the file at the path given by `REGISTRY_AUTH_FILE` and uses its
+2. **Via the `PULL_SECRET_FILE` environment variable**: if `pullSecret` is not set in the
+   YAML, the tool reads the file at the path given by `PULL_SECRET_FILE` and uses its
    contents as the pull secret. This avoids embedding credentials in YAML artifacts
    (e.g. CI job outputs).
 
    ```bash
-   export REGISTRY_AUTH_FILE=/path/to/pull-secret.json
+   export PULL_SECRET_FILE=/path/to/pull-secret.json
    iso-config-embedder embed -c config.yaml -o patched-iso-builder openshift-iso-builder
    ```
 
@@ -126,7 +126,7 @@ A minimal configuration:
 pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"..."}}}'
 ```
 
-A CI-friendly configuration using `REGISTRY_AUTH_FILE`:
+A CI-friendly configuration using `PULL_SECRET_FILE`:
 
 ```yaml
 openshiftVersion: "4.22"
@@ -134,7 +134,7 @@ architecture: x86_64
 ```
 
 ```bash
-export REGISTRY_AUTH_FILE=/run/secrets/pull-secret.json
+export PULL_SECRET_FILE=/run/secrets/pull-secret.json
 iso-config-embedder embed -c config.yaml -o patched-iso-builder openshift-iso-builder
 ```
 

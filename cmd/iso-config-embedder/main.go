@@ -97,13 +97,13 @@ func runEmbed(configPath, binaryPath, outputPath string, force bool) error {
 	}
 
 	if cfg.PullSecret == "" {
-		if authFile, ok := os.LookupEnv("REGISTRY_AUTH_FILE"); ok && authFile != "" {
+		if authFile, ok := os.LookupEnv("PULL_SECRET_FILE"); ok && authFile != "" {
 			secret, err := os.ReadFile(authFile)
 			if err != nil {
-				return fmt.Errorf("reading pull secret from REGISTRY_AUTH_FILE: %w", err)
+				return fmt.Errorf("reading pull secret from PULL_SECRET_FILE: %w", err)
 			}
 			cfg.PullSecret = strings.TrimSpace(string(secret))
-			logrus.Infof("Pull secret loaded from REGISTRY_AUTH_FILE")
+			logrus.Infof("Pull secret loaded from PULL_SECRET_FILE")
 		}
 	}
 
