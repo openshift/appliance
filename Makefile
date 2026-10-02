@@ -23,7 +23,7 @@ GO_UNITTEST_FLAGS = --format=$(GO_TEST_FORMAT) $(GOTEST_PUBLISH_FLAGS) -- -count
 GINKGO_UNITTEST_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo.v -ginkgo.junit-report=$(GINKGO_REPORTFILE)
 
 
-.PHONY: build
+.PHONY: build vendor
 
 build:
 	podman build -f Dockerfile.openshift-appliance . -t $(IMAGE)
@@ -32,10 +32,17 @@ build-appliance:
 	mkdir -p build
 	cd ./cmd && CGO_ENABLED=1 GOFLAGS="" go build -o ../build/openshift-appliance
 
-build-iso-builder:
+build-iso-builder: vendor
 	mkdir -p build
 	cd ./pkg/iso-builder && go generate ./...
 	cd ./cmd/iso-builder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/openshift-iso-builder
+
+build-iso-config-embedder: vendor
+	mkdir -p build
+	cd ./cmd/iso-config-embedder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/iso-config-embedder
+
+vendor:
+	go mod vendor
 
 build-iso-builder-image:
 	podman build -f Dockerfile.iso-builder . -t $(ISO_BUILDER_IMAGE)
@@ -43,7 +50,7 @@ build-iso-builder-image:
 build-openshift-ci-test-bin:
 	./hack/setup_env.sh
 
-lint:
+lint: vendor
 	golangci-lint run -v --timeout=20m
 
 test: $(REPORTS)
@@ -84,7 +91,7 @@ generate-mocks:
 	find . -name 'mock_*.go' -type f -not -path './vendor/*' -delete
 	go generate -v $(shell go list ./...)
 
-unit-test:
+unit-test: vendor
 	$(MAKE) _unit_test TIMEOUT=30m TEST="$(or $(TEST),$(shell go list ./...))"
 
 _unit_test: $(REPORTS)

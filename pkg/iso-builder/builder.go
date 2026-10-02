@@ -48,8 +48,7 @@ func NewBuilder(workingDir string) *Builder {
 func (b *Builder) Build(ctx context.Context) error {
 	embeddedCfg, err := b.loadEmbeddedConfig()
 	if err != nil {
-		logrus.Warn("No embedded configuration found, using built-in defaults")
-		embeddedCfg = defaultISOBuilderConfig()
+		return errors.Wrap(err, "no embedded configuration found; use iso-config-embedder to embed one")
 	}
 	logrus.Infof("Configuration loaded: version=%s arch=%s", embeddedCfg.OpenshiftVersion, embeddedCfg.Architecture)
 
@@ -184,15 +183,3 @@ func (b *Builder) loadEmbeddedConfig() (*isobuilderconfig.Config, error) {
 	return isobuilderconfig.ReadFromData([]byte(rawConfigArea))
 }
 
-func readPullSecret() string {
-	path := os.Getenv("PULL_SECRET_FILE")
-	if path == "" {
-		logrus.Warn("PULL_SECRET_FILE is not set, using empty pull secret placeholder")
-		return `{"auths":{}}`
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		logrus.Fatalf("Failed to read pull secret from PULL_SECRET_FILE (%s): %v", path, err)
-	}
-	return string(data)
-}
