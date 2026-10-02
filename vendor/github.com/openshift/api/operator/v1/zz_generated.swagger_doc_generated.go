@@ -37,8 +37,9 @@ func (MyOperatorResource) SwaggerDoc() map[string]string {
 var map_NodeStatus = map[string]string{
 	"":                         "NodeStatus provides information about the current state of a particular node managed by this operator.",
 	"nodeName":                 "nodeName is the name of the node",
-	"currentRevision":          "currentRevision is the generation of the most recently successful deployment",
-	"targetRevision":           "targetRevision is the generation of the deployment we're trying to apply",
+	"nodeUID":                  "nodeUID is the UID of the node. This field is used to detect that a node has been deleted and recreated with the same name. When the UID changes, it indicates the node is a new instance and the controller should treat this status entry as stale. When omitted, UID-based node replacement detection is not available for this entry.",
+	"currentRevision":          "currentRevision is the generation of the most recently successful deployment. Can not be set on creation of a nodeStatus. Updates must only increase the value.",
+	"targetRevision":           "targetRevision is the generation of the deployment we're trying to apply. Can not be set on creation of a nodeStatus.",
 	"lastFailedRevision":       "lastFailedRevision is the generation of the deployment we tried and failed to deploy.",
 	"lastFailedTime":           "lastFailedTime is the time the last failed revision failed the last time.",
 	"lastFailedReason":         "lastFailedReason is a machine readable failure reason string.",
@@ -52,7 +53,10 @@ func (NodeStatus) SwaggerDoc() map[string]string {
 }
 
 var map_OperatorCondition = map[string]string{
-	"": "OperatorCondition is just the standard condition fields.",
+	"":                   "OperatorCondition is just the standard condition fields.",
+	"type":               "type of condition in CamelCase or in foo.example.com/CamelCase.",
+	"status":             "status of the condition, one of True, False, Unknown.",
+	"lastTransitionTime": "lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
 }
 
 func (OperatorCondition) SwaggerDoc() map[string]string {
@@ -73,11 +77,12 @@ func (OperatorSpec) SwaggerDoc() map[string]string {
 }
 
 var map_OperatorStatus = map[string]string{
-	"observedGeneration": "observedGeneration is the last generation change you've dealt with",
-	"conditions":         "conditions is a list of conditions and their status",
-	"version":            "version is the level this availability applies to",
-	"readyReplicas":      "readyReplicas indicates how many replicas are ready and at the desired state",
-	"generations":        "generations are used to determine when an item needs to be reconciled or has changed in a way that needs a reaction.",
+	"observedGeneration":      "observedGeneration is the last generation change you've dealt with",
+	"conditions":              "conditions is a list of conditions and their status",
+	"version":                 "version is the level this availability applies to",
+	"readyReplicas":           "readyReplicas indicates how many replicas are ready and at the desired state",
+	"latestAvailableRevision": "latestAvailableRevision is the deploymentID of the most recent deployment",
+	"generations":             "generations are used to determine when an item needs to be reconciled or has changed in a way that needs a reaction.",
 }
 
 func (OperatorStatus) SwaggerDoc() map[string]string {
@@ -97,7 +102,6 @@ func (StaticPodOperatorSpec) SwaggerDoc() map[string]string {
 
 var map_StaticPodOperatorStatus = map[string]string{
 	"":                              "StaticPodOperatorStatus is status for controllers that manage static pods.  There are different needs because individual node status must be tracked.",
-	"latestAvailableRevision":       "latestAvailableRevision is the deploymentID of the most recent deployment",
 	"latestAvailableRevisionReason": "latestAvailableRevisionReason describe the detailed reason for the most recent deployment",
 	"nodeStatuses":                  "nodeStatuses track the deployment values and errors across individual nodes",
 }
@@ -115,6 +119,15 @@ func (Authentication) SwaggerDoc() map[string]string {
 	return map_Authentication
 }
 
+var map_AuthenticationConfigMapReference = map[string]string{
+	"":     "AuthenticationConfigMapReference references a ConfigMap in the openshift-config namespace.",
+	"name": "name is the metadata.name of the referenced ConfigMap. Must be a valid DNS subdomain name (RFC 1123): at most 253 characters, only lowercase alphanumeric characters, '-' or '.', starting and ending with an alphanumeric character.",
+}
+
+func (AuthenticationConfigMapReference) SwaggerDoc() map[string]string {
+	return map_AuthenticationConfigMapReference
+}
+
 var map_AuthenticationList = map[string]string{
 	"":         "AuthenticationList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
@@ -124,8 +137,28 @@ func (AuthenticationList) SwaggerDoc() map[string]string {
 	return map_AuthenticationList
 }
 
+var map_AuthenticationProxyConfig = map[string]string{
+	"":           "AuthenticationProxyConfig holds proxy configuration scoped to authentication components (the OAuth server and the cluster authentication operator).",
+	"httpProxy":  "httpProxy is the URL of the proxy for HTTP requests. Must be a valid URL with http or https scheme, a non-empty hostname, and no path, query parameters, or fragment. Userinfo (e.g. user:password@host) is allowed for proxy authentication. Maximum length is 2048 characters.",
+	"httpsProxy": "httpsProxy is the URL of the proxy for HTTPS requests. Must be a valid URL with http or https scheme, a non-empty hostname, and no path, query parameters, or fragment. Userinfo (e.g. user:password@host) is allowed for proxy authentication. Maximum length is 2048 characters.",
+	"noProxy":    "noProxy is a list of hostnames and/or CIDRs and/or IPs for which the proxy should not be used. Must contain at least one entry when set. Each entry must be between 1 and 253 characters long and at most 64 entries are allowed. Duplicate entries are not permitted. Entries that are not valid hostnames, CIDRs, or IPs are silently ignored. Cluster-internal defaults (.cluster.local, .svc, 127.0.0.1, localhost) are always appended automatically and do not need to be included.",
+	"trustedCA":  "trustedCA is a reference to a ConfigMap in the openshift-config namespace containing a CA certificate bundle under the key \"ca-bundle.crt\". This bundle is appended to the system trust store used by authentication components for proxy TLS connections. When omitted, only the system trust store is used.",
+}
+
+func (AuthenticationProxyConfig) SwaggerDoc() map[string]string {
+	return map_AuthenticationProxyConfig
+}
+
+var map_AuthenticationSpec = map[string]string{
+	"proxy": "proxy configures proxy settings for outbound connections made by the authentication stack. When set, it replaces the cluster-wide proxy (proxy.config.openshift.io/cluster) entirely for authentication — individual fields are not inherited from the cluster-wide configuration. When omitted, the cluster-wide proxy is used if configured; otherwise no proxy is used.",
+}
+
+func (AuthenticationSpec) SwaggerDoc() map[string]string {
+	return map_AuthenticationSpec
+}
+
 var map_AuthenticationStatus = map[string]string{
-	"oauthAPIServer": "OAuthAPIServer holds status specific only to oauth-apiserver",
+	"oauthAPIServer": "oauthAPIServer holds status specific only to oauth-apiserver",
 }
 
 func (AuthenticationStatus) SwaggerDoc() map[string]string {
@@ -133,7 +166,8 @@ func (AuthenticationStatus) SwaggerDoc() map[string]string {
 }
 
 var map_OAuthAPIServerStatus = map[string]string{
-	"latestAvailableRevision": "LatestAvailableRevision is the latest revision used as suffix of revisioned secrets like encryption-config. A new revision causes a new deployment of pods.",
+	"latestAvailableRevision": "latestAvailableRevision is the latest revision used as suffix of revisioned secrets like encryption-config. A new revision causes a new deployment of pods.",
+	"encryptionStatus":        "encryptionStatus contains status reports for the KMS plugin health and its key rotation.",
 }
 
 func (OAuthAPIServerStatus) SwaggerDoc() map[string]string {
@@ -160,7 +194,7 @@ func (CloudCredentialList) SwaggerDoc() map[string]string {
 
 var map_CloudCredentialSpec = map[string]string{
 	"":                "CloudCredentialSpec is the specification of the desired behavior of the cloud-credential-operator.",
-	"credentialsMode": "CredentialsMode allows informing CCO that it should not attempt to dynamically determine the root cloud credentials capabilities, and it should just run in the specified mode. It also allows putting the operator into \"manual\" mode if desired. Leaving the field in default mode runs CCO so that the cluster's cloud credentials will be dynamically probed for capabilities (on supported clouds/platforms). Supported modes:\n  AWS/Azure/GCP: \"\" (Default), \"Mint\", \"Passthrough\", \"Manual\"\n  Others: Do not set value as other platforms only support running in \"Passthrough\"",
+	"credentialsMode": "credentialsMode allows informing CCO that it should not attempt to dynamically determine the root cloud credentials capabilities, and it should just run in the specified mode. It also allows putting the operator into \"manual\" mode if desired. Leaving the field in default mode runs CCO so that the cluster's cloud credentials will be dynamically probed for capabilities (on supported clouds/platforms). Supported modes:\n  AWS/Azure/GCP: \"\" (Default), \"Mint\", \"Passthrough\", \"Manual\"\n  Others: Do not set value as other platforms only support running in \"Passthrough\"",
 }
 
 func (CloudCredentialSpec) SwaggerDoc() map[string]string {
@@ -189,7 +223,7 @@ func (Config) SwaggerDoc() map[string]string {
 var map_ConfigList = map[string]string{
 	"":         "ConfigList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (ConfigList) SwaggerDoc() map[string]string {
@@ -207,7 +241,7 @@ func (AddPage) SwaggerDoc() map[string]string {
 
 var map_Capability = map[string]string{
 	"":           "Capabilities contains set of UI capabilities and their state in the console UI.",
-	"name":       "name is the unique name of a capability. Available capabilities are LightspeedButton.",
+	"name":       "name is the unique name of a capability. Available capabilities are LightspeedButton, GettingStartedBanner, and GuidedTour.",
 	"visibility": "visibility defines the visibility state of the capability.",
 }
 
@@ -222,6 +256,16 @@ var map_CapabilityVisibility = map[string]string{
 
 func (CapabilityVisibility) SwaggerDoc() map[string]string {
 	return map_CapabilityVisibility
+}
+
+var map_ConfigMapFileReference = map[string]string{
+	"":     "ConfigMapFileReference references a specific file within a ConfigMap.",
+	"name": "name is the name of the ConfigMap. name is a required field. Must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character. Must be at most 253 characters in length.",
+	"key":  "key is the logo key inside the referenced ConfigMap. Must consist only of alphanumeric characters, dashes (-), underscores (_), and periods (.). Must be at most 253 characters in length. Must end in a valid file extension. A valid file extension must consist of a period followed by 2 to 5 alpha characters.",
+}
+
+func (ConfigMapFileReference) SwaggerDoc() map[string]string {
+	return map_ConfigMapFileReference
 }
 
 var map_Console = map[string]string{
@@ -244,12 +288,13 @@ func (ConsoleConfigRoute) SwaggerDoc() map[string]string {
 }
 
 var map_ConsoleCustomization = map[string]string{
-	"":                     "ConsoleCustomization defines a list of optional configuration for the console UI.",
-	"capabilities":         "capabilities defines an array of capabilities that can be interacted with in the console UI. Each capability defines a visual state that can be interacted with the console to render in the UI. Available capabilities are LightspeedButton. Each of the available capabilities may appear only once in the list.",
+	"":                     "ConsoleCustomization defines a list of optional configuration for the console UI. Ensure that Logos and CustomLogoFile cannot be set at the same time.",
+	"logos":                "logos is used to replace the OpenShift Masthead and Favicon logos in the console UI with custom logos. logos is an optional field that allows a list of logos. Only one of logos or customLogoFile can be set at a time. If logos is set, customLogoFile must be unset. When specified, there must be at least one entry and no more than 2 entries. Each type must appear only once in the list.",
+	"capabilities":         "capabilities defines an array of capabilities that can be interacted with in the console UI. Each capability defines a visual state that can be interacted with the console to render in the UI. Available capabilities are LightspeedButton, GettingStartedBanner, and GuidedTour. Each of the available capabilities may appear only once in the list.",
 	"brand":                "brand is the default branding of the web console which can be overridden by providing the brand field.  There is a limited set of specific brand options. This field controls elements of the console such as the logo. Invalid value will prevent a console rollout.",
 	"documentationBaseURL": "documentationBaseURL links to external documentation are shown in various sections of the web console.  Providing documentationBaseURL will override the default documentation URL. Invalid value will prevent a console rollout.",
 	"customProductName":    "customProductName is the name that will be displayed in page titles, logo alt text, and the about dialog instead of the normal OpenShift product name.",
-	"customLogoFile":       "customLogoFile replaces the default OpenShift logo in the masthead and about dialog. It is a reference to a ConfigMap in the openshift-config namespace. This can be created with a command like 'oc create configmap custom-logo --from-file=/path/to/file -n openshift-config'. Image size must be less than 1 MB due to constraints on the ConfigMap size. The ConfigMap key should include a file extension so that the console serves the file with the correct MIME type. Recommended logo specifications: Dimensions: Max height of 68px and max width of 200px SVG format preferred",
+	"customLogoFile":       "customLogoFile replaces the default OpenShift logo in the masthead and about dialog. It is a reference to a Only one of customLogoFile or logos can be set at a time. ConfigMap in the openshift-config namespace. This can be created with a command like 'oc create configmap custom-logo --from-file=/path/to/file -n openshift-config'. Image size must be less than 1 MB due to constraints on the ConfigMap size. The ConfigMap key should include a file extension so that the console serves the file with the correct MIME type. The recommended file format for the logo is SVG, but other file formats are allowed if supported by the browser. Deprecated: Use logos instead.",
 	"developerCatalog":     "developerCatalog allows to configure the shown developer catalog categories (filters) and types (sub-catalogs).",
 	"projectAccess":        "projectAccess allows customizing the available list of ClusterRoles in the Developer perspective Project access page which can be used by a project admin to specify roles to other users and restrict access within the project. If set, the list will replace the default ClusterRole options.",
 	"quickStarts":          "quickStarts allows customization of available ConsoleQuickStart resources in console.",
@@ -311,7 +356,7 @@ func (DeveloperConsoleCatalogCategory) SwaggerDoc() map[string]string {
 
 var map_DeveloperConsoleCatalogCategoryMeta = map[string]string{
 	"":      "DeveloperConsoleCatalogCategoryMeta are the key identifiers of a developer catalog category.",
-	"id":    "ID is an identifier used in the URL to enable deep linking in console. ID is required and must have 1-32 URL safe (A-Z, a-z, 0-9, - and _) characters.",
+	"id":    "id is an identifier used in the URL to enable deep linking in console. ID is required and must have 1-32 URL safe (A-Z, a-z, 0-9, - and _) characters.",
 	"label": "label defines a category display label. It is required and must have 1-64 characters.",
 	"tags":  "tags is a list of strings that will match the category. A selected category show all items which has at least one overlapping tag between category and item.",
 }
@@ -341,6 +386,16 @@ func (DeveloperConsoleCatalogTypes) SwaggerDoc() map[string]string {
 	return map_DeveloperConsoleCatalogTypes
 }
 
+var map_FileReferenceSource = map[string]string{
+	"":          "FileReferenceSource is used by the console to locate the specified file containing a custom logo.",
+	"from":      "from is a required field to specify the source type of the file reference. Allowed values are ConfigMap. When set to ConfigMap, the file will be sourced from a ConfigMap in the openshift-config namespace. The configMap field must be set when from is set to ConfigMap.",
+	"configMap": "configMap specifies the ConfigMap sourcing details such as the name of the ConfigMap and the key for the file. The ConfigMap must exist in the openshift-config namespace. Required when from is \"ConfigMap\", and forbidden otherwise.",
+}
+
+func (FileReferenceSource) SwaggerDoc() map[string]string {
+	return map_FileReferenceSource
+}
+
 var map_Ingress = map[string]string{
 	"":                   "Ingress allows cluster admin to configure alternative ingress for the console.",
 	"consoleURL":         "consoleURL is a URL to be used as the base console address. If not specified, the console route hostname will be used. This field is required for clusters without ingress capability, where access to routes is not possible. Make sure that appropriate ingress is set up at this URL. The console operator will monitor the URL and may go degraded if it's unreachable for an extended period. Must use the HTTPS scheme.",
@@ -349,6 +404,16 @@ var map_Ingress = map[string]string{
 
 func (Ingress) SwaggerDoc() map[string]string {
 	return map_Ingress
+}
+
+var map_Logo = map[string]string{
+	"":       "Logo defines a configuration based on theme modes for the console UI logo.",
+	"type":   "type specifies the type of the logo for the console UI. It determines whether the logo is for the masthead or favicon. type is a required field that allows values of Masthead and Favicon. When set to \"Masthead\", the logo will be used in the masthead and about modal of the console UI. When set to \"Favicon\", the logo will be used as the favicon of the console UI.",
+	"themes": "themes specifies the themes for the console UI logo. themes is a required field that allows a list of themes. Each item in the themes list must have a unique mode and a source field. Each mode determines whether the logo is for the dark or light mode of the console UI. If a theme is not specified, the default OpenShift logo will be displayed for that theme. There must be at least one entry and no more than 2 entries.",
+}
+
+func (Logo) SwaggerDoc() map[string]string {
+	return map_Logo
 }
 
 var map_Perspective = map[string]string{
@@ -420,9 +485,19 @@ func (StatuspageProvider) SwaggerDoc() map[string]string {
 	return map_StatuspageProvider
 }
 
+var map_Theme = map[string]string{
+	"":       "Theme defines a theme mode for the console UI.",
+	"mode":   "mode is used to specify what theme mode a logo will apply to in the console UI. mode is a required field that allows values of Dark and Light. When set to Dark, the logo file referenced in the 'file' field will be used when an end-user of the console UI enables the Dark mode. When set to Light, the logo file referenced in the 'file' field will be used when an end-user of the console UI enables the Light mode.",
+	"source": "source is used by the console to locate the specified file containing a custom logo. source is a required field that references a ConfigMap name and key that contains the custom logo file in the openshift-config namespace. You can create it with a command like: - 'oc create configmap custom-logos-config --namespace=openshift-config --from-file=/path/to/file' The ConfigMap key must include the file extension so that the console serves the file with the correct MIME type. The recommended file format for the Masthead and Favicon logos is SVG, but other file formats are allowed if supported by the browser. The logo image size must be less than 1 MB due to constraints on the ConfigMap size. For more information, see the documentation: https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/web_console/customizing-web-console#customizing-web-console",
+}
+
+func (Theme) SwaggerDoc() map[string]string {
+	return map_Theme
+}
+
 var map_AWSCSIDriverConfigSpec = map[string]string{
 	"":                 "AWSCSIDriverConfigSpec defines properties that can be configured for the AWS CSI driver.",
-	"kmsKeyARN":        "kmsKeyARN sets the cluster default storage class to encrypt volumes with a user-defined KMS key, rather than the default KMS key used by AWS. The value may be either the ARN or Alias ARN of a KMS key.",
+	"kmsKeyARN":        "kmsKeyARN sets the cluster default storage class to encrypt volumes with a user-defined KMS key, rather than the default KMS key used by AWS. The value may be either the ARN or Alias ARN of a KMS key.\n\nThe ARN must follow the format: arn:<partition>:kms:<region>:<account-id>:(key|alias)/<key-id-or-alias>, where: <partition> is the AWS partition (aws, aws-cn, aws-us-gov, aws-iso, aws-iso-b, aws-iso-e, aws-iso-f, or aws-eusc), <region> is the AWS region, <account-id> is a 12-digit numeric identifier for the AWS account, <key-id-or-alias> is the KMS key ID or alias name.",
 	"efsVolumeMetrics": "efsVolumeMetrics sets the configuration for collecting metrics from EFS volumes used by the EFS CSI Driver.",
 }
 
@@ -471,13 +546,14 @@ func (AzureDiskEncryptionSet) SwaggerDoc() map[string]string {
 }
 
 var map_CSIDriverConfigSpec = map[string]string{
-	"":           "CSIDriverConfigSpec defines configuration spec that can be used to optionally configure a specific CSI Driver.",
-	"driverType": "driverType indicates type of CSI driver for which the driverConfig is being applied to. Valid values are: AWS, Azure, GCP, IBMCloud, vSphere and omitted. Consumers should treat unknown values as a NO-OP.",
-	"aws":        "aws is used to configure the AWS CSI driver.",
-	"azure":      "azure is used to configure the Azure CSI driver.",
-	"gcp":        "gcp is used to configure the GCP CSI driver.",
-	"ibmcloud":   "ibmcloud is used to configure the IBM Cloud CSI driver.",
-	"vSphere":    "vsphere is used to configure the vsphere CSI driver.",
+	"":             "CSIDriverConfigSpec defines configuration spec that can be used to optionally configure a specific CSI Driver.",
+	"driverType":   "driverType indicates type of CSI driver for which the driverConfig is being applied to. Valid values are: AWS, Azure, GCP, IBMCloud, vSphere, SecretsStore and omitted. Consumers should treat unknown values as a NO-OP.",
+	"aws":          "aws is used to configure the AWS CSI driver.",
+	"azure":        "azure is used to configure the Azure CSI driver.",
+	"gcp":          "gcp is used to configure the GCP CSI driver.",
+	"ibmcloud":     "ibmcloud is used to configure the IBM Cloud CSI driver.",
+	"vSphere":      "vSphere is used to configure the vsphere CSI driver.",
+	"secretsStore": "secretsStore is used to configure the Secrets Store CSI driver.",
 }
 
 func (CSIDriverConfigSpec) SwaggerDoc() map[string]string {
@@ -506,7 +582,7 @@ func (ClusterCSIDriverList) SwaggerDoc() map[string]string {
 
 var map_ClusterCSIDriverSpec = map[string]string{
 	"":                  "ClusterCSIDriverSpec is the desired behavior of CSI driver operator",
-	"storageClassState": "StorageClassState determines if CSI operator should create and manage storage classes. If this field value is empty or Managed - CSI operator will continuously reconcile storage class and create if necessary. If this field value is Unmanaged - CSI operator will not reconcile any previously created storage class. If this field value is Removed - CSI operator will delete the storage class it created previously. When omitted, this means the user has no opinion and the platform chooses a reasonable default, which is subject to change over time. The current default behaviour is Managed.",
+	"storageClassState": "storageClassState determines if CSI operator should create and manage storage classes. If this field value is empty or Managed - CSI operator will continuously reconcile storage class and create if necessary. If this field value is Unmanaged - CSI operator will not reconcile any previously created storage class. If this field value is Removed - CSI operator will delete the storage class it created previously. When omitted, this means the user has no opinion and the platform chooses a reasonable default, which is subject to change over time. The current default behaviour is Managed.",
 	"driverConfig":      "driverConfig can be used to specify platform specific driver configuration. When omitted, this means no opinion and the platform is left to choose reasonable defaults. These defaults are subject to change over time.",
 }
 
@@ -520,6 +596,15 @@ var map_ClusterCSIDriverStatus = map[string]string{
 
 func (ClusterCSIDriverStatus) SwaggerDoc() map[string]string {
 	return map_ClusterCSIDriverStatus
+}
+
+var map_CustomSecretRotation = map[string]string{
+	"":                  "CustomSecretRotation holds configuration for custom secret rotation behavior.",
+	"minimumRefreshAge": "minimumRefreshAge is the minimum time in seconds between secret rotation attempts. Each time kubelet calls NodePublishVolume, the driver checks whether this interval has elapsed since the last successful provider call. If it has, the driver contacts the secret provider to fetch the latest secret values and updates the mounted volume. Setting this value below the kubelet syncFrequency (default: 1 minute) has no additional effect on the actual rotation cadence. Must be at least 1 second and no more than 31560000 seconds (~1 year). When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time.",
+}
+
+func (CustomSecretRotation) SwaggerDoc() map[string]string {
+	return map_CustomSecretRotation
 }
 
 var map_GCPCSIDriverConfigSpec = map[string]string{
@@ -552,12 +637,62 @@ func (IBMCloudCSIDriverConfigSpec) SwaggerDoc() map[string]string {
 	return map_IBMCloudCSIDriverConfigSpec
 }
 
+var map_ManagedTokenRequests = map[string]string{
+	"":          "ManagedTokenRequests holds the configuration for operator-managed service account token requests.",
+	"audiences": "audiences specifies service account token audiences that kubelet will provide to the CSI driver during NodePublishVolume calls. These tokens enable workload identity federation (WIF) with cloud providers such as AWS, Azure, and GCP. When empty, the operator clears all tokenRequests from the CSIDriver object.",
+}
+
+func (ManagedTokenRequests) SwaggerDoc() map[string]string {
+	return map_ManagedTokenRequests
+}
+
+var map_SecretsStoreCSIDriverConfigSpec = map[string]string{
+	"":               "SecretsStoreCSIDriverConfigSpec defines properties that can be configured for the Secrets Store CSI driver.",
+	"secretRotation": "secretRotation controls automatic secret rotation behavior. When omitted, secret rotation is enabled with a default poll interval of 2 minutes.",
+	"tokenRequests":  "tokenRequests controls service account token configuration for workload identity federation (WIF) with cloud providers. When omitted, the operator preserves any existing tokenRequests already configured on the CSIDriver object without modification.",
+}
+
+func (SecretsStoreCSIDriverConfigSpec) SwaggerDoc() map[string]string {
+	return map_SecretsStoreCSIDriverConfigSpec
+}
+
+var map_SecretsStoreSecretRotation = map[string]string{
+	"":       "SecretsStoreSecretRotation configures the automatic secret rotation behavior for the Secrets Store CSI driver.",
+	"type":   "type determines the secret rotation behavior. When \"None\", secret rotation is disabled and secrets are only fetched at initial pod mount time. When \"Custom\", secret rotation is enabled with the configuration specified in the custom field.",
+	"custom": "custom holds the custom rotation configuration. Only valid when type is \"Custom\".",
+}
+
+func (SecretsStoreSecretRotation) SwaggerDoc() map[string]string {
+	return map_SecretsStoreSecretRotation
+}
+
+var map_SecretsStoreTokenRequest = map[string]string{
+	"":                  "SecretsStoreTokenRequest specifies a service account token audience configuration for workload identity federation (WIF) with the Secrets Store CSI driver.",
+	"audience":          "audience is the intended audience of the service account token. An empty string means the issued token will use the kube-apiserver's default APIAudiences.",
+	"expirationSeconds": "expirationSeconds is the requested duration of validity of the service account token. The token issuer may return a token with a different validity duration. When omitted, the token expiration is determined by the kube-apiserver. Must be at least 600 seconds (10 minutes) and no more than 315360000 seconds (~10 years).",
+}
+
+func (SecretsStoreTokenRequest) SwaggerDoc() map[string]string {
+	return map_SecretsStoreTokenRequest
+}
+
+var map_SecretsStoreTokenRequests = map[string]string{
+	"":        "SecretsStoreTokenRequests configures how service account tokens are provided to the Secrets Store CSI driver for workload identity federation.",
+	"type":    "type determines how the operator manages tokenRequests on the CSIDriver object. When \"Unmanaged\", existing tokenRequests on the CSIDriver are preserved and the managed field is not used. When \"Managed\", the operator sets tokenRequests from the audiences specified in the managed field, replacing any previously configured values. Once set to \"Managed\", type cannot be reverted back to \"Unmanaged\".",
+	"managed": "managed holds configuration for operator-managed tokenRequests. Only valid when type is \"Managed\".",
+}
+
+func (SecretsStoreTokenRequests) SwaggerDoc() map[string]string {
+	return map_SecretsStoreTokenRequests
+}
+
 var map_VSphereCSIDriverConfigSpec = map[string]string{
 	"":                                 "VSphereCSIDriverConfigSpec defines properties that can be configured for vsphere CSI driver.",
 	"topologyCategories":               "topologyCategories indicates tag categories with which vcenter resources such as hostcluster or datacenter were tagged with. If cluster Infrastructure object has a topology, values specified in Infrastructure object will be used and modifications to topologyCategories will be rejected.",
 	"globalMaxSnapshotsPerBlockVolume": "globalMaxSnapshotsPerBlockVolume is a global configuration parameter that applies to volumes on all kinds of datastores. If omitted, the platform chooses a default, which is subject to change over time, currently that default is 3. Snapshots can not be disabled using this parameter. Increasing number of snapshots above 3 can have negative impact on performance, for more details see: https://kb.vmware.com/s/article/1025279 Volume snapshot documentation: https://docs.vmware.com/en/VMware-vSphere-Container-Storage-Plug-in/3.0/vmware-vsphere-csp-getting-started/GUID-E0B41C69-7EEB-450F-A73D-5FD2FF39E891.html",
 	"granularMaxSnapshotsPerBlockVolumeInVSAN": "granularMaxSnapshotsPerBlockVolumeInVSAN is a granular configuration parameter on vSAN datastore only. It overrides GlobalMaxSnapshotsPerBlockVolume if set, while it falls back to the global constraint if unset. Snapshots for VSAN can not be disabled using this parameter.",
 	"granularMaxSnapshotsPerBlockVolumeInVVOL": "granularMaxSnapshotsPerBlockVolumeInVVOL is a granular configuration parameter on Virtual Volumes datastore only. It overrides GlobalMaxSnapshotsPerBlockVolume if set, while it falls back to the global constraint if unset. Snapshots for VVOL can not be disabled using this parameter.",
+	"maxAllowedBlockVolumesPerNode":            "maxAllowedBlockVolumesPerNode is an optional configuration parameter that allows setting a custom value for the limit of the number of PersistentVolumes attached to a node. In vSphere version 7 this limit was set to 59 by default, however in vSphere version 8 this limit was increased to 255. Before increasing this value above 59 the cluster administrator needs to ensure that every node forming the cluster is updated to ESXi version 8 or higher and that all nodes are running the same version. The limit must be between 1 and 255, which matches the vSphere version 8 maximum. When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time. The current default is 59, which matches the limit for vSphere version 7.",
 }
 
 func (VSphereCSIDriverConfigSpec) SwaggerDoc() map[string]string {
@@ -711,9 +846,9 @@ func (Server) SwaggerDoc() map[string]string {
 
 var map_Upstream = map[string]string{
 	"":        "Upstream can either be of type SystemResolvConf, or of type Network.\n\n  - For an Upstream of type SystemResolvConf, no further fields are necessary:\n    The upstream will be configured to use /etc/resolv.conf.\n  - For an Upstream of type Network, a NetworkResolver field needs to be defined\n    with an IP address or IP:port if the upstream listens on a port other than 53.",
-	"type":    "Type defines whether this upstream contains an IP/IP:port resolver or the local /etc/resolv.conf. Type accepts 2 possible values: SystemResolvConf or Network.\n\n* When SystemResolvConf is used, the Upstream structure does not require any further fields to be defined:\n  /etc/resolv.conf will be used\n* When Network is used, the Upstream structure must contain at least an Address",
-	"address": "Address must be defined when Type is set to Network. It will be ignored otherwise. It must be a valid ipv4 or ipv6 address.",
-	"port":    "Port may be defined when Type is set to Network. It will be ignored otherwise. Port must be between 65535",
+	"type":    "type defines whether this upstream contains an IP/IP:port resolver or the local /etc/resolv.conf. Type accepts 2 possible values: SystemResolvConf or Network.\n\n* When SystemResolvConf is used, the Upstream structure does not require any further fields to be defined:\n  /etc/resolv.conf will be used\n* When Network is used, the Upstream structure must contain at least an Address",
+	"address": "address must be defined when Type is set to Network. It will be ignored otherwise. It must be a valid ipv4 or ipv6 address.",
+	"port":    "port may be defined when Type is set to Network. It will be ignored otherwise. Port must be between 65535",
 }
 
 func (Upstream) SwaggerDoc() map[string]string {
@@ -722,8 +857,8 @@ func (Upstream) SwaggerDoc() map[string]string {
 
 var map_UpstreamResolvers = map[string]string{
 	"":                 "UpstreamResolvers defines a schema for configuring the CoreDNS forward plugin in the specific case of the default (\".\") server. It defers from ForwardPlugin in the default values it accepts: * At least one upstream should be specified. * the default policy is Sequential",
-	"upstreams":        "Upstreams is a list of resolvers to forward name queries for the \".\" domain. Each instance of CoreDNS performs health checking of Upstreams. When a healthy upstream returns an error during the exchange, another resolver is tried from Upstreams. The Upstreams are selected in the order specified in Policy.\n\nA maximum of 15 upstreams is allowed per ForwardPlugin. If no Upstreams are specified, /etc/resolv.conf is used by default",
-	"policy":           "Policy is used to determine the order in which upstream servers are selected for querying. Any one of the following values may be specified:\n\n* \"Random\" picks a random upstream server for each query. * \"RoundRobin\" picks upstream servers in a round-robin order, moving to the next server for each new query. * \"Sequential\" tries querying upstream servers in a sequential order until one responds, starting with the first server for each new query.\n\nThe default value is \"Sequential\"",
+	"upstreams":        "upstreams is a list of resolvers to forward name queries for the \".\" domain. Each instance of CoreDNS performs health checking of Upstreams. When a healthy upstream returns an error during the exchange, another resolver is tried from Upstreams. The Upstreams are selected in the order specified in Policy.\n\nA maximum of 15 upstreams is allowed per ForwardPlugin. If no Upstreams are specified, /etc/resolv.conf is used by default",
+	"policy":           "policy is used to determine the order in which upstream servers are selected for querying. Any one of the following values may be specified:\n\n* \"Random\" picks a random upstream server for each query. * \"RoundRobin\" picks upstream servers in a round-robin order, moving to the next server for each new query. * \"Sequential\" tries querying upstream servers in a sequential order until one responds, starting with the first server for each new query.\n\nThe default value is \"Sequential\"",
 	"transportConfig":  "transportConfig is used to configure the transport type, server name, and optional custom CA or CA bundle to use when forwarding DNS requests to an upstream resolver.\n\nThe default value is \"\" (empty) which results in a standard cleartext connection being used when forwarding DNS requests to an upstream resolver.",
 	"protocolStrategy": "protocolStrategy specifies the protocol to use for upstream DNS requests. Valid values for protocolStrategy are \"TCP\" and omitted. When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time. The current default is to use the protocol of the original client request. \"TCP\" specifies that the platform should use TCP for all upstream DNS requests, even if the client request uses UDP. \"TCP\" is useful for UDP-specific issues such as those created by non-compliant upstream resolvers, but may consume more bandwidth or increase DNS response time. Note that protocolStrategy only affects the protocol of DNS requests that CoreDNS makes to upstream resolvers. It does not affect the protocol of DNS requests between clients and CoreDNS.",
 }
@@ -744,7 +879,7 @@ func (Etcd) SwaggerDoc() map[string]string {
 var map_EtcdList = map[string]string{
 	"":         "KubeAPISOperatorConfigList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (EtcdList) SwaggerDoc() map[string]string {
@@ -753,7 +888,7 @@ func (EtcdList) SwaggerDoc() map[string]string {
 
 var map_EtcdSpec = map[string]string{
 	"controlPlaneHardwareSpeed": "HardwareSpeed allows user to change the etcd tuning profile which configures the latency parameters for heartbeat interval and leader election timeouts allowing the cluster to tolerate longer round-trip-times between etcd members. Valid values are \"\", \"Standard\" and \"Slower\".\n\t\"\" means no opinion and the platform is left to choose a reasonable default\n\twhich is subject to change without notice.",
-	"backendQuotaGiB":           "backendQuotaGiB sets the etcd backend storage size limit in gibibytes. The value should be an integer not less than 8 and not more than 32. When not specified, the default value is 8.",
+	"backendQuotaGiB":           "backendQuotaGiB sets the etcd backend storage size limit in gibibytes. The value should be an integer not less than 8 and not more than 16. When not specified, the default value is 8.",
 }
 
 func (EtcdSpec) SwaggerDoc() map[string]string {
@@ -785,6 +920,8 @@ var map_AWSNetworkLoadBalancerParameters = map[string]string{
 	"":               "AWSNetworkLoadBalancerParameters holds configuration parameters for an AWS Network load balancer. For Example: Setting AWS EIPs https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html",
 	"subnets":        "subnets specifies the subnets to which the load balancer will attach. The subnets may be specified by either their ID or name. The total number of subnets is limited to 10.\n\nIn order for the load balancer to be provisioned with subnets, each subnet must exist, each subnet must be from a different availability zone, and the load balancer service must be recreated to pick up new values.\n\nWhen omitted from the spec, the subnets will be auto-discovered for each availability zone. Auto-discovered subnets are not reported in the status of the IngressController object.",
 	"eipAllocations": "eipAllocations is a list of IDs for Elastic IP (EIP) addresses that are assigned to the Network Load Balancer. The following restrictions apply:\n\neipAllocations can only be used with external scope, not internal. An EIP can be allocated to only a single IngressController. The number of EIP allocations must match the number of subnets that are used for the load balancer. Each EIP allocation must be unique. A maximum of 10 EIP allocations are permitted.\n\nSee https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html for general information about configuration, characteristics, and limitations of Elastic IP addresses.",
+	"securityGroups": "securityGroups is a list of security group IDs to attach to the Network Load Balancer. When specified, these security groups replace the managed security group that the Cloud Controller Manager would otherwise create automatically. The user is responsible for configuring the ingress and egress rules on the specified security groups.\n\nThe specified security groups must exist in the same VPC as the cluster and must allow the necessary traffic for the IngressController to function.\n\nWhen this field is omitted, the Cloud Controller Manager automatically creates and manages a security group for the NLB.\n\nEach security group ID must be unique and must begin with \"sg-\" followed by 8 or 17 lowercase hexadecimal characters (e.g. \"sg-abcd1234\" or \"sg-abcd1234abcd12345\"). At least 1 and at most 5 security groups can be specified.",
+	"protocol":       "protocol specifies whether the Network Load Balancer uses PROXY protocol to forward connections to the IngressController.\n\nWhen set to \"TCP\", the NLB uses AWS's native client IP preservation. This may cause hairpin connection failures for internal load balancers when connections are made from pods to router pods on the same node.\n\nWhen set to \"PROXY\", the NLB disables native client IP preservation and uses PROXY protocol v2. The IngressController enables PROXY protocol on HAProxy so that it can parse PROXY protocol headers to obtain the original client IP. This avoids hairpin connection failures.\n\nThe following values are valid for this field:\n\n* \"TCP\". * \"PROXY\".\n\nWhen omitted, this means the user has no opinion and the value is left to the platform to choose a reasonable default, which is subject to change over time. The current default is \"PROXY\".\n\nNote that changing this field may cause brief connection failures during the transition as the NLB attribute change and router rollout occur independently.",
 }
 
 func (AWSNetworkLoadBalancerParameters) SwaggerDoc() map[string]string {
@@ -1017,24 +1154,27 @@ func (IngressControllerSetHTTPHeader) SwaggerDoc() map[string]string {
 }
 
 var map_IngressControllerSpec = map[string]string{
-	"":                           "IngressControllerSpec is the specification of the desired behavior of the IngressController.",
-	"domain":                     "domain is a DNS name serviced by the ingress controller and is used to configure multiple features:\n\n* For the LoadBalancerService endpoint publishing strategy, domain is\n  used to configure DNS records. See endpointPublishingStrategy.\n\n* When using a generated default certificate, the certificate will be valid\n  for domain and its subdomains. See defaultCertificate.\n\n* The value is published to individual Route statuses so that end-users\n  know where to target external DNS records.\n\ndomain must be unique among all IngressControllers, and cannot be updated.\n\nIf empty, defaults to ingress.config.openshift.io/cluster .spec.domain.",
-	"httpErrorCodePages":         "httpErrorCodePages specifies a configmap with custom error pages. The administrator must create this configmap in the openshift-config namespace. This configmap should have keys in the format \"error-page-<error code>.http\", where <error code> is an HTTP error code. For example, \"error-page-503.http\" defines an error page for HTTP 503 responses. Currently only error pages for 503 and 404 responses can be customized. Each value in the configmap should be the full response, including HTTP headers. Eg- https://raw.githubusercontent.com/openshift/router/fadab45747a9b30cc3f0a4b41ad2871f95827a93/images/router/haproxy/conf/error-page-503.http If this field is empty, the ingress controller uses the default error pages.",
-	"replicas":                   "replicas is the desired number of ingress controller replicas. If unset, the default depends on the value of the defaultPlacement field in the cluster config.openshift.io/v1/ingresses status.\n\nThe value of replicas is set based on the value of a chosen field in the Infrastructure CR. If defaultPlacement is set to ControlPlane, the chosen field will be controlPlaneTopology. If it is set to Workers the chosen field will be infrastructureTopology. Replicas will then be set to 1 or 2 based whether the chosen field's value is SingleReplica or HighlyAvailable, respectively.\n\nThese defaults are subject to change.",
-	"endpointPublishingStrategy": "endpointPublishingStrategy is used to publish the ingress controller endpoints to other networks, enable load balancer integrations, etc.\n\nIf unset, the default is based on infrastructure.config.openshift.io/cluster .status.platform:\n\n  AWS:          LoadBalancerService (with External scope)\n  Azure:        LoadBalancerService (with External scope)\n  GCP:          LoadBalancerService (with External scope)\n  IBMCloud:     LoadBalancerService (with External scope)\n  AlibabaCloud: LoadBalancerService (with External scope)\n  Libvirt:      HostNetwork\n\nAny other platform types (including None) default to HostNetwork.\n\nendpointPublishingStrategy cannot be updated.",
-	"defaultCertificate":         "defaultCertificate is a reference to a secret containing the default certificate served by the ingress controller. When Routes don't specify their own certificate, defaultCertificate is used.\n\nThe secret must contain the following keys and data:\n\n  tls.crt: certificate file contents\n  tls.key: key file contents\n\nIf unset, a wildcard certificate is automatically generated and used. The certificate is valid for the ingress controller domain (and subdomains) and the generated certificate's CA will be automatically integrated with the cluster's trust store.\n\nIf a wildcard certificate is used and shared by multiple HTTP/2 enabled routes (which implies ALPN) then clients (i.e., notably browsers) are at liberty to reuse open connections. This means a client can reuse a connection to another route and that is likely to fail. This behaviour is generally known as connection coalescing.\n\nThe in-use certificate (whether generated or user-specified) will be automatically integrated with OpenShift's built-in OAuth server.",
-	"namespaceSelector":          "namespaceSelector is used to filter the set of namespaces serviced by the ingress controller. This is useful for implementing shards.\n\nIf unset, the default is no filtering.",
-	"routeSelector":              "routeSelector is used to filter the set of Routes serviced by the ingress controller. This is useful for implementing shards.\n\nIf unset, the default is no filtering.",
-	"nodePlacement":              "nodePlacement enables explicit control over the scheduling of the ingress controller.\n\nIf unset, defaults are used. See NodePlacement for more details.",
-	"tlsSecurityProfile":         "tlsSecurityProfile specifies settings for TLS connections for ingresscontrollers.\n\nIf unset, the default is based on the apiservers.config.openshift.io/cluster resource.\n\nNote that when using the Old, Intermediate, and Modern profile types, the effective profile configuration is subject to change between releases. For example, given a specification to use the Intermediate profile deployed on release X.Y.Z, an upgrade to release X.Y.Z+1 may cause a new profile configuration to be applied to the ingress controller, resulting in a rollout.",
-	"clientTLS":                  "clientTLS specifies settings for requesting and verifying client certificates, which can be used to enable mutual TLS for edge-terminated and reencrypt routes.",
-	"routeAdmission":             "routeAdmission defines a policy for handling new route claims (for example, to allow or deny claims across namespaces).\n\nIf empty, defaults will be applied. See specific routeAdmission fields for details about their defaults.",
-	"logging":                    "logging defines parameters for what should be logged where.  If this field is empty, operational logs are enabled but access logs are disabled.",
-	"httpHeaders":                "httpHeaders defines policy for HTTP headers.\n\nIf this field is empty, the default values are used.",
-	"httpEmptyRequestsPolicy":    "httpEmptyRequestsPolicy describes how HTTP connections should be handled if the connection times out before a request is received. Allowed values for this field are \"Respond\" and \"Ignore\".  If the field is set to \"Respond\", the ingress controller sends an HTTP 400 or 408 response, logs the connection (if access logging is enabled), and counts the connection in the appropriate metrics.  If the field is set to \"Ignore\", the ingress controller closes the connection without sending a response, logging the connection, or incrementing metrics.  The default value is \"Respond\".\n\nTypically, these connections come from load balancers' health probes or Web browsers' speculative connections (\"preconnect\") and can be safely ignored.  However, these requests may also be caused by network errors, and so setting this field to \"Ignore\" may impede detection and diagnosis of problems.  In addition, these requests may be caused by port scans, in which case logging empty requests may aid in detecting intrusion attempts.",
-	"tuningOptions":              "tuningOptions defines parameters for adjusting the performance of ingress controller pods. All fields are optional and will use their respective defaults if not set. See specific tuningOptions fields for more details.\n\nSetting fields within tuningOptions is generally not recommended. The default values are suitable for most configurations.",
-	"unsupportedConfigOverrides": "unsupportedConfigOverrides allows specifying unsupported configuration options.  Its use is unsupported.",
-	"httpCompression":            "httpCompression defines a policy for HTTP traffic compression. By default, there is no HTTP compression.",
+	"":                                "IngressControllerSpec is the specification of the desired behavior of the IngressController.",
+	"domain":                          "domain is a DNS name serviced by the ingress controller and is used to configure multiple features:\n\n* For the LoadBalancerService endpoint publishing strategy, domain is\n  used to configure DNS records. See endpointPublishingStrategy.\n\n* When using a generated default certificate, the certificate will be valid\n  for domain and its subdomains. See defaultCertificate.\n\n* The value is published to individual Route statuses so that end-users\n  know where to target external DNS records.\n\ndomain must be unique among all IngressControllers, and cannot be updated.\n\nIf empty, defaults to ingress.config.openshift.io/cluster .spec.domain.\n\nThe domain value must be a valid DNS name. It must consist of lowercase alphanumeric characters, '-' or '.', and each label must start and end with an alphanumeric character and not exceed 63 characters. Maximum length of a valid DNS domain is 253 characters.\n\nThe implementation may add a prefix such as \"router-default.\" to the domain when constructing the router canonical hostname. To ensure the resulting hostname does not exceed the DNS maximum length of 253 characters, the domain length is additionally validated at the IngressController object level. For the maximum length of the domain value itself, the shortest possible variant of the prefix and the ingress controller name was considered for example \"router-a.\"",
+	"httpErrorCodePages":              "httpErrorCodePages specifies a configmap with custom error pages. The administrator must create this configmap in the openshift-config namespace. This configmap should have keys in the format \"error-page-<error code>.http\", where <error code> is an HTTP error code. For example, \"error-page-503.http\" defines an error page for HTTP 503 responses. Currently only error pages for 503 and 404 responses can be customized. Each value in the configmap should be the full response, including HTTP headers. Eg- https://raw.githubusercontent.com/openshift/router/fadab45747a9b30cc3f0a4b41ad2871f95827a93/images/router/haproxy/conf/error-page-503.http If this field is empty, the ingress controller uses the default error pages.",
+	"replicas":                        "replicas is the desired number of ingress controller replicas. If unset, the default depends on the value of the defaultPlacement field in the cluster config.openshift.io/v1/ingresses status.\n\nThe value of replicas is set based on the value of a chosen field in the Infrastructure CR. If defaultPlacement is set to ControlPlane, the chosen field will be controlPlaneTopology. If it is set to Workers the chosen field will be infrastructureTopology. Replicas will then be set to 1 or 2 based whether the chosen field's value is SingleReplica or HighlyAvailable, respectively.\n\nThese defaults are subject to change.",
+	"endpointPublishingStrategy":      "endpointPublishingStrategy is used to publish the ingress controller endpoints to other networks, enable load balancer integrations, etc.\n\nIf unset, the default is based on infrastructure.config.openshift.io/cluster .status.platform:\n\n  AWS:          LoadBalancerService (with External scope)\n  Azure:        LoadBalancerService (with External scope)\n  GCP:          LoadBalancerService (with External scope)\n  IBMCloud:     LoadBalancerService (with External scope)\n  AlibabaCloud: LoadBalancerService (with External scope)\n  Libvirt:      HostNetwork\n\nAny other platform types (including None) default to HostNetwork.\n\nendpointPublishingStrategy cannot be updated.",
+	"defaultCertificate":              "defaultCertificate is a reference to a secret containing the default certificate served by the ingress controller. When Routes don't specify their own certificate, defaultCertificate is used.\n\nThe secret must contain the following keys and data:\n\n  tls.crt: certificate file contents\n  tls.key: key file contents\n\nIf unset, a wildcard certificate is automatically generated and used. The certificate is valid for the ingress controller domain (and subdomains) and the generated certificate's CA will be automatically integrated with the cluster's trust store.\n\nIf a wildcard certificate is used and shared by multiple HTTP/2 enabled routes (which implies ALPN) then clients (i.e., notably browsers) are at liberty to reuse open connections. This means a client can reuse a connection to another route and that is likely to fail. This behaviour is generally known as connection coalescing.\n\nThe in-use certificate (whether generated or user-specified) will be automatically integrated with OpenShift's built-in OAuth server.",
+	"namespaceSelector":               "namespaceSelector is used to filter the set of namespaces serviced by the ingress controller. This is useful for implementing shards.\n\nIf unset, the default is no filtering.",
+	"routeSelector":                   "routeSelector is used to filter the set of Routes serviced by the ingress controller. This is useful for implementing shards.\n\nIf unset, the default is no filtering.",
+	"nodePlacement":                   "nodePlacement enables explicit control over the scheduling of the ingress controller.\n\nIf unset, defaults are used. See NodePlacement for more details.",
+	"tlsSecurityProfile":              "tlsSecurityProfile specifies settings for TLS connections for ingresscontrollers.\n\nIf unset, the default is based on the apiservers.config.openshift.io/cluster resource.\n\nNote that when using the Old, Intermediate, and Modern profile types, the effective profile configuration is subject to change between releases. For example, given a specification to use the Intermediate profile deployed on release X.Y.Z, an upgrade to release X.Y.Z+1 may cause a new profile configuration to be applied to the ingress controller, resulting in a rollout.",
+	"clientTLS":                       "clientTLS specifies settings for requesting and verifying client certificates, which can be used to enable mutual TLS for edge-terminated and reencrypt routes.",
+	"routeAdmission":                  "routeAdmission defines a policy for handling new route claims (for example, to allow or deny claims across namespaces).\n\nIf empty, defaults will be applied. See specific routeAdmission fields for details about their defaults.",
+	"logging":                         "logging defines parameters for what should be logged where.  If this field is empty, operational logs are enabled but access logs are disabled.",
+	"httpHeaders":                     "httpHeaders defines policy for HTTP headers.\n\nIf this field is empty, the default values are used.",
+	"httpEmptyRequestsPolicy":         "httpEmptyRequestsPolicy describes how HTTP connections should be handled if the connection times out before a request is received. Allowed values for this field are \"Respond\" and \"Ignore\".  If the field is set to \"Respond\", the ingress controller sends an HTTP 400 or 408 response, logs the connection (if access logging is enabled), and counts the connection in the appropriate metrics.  If the field is set to \"Ignore\", the ingress controller closes the connection without sending a response, logging the connection, or incrementing metrics.  The default value is \"Respond\".\n\nTypically, these connections come from load balancers' health probes or Web browsers' speculative connections (\"preconnect\") and can be safely ignored.  However, these requests may also be caused by network errors, and so setting this field to \"Ignore\" may impede detection and diagnosis of problems.  In addition, these requests may be caused by port scans, in which case logging empty requests may aid in detecting intrusion attempts.",
+	"tuningOptions":                   "tuningOptions defines parameters for adjusting the performance of ingress controller pods. All fields are optional and will use their respective defaults if not set. See specific tuningOptions fields for more details.\n\nSetting fields within tuningOptions is generally not recommended. The default values are suitable for most configurations.",
+	"unsupportedConfigOverrides":      "unsupportedConfigOverrides allows specifying unsupported configuration options.  Its use is unsupported.",
+	"httpCompression":                 "httpCompression defines a policy for HTTP traffic compression. By default, there is no HTTP compression.",
+	"idleConnectionTerminationPolicy": "idleConnectionTerminationPolicy maps directly to HAProxy's idle-close-on-response option and controls whether HAProxy keeps idle frontend connections open during a soft stop (router reload).\n\nAllowed values for this field are \"Immediate\" and \"Deferred\". The default value is \"Immediate\".\n\nWhen set to \"Immediate\", idle connections are closed immediately during router reloads. This ensures immediate propagation of route changes but may impact clients sensitive to connection resets.\n\nWhen set to \"Deferred\", HAProxy will maintain idle connections during a soft reload instead of closing them immediately. These connections remain open until any of the following occurs:\n\n  - A new request is received on the connection, in which\n    case HAProxy handles it in the old process and closes\n    the connection after sending the response.\n\n  - HAProxy's `timeout http-keep-alive` duration expires.\n    By default this is 300 seconds, but it can be changed\n    using httpKeepAliveTimeout tuning option.\n\n  - The client's keep-alive timeout expires, causing the\n    client to close the connection.\n\nSetting Deferred can help prevent errors in clients or load balancers that do not properly handle connection resets. Additionally, this option allows you to retain the pre-2.4 HAProxy behaviour: in HAProxy version 2.2 (OpenShift versions < 4.14), maintaining idle connections during a soft reload was the default behaviour, but starting with HAProxy 2.4, the default changed to closing idle connections immediately.\n\nImportant Consideration:\n\n  - Using Deferred will result in temporary inconsistencies\n    for the first request on each persistent connection\n    after a route update and router reload. This request\n    will be processed by the old HAProxy process using its\n    old configuration. Subsequent requests will use the\n    updated configuration.\n\nOperational Considerations:\n\n  - Keeping idle connections open during reloads may lead\n    to an accumulation of old HAProxy processes if\n    connections remain idle for extended periods,\n    especially in environments where frequent reloads\n    occur.\n\n  - Consider monitoring the number of HAProxy processes in\n    the router pods when Deferred is set.\n\n  - You may need to enable or adjust the\n    `ingress.operator.openshift.io/hard-stop-after`\n    duration (configured via an annotation on the\n    IngressController resource) in environments with\n    frequent reloads to prevent resource exhaustion.",
+	"closedClientConnectionPolicy":    "closedClientConnectionPolicy controls how the IngressController behaves when the client closes the TCP connection while the TLS handshake or HTTP request is in progress. This option maps directly to HAProxy’s \"abortonclose\" option.\n\nValid values are: \"Abort\" and \"Continue\". The default value is \"Continue\".\n\nWhen set to \"Abort\", the router will stop processing the TLS handshake if it is in progress, and it will not send an HTTP request to the backend server if the request has not yet been sent when the client closes the connection.\n\nWhen set to \"Continue\", the router will complete the TLS handshake if it is in progress, or send an HTTP request to the backend server and wait for the backend server's response, regardless of whether the client has closed the connection.\n\nSetting \"Abort\" can help free CPU resources otherwise spent on TLS computation for connections the client has already closed, and can reduce request queue size, thereby reducing the load on saturated backend servers.\n\nImportant Considerations:\n\n  - The default policy (\"Continue\") is HTTP-compliant, and requests\n    for aborted client connections will still be served.\n    Use the \"Continue\" policy to allow a client to send a request\n    and then immediately close its side of the connection while\n    still receiving a response on the half-closed connection.\n\n  - When clients use keep-alive connections, the most common case for premature\n    closure is when the user wants to cancel the transfer or when a timeout\n    occurs. In that case, the \"Abort\" policy may be used to reduce resource consumption.\n\n  - Using RSA keys larger than 2048 bits can significantly slow down\n    TLS computations. Consider using the \"Abort\" policy to reduce CPU usage.",
+	"haproxyVersion":                  "haproxyVersion specifies the HAProxy version to use for this IngressController.\n\nOpenShift 5.0 introduces HAProxy 3.2 as its default version and supports HAProxy 2.8 from OpenShift 4.22 for migration purposes. When an OpenShift release introduces a new default HAProxy version, that HAProxy version becomes available as a pinnable value in subsequent OpenShift releases, providing a smooth migration path for administrators who want to defer HAProxy upgrades.\n\nValid values for OpenShift 5.0: - Unset (default): Uses HAProxy 3.2 (the default for OpenShift 5.0) - \"3.2\": Explicitly pins HAProxy 3.2 for preservation during cluster\n  upgrades to future OpenShift releases\n- \"2.8\": Uses HAProxy 2.8 from OpenShift 4.22 (migration support, will\n  be dropped in the next OpenShift release)\n\nIf a specific HAProxy version is set and would become unsupported in a target cluster upgrade, a preflight check will block the cluster upgrade until this field is updated to unset or a supported version.",
 }
 
 func (IngressControllerSpec) SwaggerDoc() map[string]string {
@@ -1052,6 +1192,7 @@ var map_IngressControllerStatus = map[string]string{
 	"observedGeneration":         "observedGeneration is the most recent generation observed.",
 	"namespaceSelector":          "namespaceSelector is the actual namespaceSelector in use.",
 	"routeSelector":              "routeSelector is the actual routeSelector in use.",
+	"effectiveHAProxyVersion":    "effectiveHAProxyVersion reports the HAProxy version currently in use by this IngressController. This reflects the resolved value of the spec.haproxyVersion field. When omitted, the effective value has not yet been resolved by the operator or the feature is not enabled for this cluster.\n\nExamples for OpenShift 5.0: - \"3.2\": Using HAProxy 3.2 - \"2.8\": Using HAProxy 2.8",
 }
 
 func (IngressControllerStatus) SwaggerDoc() map[string]string {
@@ -1068,11 +1209,13 @@ var map_IngressControllerTuningOptions = map[string]string{
 	"serverTimeout":               "serverTimeout defines how long a connection will be held open while waiting for a server/backend response.\n\nIf unset, the default timeout is 30s",
 	"serverFinTimeout":            "serverFinTimeout defines how long a connection will be held open while waiting for the server/backend response to the client closing the connection.\n\nIf unset, the default timeout is 1s",
 	"tunnelTimeout":               "tunnelTimeout defines how long a tunnel connection (including websockets) will be held open while the tunnel is idle.\n\nIf unset, the default timeout is 1h",
-	"connectTimeout":              "ConnectTimeout defines the maximum time to wait for a connection attempt to a server/backend to succeed.\n\nThis field expects an unsigned duration string of decimal numbers, each with optional fraction and a unit suffix, e.g. \"300ms\", \"1.5h\" or \"2h45m\". Valid time units are \"ns\", \"us\" (or \"µs\" U+00B5 or \"μs\" U+03BC), \"ms\", \"s\", \"m\", \"h\".\n\nWhen omitted, this means the user has no opinion and the platform is left to choose a reasonable default. This default is subject to change over time. The current default is 5s.",
+	"connectTimeout":              "connectTimeout defines the maximum time to wait for a connection attempt to a server/backend to succeed.\n\nThis field expects an unsigned duration string of decimal numbers, each with optional fraction and a unit suffix, e.g. \"300ms\", \"1.5h\" or \"2h45m\". Valid time units are \"ns\", \"us\" (or \"µs\" U+00B5 or \"μs\" U+03BC), \"ms\", \"s\", \"m\", \"h\".\n\nWhen omitted, this means the user has no opinion and the platform is left to choose a reasonable default. This default is subject to change over time. The current default is 5s.",
+	"httpKeepAliveTimeout":        "httpKeepAliveTimeout defines the maximum allowed time to wait for a new HTTP request to appear on a connection from the client to the router.\n\nThis field expects an unsigned duration string of a decimal number, with optional fraction and a unit suffix, e.g. \"300ms\", \"1.5s\" or \"2m45s\". Valid time units are \"ms\", \"s\", \"m\". The allowed range is from 1 millisecond to 15 minutes.\n\nWhen omitted, this means the user has no opinion and the platform is left to choose a reasonable default. This default is subject to change over time. The current default is 300s.\n\nLow values (tens of milliseconds or less) can cause clients to close and reopen connections for each request, leading to reduced connection sharing. For HTTP/2, special care should be taken with low values. A few seconds is a reasonable starting point to avoid holding idle connections open while still allowing subsequent requests to reuse the connection.\n\nHigh values (minutes or more) favor connection reuse but may cause idle connections to linger longer.",
 	"tlsInspectDelay":             "tlsInspectDelay defines how long the router can hold data to find a matching route.\n\nSetting this too short can cause the router to fall back to the default certificate for edge-terminated or reencrypt routes even when a better matching certificate could be used.\n\nIf unset, the default inspect delay is 5s",
 	"healthCheckInterval":         "healthCheckInterval defines how long the router waits between two consecutive health checks on its configured backends.  This value is applied globally as a default for all routes, but may be overridden per-route by the route annotation \"router.openshift.io/haproxy.health.check.interval\".\n\nExpects an unsigned duration string of decimal numbers, each with optional fraction and a unit suffix, eg \"300ms\", \"1.5h\" or \"2h45m\". Valid time units are \"ns\", \"us\" (or \"µs\" U+00B5 or \"μs\" U+03BC), \"ms\", \"s\", \"m\", \"h\".\n\nSetting this to less than 5s can cause excess traffic due to too frequent TCP health checks and accompanying SYN packet storms.  Alternatively, setting this too high can result in increased latency, due to backend servers that are no longer available, but haven't yet been detected as such.\n\nAn empty or zero healthCheckInterval means no opinion and IngressController chooses a default, which is subject to change over time. Currently the default healthCheckInterval value is 5s.\n\nCurrently the minimum allowed value is 1s and the maximum allowed value is 2147483647ms (24.85 days).  Both are subject to change over time.",
 	"maxConnections":              "maxConnections defines the maximum number of simultaneous connections that can be established per HAProxy process. Increasing this value allows each ingress controller pod to handle more connections but at the cost of additional system resources being consumed.\n\nPermitted values are: empty, 0, -1, and the range 2000-2000000.\n\nIf this field is empty or 0, the IngressController will use the default value of 50000, but the default is subject to change in future releases.\n\nIf the value is -1 then HAProxy will dynamically compute a maximum value based on the available ulimits in the running container. Selecting -1 (i.e., auto) will result in a large value being computed (~520000 on OpenShift >=4.10 clusters) and therefore each HAProxy process will incur significant memory usage compared to the current default of 50000.\n\nSetting a value that is greater than the current operating system limit will prevent the HAProxy process from starting.\n\nIf you choose a discrete value (e.g., 750000) and the router pod is migrated to a new node, there's no guarantee that that new node has identical ulimits configured. In such a scenario the pod would fail to start. If you have nodes with different ulimits configured (e.g., different tuned profiles) and you choose a discrete value then the guidance is to use -1 and let the value be computed dynamically at runtime.\n\nYou can monitor memory usage for router containers with the following metric: 'container_memory_working_set_bytes{container=\"router\",namespace=\"openshift-ingress\"}'.\n\nYou can monitor memory usage of individual HAProxy processes in router containers with the following metric: 'container_memory_working_set_bytes{container=\"router\",namespace=\"openshift-ingress\"}/container_processes{container=\"router\",namespace=\"openshift-ingress\"}'.",
 	"reloadInterval":              "reloadInterval defines the minimum interval at which the router is allowed to reload to accept new changes. Increasing this value can prevent the accumulation of HAProxy processes, depending on the scenario. Increasing this interval can also lessen load imbalance on a backend's servers when using the roundrobin balancing algorithm. Alternatively, decreasing this value may decrease latency since updates to HAProxy's configuration can take effect more quickly.\n\nThe value must be a time duration value; see <https://pkg.go.dev/time#ParseDuration>. Currently, the minimum value allowed is 1s, and the maximum allowed value is 120s. Minimum and maximum allowed values may change in future versions of OpenShift. Note that if a duration outside of these bounds is provided, the value of reloadInterval will be capped/floored and not rejected (e.g. a duration of over 120s will be capped to 120s; the IngressController will not reject and replace this disallowed value with the default).\n\nA zero value for reloadInterval tells the IngressController to choose the default, which is currently 5s and subject to change without notice.\n\nThis field expects an unsigned duration string of decimal numbers, each with optional fraction and a unit suffix, e.g. \"300ms\", \"1.5h\" or \"2h45m\". Valid time units are \"ns\", \"us\" (or \"µs\" U+00B5 or \"μs\" U+03BC), \"ms\", \"s\", \"m\", \"h\".\n\nNote: Setting a value significantly larger than the default of 5s can cause latency in observing updates to routes and their endpoints. HAProxy's configuration will be reloaded less frequently, and newly created routes will not be served until the subsequent reload.",
+	"configurationManagement":     "configurationManagement specifies how OpenShift router should update the HAProxy configuration.  The following values are valid for this field:\n\n* \"ForkAndReload\". * \"Dynamic\".\n\nOmitting this field means that the user has no opinion and the platform may choose a reasonable default. This default is subject to change over time.  The current default is \"ForkAndReload\".\n\n\"ForkAndReload\" means that OpenShift router should rewrite the HAProxy configuration file and instruct HAProxy to fork and reload. This is OpenShift router's traditional approach.\n\n\"Dynamic\" means that OpenShift router may use HAProxy's control socket for some configuration updates and fall back to fork and reload for other configuration updates.  This is a newer approach, which may be less mature than ForkAndReload.  This setting can improve load-balancing fairness and metrics accuracy and reduce CPU and memory usage if HAProxy has frequent configuration updates for route and endpoints updates.\n\nNote: The \"Dynamic\" option is currently experimental and should not be enabled on production clusters.",
 }
 
 func (IngressControllerTuningOptions) SwaggerDoc() map[string]string {
@@ -1121,6 +1264,15 @@ func (NodePortStrategy) SwaggerDoc() map[string]string {
 	return map_NodePortStrategy
 }
 
+var map_OpenStackLoadBalancerParameters = map[string]string{
+	"":           "OpenStackLoadBalancerParameters provides configuration settings that are specific to OpenStack load balancers.",
+	"floatingIP": "floatingIP specifies the IP address that the load balancer will use. When not specified, an IP address will be assigned randomly by the OpenStack cloud provider. When specified, the floating IP has to be pre-created.  If the specified value is not a floating IP or is already claimed, the OpenStack cloud provider won't be able to provision the load balancer. This field may only be used if the IngressController has External scope. This value must be a valid IPv4 or IPv6 address. ",
+}
+
+func (OpenStackLoadBalancerParameters) SwaggerDoc() map[string]string {
+	return map_OpenStackLoadBalancerParameters
+}
+
 var map_PrivateStrategy = map[string]string{
 	"":         "PrivateStrategy holds parameters for the Private endpoint publishing strategy.",
 	"protocol": "protocol specifies whether the IngressController expects incoming connections to use plain TCP or whether the IngressController expects PROXY protocol.\n\nPROXY protocol can be used with load balancers that support it to communicate the source addresses of client connections when forwarding those connections to the IngressController.  Using PROXY protocol enables the IngressController to report those source addresses instead of reporting the load balancer's address in HTTP headers and logs.  Note that enabling PROXY protocol on the IngressController will cause connections to fail if you are not using a load balancer that uses PROXY protocol to forward connections to the IngressController.  See http://www.haproxy.org/download/2.2/doc/proxy-protocol.txt for information about PROXY protocol.\n\nThe following values are valid for this field:\n\n* The empty string. * \"TCP\". * \"PROXY\".\n\nThe empty string specifies the default, which is TCP without PROXY protocol.  Note that the default is subject to change.",
@@ -1131,11 +1283,12 @@ func (PrivateStrategy) SwaggerDoc() map[string]string {
 }
 
 var map_ProviderLoadBalancerParameters = map[string]string{
-	"":     "ProviderLoadBalancerParameters holds desired load balancer information specific to the underlying infrastructure provider.",
-	"type": "type is the underlying infrastructure provider for the load balancer. Allowed values are \"AWS\", \"Azure\", \"BareMetal\", \"GCP\", \"IBM\", \"Nutanix\", \"OpenStack\", and \"VSphere\".",
-	"aws":  "aws provides configuration settings that are specific to AWS load balancers.\n\nIf empty, defaults will be applied. See specific aws fields for details about their defaults.",
-	"gcp":  "gcp provides configuration settings that are specific to GCP load balancers.\n\nIf empty, defaults will be applied. See specific gcp fields for details about their defaults.",
-	"ibm":  "ibm provides configuration settings that are specific to IBM Cloud load balancers.\n\nIf empty, defaults will be applied. See specific ibm fields for details about their defaults.",
+	"":          "ProviderLoadBalancerParameters holds desired load balancer information specific to the underlying infrastructure provider.",
+	"type":      "type is the underlying infrastructure provider for the load balancer. Allowed values are \"AWS\", \"Azure\", \"BareMetal\", \"GCP\", \"IBM\", \"Nutanix\", \"OpenStack\", and \"VSphere\".",
+	"aws":       "aws provides configuration settings that are specific to AWS load balancers.\n\nIf empty, defaults will be applied. See specific aws fields for details about their defaults.",
+	"gcp":       "gcp provides configuration settings that are specific to GCP load balancers.\n\nIf empty, defaults will be applied. See specific gcp fields for details about their defaults.",
+	"ibm":       "ibm provides configuration settings that are specific to IBM Cloud load balancers.\n\nIf empty, defaults will be applied. See specific ibm fields for details about their defaults.",
+	"openstack": "openstack provides configuration settings that are specific to OpenStack load balancers.\n\nIf empty, defaults will be applied. See specific openstack fields for details about their defaults.",
 }
 
 func (ProviderLoadBalancerParameters) SwaggerDoc() map[string]string {
@@ -1237,6 +1390,49 @@ func (InsightsReport) SwaggerDoc() map[string]string {
 	return map_InsightsReport
 }
 
+var map_KMSEncryptionStatus = map[string]string{
+	"healthReports": "healthReports contains all KMS plugin health reports. When omitted, no health reports are available. Each entry must have a unique combination of nodeName and keyID.",
+	"preflight":     "preflight contains the state of KMS preflight validation for this operator. The preflight validates the KMS provider configuration before it is used to create a new encryption key, catching configuration issues early such as incorrect login credentials or an unreachable Vault service. When omitted, no preflight validation is in progress.",
+}
+
+func (KMSEncryptionStatus) SwaggerDoc() map[string]string {
+	return map_KMSEncryptionStatus
+}
+
+var map_KMSPluginHealthReport = map[string]string{
+	"nodeName":        "nodeName is the name of the node this instance of the plugin runs on. The combination of nodeName and keyID makes this health report unique. The value must be a valid Kubernetes node name: a lowercase RFC 1123 subdomain consisting of lowercase alphanumeric characters, '-' or '.', starting and ending with an alphanumeric character, and be at most 253 characters in length.",
+	"keyID":           "keyID is the encryption-key-secret id (kms-{keyID}.sock), a unique identifier of the plugin on that node. This is not a cryptographic key used to encrypt/decrypt any resources. The value must be between 1 and 512 characters.",
+	"status":          "status contains a health indicator for the respective KMS plugin The field can have three states: healthy, unhealthy, error. With error and unhealthy containing additional information in Detail.",
+	"lastCheckedTime": "lastCheckedTime is a timestamp of when the probe was last checked.",
+	"remoteKeyID":     "remoteKeyID refers to the remote key identifier from KMS v2 StatusResponse.key_id. This is not a cryptographic key, but a unique representation of the KEK. The value must be between 1 and 1024 characters.",
+	"detail":          "detail contains additional error/health information for the respective KMS plugin. When omitted, no additional error or health information is provided. When set, the value must be between 1 and 1024 characters.",
+}
+
+func (KMSPluginHealthReport) SwaggerDoc() map[string]string {
+	return map_KMSPluginHealthReport
+}
+
+var map_KMSPreflightCheck = map[string]string{
+	"":                   "KMSPreflightCheck describes a preflight validation request and its result.",
+	"observedConfigHash": "observedConfigHash is a hash of the KMS provider configuration and its referenced resources that has been observed and requires preflight validation before a new encryption key can be created. The value must be exactly 8 characters.",
+	"result":             "result contains the outcome of the most recent preflight check. Preflight is considered passed when result.status is Succeeded and result.configHash matches observedConfigHash. When omitted, no preflight check result has been reported yet.",
+}
+
+func (KMSPreflightCheck) SwaggerDoc() map[string]string {
+	return map_KMSPreflightCheck
+}
+
+var map_KMSPreflightResult = map[string]string{
+	"":            "KMSPreflightResult contains the outcome of a preflight validation.",
+	"status":      "status indicates the outcome of the preflight check. Succeeded means the KMS plugin responded to Status, Encrypt, and Decrypt calls successfully. Failed means the validation did not pass.",
+	"configHash":  "configHash is the hash of the configuration that was validated. This is compared against observedConfigHash to confirm the result corresponds to the current configuration. The value must be exactly 8 characters.",
+	"remoteKeyID": "remoteKeyID is the remote key encryption key identifier from KMS v2 StatusResponse.key_id. This is not a cryptographic key, but a unique representation of the remote key used to encrypt data. The value must be between 1 and 1024 characters.",
+}
+
+func (KMSPreflightResult) SwaggerDoc() map[string]string {
+	return map_KMSPreflightResult
+}
+
 var map_KubeAPIServer = map[string]string{
 	"":         "KubeAPIServer provides information to configure an operator to manage kube-apiserver.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
@@ -1251,15 +1447,24 @@ func (KubeAPIServer) SwaggerDoc() map[string]string {
 var map_KubeAPIServerList = map[string]string{
 	"":         "KubeAPIServerList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (KubeAPIServerList) SwaggerDoc() map[string]string {
 	return map_KubeAPIServerList
 }
 
+var map_KubeAPIServerSpec = map[string]string{
+	"eventTTLMinutes": "eventTTLMinutes specifies the amount of time that the events are stored before being deleted. The TTL is allowed between 5 minutes minimum up to a maximum of 180 minutes (3 hours).\n\nLowering this value will reduce the storage required in etcd. Note that this setting will only apply to new events being created and will not update existing events.\n\nWhen omitted this means no opinion, and the platform is left to choose a reasonable default, which is subject to change over time. The current default value is 3h (180 minutes).",
+}
+
+func (KubeAPIServerSpec) SwaggerDoc() map[string]string {
+	return map_KubeAPIServerSpec
+}
+
 var map_KubeAPIServerStatus = map[string]string{
 	"serviceAccountIssuers": "serviceAccountIssuers tracks history of used service account issuers. The item without expiration time represents the currently used service account issuer. The other items represents service account issuers that were used previously and are still being trusted. The default expiration for the items is set by the platform and it defaults to 24h. see: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#service-account-token-volume-projection",
+	"encryptionStatus":      "encryptionStatus contains status reports for the KMS plugin health and its key rotation.",
 }
 
 func (KubeAPIServerStatus) SwaggerDoc() map[string]string {
@@ -1289,7 +1494,7 @@ func (KubeControllerManager) SwaggerDoc() map[string]string {
 var map_KubeControllerManagerList = map[string]string{
 	"":         "KubeControllerManagerList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (KubeControllerManagerList) SwaggerDoc() map[string]string {
@@ -1316,11 +1521,62 @@ func (KubeStorageVersionMigrator) SwaggerDoc() map[string]string {
 var map_KubeStorageVersionMigratorList = map[string]string{
 	"":         "KubeStorageVersionMigratorList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (KubeStorageVersionMigratorList) SwaggerDoc() map[string]string {
 	return map_KubeStorageVersionMigratorList
+}
+
+var map_BootImageSkewEnforcementConfig = map[string]string{
+	"":       "BootImageSkewEnforcementConfig is used to configure how boot image version skew is enforced on the cluster.",
+	"mode":   "mode determines the underlying behavior of skew enforcement mechanism. Valid values are Manual and None. Manual means that the cluster admin is expected to perform manual boot image updates and store the OCP & RHCOS version associated with the last boot image update in the manual field. In Manual mode, the MCO will prevent upgrades when the boot image skew exceeds the skew limit described by the release image. None means that the MCO will no longer monitor the boot image skew. This may affect the cluster's ability to scale. This field is required.",
+	"manual": "manual describes the current boot image of the cluster. This should be set to the oldest boot image used amongst all machine resources in the cluster. This must include either the RHCOS version of the boot image or the OCP release version which shipped with that RHCOS boot image. Required when mode is set to \"Manual\" and forbidden otherwise.",
+}
+
+func (BootImageSkewEnforcementConfig) SwaggerDoc() map[string]string {
+	return map_BootImageSkewEnforcementConfig
+}
+
+var map_BootImageSkewEnforcementStatus = map[string]string{
+	"":          "BootImageSkewEnforcementStatus is the type for the status object. It represents the cluster defaults when the boot image skew enforcement configuration is undefined and reflects the actual configuration when it is defined.",
+	"mode":      "mode determines the underlying behavior of skew enforcement mechanism. Valid values are Automatic, Manual and None. Automatic means that the MCO will perform boot image updates and store the OCP & RHCOS version associated with the last boot image update in the automatic field. Manual means that the cluster admin is expected to perform manual boot image updates and store the OCP & RHCOS version associated with the last boot image update in the manual field. In Automatic and Manual mode, the MCO will prevent upgrades when the boot image skew exceeds the skew limit described by the release image. None means that the MCO will no longer monitor the boot image skew. This may affect the cluster's ability to scale. This field is required.",
+	"automatic": "automatic describes the current boot image of the cluster. This will be populated by the MCO when performing boot image updates. This value will be compared against the cluster's skew limit to determine skew compliance. Required when mode is set to \"Automatic\" and forbidden otherwise.",
+	"manual":    "manual describes the current boot image of the cluster. This will be populated by the MCO using the values provided in the spec.bootImageSkewEnforcement.manual field. This value will be compared against the cluster's skew limit to determine skew compliance. Required when mode is set to \"Manual\" and forbidden otherwise.",
+}
+
+func (BootImageSkewEnforcementStatus) SwaggerDoc() map[string]string {
+	return map_BootImageSkewEnforcementStatus
+}
+
+var map_ClusterBootImageAutomatic = map[string]string{
+	"":             "ClusterBootImageAutomatic is used to describe the cluster boot image in Automatic mode. It stores the RHCOS version of the boot image and the OCP release version which shipped with that RHCOS boot image. At least one of these values are required. If ocpVersion and rhcosVersion are defined, both values will be used for checking skew compliance. If only ocpVersion is defined, only that value will be used for checking skew compliance. If only rhcosVersion is defined, only that value will be used for checking skew compliance.",
+	"ocpVersion":   "ocpVersion provides a string which represents the OCP version of the boot image. This field must match the OCP semver compatible format of x.y.z. This field must be between 5 and 10 characters long.",
+	"rhcosVersion": "rhcosVersion provides a string which represents the RHCOS version of the boot image This field must match rhcosVersion formatting of [major].[minor].[datestamp(YYYYMMDD)]-[buildnumber] or the legacy format of [major].[minor].[timestamp(YYYYMMDDHHmm)]-[buildnumber]. This field must be between 14 and 21 characters long.",
+}
+
+func (ClusterBootImageAutomatic) SwaggerDoc() map[string]string {
+	return map_ClusterBootImageAutomatic
+}
+
+var map_ClusterBootImageManual = map[string]string{
+	"":             "ClusterBootImageManual is used to describe the cluster boot image in Manual mode.",
+	"mode":         "mode is used to configure which boot image field is defined in Manual mode. Valid values are OCPVersion and RHCOSVersion. OCPVersion means that the cluster admin is expected to set the OCP version associated with the last boot image update in the OCPVersion field. RHCOSVersion means that the cluster admin is expected to set the RHCOS version associated with the last boot image update in the RHCOSVersion field. This field is required.",
+	"ocpVersion":   "ocpVersion provides a string which represents the OCP version of the boot image. This field must match the OCP semver compatible format of x.y.z. This field must be between 5 and 10 characters long. Required when mode is set to \"OCPVersion\" and forbidden otherwise.",
+	"rhcosVersion": "rhcosVersion provides a string which represents the RHCOS version of the boot image This field must match rhcosVersion formatting of [major].[minor].[datestamp(YYYYMMDD)]-[buildnumber] or the legacy format of [major].[minor].[timestamp(YYYYMMDDHHmm)]-[buildnumber]. This field must be between 14 and 21 characters long. Required when mode is set to \"RHCOSVersion\" and forbidden otherwise.",
+}
+
+func (ClusterBootImageManual) SwaggerDoc() map[string]string {
+	return map_ClusterBootImageManual
+}
+
+var map_IrreconcilableValidationOverrides = map[string]string{
+	"":        "IrreconcilableValidationOverrides holds the irreconcilable validations overrides to be applied on each rendered MachineConfig generation.",
+	"storage": "storage can be used to allow making irreconcilable changes to the selected sections under the `spec.config.storage` field of MachineConfig CRs It must have at least one item, may not exceed 3 items and must not contain duplicates. Allowed element values are \"Disks\", \"FileSystems\", \"Raid\" and omitted. When contains \"Disks\" changes to the `spec.config.storage.disks` section of MachineConfig CRs are allowed. When contains \"FileSystems\" changes to the `spec.config.storage.filesystems` section of MachineConfig CRs are allowed. When contains \"Raid\" changes to the `spec.config.storage.raid` section of MachineConfig CRs are allowed. When omitted changes to the `spec.config.storage` section are forbidden.",
+}
+
+func (IrreconcilableValidationOverrides) SwaggerDoc() map[string]string {
+	return map_IrreconcilableValidationOverrides
 }
 
 var map_MachineConfiguration = map[string]string{
@@ -1337,7 +1593,7 @@ func (MachineConfiguration) SwaggerDoc() map[string]string {
 var map_MachineConfigurationList = map[string]string{
 	"":         "MachineConfigurationList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (MachineConfigurationList) SwaggerDoc() map[string]string {
@@ -1345,8 +1601,10 @@ func (MachineConfigurationList) SwaggerDoc() map[string]string {
 }
 
 var map_MachineConfigurationSpec = map[string]string{
-	"managedBootImages":    "managedBootImages allows configuration for the management of boot images for machine resources within the cluster. This configuration allows users to select resources that should be updated to the latest boot images during cluster upgrades, ensuring that new machines always boot with the current cluster version's boot image. When omitted, no boot images will be updated.",
-	"nodeDisruptionPolicy": "nodeDisruptionPolicy allows an admin to set granular node disruption actions for MachineConfig-based updates, such as drains, service reloads, etc. Specifying this will allow for less downtime when doing small configuration updates to the cluster. This configuration has no effect on cluster upgrades which will still incur node disruption where required.",
+	"managedBootImages":                 "managedBootImages allows configuration for the management of boot images for machine resources within the cluster. This configuration allows users to select resources that should be updated to the latest boot images during cluster upgrades, ensuring that new machines always boot with the current cluster version's boot image. When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time. The default for each machine manager mode is All for GCP and AWS platforms, and None for all other platforms.",
+	"nodeDisruptionPolicy":              "nodeDisruptionPolicy allows an admin to set granular node disruption actions for MachineConfig-based updates, such as drains, service reloads, etc. Specifying this will allow for less downtime when doing small configuration updates to the cluster. This configuration has no effect on cluster upgrades which will still incur node disruption where required.",
+	"irreconcilableValidationOverrides": "irreconcilableValidationOverrides is an optional field that can used to make changes to a MachineConfig that cannot be applied to existing nodes. When specified, the fields configured with validation overrides will no longer reject changes to those respective fields due to them not being able to be applied to existing nodes. Only newly provisioned nodes will have these configurations applied. Existing nodes will report observed configuration differences in their MachineConfigNode status.",
+	"bootImageSkewEnforcement":          "bootImageSkewEnforcement allows an admin to configure how boot image version skew is enforced on the cluster. When omitted, this will default to Automatic for clusters that support automatic boot image updates. For clusters that do not support automatic boot image updates, cluster upgrades will be disabled until a skew enforcement mode has been specified. When version skew is being enforced, cluster upgrades will be disabled until the version skew is deemed acceptable for the current release payload.",
 }
 
 func (MachineConfigurationSpec) SwaggerDoc() map[string]string {
@@ -1354,9 +1612,11 @@ func (MachineConfigurationSpec) SwaggerDoc() map[string]string {
 }
 
 var map_MachineConfigurationStatus = map[string]string{
-	"observedGeneration":         "observedGeneration is the last generation change you've dealt with",
-	"conditions":                 "conditions is a list of conditions and their status",
-	"nodeDisruptionPolicyStatus": "nodeDisruptionPolicyStatus status reflects what the latest cluster-validated policies are, and will be used by the Machine Config Daemon during future node updates.",
+	"observedGeneration":             "observedGeneration is the last generation change you've dealt with",
+	"conditions":                     "conditions is a list of conditions and their status",
+	"nodeDisruptionPolicyStatus":     "nodeDisruptionPolicyStatus status reflects what the latest cluster-validated policies are, and will be used by the Machine Config Daemon during future node updates.",
+	"managedBootImagesStatus":        "managedBootImagesStatus reflects what the latest cluster-validated boot image configuration is and will be used by Machine Config Controller while performing boot image updates.",
+	"bootImageSkewEnforcementStatus": "bootImageSkewEnforcementStatus reflects what the latest cluster-validated boot image skew enforcement configuration is and will be used by Machine Config Controller while performing boot image skew enforcement. When omitted, the MCO has no knowledge of how to enforce boot image skew. When the MCO does not know how boot image skew should be enforced, cluster upgrades will be blocked until it can either automatically determine skew enforcement or there is an explicit skew enforcement configuration provided in the spec.bootImageSkewEnforcement field.",
 }
 
 func (MachineConfigurationStatus) SwaggerDoc() map[string]string {
@@ -1365,7 +1625,7 @@ func (MachineConfigurationStatus) SwaggerDoc() map[string]string {
 
 var map_MachineManager = map[string]string{
 	"":          "MachineManager describes a target machine resource that is registered for boot image updates. It stores identifying information such as the resource type and the API Group of the resource. It also provides granular control via the selection field.",
-	"resource":  "resource is the machine management resource's type. The only current valid value is machinesets. machinesets means that the machine manager will only register resources of the kind MachineSet.",
+	"resource":  "resource is the machine management resource's type. Valid values are machinesets and controlplanemachinesets. machinesets means that the machine manager will only register resources of the kind MachineSet. controlplanemachinesets means that the machine manager will only register resources of the kind ControlPlaneMachineSet.",
 	"apiGroup":  "apiGroup is name of the APIGroup that the machine management resource belongs to. The only current valid value is machine.openshift.io. machine.openshift.io means that the machine manager will only register resources that belong to OpenShift machine API group.",
 	"selection": "selection allows granular control of the machine management resources that will be registered for boot image updates.",
 }
@@ -1375,7 +1635,7 @@ func (MachineManager) SwaggerDoc() map[string]string {
 }
 
 var map_MachineManagerSelector = map[string]string{
-	"mode":    "mode determines how machine managers will be selected for updates. Valid values are All and Partial. All means that every resource matched by the machine manager will be updated. Partial requires specified selector(s) and allows customisation of which resources matched by the machine manager will be updated.",
+	"mode":    "mode determines how machine managers will be selected for updates. Valid values are All, Partial and None. All means that every resource matched by the machine manager will be updated. Partial requires specified selector(s) and allows customisation of which resources matched by the machine manager will be updated. Partial is not permitted for the controlplanemachinesets resource type as they are a singleton within the cluster. None means that every resource matched by the machine manager will not be updated.",
 	"partial": "partial provides label selector(s) that can be used to match machine management resources. Only permitted when mode is set to \"Partial\".",
 }
 
@@ -1532,7 +1792,7 @@ var map_AdditionalNetworkDefinition = map[string]string{
 	"name":                "name is the name of the network. This will be populated in the resulting CRD This must be unique.",
 	"namespace":           "namespace is the namespace of the network. This will be populated in the resulting CRD If not given the network will be created in the default namespace.",
 	"rawCNIConfig":        "rawCNIConfig is the raw CNI configuration json to create in the NetworkAttachmentDefinition CRD",
-	"simpleMacvlanConfig": "SimpleMacvlanConfig configures the macvlan interface in case of type:NetworkTypeSimpleMacvlan",
+	"simpleMacvlanConfig": "simpleMacvlanConfig configures the macvlan interface in case of type:NetworkTypeSimpleMacvlan",
 }
 
 func (AdditionalNetworkDefinition) SwaggerDoc() map[string]string {
@@ -1548,6 +1808,16 @@ func (AdditionalRoutingCapabilities) SwaggerDoc() map[string]string {
 	return map_AdditionalRoutingCapabilities
 }
 
+var map_BGPManagedConfig = map[string]string{
+	"":            "BGPManagedConfig contains configuration options for BGP when routing is \"Managed\".",
+	"asNumber":    "asNumber is the 2-byte or 4-byte Autonomous System Number (ASN) to be used in the generated FRR configuration. Valid values are 1 to 4294967295. When omitted, this defaults to 64512.",
+	"bgpTopology": "bgpTopology defines the BGP topology to be used. Allowed values are \"FullMesh\". When set to \"FullMesh\", every node peers directly with every other node via BGP. This field is required when BGPManagedConfig is specified.",
+}
+
+func (BGPManagedConfig) SwaggerDoc() map[string]string {
+	return map_BGPManagedConfig
+}
+
 var map_ClusterNetworkEntry = map[string]string{
 	"": "ClusterNetworkEntry is a subnet from which to allocate PodIPs. A network of size HostPrefix (in CIDR notation) will be allocated when nodes join the cluster. If the HostPrefix field is not used by the plugin, it can be left unset. Not all network providers support multiple ClusterNetworks",
 }
@@ -1559,7 +1829,7 @@ func (ClusterNetworkEntry) SwaggerDoc() map[string]string {
 var map_DefaultNetworkDefinition = map[string]string{
 	"":                    "DefaultNetworkDefinition represents a single network plugin's configuration. type must be specified, along with exactly one \"Config\" that matches the type.",
 	"type":                "type is the type of network All NetworkTypes are supported except for NetworkTypeRaw",
-	"openshiftSDNConfig":  "openShiftSDNConfig configures the openshift-sdn plugin",
+	"openshiftSDNConfig":  "openshiftSDNConfig was previously used to configure the openshift-sdn plugin. DEPRECATED: OpenShift SDN is no longer supported.",
 	"ovnKubernetesConfig": "ovnKubernetesConfig configures the ovn-kubernetes plugin.",
 }
 
@@ -1587,9 +1857,9 @@ func (ExportNetworkFlows) SwaggerDoc() map[string]string {
 }
 
 var map_FeaturesMigration = map[string]string{
-	"egressIP":       "egressIP specifies whether or not the Egress IP configuration is migrated automatically when changing the cluster default network provider. If unset, this property defaults to 'true' and Egress IP configure is migrated.",
-	"egressFirewall": "egressFirewall specifies whether or not the Egress Firewall configuration is migrated automatically when changing the cluster default network provider. If unset, this property defaults to 'true' and Egress Firewall configure is migrated.",
-	"multicast":      "multicast specifies whether or not the multicast configuration is migrated automatically when changing the cluster default network provider. If unset, this property defaults to 'true' and multicast configure is migrated.",
+	"egressIP":       "egressIP specified whether or not the Egress IP configuration was migrated. DEPRECATED: network type migration is no longer supported.",
+	"egressFirewall": "egressFirewall specified whether or not the Egress Firewall configuration was migrated. DEPRECATED: network type migration is no longer supported.",
+	"multicast":      "multicast specified whether or not the multicast configuration was migrated. DEPRECATED: network type migration is no longer supported.",
 }
 
 func (FeaturesMigration) SwaggerDoc() map[string]string {
@@ -1598,8 +1868,8 @@ func (FeaturesMigration) SwaggerDoc() map[string]string {
 
 var map_GatewayConfig = map[string]string{
 	"":               "GatewayConfig holds node gateway-related parsed config file parameters and command-line overrides",
-	"routingViaHost": "RoutingViaHost allows pod egress traffic to exit via the ovn-k8s-mp0 management port into the host before sending it out. If this is not set, traffic will always egress directly from OVN to outside without touching the host stack. Setting this to true means hardware offload will not be supported. Default is false if GatewayConfig is specified.",
-	"ipForwarding":   "IPForwarding controls IP forwarding for all traffic on OVN-Kubernetes managed interfaces (such as br-ex). By default this is set to Restricted, and Kubernetes related traffic is still forwarded appropriately, but other IP traffic will not be routed by the OCP node. If there is a desire to allow the host to forward traffic across OVN-Kubernetes managed interfaces, then set this field to \"Global\". The supported values are \"Restricted\" and \"Global\".",
+	"routingViaHost": "routingViaHost allows pod egress traffic to exit via the ovn-k8s-mp0 management port into the host before sending it out. If this is not set, traffic will always egress directly from OVN to outside without touching the host stack. Setting this to true means hardware offload will not be supported. Default is false if GatewayConfig is specified.",
+	"ipForwarding":   "ipForwarding controls IP forwarding for all traffic on OVN-Kubernetes managed interfaces (such as br-ex). By default this is set to Restricted, and Kubernetes related traffic is still forwarded appropriately, but other IP traffic will not be routed by the OCP node. If there is a desire to allow the host to forward traffic across OVN-Kubernetes managed interfaces, then set this field to \"Global\". The supported values are \"Restricted\" and \"Global\".",
 	"ipv4":           "ipv4 allows users to configure IP settings for IPv4 connections. When omitted, this means no opinion and the default configuration is used. Check individual members fields within ipv4 for details of default values.",
 	"ipv6":           "ipv6 allows users to configure IP settings for IPv6 connections. When omitted, this means no opinion and the default configuration is used. Check individual members fields within ipv6 for details of default values.",
 }
@@ -1609,8 +1879,8 @@ func (GatewayConfig) SwaggerDoc() map[string]string {
 }
 
 var map_HybridOverlayConfig = map[string]string{
-	"hybridClusterNetwork":   "HybridClusterNetwork defines a network space given to nodes on an additional overlay network.",
-	"hybridOverlayVXLANPort": "HybridOverlayVXLANPort defines the VXLAN port number to be used by the additional overlay network. Default is 4789",
+	"hybridClusterNetwork":   "hybridClusterNetwork defines a network space given to nodes on an additional overlay network.",
+	"hybridOverlayVXLANPort": "hybridOverlayVXLANPort defines the VXLAN port number to be used by the additional overlay network. Default is 4789",
 }
 
 func (HybridOverlayConfig) SwaggerDoc() map[string]string {
@@ -1619,8 +1889,8 @@ func (HybridOverlayConfig) SwaggerDoc() map[string]string {
 
 var map_IPAMConfig = map[string]string{
 	"":                 "IPAMConfig contains configurations for IPAM (IP Address Management)",
-	"type":             "Type is the type of IPAM module will be used for IP Address Management(IPAM). The supported values are IPAMTypeDHCP, IPAMTypeStatic",
-	"staticIPAMConfig": "StaticIPAMConfig configures the static IP address in case of type:IPAMTypeStatic",
+	"type":             "type is the type of IPAM module will be used for IP Address Management(IPAM). The supported values are IPAMTypeDHCP, IPAMTypeStatic",
+	"staticIPAMConfig": "staticIPAMConfig configures the static IP address in case of type:IPAMTypeStatic",
 }
 
 func (IPAMConfig) SwaggerDoc() map[string]string {
@@ -1637,15 +1907,25 @@ func (IPFIXConfig) SwaggerDoc() map[string]string {
 
 var map_IPsecConfig = map[string]string{
 	"mode": "mode defines the behaviour of the ipsec configuration within the platform. Valid values are `Disabled`, `External` and `Full`. When 'Disabled', ipsec will not be enabled at the node level. When 'External', ipsec is enabled on the node level but requires the user to configure the secure communication parameters. This mode is for external secure communications and the configuration can be done using the k8s-nmstate operator. When 'Full', ipsec is configured on the node level and inter-pod secure communication within the cluster is configured. Note with `Full`, if ipsec is desired for communication with external (to the cluster) entities (such as storage arrays), this is left to the user to configure.",
+	"full": "full defines configuration parameters for the IPsec `Full` mode. This is permitted only when mode is configured with `Full`, and forbidden otherwise.",
 }
 
 func (IPsecConfig) SwaggerDoc() map[string]string {
 	return map_IPsecConfig
 }
 
+var map_IPsecFullModeConfig = map[string]string{
+	"":              "IPsecFullModeConfig defines configuration parameters for the IPsec `Full` mode.",
+	"encapsulation": "encapsulation option to configure libreswan on how inter-pod traffic across nodes are encapsulated to handle NAT traversal. When configured it uses UDP port 4500 for the encapsulation. Valid values are Always, Auto and omitted. Always means enable UDP encapsulation regardless of whether NAT is detected. Auto means enable UDP encapsulation based on the detection of NAT. When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time. The current default is Auto.",
+}
+
+func (IPsecFullModeConfig) SwaggerDoc() map[string]string {
+	return map_IPsecFullModeConfig
+}
+
 var map_IPv4GatewayConfig = map[string]string{
 	"":                         "IPV4GatewayConfig holds the configuration paramaters for IPV4 connections in the GatewayConfig for OVN-Kubernetes",
-	"internalMasqueradeSubnet": "internalMasqueradeSubnet contains the masquerade addresses in IPV4 CIDR format used internally by ovn-kubernetes to enable host to service traffic. Each host in the cluster is configured with these addresses, as well as the shared gateway bridge interface. The values can be changed after installation. The subnet chosen should not overlap with other networks specified for OVN-Kubernetes as well as other networks used on the host. Additionally the subnet must be large enough to accommodate 6 IPs (maximum prefix length /29). When omitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time. The current default subnet is 169.254.169.0/29 The value must be in proper IPV4 CIDR format",
+	"internalMasqueradeSubnet": "internalMasqueradeSubnet contains the masquerade addresses in IPV4 CIDR format used internally by ovn-kubernetes to enable host to service traffic. Each host in the cluster is configured with these addresses, as well as the shared gateway bridge interface. The values can be changed after installation. The subnet chosen should not overlap with other networks specified for OVN-Kubernetes as well as other networks used on the host. Additionally the subnet must be large enough to accommodate 6 IPs (maximum prefix length /29). When omitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time. The current default subnet is 169.254.0.0/17 The value must be in proper IPV4 CIDR format",
 }
 
 func (IPv4GatewayConfig) SwaggerDoc() map[string]string {
@@ -1653,8 +1933,8 @@ func (IPv4GatewayConfig) SwaggerDoc() map[string]string {
 }
 
 var map_IPv4OVNKubernetesConfig = map[string]string{
-	"internalTransitSwitchSubnet": "internalTransitSwitchSubnet is a v4 subnet in IPV4 CIDR format used internally by OVN-Kubernetes for the distributed transit switch in the OVN Interconnect architecture that connects the cluster routers on each node together to enable east west traffic. The subnet chosen should not overlap with other networks specified for OVN-Kubernetes as well as other networks used on the host. The value cannot be changed after installation. When ommitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time. The current default subnet is 100.88.0.0/16 The subnet must be large enough to accomadate one IP per node in your cluster The value must be in proper IPV4 CIDR format",
-	"internalJoinSubnet":          "internalJoinSubnet is a v4 subnet used internally by ovn-kubernetes in case the default one is being already used by something else. It must not overlap with any other subnet being used by OpenShift or by the node network. The size of the subnet must be larger than the number of nodes. The value cannot be changed after installation. The current default value is 100.64.0.0/16 The subnet must be large enough to accomadate one IP per node in your cluster The value must be in proper IPV4 CIDR format",
+	"internalTransitSwitchSubnet": "internalTransitSwitchSubnet is a v4 subnet in IPV4 CIDR format used internally by OVN-Kubernetes for the distributed transit switch in the OVN Interconnect architecture that connects the cluster routers on each node together to enable east west traffic. The subnet chosen should not overlap with other networks specified for OVN-Kubernetes as well as other networks used on the host. When ommitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time. The current default subnet is 100.88.0.0/16 The subnet must be large enough to accommodate one IP per node in your cluster The value must be in proper IPV4 CIDR format",
+	"internalJoinSubnet":          "internalJoinSubnet is a v4 subnet used internally by ovn-kubernetes in case the default one is being already used by something else. It must not overlap with any other subnet being used by OpenShift or by the node network. The size of the subnet must be larger than the number of nodes. The current default value is 100.64.0.0/16 The subnet must be large enough to accommodate one IP per node in your cluster The value must be in proper IPV4 CIDR format",
 }
 
 func (IPv4OVNKubernetesConfig) SwaggerDoc() map[string]string {
@@ -1663,7 +1943,7 @@ func (IPv4OVNKubernetesConfig) SwaggerDoc() map[string]string {
 
 var map_IPv6GatewayConfig = map[string]string{
 	"":                         "IPV6GatewayConfig holds the configuration paramaters for IPV6 connections in the GatewayConfig for OVN-Kubernetes",
-	"internalMasqueradeSubnet": "internalMasqueradeSubnet contains the masquerade addresses in IPV6 CIDR format used internally by ovn-kubernetes to enable host to service traffic. Each host in the cluster is configured with these addresses, as well as the shared gateway bridge interface. The values can be changed after installation. The subnet chosen should not overlap with other networks specified for OVN-Kubernetes as well as other networks used on the host. Additionally the subnet must be large enough to accommodate 6 IPs (maximum prefix length /125). When omitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time. The current default subnet is fd69::/125 Note that IPV6 dual addresses are not permitted",
+	"internalMasqueradeSubnet": "internalMasqueradeSubnet contains the masquerade addresses in IPV6 CIDR format used internally by ovn-kubernetes to enable host to service traffic. Each host in the cluster is configured with these addresses, as well as the shared gateway bridge interface. The values can be changed after installation. The subnet chosen should not overlap with other networks specified for OVN-Kubernetes as well as other networks used on the host. Additionally the subnet must be large enough to accommodate 6 IPs (maximum prefix length /125). When omitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time. The current default subnet is fd69::/112 Note that IPV6 dual addresses are not permitted",
 }
 
 func (IPv6GatewayConfig) SwaggerDoc() map[string]string {
@@ -1671,8 +1951,8 @@ func (IPv6GatewayConfig) SwaggerDoc() map[string]string {
 }
 
 var map_IPv6OVNKubernetesConfig = map[string]string{
-	"internalTransitSwitchSubnet": "internalTransitSwitchSubnet is a v4 subnet in IPV4 CIDR format used internally by OVN-Kubernetes for the distributed transit switch in the OVN Interconnect architecture that connects the cluster routers on each node together to enable east west traffic. The subnet chosen should not overlap with other networks specified for OVN-Kubernetes as well as other networks used on the host. The value cannot be changed after installation. When ommitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time. The subnet must be large enough to accomadate one IP per node in your cluster The current default subnet is fd97::/64 The value must be in proper IPV6 CIDR format Note that IPV6 dual addresses are not permitted",
-	"internalJoinSubnet":          "internalJoinSubnet is a v6 subnet used internally by ovn-kubernetes in case the default one is being already used by something else. It must not overlap with any other subnet being used by OpenShift or by the node network. The size of the subnet must be larger than the number of nodes. The value cannot be changed after installation. The subnet must be large enough to accomadate one IP per node in your cluster The current default value is fd98::/48 The value must be in proper IPV6 CIDR format Note that IPV6 dual addresses are not permitted",
+	"internalTransitSwitchSubnet": "internalTransitSwitchSubnet is a v4 subnet in IPV4 CIDR format used internally by OVN-Kubernetes for the distributed transit switch in the OVN Interconnect architecture that connects the cluster routers on each node together to enable east west traffic. The subnet chosen should not overlap with other networks specified for OVN-Kubernetes as well as other networks used on the host. When ommitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time. The subnet must be large enough to accommodate one IP per node in your cluster The current default subnet is fd97::/64 The value must be in proper IPV6 CIDR format Note that IPV6 dual addresses are not permitted",
+	"internalJoinSubnet":          "internalJoinSubnet is a v6 subnet used internally by ovn-kubernetes in case the default one is being already used by something else. It must not overlap with any other subnet being used by OpenShift or by the node network. The size of the subnet must be larger than the number of nodes. The subnet must be large enough to accommodate one IP per node in your cluster The current default value is fd98::/64 The value must be in proper IPV6 CIDR format Note that IPV6 dual addresses are not permitted",
 }
 
 func (IPv6OVNKubernetesConfig) SwaggerDoc() map[string]string {
@@ -1680,7 +1960,7 @@ func (IPv6OVNKubernetesConfig) SwaggerDoc() map[string]string {
 }
 
 var map_MTUMigration = map[string]string{
-	"":        "MTUMigration MTU contains infomation about MTU migration.",
+	"":        "MTUMigration contains infomation about MTU migration.",
 	"network": "network contains information about MTU migration for the default network. Migrations are only allowed to MTU values lower than the machine's uplink MTU by the minimum appropriate offset.",
 	"machine": "machine contains MTU migration configuration for the machine's uplink. Needs to be migrated along with the default network MTU unless the current uplink MTU already accommodates the default network MTU.",
 }
@@ -1726,11 +2006,11 @@ func (NetworkList) SwaggerDoc() map[string]string {
 }
 
 var map_NetworkMigration = map[string]string{
-	"":            "NetworkMigration represents the cluster network configuration.",
-	"networkType": "networkType is the target type of network migration. Set this to the target network type to allow changing the default network. If unset, the operation of changing cluster default network plugin will be rejected. The supported values are OpenShiftSDN, OVNKubernetes",
+	"":            "NetworkMigration represents the cluster network migration configuration.",
 	"mtu":         "mtu contains the MTU migration configuration. Set this to allow changing the MTU values for the default network. If unset, the operation of changing the MTU for the default network will be rejected.",
-	"features":    "features contains the features migration configuration. Set this to migrate feature configuration when changing the cluster default network provider. if unset, the default operation is to migrate all the configuration of supported features.",
-	"mode":        "mode indicates the mode of network migration. The supported values are \"Live\", \"Offline\" and omitted. A \"Live\" migration operation will not cause service interruption by migrating the CNI of each node one by one. The cluster network will work as normal during the network migration. An \"Offline\" migration operation will cause service interruption. During an \"Offline\" migration, two rounds of node reboots are required. The cluster network will be malfunctioning during the network migration. When omitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time. The current default value is \"Offline\".",
+	"networkType": "networkType was previously used when changing the default network type. DEPRECATED: network type migration is no longer supported, and setting this to a non-empty value will result in the network operator rejecting the configuration.",
+	"features":    "features was previously used to configure which network plugin features would be migrated in a network type migration. DEPRECATED: network type migration is no longer supported, and setting this to a non-empty value will result in the network operator rejecting the configuration.",
+	"mode":        "mode indicates the mode of network type migration. DEPRECATED: network type migration is no longer supported, and setting this to a non-empty value will result in the network operator rejecting the configuration.",
 }
 
 func (NetworkMigration) SwaggerDoc() map[string]string {
@@ -1739,17 +2019,17 @@ func (NetworkMigration) SwaggerDoc() map[string]string {
 
 var map_NetworkSpec = map[string]string{
 	"":                              "NetworkSpec is the top-level network configuration object.",
-	"clusterNetwork":                "clusterNetwork is the IP address pool to use for pod IPs. Some network providers, e.g. OpenShift SDN, support multiple ClusterNetworks. Others only support one. This is equivalent to the cluster-cidr.",
+	"clusterNetwork":                "clusterNetwork is the IP address pool to use for pod IPs. Some network providers support multiple ClusterNetworks. Others only support one. This is equivalent to the cluster-cidr.",
 	"serviceNetwork":                "serviceNetwork is the ip address pool to use for Service IPs Currently, all existing network providers only support a single value here, but this is an array to allow for growth.",
 	"defaultNetwork":                "defaultNetwork is the \"default\" network that all pods will receive",
 	"additionalNetworks":            "additionalNetworks is a list of extra networks to make available to pods when multiple networks are enabled.",
-	"disableMultiNetwork":           "disableMultiNetwork specifies whether or not multiple pod network support should be disabled. If unset, this property defaults to 'false' and multiple network support is enabled.",
+	"disableMultiNetwork":           "disableMultiNetwork defaults to 'false' and this setting enables the pod multi-networking capability. disableMultiNetwork when set to 'true' at cluster install time does not install the components, typically the Multus CNI and the network-attachment-definition CRD, that enable the pod multi-networking capability. Setting the parameter to 'true' might be useful when you need install third-party CNI plugins, but these plugins are not supported by Red Hat. Changing the parameter value as a postinstallation cluster task has no effect.",
 	"useMultiNetworkPolicy":         "useMultiNetworkPolicy enables a controller which allows for MultiNetworkPolicy objects to be used on additional networks as created by Multus CNI. MultiNetworkPolicy are similar to NetworkPolicy objects, but NetworkPolicy objects only apply to the primary interface. With MultiNetworkPolicy, you can control the traffic that a pod can receive over the secondary interfaces. If unset, this property defaults to 'false' and MultiNetworkPolicy objects are ignored. If 'disableMultiNetwork' is 'true' then the value of this field is ignored.",
-	"deployKubeProxy":               "deployKubeProxy specifies whether or not a standalone kube-proxy should be deployed by the operator. Some network providers include kube-proxy or similar functionality. If unset, the plugin will attempt to select the correct value, which is false when OpenShift SDN and ovn-kubernetes are used and true otherwise.",
+	"deployKubeProxy":               "deployKubeProxy specifies whether or not a standalone kube-proxy should be deployed by the operator. Some network providers include kube-proxy or similar functionality. If unset, the plugin will attempt to select the correct value, which is false when ovn-kubernetes is used and true otherwise.",
 	"disableNetworkDiagnostics":     "disableNetworkDiagnostics specifies whether or not PodNetworkConnectivityCheck CRs from a test pod to every node, apiserver and LB should be disabled or not. If unset, this property defaults to 'false' and network diagnostics is enabled. Setting this to 'true' would reduce the additional load of the pods performing the checks.",
-	"kubeProxyConfig":               "kubeProxyConfig lets us configure desired proxy configuration. If not specified, sensible defaults will be chosen by OpenShift directly. Not consumed by all network providers - currently only openshift-sdn.",
+	"kubeProxyConfig":               "kubeProxyConfig lets us configure desired proxy configuration, if deployKubeProxy is true. If not specified, sensible defaults will be chosen by OpenShift directly.",
 	"exportNetworkFlows":            "exportNetworkFlows enables and configures the export of network flow metadata from the pod network by using protocols NetFlow, SFlow or IPFIX. Currently only supported on OVN-Kubernetes plugin. If unset, flows will not be exported to any collector.",
-	"migration":                     "migration enables and configures the cluster network migration. The migration procedure allows to change the network type and the MTU.",
+	"migration":                     "migration enables and configures cluster network migration, for network changes that cannot be made instantly.",
 	"additionalRoutingCapabilities": "additionalRoutingCapabilities describes components and relevant configuration providing additional routing capabilities. When set, it enables such components and the usage of the routing capabilities they provide for the machine network. Upstream operators, like MetalLB operator, requiring these capabilities may rely on, or automatically set this attribute. Network plugins may leverage advanced routing capabilities acquired through the enablement of these components but may require specific configuration on their side to do so; refer to their respective documentation and configuration options.",
 }
 
@@ -1765,20 +2045,33 @@ func (NetworkStatus) SwaggerDoc() map[string]string {
 	return map_NetworkStatus
 }
 
+var map_NoOverlayConfig = map[string]string{
+	"":             "NoOverlayConfig contains configuration options for networks operating in no-overlay mode.",
+	"outboundSNAT": "outboundSNAT defines the SNAT behavior for outbound traffic from pods. Allowed values are \"Enabled\" and \"Disabled\". When set to \"Enabled\", SNAT is performed on outbound traffic from pods. When set to \"Disabled\", SNAT is not performed and pod IPs are preserved in outbound traffic. This field is required when the network operates in no-overlay mode. This field can be set to any value at installation time and can be changed afterwards.",
+	"routing":      "routing specifies whether the pod network routing is managed by OVN-Kubernetes or users. Allowed values are \"Managed\" and \"Unmanaged\". When set to \"Managed\", OVN-Kubernetes manages the pod network routing configuration through BGP. When set to \"Unmanaged\", users are responsible for configuring the pod network routing. This field is required when the network operates in no-overlay mode. This field is immutable once set.",
+}
+
+func (NoOverlayConfig) SwaggerDoc() map[string]string {
+	return map_NoOverlayConfig
+}
+
 var map_OVNKubernetesConfig = map[string]string{
 	"":                    "ovnKubernetesConfig contains the configuration parameters for networks using the ovn-kubernetes network project",
 	"mtu":                 "mtu is the MTU to use for the tunnel interface. This must be 100 bytes smaller than the uplink mtu. Default is 1400",
 	"genevePort":          "geneve port is the UDP port to be used by geneve encapulation. Default is 6081",
-	"hybridOverlayConfig": "HybridOverlayConfig configures an additional overlay network for peers that are not using OVN.",
+	"hybridOverlayConfig": "hybridOverlayConfig configures an additional overlay network for peers that are not using OVN.",
 	"ipsecConfig":         "ipsecConfig enables and configures IPsec for pods on the pod network within the cluster.",
 	"policyAuditConfig":   "policyAuditConfig is the configuration for network policy audit events. If unset, reported defaults are used.",
 	"gatewayConfig":       "gatewayConfig holds the configuration for node gateway options.",
-	"v4InternalSubnet":    "v4InternalSubnet is a v4 subnet used internally by ovn-kubernetes in case the default one is being already used by something else. It must not overlap with any other subnet being used by OpenShift or by the node network. The size of the subnet must be larger than the number of nodes. The value cannot be changed after installation. Default is 100.64.0.0/16",
-	"v6InternalSubnet":    "v6InternalSubnet is a v6 subnet used internally by ovn-kubernetes in case the default one is being already used by something else. It must not overlap with any other subnet being used by OpenShift or by the node network. The size of the subnet must be larger than the number of nodes. The value cannot be changed after installation. Default is fd98::/48",
+	"v4InternalSubnet":    "v4InternalSubnet is a v4 subnet used internally by ovn-kubernetes in case the default one is being already used by something else. It must not overlap with any other subnet being used by OpenShift or by the node network. The size of the subnet must be larger than the number of nodes. Default is 100.64.0.0/16",
+	"v6InternalSubnet":    "v6InternalSubnet is a v6 subnet used internally by ovn-kubernetes in case the default one is being already used by something else. It must not overlap with any other subnet being used by OpenShift or by the node network. The size of the subnet must be larger than the number of nodes. Default is fd98::/64",
 	"egressIPConfig":      "egressIPConfig holds the configuration for EgressIP options.",
 	"ipv4":                "ipv4 allows users to configure IP settings for IPv4 connections. When ommitted, this means no opinions and the default configuration is used. Check individual fields within ipv4 for details of default values.",
 	"ipv6":                "ipv6 allows users to configure IP settings for IPv6 connections. When ommitted, this means no opinions and the default configuration is used. Check individual fields within ipv4 for details of default values.",
 	"routeAdvertisements": "routeAdvertisements determines if the functionality to advertise cluster network routes through a dynamic routing protocol, such as BGP, is enabled or not. This functionality is configured through the ovn-kubernetes RouteAdvertisements CRD. Requires the 'FRR' routing capability provider to be enabled as an additional routing capability. Allowed values are \"Enabled\", \"Disabled\" and ommited. When omitted, this means the user has no opinion and the platform is left to choose reasonable defaults. These defaults are subject to change over time. The current default is \"Disabled\".",
+	"transport":           "transport sets the transport mode for pods on the default network. Allowed values are \"NoOverlay\" and \"Geneve\". \"NoOverlay\" avoids tunnel encapsulation, routing pod traffic directly between nodes. \"Geneve\" encapsulates pod traffic using Geneve tunnels between nodes. When omitted, this means the user has no opinion and the platform chooses a reasonable default which is subject to change over time. The current default is \"Geneve\". \"NoOverlay\" can only be set at installation time and cannot be changed afterwards. \"Geneve\" may be set explicitly at any time to lock in the current default.",
+	"noOverlayConfig":     "noOverlayConfig contains configuration for no-overlay mode. This configuration applies to the default network only. It is required when transport is \"NoOverlay\". When omitted, this means the user does not configure no-overlay mode options.",
+	"bgpManagedConfig":    "bgpManagedConfig configures the BGP properties for networks (default network or CUDNs) in no-overlay mode that specify routing=\"Managed\" in their noOverlayConfig. It is required when noOverlayConfig.routing is set to \"Managed\". When omitted, this means the user does not configure BGP for managed routing. This field can be set at installation time or on day 2, and can be modified at any time.",
 }
 
 func (OVNKubernetesConfig) SwaggerDoc() map[string]string {
@@ -1786,11 +2079,11 @@ func (OVNKubernetesConfig) SwaggerDoc() map[string]string {
 }
 
 var map_OpenShiftSDNConfig = map[string]string{
-	"":                       "OpenShiftSDNConfig configures the three openshift-sdn plugins",
+	"":                       "OpenShiftSDNConfig was used to configure the OpenShift SDN plugin. It is no longer used.",
 	"mode":                   "mode is one of \"Multitenant\", \"Subnet\", or \"NetworkPolicy\"",
 	"vxlanPort":              "vxlanPort is the port to use for all vxlan packets. The default is 4789.",
 	"mtu":                    "mtu is the mtu to use for the tunnel interface. Defaults to 1450 if unset. This must be 50 bytes smaller than the machine's uplink.",
-	"useExternalOpenvswitch": "useExternalOpenvswitch used to control whether the operator would deploy an OVS DaemonSet itself or expect someone else to start OVS. As of 4.6, OVS is always run as a system service, and this flag is ignored. DEPRECATED: non-functional as of 4.6",
+	"useExternalOpenvswitch": "useExternalOpenvswitch used to control whether the operator would deploy an OVS DaemonSet itself or expect someone else to start OVS. As of 4.6, OVS is always run as a system service, and this flag is ignored.",
 	"enableUnidling":         "enableUnidling controls whether or not the service proxy will support idling and unidling of services. By default, unidling is enabled.",
 }
 
@@ -1832,7 +2125,7 @@ func (SFlowConfig) SwaggerDoc() map[string]string {
 var map_SimpleMacvlanConfig = map[string]string{
 	"":           "SimpleMacvlanConfig contains configurations for macvlan interface.",
 	"master":     "master is the host interface to create the macvlan interface from. If not specified, it will be default route interface",
-	"ipamConfig": "IPAMConfig configures IPAM module will be used for IP Address Management (IPAM).",
+	"ipamConfig": "ipamConfig configures IPAM module will be used for IP Address Management (IPAM).",
 	"mode":       "mode is the macvlan mode: bridge, private, vepa, passthru. The default is bridge",
 	"mtu":        "mtu is the mtu to use for the macvlan interface. if unset, host's kernel will select the value.",
 }
@@ -1843,8 +2136,8 @@ func (SimpleMacvlanConfig) SwaggerDoc() map[string]string {
 
 var map_StaticIPAMAddresses = map[string]string{
 	"":        "StaticIPAMAddresses provides IP address and Gateway for static IPAM addresses",
-	"address": "Address is the IP address in CIDR format",
-	"gateway": "Gateway is IP inside of subnet to designate as the gateway",
+	"address": "address is the IP address in CIDR format",
+	"gateway": "gateway is IP inside of subnet to designate as the gateway",
 }
 
 func (StaticIPAMAddresses) SwaggerDoc() map[string]string {
@@ -1853,9 +2146,9 @@ func (StaticIPAMAddresses) SwaggerDoc() map[string]string {
 
 var map_StaticIPAMConfig = map[string]string{
 	"":          "StaticIPAMConfig contains configurations for static IPAM (IP Address Management)",
-	"addresses": "Addresses configures IP address for the interface",
-	"routes":    "Routes configures IP routes for the interface",
-	"dns":       "DNS configures DNS for the interface",
+	"addresses": "addresses configures IP address for the interface",
+	"routes":    "routes configures IP routes for the interface",
+	"dns":       "dns configures DNS for the interface",
 }
 
 func (StaticIPAMConfig) SwaggerDoc() map[string]string {
@@ -1864,9 +2157,9 @@ func (StaticIPAMConfig) SwaggerDoc() map[string]string {
 
 var map_StaticIPAMDNS = map[string]string{
 	"":            "StaticIPAMDNS provides DNS related information for static IPAM",
-	"nameservers": "Nameservers points DNS servers for IP lookup",
-	"domain":      "Domain configures the domainname the local domain used for short hostname lookups",
-	"search":      "Search configures priority ordered search domains for short hostname lookups",
+	"nameservers": "nameservers points DNS servers for IP lookup",
+	"domain":      "domain configures the domainname the local domain used for short hostname lookups",
+	"search":      "search configures priority ordered search domains for short hostname lookups",
 }
 
 func (StaticIPAMDNS) SwaggerDoc() map[string]string {
@@ -1875,12 +2168,33 @@ func (StaticIPAMDNS) SwaggerDoc() map[string]string {
 
 var map_StaticIPAMRoutes = map[string]string{
 	"":            "StaticIPAMRoutes provides Destination/Gateway pairs for static IPAM routes",
-	"destination": "Destination points the IP route destination",
-	"gateway":     "Gateway is the route's next-hop IP address If unset, a default gateway is assumed (as determined by the CNI plugin).",
+	"destination": "destination points the IP route destination",
+	"gateway":     "gateway is the route's next-hop IP address If unset, a default gateway is assumed (as determined by the CNI plugin).",
 }
 
 func (StaticIPAMRoutes) SwaggerDoc() map[string]string {
 	return map_StaticIPAMRoutes
+}
+
+var map_OLM = map[string]string{
+	"":         "OLM provides information to configure an operator to manage the OLM controllers\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
+}
+
+func (OLM) SwaggerDoc() map[string]string {
+	return map_OLM
+}
+
+var map_OLMList = map[string]string{
+	"":         "OLMList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"items":    "items contains the items",
+}
+
+func (OLMList) SwaggerDoc() map[string]string {
+	return map_OLMList
 }
 
 var map_OpenShiftAPIServer = map[string]string{
@@ -1897,7 +2211,7 @@ func (OpenShiftAPIServer) SwaggerDoc() map[string]string {
 var map_OpenShiftAPIServerList = map[string]string{
 	"":         "OpenShiftAPIServerList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (OpenShiftAPIServerList) SwaggerDoc() map[string]string {
@@ -1905,7 +2219,7 @@ func (OpenShiftAPIServerList) SwaggerDoc() map[string]string {
 }
 
 var map_OpenShiftAPIServerStatus = map[string]string{
-	"latestAvailableRevision": "latestAvailableRevision is the latest revision used as suffix of revisioned secrets like encryption-config. A new revision causes a new deployment of pods.",
+	"encryptionStatus": "encryptionStatus contains status reports for the KMS plugin health and its key rotation.",
 }
 
 func (OpenShiftAPIServerStatus) SwaggerDoc() map[string]string {
@@ -1924,7 +2238,7 @@ func (OpenShiftControllerManager) SwaggerDoc() map[string]string {
 var map_OpenShiftControllerManagerList = map[string]string{
 	"":         "OpenShiftControllerManagerList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (OpenShiftControllerManagerList) SwaggerDoc() map[string]string {
@@ -1945,7 +2259,7 @@ func (KubeScheduler) SwaggerDoc() map[string]string {
 var map_KubeSchedulerList = map[string]string{
 	"":         "KubeSchedulerList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (KubeSchedulerList) SwaggerDoc() map[string]string {
@@ -1966,7 +2280,7 @@ func (ServiceCA) SwaggerDoc() map[string]string {
 var map_ServiceCAList = map[string]string{
 	"":         "ServiceCAList is a collection of items\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (ServiceCAList) SwaggerDoc() map[string]string {
@@ -1985,7 +2299,7 @@ func (ServiceCatalogAPIServer) SwaggerDoc() map[string]string {
 var map_ServiceCatalogAPIServerList = map[string]string{
 	"":         "ServiceCatalogAPIServerList is a collection of items DEPRECATED: will be removed in 4.6\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (ServiceCatalogAPIServerList) SwaggerDoc() map[string]string {
@@ -2004,7 +2318,7 @@ func (ServiceCatalogControllerManager) SwaggerDoc() map[string]string {
 var map_ServiceCatalogControllerManagerList = map[string]string{
 	"":         "ServiceCatalogControllerManagerList is a collection of items DEPRECATED: will be removed in 4.6\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"items":    "Items contains the items",
+	"items":    "items contains the items",
 }
 
 func (ServiceCatalogControllerManagerList) SwaggerDoc() map[string]string {
@@ -2033,7 +2347,7 @@ func (StorageList) SwaggerDoc() map[string]string {
 
 var map_StorageSpec = map[string]string{
 	"":                     "StorageSpec is the specification of the desired behavior of the cluster storage operator.",
-	"vsphereStorageDriver": "VSphereStorageDriver indicates the storage driver to use on VSphere clusters. Once this field is set to CSIWithMigrationDriver, it can not be changed. If this is empty, the platform will choose a good default, which may change over time without notice. The current default is CSIWithMigrationDriver and may not be changed. DEPRECATED: This field will be removed in a future release.",
+	"vsphereStorageDriver": "vsphereStorageDriver indicates the storage driver to use on VSphere clusters. Once this field is set to CSIWithMigrationDriver, it can not be changed. If this is empty, the platform will choose a good default, which may change over time without notice. The current default is CSIWithMigrationDriver and may not be changed. DEPRECATED: This field will be removed in a future release.",
 }
 
 func (StorageSpec) SwaggerDoc() map[string]string {

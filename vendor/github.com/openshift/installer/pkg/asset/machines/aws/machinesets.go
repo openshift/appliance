@@ -13,17 +13,21 @@ import (
 	icaws "github.com/openshift/installer/pkg/asset/installconfig/aws"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/aws"
+	"github.com/openshift/installer/pkg/utils"
 )
 
 // MachineSetInput holds the input arguments required to MachineSets for a machinepool.
 type MachineSetInput struct {
 	ClusterID                string
 	InstallConfigPlatformAWS *aws.Platform
-	Subnets                  icaws.Subnets
+	PublicSubnet             bool
+	Subnets                  icaws.SubnetsByZone
 	Zones                    icaws.Zones
 	Pool                     *types.MachinePool
 	Role                     string
 	UserDataSecret           string
+	Hosts                    map[string]icaws.Host
+	Config                   *types.InstallConfig
 }
 
 // MachineSets returns a list of machinesets for a machinepool.
@@ -49,7 +53,7 @@ func MachineSets(in *MachineSetInput) ([]*machineapi.MachineSet, error) {
 		nodeLabels := make(map[string]string, 3)
 		nodeTaints := []corev1.Taint{}
 		instanceType := mpool.InstanceType
-		publicSubnet := false
+		publicSubnet := in.PublicSubnet
 		subnetID := ""
 		if len(in.Subnets) > 0 {
 			subnet, ok := in.Subnets[az]
@@ -81,6 +85,13 @@ func MachineSets(in *MachineSetInput) ([]*machineapi.MachineSet, error) {
 			})
 		}
 
+		instanceProfile := mpool.IAMProfile
+		if len(instanceProfile) == 0 {
+			instanceProfile = fmt.Sprintf("%s-%s-profile", in.ClusterID, in.Role)
+		}
+
+		dedicatedHost := DedicatedHost(in.Hosts, mpool.HostPlacement, az)
+
 		provider, err := provider(&machineProviderInput{
 			clusterID:        in.ClusterID,
 			region:           in.InstallConfigPlatformAWS.Region,
@@ -90,15 +101,19 @@ func MachineSets(in *MachineSetInput) ([]*machineapi.MachineSet, error) {
 			zone:             az,
 			role:             "worker",
 			userDataSecret:   in.UserDataSecret,
+			instanceProfile:  instanceProfile,
 			root:             &mpool.EC2RootVolume,
 			imds:             mpool.EC2Metadata,
 			userTags:         in.InstallConfigPlatformAWS.UserTags,
 			publicSubnet:     publicSubnet,
 			securityGroupIDs: in.Pool.Platform.AWS.AdditionalSecurityGroupIDs,
+			cpuOptions:       mpool.CPUOptions,
+			dedicatedHost:    dedicatedHost,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create provider")
 		}
+
 		name := fmt.Sprintf("%s-%s-%s", in.ClusterID, in.Pool.Name, az)
 		spec := machineapi.MachineSpec{
 			ProviderSpec: machineapi.ProviderSpec{
@@ -144,6 +159,7 @@ func MachineSets(in *MachineSetInput) ([]*machineapi.MachineSet, error) {
 				},
 			},
 		}
+		utils.SetMachineSetOSStreamLabels(mset, in.Config)
 		machinesets = append(machinesets, mset)
 	}
 

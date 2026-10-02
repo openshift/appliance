@@ -3,12 +3,15 @@ package manifests
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/gophercloud/utils/v2/openstack/clientconfig"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -35,6 +38,7 @@ import (
 	ibmcloudtypes "github.com/openshift/installer/pkg/types/ibmcloud"
 	openstacktypes "github.com/openshift/installer/pkg/types/openstack"
 	ovirttypes "github.com/openshift/installer/pkg/types/ovirt"
+	powervctypes "github.com/openshift/installer/pkg/types/powervc"
 	vspheretypes "github.com/openshift/installer/pkg/types/vsphere"
 )
 
@@ -72,35 +76,42 @@ func (o *Openshift) Dependencies() []asset.Asset {
 		&openshift.BaremetalConfig{},
 		new(rhcos.Image),
 		&openshift.AzureCloudProviderSecret{},
+		&OSImageStream{},
+		&ImageRegistryConfig{},
 	}
 }
 
 // Generate generates the respective operator config.yml files
-func (o *Openshift) Generate(dependencies asset.Parents) error {
+//
+//nolint:gocyclo
+func (o *Openshift) Generate(ctx context.Context, dependencies asset.Parents) error {
 	installConfig := &installconfig.InstallConfig{}
 	clusterID := &installconfig.ClusterID{}
 	kubeadminPassword := &password.KubeadminPassword{}
 	openshiftInstall := &openshiftinstall.Config{}
 	featureGate := &FeatureGate{}
-	dependencies.Get(installConfig, kubeadminPassword, clusterID, openshiftInstall, featureGate)
+	imageRegistryConfig := &ImageRegistryConfig{}
+	dependencies.Get(installConfig, kubeadminPassword, clusterID, openshiftInstall, featureGate, imageRegistryConfig)
 	var cloudCreds cloudCredsSecretData
 	platform := installConfig.Config.Platform.Name()
 	switch platform {
 	case awstypes.Name:
-		ssn, err := installConfig.AWS.Session(context.TODO())
+		awsconfig, err := installconfigaws.GetConfigWithOptions(ctx, config.WithRegion(installConfig.AWS.Region))
 		if err != nil {
 			return err
 		}
-		creds, err := ssn.Config.Credentials.Get()
+
+		creds, err := awsconfig.Credentials.Retrieve(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to retrieve aws credentials: %w", err)
 		}
+
 		if !installconfigaws.IsStaticCredentials(creds) {
 			switch {
 			case installConfig.Config.CredentialsMode == "":
-				return errors.Errorf("AWS credentials provided by %s are not valid for default credentials mode", creds.ProviderName)
+				return errors.Errorf("AWS credentials provided by %s are not valid for default credentials mode", creds.Source)
 			case installConfig.Config.CredentialsMode != types.ManualCredentialsMode:
-				return errors.Errorf("AWS credentials provided by %s are not valid for %s credentials mode", creds.ProviderName, installConfig.Config.CredentialsMode)
+				return errors.Errorf("AWS credentials provided by %s are not valid for %s credentials mode", creds.Source, installConfig.Config.CredentialsMode)
 			}
 		}
 		cloudCreds = cloudCredsSecretData{
@@ -128,7 +139,7 @@ func (o *Openshift) Generate(dependencies asset.Parents) error {
 			},
 		}
 	case gcptypes.Name:
-		session, err := gcp.GetSession(context.TODO())
+		session, err := gcp.GetSession(ctx)
 		if err != nil {
 			return err
 		}
@@ -148,7 +159,7 @@ func (o *Openshift) Generate(dependencies asset.Parents) error {
 				Base64encodeAPIKey: base64.StdEncoding.EncodeToString([]byte(client.GetAPIKey())),
 			},
 		}
-	case openstacktypes.Name:
+	case openstacktypes.Name, powervctypes.Name:
 		opts := new(clientconfig.ClientOpts)
 		opts.Cloud = installConfig.Config.Platform.OpenStack.Cloud
 		cloud, err := clientconfig.GetCloudFromYAML(opts)
@@ -156,8 +167,14 @@ func (o *Openshift) Generate(dependencies asset.Parents) error {
 			return err
 		}
 
-		// We need to replace the local cacert path with one that is used in OpenShift
+		var caCert []byte
 		if cloud.CACertFile != "" {
+			var err error
+			caCert, err = os.ReadFile(cloud.CACertFile)
+			if err != nil {
+				return err
+			}
+			// We need to replace the local cacert path with one that is used in OpenShift
 			cloud.CACertFile = "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/ca-bundle.pem"
 		}
 
@@ -187,11 +204,13 @@ func (o *Openshift) Generate(dependencies asset.Parents) error {
 		}
 
 		credsEncoded := base64.StdEncoding.EncodeToString(marshalled)
-		credsINIEncoded := base64.StdEncoding.EncodeToString(cloudProviderConf)
+		cloudProviderConfEncoded := base64.StdEncoding.EncodeToString(cloudProviderConf)
+		caCertEncoded := base64.StdEncoding.EncodeToString(caCert)
 		cloudCreds = cloudCredsSecretData{
 			OpenStack: &OpenStackCredsSecretData{
-				Base64encodeCloudCreds:    credsEncoded,
-				Base64encodeCloudCredsINI: credsINIEncoded,
+				Base64encodeCloudsYAML: credsEncoded,
+				Base64encodeCloudsConf: cloudProviderConfEncoded,
+				Base64encodeCACert:     caCertEncoded,
 			},
 		}
 	case vspheretypes.Name:
@@ -244,20 +263,22 @@ func (o *Openshift) Generate(dependencies asset.Parents) error {
 	roleCloudCredsSecretReader := &openshift.RoleCloudCredsSecretReader{}
 	baremetalConfig := &openshift.BaremetalConfig{}
 	rhcosImage := new(rhcos.Image)
+	osImageStream := &OSImageStream{}
 
 	dependencies.Get(
 		cloudCredsSecret,
 		kubeadminPasswordSecret,
 		roleCloudCredsSecretReader,
 		baremetalConfig,
-		rhcosImage)
+		rhcosImage,
+		osImageStream)
 
 	assetData := map[string][]byte{
 		"99_kubeadmin-password-secret.yaml": applyTemplateData(kubeadminPasswordSecret.Files()[0].Data, templateData),
 	}
 
 	switch platform {
-	case awstypes.Name, openstacktypes.Name, vspheretypes.Name, azuretypes.Name, gcptypes.Name, ibmcloudtypes.Name, ovirttypes.Name:
+	case awstypes.Name, openstacktypes.Name, powervctypes.Name, vspheretypes.Name, azuretypes.Name, gcptypes.Name, ibmcloudtypes.Name, ovirttypes.Name:
 		if installConfig.Config.CredentialsMode != types.ManualCredentialsMode {
 			assetData["99_cloud-creds-secret.yaml"] = applyTemplateData(cloudCredsSecret.Files()[0].Data, templateData)
 		}
@@ -265,40 +286,9 @@ func (o *Openshift) Generate(dependencies asset.Parents) error {
 	case baremetaltypes.Name:
 		bmTemplateData := baremetalTemplateData{
 			Baremetal:                 installConfig.Config.Platform.BareMetal,
-			ProvisioningOSDownloadURL: string(*rhcosImage),
+			ProvisioningOSDownloadURL: rhcosImage.ControlPlane,
 		}
 		assetData["99_baremetal-provisioning-config.yaml"] = applyTemplateData(baremetalConfig.Files()[0].Data, bmTemplateData)
-	}
-
-	if platform == azuretypes.Name && installConfig.Config.Azure.IsARO() && installConfig.Config.CredentialsMode != types.ManualCredentialsMode {
-		// config is used to created compatible secret to trigger azure cloud
-		// controller config merge behaviour
-		// https://github.com/openshift/origin/blob/90c050f5afb4c52ace82b15e126efe98fa798d88/vendor/k8s.io/legacy-cloud-providers/azure/azure_config.go#L83
-		session, err := installConfig.Azure.Session()
-		if err != nil {
-			return err
-		}
-		config := struct {
-			AADClientID     string `json:"aadClientId" yaml:"aadClientId"`
-			AADClientSecret string `json:"aadClientSecret" yaml:"aadClientSecret"`
-		}{
-			AADClientID:     session.Credentials.ClientID,
-			AADClientSecret: session.Credentials.ClientSecret,
-		}
-
-		b, err := yaml.Marshal(config)
-		if err != nil {
-			return err
-		}
-
-		azureCloudProviderSecret := &openshift.AzureCloudProviderSecret{}
-		dependencies.Get(azureCloudProviderSecret)
-		for _, f := range azureCloudProviderSecret.Files() {
-			name := strings.TrimSuffix(filepath.Base(f.Filename), ".template")
-			assetData[name] = applyTemplateData(f.Data, map[string]string{
-				"CloudConfig": string(b),
-			})
-		}
 	}
 
 	o.FileList = []*asset.File{}
@@ -307,13 +297,15 @@ func (o *Openshift) Generate(dependencies asset.Parents) error {
 			continue
 		}
 		o.FileList = append(o.FileList, &asset.File{
-			Filename: filepath.Join(openshiftManifestDir, name),
+			Filename: path.Join(openshiftManifestDir, name),
 			Data:     data,
 		})
 	}
 
 	o.FileList = append(o.FileList, openshiftInstall.Files()...)
 	o.FileList = append(o.FileList, featureGate.Files()...)
+	o.FileList = append(o.FileList, osImageStream.Files()...)
+	o.FileList = append(o.FileList, imageRegistryConfig.Files()...)
 
 	asset.SortFiles(o.FileList)
 

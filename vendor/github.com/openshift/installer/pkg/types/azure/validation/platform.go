@@ -7,10 +7,12 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	capz "sigs.k8s.io/cluster-api-provider-azure/api/v1beta1"
 
-	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/installer/pkg/ipnet"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/azure"
+	"github.com/openshift/installer/pkg/types/network"
 )
 
 var (
@@ -55,32 +57,58 @@ var (
 // https://github.com/openshift/api/blob/e82a99f5bc64c2bf8549da559a6f37ccaf7d3af6/config/v1/types_infrastructure.go#L483-L490
 const maxUserTagLimit = 10
 
+// isUserTagsAllowed returns true if the cloud environment supports userTags.
+// userTags are supported on PublicCloud and USGovernmentCloud.
+func isUserTagsAllowed(cloudName azure.CloudEnvironment) bool {
+	return cloudName == azure.PublicCloud || cloudName == azure.USGovernmentCloud
+}
+
 // ValidatePlatform checks that the specified platform is valid.
 func ValidatePlatform(p *azure.Platform, publish types.PublishingStrategy, fldPath *field.Path, ic *types.InstallConfig) field.ErrorList {
 	allErrs := field.ErrorList{}
 	if p.Region == "" {
 		allErrs = append(allErrs, field.Required(fldPath.Child("region"), "region should be set to one of the supported Azure regions"))
 	}
-	if !p.IsARO() && publish != types.InternalPublishingStrategy {
+	if publish != types.InternalPublishingStrategy {
 		if p.BaseDomainResourceGroupName == "" {
 			allErrs = append(allErrs, field.Required(fldPath.Child("baseDomainResourceGroupName"), "baseDomainResourceGroupName is the resource group name where the azure dns zone is deployed"))
 		}
 	}
 	if p.DefaultMachinePlatform != nil {
-		allErrs = append(allErrs, ValidateMachinePool(p.DefaultMachinePlatform, "", p, fldPath.Child("defaultMachinePlatform"))...)
+		allErrs = append(allErrs, ValidateMachinePool(p.DefaultMachinePlatform, "", p, nil, fldPath.Child("defaultMachinePlatform"))...)
+	}
+	hasControlPlane := false
+	numCompute := 0
+	subnetSpecList := map[string]bool{}
+	for _, subnets := range p.Subnets {
+		if _, ok := subnetSpecList[subnets.Name]; ok {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("subnets"), subnets.Name, "duplicate value for subnet name"))
+		}
+		subnetSpecList[subnets.Name] = true
+		switch subnets.Role {
+		case capz.SubnetControlPlane:
+			if hasControlPlane {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("subnets"), subnets.Name, "CAPZ currently does not support multiple control plane subnets"))
+			}
+			hasControlPlane = true
+		case capz.SubnetNode:
+			numCompute++
+		default:
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("subnets"), subnets.Name, fmt.Sprintf("role %s not supported", subnets.Role)))
+		}
 	}
 	if p.VirtualNetwork != "" {
-		if p.ComputeSubnet == "" {
-			allErrs = append(allErrs, field.Required(fldPath.Child("computeSubnet"), "must provide a compute subnet when a virtual network is specified"))
-		}
-		if p.ControlPlaneSubnet == "" {
-			allErrs = append(allErrs, field.Required(fldPath.Child("controlPlaneSubnet"), "must provide a control plane subnet when a virtual network is specified"))
-		}
 		if p.NetworkResourceGroupName == "" {
 			allErrs = append(allErrs, field.Required(fldPath.Child("networkResourceGroupName"), "must provide a network resource group when a virtual network is specified"))
 		}
+		if numCompute == 0 {
+			allErrs = append(allErrs, field.Required(fldPath.Child("computeSubnet"), "must provide a compute subnet when a virtual network is specified"))
+		}
+		if !hasControlPlane {
+			allErrs = append(allErrs, field.Required(fldPath.Child("controlPlaneSubnet"), "must provide a control plane subnet when a virtual network is specified"))
+		}
 	}
-	if (p.ComputeSubnet != "" || p.ControlPlaneSubnet != "") && (p.VirtualNetwork == "" || p.NetworkResourceGroupName == "") {
+	if (numCompute > 0 || hasControlPlane) && (p.VirtualNetwork == "" || p.NetworkResourceGroupName == "") {
 		if p.VirtualNetwork == "" {
 			allErrs = append(allErrs, field.Required(fldPath.Child("virtualNetwork"), "must provide a virtual network when supplying subnets"))
 		}
@@ -98,13 +126,15 @@ func ValidatePlatform(p *azure.Platform, publish types.PublishingStrategy, fldPa
 	if p.OutboundType == azure.UserDefinedRoutingOutboundType && p.VirtualNetwork == "" {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("outboundType"), p.OutboundType, fmt.Sprintf("%s is only allowed when installing to pre-existing network", azure.UserDefinedRoutingOutboundType)))
 	}
-	if p.OutboundType == azure.NatGatewayOutboundType {
-		if ic.FeatureSet != configv1.TechPreviewNoUpgrade {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("outboundType"), p.OutboundType, "not supported in this feature set"))
+
+	if p.OutboundType == azure.NATGatewayMultiZoneOutboundType || p.OutboundType == azure.NATGatewaySingleZoneOutboundType {
+		if publish == types.InternalPublishingStrategy || (publish == types.MixedPublishingStrategy && ic.OperatorPublishingStrategy.Ingress == "Internal") {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("outboundType"), p.OutboundType, "outbound type invalid for internal publish strategy or internal ingress strategy"))
 		}
-		if p.VirtualNetwork != "" {
-			// For now, BYO network and NAT gateways are not compatible
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("outboundType"), p.OutboundType, fmt.Sprintf("%s is not allowed when installing to pre-existing network", azure.NatGatewayOutboundType)))
+		if numCompute > 1 && p.OutboundType == azure.NATGatewaySingleZoneOutboundType {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("outboundType"), p.OutboundType, "cannot have multiple compute subnets and outbound type single zone"))
+		} else if numCompute == 1 && p.OutboundType == azure.NATGatewayMultiZoneOutboundType {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("outboundType"), p.OutboundType, "cannot have one compute subnet and outbound type multi zone"))
 		}
 	}
 
@@ -112,10 +142,10 @@ func ValidatePlatform(p *azure.Platform, publish types.PublishingStrategy, fldPa
 		allErrs = append(allErrs, validateCustomerManagedKeys(p.CloudName, *p.CustomerManagedKey, fldPath.Child("customerManagedKey"))...)
 	}
 
-	// support for Azure user-defined tags made available through
-	// RFE-2017 is for AzurePublicCloud only.
-	if p.CloudName != azure.PublicCloud && len(p.UserTags) > 0 {
-		allErrs = append(allErrs, field.Forbidden(fldPath.Child("userTags"), fmt.Sprintf("userTags support is for %s only", azure.PublicCloud)))
+	// support for Azure user-defined tags
+	// is for AzurePublicCloud and USGovernmentCloud only.
+	if !isUserTagsAllowed(p.CloudName) && len(p.UserTags) > 0 {
+		allErrs = append(allErrs, field.Forbidden(fldPath.Child("userTags"), "userTags support is for PublicCloud and USGovernmentCloud only"))
 	}
 	// check if configured userTags are valid.
 	allErrs = append(allErrs, validateUserTags(p.UserTags, fldPath.Child("userTags"))...)
@@ -129,6 +159,124 @@ func ValidatePlatform(p *azure.Platform, publish types.PublishingStrategy, fldPa
 		}
 		if p.ClusterOSImage != "" {
 			allErrs = append(allErrs, field.Required(fldPath.Child("clusterOSImage"), fmt.Sprintf("clusterOSImage must not be set when the cloud name is %s", cloud)))
+		}
+	}
+
+	allErrs = append(allErrs, validateIPFamily(p.IPFamily, fldPath.Child("ipFamily"))...)
+	allErrs = append(allErrs, validateDualStackMachineNetworks(ic, p.IPFamily)...)
+
+	if p.CloudName == azure.StackCloud && p.AllowSharedKeyAccess != nil && !*p.AllowSharedKeyAccess {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("allowSharedAccessKey"), p.AllowSharedKeyAccess, "disabling shared access key creation is unsupported in Azure stack hub"))
+	}
+	return allErrs
+}
+
+// validateIPFamily checks that the IPFamily field has a valid value.
+func validateIPFamily(ipFamily network.IPFamily, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if ipFamily == "" {
+		return allErrs
+	}
+	validValues := []string{
+		string(network.IPv4),
+		string(network.DualStackIPv4Primary),
+		string(network.DualStackIPv6Primary),
+	}
+	switch ipFamily {
+	case network.IPv4, network.DualStackIPv4Primary, network.DualStackIPv6Primary:
+		// valid
+	default:
+		allErrs = append(allErrs, field.NotSupported(fldPath, ipFamily, validValues))
+	}
+	return allErrs
+}
+
+// validateDualStackMachineNetworks validates Azure IPv6 networking configuration.
+// Azure does not support single-stack IPv6 (IPv6-only). IPv6 can only be used in dual-stack mode with IPv4.
+// Additionally, Azure's subnet splitting logic requires /64 subnets for IPv6, so the parent CIDR must have a broader prefix (prefix length less than /64).
+func validateDualStackMachineNetworks(ic *types.InstallConfig, ipFamily network.IPFamily) field.ErrorList {
+	if ic == nil || ic.Networking == nil {
+		return field.ErrorList{}
+	}
+
+	fldPath := field.NewPath("networking")
+	var allErrs field.ErrorList
+
+	machineNetworks := make([]ipnet.IPNet, len(ic.MachineNetwork))
+	for i, mn := range ic.MachineNetwork {
+		machineNetworks[i] = mn.CIDR
+	}
+
+	hasIPv4 := false
+	hasIPv6 := false
+	ipv6Indices := []int{}
+	ipv6TooLongIndices := []int{}
+	ipv6NotNibbleBoundaryIndices := []int{}
+
+	for i, machineNetwork := range machineNetworks {
+		ip := machineNetwork.IP
+		if len(ip) == 0 {
+			continue
+		}
+
+		if ip.To4() != nil {
+			hasIPv4 = true
+		} else {
+			hasIPv6 = true
+			ipv6Indices = append(ipv6Indices, i)
+
+			prefixLen, bits := machineNetwork.Mask.Size()
+			switch {
+			case bits == 0:
+				allErrs = append(allErrs, field.Invalid(
+					fldPath.Child("machineNetwork").Index(i).Child("cidr"),
+					machineNetworks[i].String(),
+					"CIDR has a non-canonical network mask",
+				))
+			case prefixLen >= 64:
+				ipv6TooLongIndices = append(ipv6TooLongIndices, i)
+			case prefixLen%4 != 0:
+				ipv6NotNibbleBoundaryIndices = append(ipv6NotNibbleBoundaryIndices, i)
+			}
+		}
+	}
+
+	if hasIPv6 && !hasIPv4 {
+		for _, i := range ipv6Indices {
+			allErrs = append(allErrs, field.Invalid(
+				fldPath.Child("machineNetwork").Index(i).Child("cidr"),
+				machineNetworks[i].String(),
+				"single-stack IPv6 is not supported on Azure. IPv6 may only be used with dual-stack networking (both IPv4 and IPv6)",
+			))
+		}
+		return allErrs
+	}
+
+	if ipFamily.DualStackEnabled() && !hasIPv6 {
+		allErrs = append(allErrs, field.Required(
+			fldPath.Child("machineNetwork"),
+			"at least one IPv6 machine network must be specified when dual-stack is enabled",
+		))
+		return allErrs
+	}
+
+	if len(ipv6NotNibbleBoundaryIndices) > 0 {
+		for _, i := range ipv6NotNibbleBoundaryIndices {
+			allErrs = append(allErrs, field.Invalid(
+				fldPath.Child("machineNetwork").Index(i).Child("cidr"),
+				machineNetworks[i].String(),
+				"IPv6 CIDR prefix length must be on a nibble boundary (multiples of 4). Valid prefixes less than /64 are /48, /52, /56, /60",
+			))
+		}
+	}
+
+	if len(ipv6TooLongIndices) > 0 {
+		for _, i := range ipv6TooLongIndices {
+			allErrs = append(allErrs, field.Invalid(
+				fldPath.Child("machineNetwork").Index(i).Child("cidr"),
+				machineNetworks[i].String(),
+				"in dual-stack configurations, IPv6 machine network CIDRs require prefix lengths shorter than /64 on nibble boundaries (e.g., /48, /52, /56, /60). Azure recommends /56 to allow splitting into multiple /64 subnets",
+			))
 		}
 	}
 
@@ -242,9 +390,10 @@ func findDuplicateTagKeys(tagSet map[string]string) error {
 
 var (
 	validOutboundTypes = map[azure.OutboundType]struct{}{
-		azure.LoadbalancerOutboundType:       {},
-		azure.NatGatewayOutboundType:         {},
-		azure.UserDefinedRoutingOutboundType: {},
+		azure.LoadbalancerOutboundType:         {},
+		azure.NATGatewayMultiZoneOutboundType:  {},
+		azure.NATGatewaySingleZoneOutboundType: {},
+		azure.UserDefinedRoutingOutboundType:   {},
 	}
 
 	validOutboundTypeValues = func() []string {
@@ -262,11 +411,11 @@ func validateAzureStack(p *azure.Platform, fldPath *field.Path) field.ErrorList 
 	if p.ARMEndpoint == "" {
 		allErrs = append(allErrs, field.Required(fldPath.Child("armEndpoint"), "ARM endpoint must be set when installing on Azure Stack"))
 	}
-	switch p.OutboundType {
-	case azure.UserDefinedRoutingOutboundType:
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("outboundType"), p.OutboundType, "Azure Stack does not support user-defined routing"))
-	case azure.NatGatewayOutboundType:
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("outboundType"), p.OutboundType, "Azure Stack does not support NAT routing currently"))
+	if p.OutboundType != azure.LoadbalancerOutboundType {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("outboundType"), p.OutboundType, "Azure Stack does not support this routing currently"))
+	}
+	if p.UserProvisionedDNS != "" {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("userProvisionedDNS"), p.UserProvisionedDNS, "userProvisionedDNS is not supported on Azure Stack Hub"))
 	}
 	return allErrs
 }

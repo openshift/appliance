@@ -3,6 +3,7 @@ package aws
 
 import (
 	"bytes"
+	"context"
 	"encoding/pem"
 	"fmt"
 	"strings"
@@ -13,28 +14,125 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta2"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1" //nolint:staticcheck //CORS-3563
 
 	"github.com/openshift/installer/pkg/asset"
+	"github.com/openshift/installer/pkg/asset/installconfig"
+	"github.com/openshift/installer/pkg/asset/installconfig/aws"
 	"github.com/openshift/installer/pkg/asset/manifests/capiutils"
 	"github.com/openshift/installer/pkg/types"
-	"github.com/openshift/installer/pkg/types/aws"
+	awstypes "github.com/openshift/installer/pkg/types/aws"
+	"github.com/openshift/installer/pkg/types/network"
+	"github.com/openshift/installer/pkg/utils"
 )
 
 // MachineInput defines the inputs needed to generate a machine asset.
 type MachineInput struct {
 	Role           string
 	Pool           *types.MachinePool
-	Subnets        map[string]string
+	Subnets        aws.SubnetsByZone
 	Tags           capa.Tags
 	PublicIP       bool
 	PublicIpv4Pool string
+	IPFamily       network.IPFamily
 	Ignition       *capa.Ignition
+	Config         *types.InstallConfig
+}
+
+// CAPIMachineSpecInput defines inputs for building an AWSMachineSpec.
+type CAPIMachineSpecInput struct {
+	InstanceType               string
+	AMI                        string
+	IAMInstanceProfile         string
+	Subnet                     *capa.AWSResourceReference
+	PublicIP                   bool
+	Tags                       capa.Tags
+	EC2RootVolume              awstypes.EC2RootVolume
+	KMSKeyARN                  string
+	IMDS                       capa.HTTPTokensState
+	SecurityGroups             []capa.AWSResourceReference
+	AdditionalSecurityGroupIDs []string
+	CPUOptions                 *awstypes.CPUOptions
+	Ignition                   *capa.Ignition
+	DedicatedHostID            string
+	IPFamily                   network.IPFamily
+}
+
+// GenerateCAPIMachineSpec constructs a capa.AWSMachineSpec from the provided inputs.
+func GenerateCAPIMachineSpec(in *CAPIMachineSpecInput) capa.AWSMachineSpec {
+	spec := capa.AWSMachineSpec{
+		Ignition:           in.Ignition,
+		InstanceType:       in.InstanceType,
+		AMI:                capa.AMIReference{ID: ptr.To(in.AMI)},
+		SSHKeyName:         ptr.To(""),
+		IAMInstanceProfile: in.IAMInstanceProfile,
+		Subnet:             in.Subnet,
+		PublicIP:           ptr.To(in.PublicIP),
+		AdditionalTags:     in.Tags,
+		RootVolume: &capa.Volume{
+			Size:          int64(in.EC2RootVolume.Size),
+			Type:          capa.VolumeType(in.EC2RootVolume.Type),
+			IOPS:          int64(in.EC2RootVolume.IOPS),
+			Encrypted:     ptr.To(true),
+			EncryptionKey: in.KMSKeyARN,
+		},
+		InstanceMetadataOptions: &capa.InstanceMetadataOptions{
+			HTTPTokens:   in.IMDS,
+			HTTPEndpoint: capa.InstanceMetadataEndpointStateEnabled,
+		},
+	}
+
+	if throughput := in.EC2RootVolume.Throughput; throughput != nil {
+		spec.RootVolume.Throughput = ptr.To(int64(*throughput))
+	}
+
+	spec.AdditionalSecurityGroups = append(spec.AdditionalSecurityGroups, in.SecurityGroups...)
+	for _, sg := range in.AdditionalSecurityGroupIDs {
+		spec.AdditionalSecurityGroups = append(
+			spec.AdditionalSecurityGroups,
+			capa.AWSResourceReference{ID: ptr.To(sg)},
+		)
+	}
+
+	if in.CPUOptions != nil {
+		cpuOptions := capa.CPUOptions{}
+		if in.CPUOptions.ConfidentialCompute != nil {
+			cpuOptions.ConfidentialCompute = capa.AWSConfidentialComputePolicy(*in.CPUOptions.ConfidentialCompute)
+		}
+		spec.CPUOptions = cpuOptions
+	}
+
+	if in.DedicatedHostID != "" {
+		spec.Tenancy = "host"
+		spec.HostAffinity = ptr.To("host")
+		spec.HostID = ptr.To(in.DedicatedHostID)
+	}
+
+	if in.IPFamily.DualStackEnabled() {
+		// Only resource-name supports A and AAAA records for private host names
+		// See: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/hostname-types.html#ec2-instance-private-hostnames
+		spec.PrivateDNSName = &capa.PrivateDNSName{
+			EnableResourceNameDNSAAAARecord: ptr.To(true),
+			EnableResourceNameDNSARecord:    ptr.To(true),
+			HostnameType:                    ptr.To("resource-name"),
+		}
+		spec.InstanceMetadataOptions.HTTPProtocolIPv6 = capa.InstanceMetadataEndpointStateEnabled
+
+		// AssignPrimaryIPv6 is required for IPv6 primary to register instances to IPv6 target groups
+		switch in.IPFamily {
+		case network.DualStackIPv6Primary:
+			spec.AssignPrimaryIPv6 = ptr.To(capa.PrimaryIPv6AssignmentStateEnabled)
+		case network.DualStackIPv4Primary:
+			spec.AssignPrimaryIPv6 = ptr.To(capa.PrimaryIPv6AssignmentStateDisabled)
+		}
+	}
+
+	return spec
 }
 
 // GenerateMachines returns manifests and runtime objects to provision the control plane (including bootstrap, if applicable) nodes using CAPI.
 func GenerateMachines(clusterID string, in *MachineInput) ([]*asset.RuntimeFile, error) {
-	if poolPlatform := in.Pool.Platform.Name(); poolPlatform != aws.Name {
+	if poolPlatform := in.Pool.Platform.Name(); poolPlatform != awstypes.Name {
 		return nil, fmt.Errorf("non-AWS machine-pool: %q", poolPlatform)
 	}
 	mpool := in.Pool.Platform.AWS
@@ -49,6 +147,11 @@ func GenerateMachines(clusterID string, in *MachineInput) ([]*asset.RuntimeFile,
 		imds = capa.HTTPTokensStateRequired
 	}
 
+	instanceProfile := in.Pool.Platform.AWS.IAMProfile
+	if len(instanceProfile) == 0 {
+		instanceProfile = fmt.Sprintf("%s-master-profile", clusterID)
+	}
+
 	var result []*asset.RuntimeFile
 
 	for idx := int64(0); idx < total; idx++ {
@@ -57,14 +160,14 @@ func GenerateMachines(clusterID string, in *MachineInput) ([]*asset.RuntimeFile,
 
 		// BYO VPC deployments when subnet IDs are set on install-config.yaml
 		if len(in.Subnets) > 0 {
-			subnetID, ok := in.Subnets[zone]
+			subnetMeta, ok := in.Subnets[zone]
 			if len(in.Subnets) > 0 && !ok {
 				return nil, fmt.Errorf("no subnet for zone %s", zone)
 			}
-			if subnetID == "" {
+			if subnetMeta.ID == "" {
 				return nil, fmt.Errorf("invalid subnet ID for zone %s", zone)
 			}
-			subnet.ID = ptr.To(subnetID)
+			subnet.ID = ptr.To(subnetMeta.ID)
 		} else {
 			subnetInternetScope := "private"
 			if in.PublicIP {
@@ -85,30 +188,24 @@ func GenerateMachines(clusterID string, in *MachineInput) ([]*asset.RuntimeFile,
 					"cluster.x-k8s.io/control-plane": "",
 				},
 			},
-			Spec: capa.AWSMachineSpec{
-				Ignition:             in.Ignition,
-				UncompressedUserData: ptr.To(true),
-				InstanceType:         mpool.InstanceType,
-				AMI:                  capa.AMIReference{ID: ptr.To(mpool.AMIID)},
-				SSHKeyName:           ptr.To(""),
-				IAMInstanceProfile:   fmt.Sprintf("%s-master-profile", clusterID),
-				Subnet:               subnet,
-				PublicIP:             ptr.To(in.PublicIP),
-				AdditionalTags:       in.Tags,
-				RootVolume: &capa.Volume{
-					Size:          int64(mpool.EC2RootVolume.Size),
-					Type:          capa.VolumeType(mpool.EC2RootVolume.Type),
-					IOPS:          int64(mpool.EC2RootVolume.IOPS),
-					Encrypted:     ptr.To(true),
-					EncryptionKey: mpool.KMSKeyARN,
-				},
-				InstanceMetadataOptions: &capa.InstanceMetadataOptions{
-					HTTPTokens:   imds,
-					HTTPEndpoint: capa.InstanceMetadataEndpointStateEnabled,
-				},
-			},
+			Spec: GenerateCAPIMachineSpec(&CAPIMachineSpecInput{
+				InstanceType:               mpool.InstanceType,
+				AMI:                        mpool.AMIID,
+				IAMInstanceProfile:         instanceProfile,
+				Subnet:                     subnet,
+				PublicIP:                   in.PublicIP,
+				Tags:                       in.Tags,
+				EC2RootVolume:              mpool.EC2RootVolume,
+				KMSKeyARN:                  mpool.KMSKeyARN,
+				IMDS:                       imds,
+				AdditionalSecurityGroupIDs: mpool.AdditionalSecurityGroupIDs,
+				CPUOptions:                 mpool.CPUOptions,
+				Ignition:                   in.Ignition,
+				IPFamily:                   in.IPFamily,
+			}),
 		}
 		awsMachine.SetGroupVersionKind(capa.GroupVersion.WithKind("AWSMachine"))
+		utils.SetMachineOSStreamLabels(awsMachine, in.Config)
 
 		if in.Role == "bootstrap" {
 			awsMachine.Name = capiutils.GenerateBoostrapMachineName(clusterID)
@@ -121,14 +218,6 @@ func GenerateMachines(clusterID string, in *MachineInput) ([]*asset.RuntimeFile,
 					PublicIpv4PoolFallBackOrder: ptr.To(capa.PublicIpv4PoolFallbackOrderAmazonPool),
 				}
 			}
-		}
-
-		// Handle additional security groups.
-		for _, sg := range mpool.AdditionalSecurityGroupIDs {
-			awsMachine.Spec.AdditionalSecurityGroups = append(
-				awsMachine.Spec.AdditionalSecurityGroups,
-				capa.AWSResourceReference{ID: ptr.To(sg)},
-			)
 		}
 
 		result = append(result, &asset.RuntimeFile{
@@ -156,6 +245,7 @@ func GenerateMachines(clusterID string, in *MachineInput) ([]*asset.RuntimeFile,
 			},
 		}
 		machine.SetGroupVersionKind(capi.GroupVersion.WithKind("Machine"))
+		utils.SetMachineOSStreamLabels(machine, in.Config)
 
 		result = append(result, &asset.RuntimeFile{
 			File:   asset.File{Filename: fmt.Sprintf("10_machine_%s.yaml", machine.Name)},
@@ -247,4 +337,64 @@ func capaIgnitionProxy(proxy *types.Proxy) *capa.IgnitionProxy {
 		}
 	}
 	return capaProxy
+}
+
+// MachineSubnetsByZones returns a map of subnets by zones for a subnet role type
+// to place corresponding nodes in. Type must be one of: ClusterNode, EdgeNode and BootstrapNode.
+func MachineSubnetsByZones(ctx context.Context, ic *installconfig.InstallConfig, roleType awstypes.SubnetRoleType) (aws.SubnetsByZone, error) {
+	machineSubnets := make(aws.SubnetsByZone)
+
+	// If managed subnets, leave empty to use capa subnet filters.
+	if ic.Config.AWS == nil || len(ic.Config.AWS.VPC.Subnets) == 0 {
+		return machineSubnets, nil
+	}
+
+	subnetIDsByRole := make(map[awstypes.SubnetRoleType][]string)
+	for _, subnet := range ic.Config.AWS.VPC.Subnets {
+		for _, role := range subnet.Roles {
+			subnetIDsByRole[role.Type] = append(subnetIDsByRole[role.Type], string(subnet.ID))
+		}
+	}
+
+	// BYO-subnet install case and subnet roles are specified.
+	if len(subnetIDsByRole) > 0 {
+		for _, subnetID := range subnetIDsByRole[roleType] {
+			subnetMeta, err := ic.AWS.SubnetByID(ctx, subnetID)
+			if err != nil {
+				return machineSubnets, err
+			}
+			machineSubnets[subnetMeta.Zone.Name] = subnetMeta
+		}
+		return machineSubnets, nil
+	}
+
+	// BYO-subnet install case and subnet roles are not specified.
+	var subnetMeta aws.Subnets
+	var err error
+	switch roleType {
+	case awstypes.ClusterNodeSubnetRole:
+		// fetch private subnets to master nodes.
+		subnetMeta, err = ic.AWS.PrivateSubnets(ctx)
+	case awstypes.EdgeNodeSubnetRole:
+		// fetch edge subnets to edge compute nodes.
+		subnetMeta, err = ic.AWS.EdgeSubnets(ctx)
+	case awstypes.BootstrapNodeSubnetRole:
+		// fetch public subnets for bootstrap, when exists (external cluster).
+		// Otherwise, use private.
+		if ic.Config.Publish == types.ExternalPublishingStrategy {
+			subnetMeta, err = ic.AWS.PublicSubnets(ctx)
+		} else {
+			subnetMeta, err = ic.AWS.PrivateSubnets(ctx)
+		}
+	}
+
+	if err != nil {
+		return machineSubnets, err
+	}
+
+	for _, subnet := range subnetMeta {
+		machineSubnets[subnet.Zone.Name] = subnet
+	}
+
+	return machineSubnets, nil
 }

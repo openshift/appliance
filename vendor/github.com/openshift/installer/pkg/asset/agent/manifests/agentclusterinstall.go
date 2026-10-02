@@ -1,11 +1,13 @@
 package manifests
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/go-openapi/swag"
@@ -16,20 +18,24 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/yaml"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operv1 "github.com/openshift/api/operator/v1"
 	hiveext "github.com/openshift/assisted-service/api/hiveextension/v1beta1"
 	aiv1beta1 "github.com/openshift/assisted-service/api/v1beta1"
+	"github.com/openshift/assisted-service/models"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/agent"
 	"github.com/openshift/installer/pkg/asset/agent/agentconfig"
 	"github.com/openshift/installer/pkg/asset/agent/workflow"
 	"github.com/openshift/installer/pkg/ipnet"
+	"github.com/openshift/installer/pkg/rhcos"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/baremetal"
 	"github.com/openshift/installer/pkg/types/defaults"
 	"github.com/openshift/installer/pkg/types/external"
 	"github.com/openshift/installer/pkg/types/none"
+	"github.com/openshift/installer/pkg/types/nutanix"
 	"github.com/openshift/installer/pkg/types/vsphere"
 )
 
@@ -76,6 +82,10 @@ type agentClusterInstallOnPremPlatform struct {
 	// ProvisioningDHCPRange is used to provide DHCP services to hosts
 	// for provisioning.
 	ProvisioningDHCPRange string `json:"provisioningDHCPRange,omitempty"`
+
+	// ProvisioningNetworkGateway is the IP address of the default gateway
+	// for the provisioning network, provided to hosts via DHCP.
+	ProvisioningNetworkGateway string `json:"provisioningNetworkGateway,omitempty"`
 }
 
 type agentClusterInstallOnPremExternalPlatform struct {
@@ -95,6 +105,9 @@ type agentClusterInstallPlatform struct {
 	// External is the configuration used when installing on external cloud provider.
 	// +optional
 	External *agentClusterInstallOnPremExternalPlatform `json:"external,omitempty"`
+	// Nutanix is the configuration used when installing on nutanix platform.
+	// +optional
+	Nutanix *nutanix.Platform `json:"nutanix,omitempty"`
 }
 
 // Used to generate InstallConfig overrides for Assisted Service to apply
@@ -113,6 +126,14 @@ type agentClusterInstallInstallConfigOverrides struct {
 	Networking *types.Networking `json:"networking,omitempty"`
 	// Allow override of CPUPartitioning
 	CPUPartitioning types.CPUPartitioningMode `json:"cpuPartitioningMode,omitempty"`
+	// Allow override of AdditionalTrustBundlePolicy
+	AdditionalTrustBundlePolicy types.PolicyType `json:"additionalTrustBundlePolicy,omitempty"`
+	// Allow override of FeatureSet
+	FeatureSet configv1.FeatureSet `json:"featureSet,omitempty"`
+	// Allow override of FeatureGates
+	FeatureGates []string `json:"featureGates,omitempty"`
+	// OSImageStream is the OS Image Stream to be used for all machines in the cluster
+	OSImageStream *types.OSImageStream `json:"osImageStream,omitempty"`
 }
 
 var _ asset.WritableAsset = (*AgentClusterInstall)(nil)
@@ -129,18 +150,26 @@ func (*AgentClusterInstall) Dependencies() []asset.Asset {
 		&workflow.AgentWorkflow{},
 		&agent.OptionalInstallConfig{},
 		&agentconfig.AgentHosts{},
+		&agentconfig.AgentConfig{},
 	}
 }
 
 // Generate generates the AgentClusterInstall manifest.
-func (a *AgentClusterInstall) Generate(dependencies asset.Parents) error {
+//
+//nolint:gocyclo
+func (a *AgentClusterInstall) Generate(_ context.Context, dependencies asset.Parents) error {
 	agentWorkflow := &workflow.AgentWorkflow{}
 	installConfig := &agent.OptionalInstallConfig{}
 	agentHosts := &agentconfig.AgentHosts{}
-	dependencies.Get(agentWorkflow, agentHosts, installConfig)
+	agentConfig := &agentconfig.AgentConfig{}
+	dependencies.Get(agentWorkflow, agentHosts, installConfig, agentConfig)
 
 	// This manifest is not required for AddNodes workflow
 	if agentWorkflow.Workflow == workflow.AgentWorkflowTypeAddNodes {
+		// Add empty file to keep config ISO loader happy
+		a.File = &asset.File{
+			Filename: agentClusterInstallFilename,
+		}
 		return nil
 	}
 
@@ -148,6 +177,11 @@ func (a *AgentClusterInstall) Generate(dependencies asset.Parents) error {
 		var numberOfWorkers int = 0
 		for _, compute := range installConfig.Config.Compute {
 			numberOfWorkers = numberOfWorkers + int(*compute.Replicas)
+		}
+
+		numberOfArbiters := 0
+		if installConfig.Config.IsArbiterEnabled() {
+			numberOfArbiters = int(*installConfig.Config.Arbiter.Replicas)
 		}
 
 		clusterNetwork := []hiveext.ClusterNetworkEntry{}
@@ -196,6 +230,7 @@ func (a *AgentClusterInstall) Generate(dependencies asset.Parents) error {
 				SSHPublicKey: strings.Trim(installConfig.Config.SSHKey, "|\n\t"),
 				ProvisionRequirements: hiveext.ProvisionRequirements{
 					ControlPlaneAgents: int(*installConfig.Config.ControlPlane.Replicas),
+					ArbiterAgents:      numberOfArbiters,
 					WorkerAgents:       numberOfWorkers,
 				},
 				PlatformType: agent.HivePlatformType(installConfig.Config.Platform),
@@ -207,11 +242,11 @@ func (a *AgentClusterInstall) Generate(dependencies asset.Parents) error {
 				PlatformName: installConfig.Config.Platform.External.PlatformName,
 			}
 		}
-
-		if installConfig.Config.Platform.Name() == none.Name || installConfig.Config.Platform.Name() == external.Name {
-			logrus.Debugf("Setting UserManagedNetworking to true for %s platform", installConfig.Config.Platform.Name())
-			agentClusterInstall.Spec.Networking.UserManagedNetworking = swag.Bool(true)
+		if installConfig.Config.Platform.Name() == external.Name && installConfig.Config.Platform.External.PlatformName == agent.ExternalPlatformNameOci {
+			agentClusterInstall.Spec.ExternalPlatformSpec.CloudControllerManager = external.CloudControllerManagerTypeExternal
 		}
+
+		agentClusterInstall.Spec.Networking.UserManagedNetworking = agent.GetUserManagedNetworkingByPlatformType(agent.HivePlatformType(installConfig.Config.Platform))
 
 		icOverridden := false
 		icOverrides := agentClusterInstallInstallConfigOverrides{}
@@ -220,8 +255,23 @@ func (a *AgentClusterInstall) Generate(dependencies asset.Parents) error {
 			icOverrides.FIPS = installConfig.Config.FIPS
 		}
 
+		if len(installConfig.Config.FeatureSet) > 0 {
+			icOverridden = true
+			icOverrides.FeatureSet = installConfig.Config.FeatureSet
+		}
+
+		if len(installConfig.Config.FeatureGates) > 0 {
+			icOverridden = true
+			icOverrides.FeatureGates = installConfig.Config.FeatureGates
+		}
+
 		if installConfig.Config.Proxy != nil {
-			agentClusterInstall.Spec.Proxy = (*hiveext.Proxy)(getProxy(installConfig.Config.Proxy))
+			rendezvousIP := ""
+			if agentConfig.Config != nil {
+				rendezvousIP = agentConfig.Config.RendezvousIP
+			}
+
+			agentClusterInstall.Spec.Proxy = (*hiveext.Proxy)(getProxy(installConfig.Config.Proxy, &installConfig.Config.Networking.MachineNetwork, rendezvousIP))
 		}
 
 		if installConfig.Config.Platform.BareMetal != nil {
@@ -251,6 +301,7 @@ func (a *AgentClusterInstall) Generate(dependencies asset.Parents) error {
 					baremetalPlatform.ProvisioningNetworkInterface = installConfig.Config.Platform.BareMetal.ProvisioningNetworkInterface
 					baremetalPlatform.ProvisioningNetworkCIDR = installConfig.Config.Platform.BareMetal.ProvisioningNetworkCIDR
 					baremetalPlatform.ProvisioningDHCPRange = installConfig.Config.Platform.BareMetal.ProvisioningDHCPRange
+					baremetalPlatform.ProvisioningNetworkGateway = installConfig.Config.Platform.BareMetal.ProvisioningNetworkGateway
 				}
 			}
 			if bmIcOverridden {
@@ -265,6 +316,11 @@ func (a *AgentClusterInstall) Generate(dependencies asset.Parents) error {
 			agentClusterInstall.Spec.IngressVIPs = installConfig.Config.Platform.BareMetal.IngressVIPs
 			agentClusterInstall.Spec.APIVIP = installConfig.Config.Platform.BareMetal.APIVIPs[0]
 			agentClusterInstall.Spec.IngressVIP = installConfig.Config.Platform.BareMetal.IngressVIPs[0]
+			if installConfig.Config.Platform.BareMetal.LoadBalancer != nil {
+				agentClusterInstall.Spec.LoadBalancer = &hiveext.LoadBalancer{
+					Type: loadBalancerType(installConfig.Config.Platform.BareMetal.LoadBalancer.Type),
+				}
+			}
 		} else if installConfig.Config.Platform.VSphere != nil {
 			vspherePlatform := vsphere.Platform{}
 			if len(installConfig.Config.Platform.VSphere.APIVIPs) > 1 {
@@ -293,6 +349,36 @@ func (a *AgentClusterInstall) Generate(dependencies asset.Parents) error {
 			}
 			agentClusterInstall.Spec.APIVIPs = installConfig.Config.Platform.VSphere.APIVIPs
 			agentClusterInstall.Spec.IngressVIPs = installConfig.Config.Platform.VSphere.IngressVIPs
+			if installConfig.Config.Platform.VSphere.LoadBalancer != nil {
+				agentClusterInstall.Spec.LoadBalancer = &hiveext.LoadBalancer{
+					Type: loadBalancerType(installConfig.Config.Platform.VSphere.LoadBalancer.Type),
+				}
+			}
+		} else if installConfig.Config.Platform.Nutanix != nil {
+			icNutanixPlatformBytes, err := json.Marshal(*installConfig.Config.Platform.Nutanix)
+			if err != nil {
+				logrus.Errorf("failed to marshal installConfig.platform.nutanix: %v", err)
+			}
+			nutanixPlatform := nutanix.Platform{}
+			err = json.Unmarshal(icNutanixPlatformBytes, &nutanixPlatform)
+			if err != nil {
+				logrus.Errorf("failed to unmarshal installConfig.platform.nutanix: %v", err)
+			}
+
+			// Skip the below agent installer not supported fields
+			nutanixPlatform.ClusterOSImage = ""
+			nutanixPlatform.PreloadedOSImageName = ""
+			nutanixPlatform.DefaultMachinePlatform = nil
+			nutanixPlatform.LoadBalancer = nil
+			nutanixPlatform.FailureDomains = nil
+			nutanixPlatform.PrismAPICallTimeout = nil
+
+			icOverridden = true
+			icOverrides.Platform = &agentClusterInstallPlatform{
+				Nutanix: &nutanixPlatform,
+			}
+			agentClusterInstall.Spec.APIVIPs = installConfig.Config.Platform.Nutanix.APIVIPs
+			agentClusterInstall.Spec.IngressVIPs = installConfig.Config.Platform.Nutanix.IngressVIPs
 		} else if installConfig.Config.Platform.External != nil {
 			icOverridden = true
 			icOverrides.Platform = &agentClusterInstallPlatform{
@@ -317,6 +403,16 @@ func (a *AgentClusterInstall) Generate(dependencies asset.Parents) error {
 		if installConfig.Config.CPUPartitioning != "" {
 			icOverridden = true
 			icOverrides.CPUPartitioning = installConfig.Config.CPUPartitioning
+		}
+
+		if installConfig.Config.AdditionalTrustBundlePolicy != "" && installConfig.Config.AdditionalTrustBundlePolicy != types.PolicyProxyOnly {
+			icOverridden = true
+			icOverrides.AdditionalTrustBundlePolicy = installConfig.Config.AdditionalTrustBundlePolicy
+		}
+
+		if installConfig.Config.OSImageStream != rhcos.GetDefaultOSImageStream(installConfig.Config) {
+			icOverridden = true
+			icOverrides.OSImageStream = &installConfig.Config.OSImageStream
 		}
 
 		if icOverridden {
@@ -374,16 +470,14 @@ func (a *AgentClusterInstall) Load(f asset.FileFetcher) (bool, error) {
 		agentClusterInstall.Spec.PlatformType = hiveext.NonePlatformType
 	case vsphere.Name:
 		agentClusterInstall.Spec.PlatformType = hiveext.VSpherePlatformType
+	case nutanix.Name:
+		agentClusterInstall.Spec.PlatformType = hiveext.NutanixPlatformType
 	}
 
 	// Set the default value for userManagedNetworking, as would be done by the
 	// mutating webhook in ZTP.
 	if agentClusterInstall.Spec.Networking.UserManagedNetworking == nil {
-		switch agentClusterInstall.Spec.PlatformType {
-		case hiveext.NonePlatformType, hiveext.ExternalPlatformType:
-			logrus.Debugf("Setting UserManagedNetworking to true for %s platform", agentClusterInstall.Spec.PlatformType)
-			agentClusterInstall.Spec.Networking.UserManagedNetworking = swag.Bool(true)
-		}
+		agentClusterInstall.Spec.Networking.UserManagedNetworking = agent.GetUserManagedNetworkingByPlatformType(agentClusterInstall.Spec.PlatformType)
 	}
 
 	a.Config = agentClusterInstall
@@ -406,6 +500,10 @@ func (a *AgentClusterInstall) finish() error {
 
 	if err := a.validateSupportedPlatforms().ToAggregate(); err != nil {
 		return errors.Wrapf(err, "invalid PlatformType configured")
+	}
+
+	if err := a.validateDiskEncryption().ToAggregate(); err != nil {
+		return errors.Wrapf(err, "invalid DiskEncryption configured")
 	}
 
 	agentClusterInstallData, err := yaml.Marshal(a.Config)
@@ -461,7 +559,8 @@ func (a *AgentClusterInstall) validateIPAddressAndNetworkType() field.ErrorList 
 	clusterNetworkPath := field.NewPath("spec", "networking", "clusterNetwork")
 	serviceNetworkPath := field.NewPath("spec", "networking", "serviceNetwork")
 
-	if a.Config.Spec.Networking.NetworkType == string(operv1.NetworkTypeOpenShiftSDN) {
+	switch a.Config.Spec.Networking.NetworkType {
+	case string(operv1.NetworkTypeOpenShiftSDN):
 		hasIPv6 := false
 		for _, cn := range a.Config.Spec.Networking.ClusterNetwork {
 			ipNet, errCIDR := ipnet.ParseCIDR(cn.CIDR)
@@ -494,6 +593,29 @@ func (a *AgentClusterInstall) validateIPAddressAndNetworkType() field.ErrorList 
 			allErrs = append(allErrs, field.Required(fieldPath,
 				fmt.Sprintf("serviceNetwork CIDR is IPv6 and is not compatible with networkType %s",
 					operv1.NetworkTypeOpenShiftSDN)))
+		}
+	case string(operv1.NetworkTypeOVNKubernetes):
+		for i, cn := range a.Config.Spec.Networking.ClusterNetwork {
+			path := clusterNetworkPath.Index(i)
+			ipNet, errCIDR := ipnet.ParseCIDR(cn.CIDR)
+			if errCIDR != nil {
+				allErrs = append(allErrs, field.Required(path.Child("cidr"), "error parsing the clusterNetwork CIDR"))
+				continue
+			}
+			cnOnes, cnBits := ipNet.Mask.Size()
+			maxHostPrefix := int32(cnBits) - 7
+			if cn.HostPrefix > maxHostPrefix {
+				allErrs = append(allErrs, field.Invalid(path.Child("hostPrefix"), cn.HostPrefix, fmt.Sprintf("must be at most %d", maxHostPrefix)))
+			}
+
+			numHosts := a.Config.Spec.ProvisionRequirements.ControlPlaneAgents + a.Config.Spec.ProvisionRequirements.WorkerAgents
+			var minPrefixDiff int32
+			for (1 << minPrefixDiff) < numHosts {
+				minPrefixDiff++
+			}
+			if (cn.HostPrefix - int32(cnOnes)) < minPrefixDiff {
+				allErrs = append(allErrs, field.Invalid(path, cn.CIDR, fmt.Sprintf("prefix length %d not large enough to accommodate %d hosts with hostPrefix length %d", cnOnes, numHosts, cn.HostPrefix)))
+			}
 		}
 	}
 
@@ -535,4 +657,30 @@ func (a *AgentClusterInstall) GetExternalPlatformName() string {
 		return a.Config.Spec.ExternalPlatformSpec.PlatformName
 	}
 	return ""
+}
+
+func loadBalancerType(lbType configv1.PlatformLoadBalancerType) hiveext.LoadBalancerType {
+	if lbType == configv1.LoadBalancerTypeUserManaged {
+		return hiveext.LoadBalancerTypeUserManaged
+	}
+	return hiveext.LoadBalancerTypeClusterManaged
+}
+
+func (a *AgentClusterInstall) validateDiskEncryption() field.ErrorList {
+	var allErrs field.ErrorList
+	supportedEnableOn := []string{models.DiskEncryptionEnableOnNone, models.DiskEncryptionEnableOnAll, models.DiskEncryptionEnableOnMasters, models.DiskEncryptionEnableOnWorkers}
+	supportedMode := []string{models.DiskEncryptionModeTpmv2, models.DiskEncryptionModeTang}
+
+	if a.Config.Spec.DiskEncryption != nil {
+		if !slices.Contains(supportedEnableOn, swag.StringValue(a.Config.Spec.DiskEncryption.EnableOn)) {
+			fieldPath := field.NewPath("spec", "diskEncryption", "enableOn")
+			allErrs = append(allErrs, field.NotSupported(fieldPath, a.Config.Spec.DiskEncryption.EnableOn, supportedEnableOn))
+		}
+
+		if !slices.Contains(supportedMode, swag.StringValue(a.Config.Spec.DiskEncryption.Mode)) {
+			fieldPath := field.NewPath("spec", "diskEncryption", "mode")
+			allErrs = append(allErrs, field.NotSupported(fieldPath, a.Config.Spec.DiskEncryption.Mode, supportedMode))
+		}
+	}
+	return allErrs
 }

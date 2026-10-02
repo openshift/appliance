@@ -16,11 +16,11 @@ limitations under the License.
 
 package v1beta1
 
-import clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+import clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
 const (
 	// InstanceReadyCondition reports on current status of the OpenStack instance. Ready indicates the instance is in a Running state.
-	InstanceReadyCondition clusterv1.ConditionType = "InstanceReady"
+	InstanceReadyCondition clusterv1beta1.ConditionType = "InstanceReady"
 
 	// WaitingForClusterInfrastructureReason used when machine is waiting for cluster infrastructure to be ready before proceeding.
 	WaitingForClusterInfrastructureReason = "WaitingForClusterInfrastructure"
@@ -42,11 +42,16 @@ const (
 	InstanceDeleteFailedReason = "InstanceDeleteFailed"
 	// OpenstackErrorReason used when there is an error communicating with OpenStack.
 	OpenStackErrorReason = "OpenStackError"
+	// DependencyFailedReason indicates that a dependent object failed.
+	DependencyFailedReason = "DependencyFailed"
+
+	// ServerUnexpectedDeletedMessage is the message used when the server is unexpectedly deleted via an external agent.
+	ServerUnexpectedDeletedMessage = "The server was unexpectedly deleted"
 )
 
 const (
 	// APIServerIngressReadyCondition reports on the current status of the network ingress (Loadbalancer, Floating IP) for Control Plane machines. Ready indicates that the instance can receive requests.
-	APIServerIngressReadyCondition clusterv1.ConditionType = "APIServerIngressReadyCondition"
+	APIServerIngressReadyCondition clusterv1beta1.ConditionType = "APIServerIngressReadyCondition"
 
 	// LoadBalancerMemberErrorReason used when the instance could not be added as a loadbalancer member.
 	LoadBalancerMemberErrorReason = "LoadBalancerMemberError"
@@ -56,11 +61,40 @@ const (
 
 const (
 	// FloatingAddressFromPoolReadyCondition reports on the current status of the Floating IPs from ipam pool.
-	FloatingAddressFromPoolReadyCondition clusterv1.ConditionType = "FloatingAddressFromPoolReady"
+	FloatingAddressFromPoolReadyCondition clusterv1beta1.ConditionType = "FloatingAddressFromPoolReady"
 	// WaitingForIpamProviderReason used when machine is waiting for ipam provider to be ready before proceeding.
 	FloatingAddressFromPoolWaitingForIpamProviderReason = "WaitingForIPAMProvider"
 	// FloatingAddressFromPoolErrorReason is used when there is an error attaching an IP from the pool to an machine.
 	FloatingAddressFromPoolErrorReason = "FloatingIPError"
 	// UnableToFindFloatingIPNetworkReason is used when the floating ip network is not found.
 	UnableToFindFloatingIPNetworkReason = "UnableToFindFloatingIPNetwork"
+)
+
+const (
+	// NetworkReadyCondition reports on the current status of the cluster network infrastructure.
+	// Ready indicates that the network, subnets, and related resources have been successfully provisioned.
+	NetworkReadyCondition clusterv1beta1.ConditionType = "NetworkReady"
+
+	// RouterReadyCondition reports on the current status of the cluster router infrastructure.
+	// Ready indicates that the router and its interfaces have been successfully provisioned.
+	RouterReadyCondition clusterv1beta1.ConditionType = "RouterReady"
+
+	// SecurityGroupsReadyCondition reports on the current status of the cluster security groups.
+	// Ready indicates that all required security groups have been successfully provisioned.
+	SecurityGroupsReadyCondition clusterv1beta1.ConditionType = "SecurityGroupsReady"
+
+	// APIEndpointReadyCondition reports on the current status of the cluster API endpoint.
+	// Ready indicates that the control plane endpoint has been successfully configured.
+	APIEndpointReadyCondition clusterv1beta1.ConditionType = "APIEndpointReady"
+
+	// NetworkReconcileFailedReason is used when network reconciliation fails.
+	NetworkReconcileFailedReason = "NetworkCreateFailed"
+	// SubnetReconcileFailedReason is used when subnet reconciliation fails.
+	SubnetReconcileFailedReason = "SubnetCreateFailed"
+	// RouterReconcileFailedReason is used when router reconciliation fails.
+	RouterReconcileFailedReason = "RouterCreateFailed"
+	// SecurityGroupReconcileFailedReason is used when security group reconciliation fails.
+	SecurityGroupReconcileFailedReason = "SecurityGroupCreateFailed"
+	// APIEndpointConfigFailedReason is used when API endpoint configuration fails.
+	APIEndpointConfigFailedReason = "APIEndpointConfigFailed"
 )

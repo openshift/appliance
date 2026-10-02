@@ -12,6 +12,7 @@ import (
 	ovirtprovider "github.com/openshift/cluster-api-provider-ovirt/pkg/apis/ovirtprovider/v1beta1"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/ovirt"
+	"github.com/openshift/installer/pkg/utils"
 )
 
 // Machines returns a list of machines for a machinepool.
@@ -52,6 +53,7 @@ func Machines(clusterID string, config *types.InstallConfig, pool *types.Machine
 				// we don't need to set Versions, because we control those via cluster operators.
 			},
 		}
+		utils.SetMachineOSStreamLabels(&machine, config)
 		machines = append(machines, machine)
 	}
 

@@ -19,11 +19,33 @@ import (
 )
 
 var (
-	// DockerBridgeCIDR is the network range that is used by default network for docker.
-	DockerBridgeCIDR = func() *net.IPNet {
-		_, cidr, _ := net.ParseCIDR("172.17.0.0/16")
-		return cidr
-	}()
+	// DockerBridgeSubnet is the default v4 subnet for Docker.
+	DockerBridgeSubnet = cidrToIPNet("172.17.0.0/16")
+
+	// OVNIPv4JoinSubnet is the default v4 subnet for join switches.
+	OVNIPv4JoinSubnet = cidrToIPNet("100.64.0.0/16")
+
+	// OVNIPv4TransitSubnet is the default v4 subnet for transit switches.
+	OVNIPv4TransitSubnet = cidrToIPNet("100.88.0.0/16")
+
+	// OVNIPv4MasqueradeSubnet is the default v4 masquerade subnet.
+	// In OCP <= 4.17, the default is 169.254.169.0/29.
+	OVNIPv4MasqueradeSubnet = cidrToIPNet("169.254.0.0/17")
+
+	// OVNIPv6JoinSubnet is the default v6 subnet for join switches.
+	OVNIPv6JoinSubnet = cidrToIPNet("fd98::/64")
+
+	// OVNIPv6TransitSubnet is the default v6 subnet for transit switches.
+	OVNIPv6TransitSubnet = cidrToIPNet("fd97::/64")
+
+	// OVNIPv6MasqueradeSubnet is the default v6 masquerade subnet.
+	// In OCP <= 4.17, the default is fd69::/125.
+	OVNIPv6MasqueradeSubnet = cidrToIPNet("fd69::/112")
+
+	cidrToIPNet = func(cidr string) *net.IPNet {
+		_, subnet, _ := net.ParseCIDR(cidr) //nolint:errcheck
+		return subnet
+	}
 )
 
 // CABundle checks if the given string contains valid certificate(s) and returns an error if not.
@@ -126,6 +148,48 @@ func GCPClusterName(v string) error {
 	return nil
 }
 
+// AzureClusterName checks if the provided cluster name contains Azure reserved words.
+// Azure prohibits certain reserved words and trademarks in resource names that have
+// accessible endpoints (such as FQDNs). This validation prevents deployment failures
+// with ReservedResourceName or DomainNameLabelReserved errors.
+// See: https://learn.microsoft.com/en-us/azure/azure-resource-manager/troubleshooting/error-reserved-resource-name
+func AzureClusterName(v string) error {
+	upperName := strings.ToUpper(v)
+
+	// Words that are completely reserved (cannot be used as whole word)
+	// These words are forbidden only when used as the complete cluster name
+	completelyReservedWords := []string{
+		"ACCESS", "APP_CODE", "APP_THEMES", "APP_DATA", "APP_GLOBALRESOURCES",
+		"APP_LOCALRESOURCES", "APP_WEBREFERENCES", "APP_BROWSERS", "AZURE", "BING",
+		"BIZSPARK", "BIZTALK", "CORTANA", "DIRECTX", "DOTNET", "DYNAMICS",
+		"EXCEL", "EXCHANGE", "FOREFRONT", "GROOVE", "HOLOLENS", "HYPERV",
+		"KINECT", "LYNC", "MSDN", "O365", "OFFICE", "OFFICE365",
+		"ONEDRIVE", "ONENOTE", "OUTLOOK", "POWERPOINT", "SHAREPOINT", "SKYPE",
+		"VISIO", "VISUALSTUDIO", "WEB.CONFIG", "XBOX",
+	}
+
+	for _, reserved := range completelyReservedWords {
+		if upperName == reserved {
+			return fmt.Errorf("cluster name must not be the reserved word %q", strings.ToLower(reserved))
+		}
+	}
+
+	// Words that cannot be used as whole word or substring
+	forbiddenSubstrings := []string{"MICROSOFT", "WINDOWS"}
+	for _, forbidden := range forbiddenSubstrings {
+		if strings.Contains(upperName, forbidden) {
+			return fmt.Errorf("cluster name must not contain the reserved word %q", strings.ToLower(forbidden))
+		}
+	}
+
+	// Words that cannot be used at the start
+	if strings.HasPrefix(upperName, "LOGIN") {
+		return errors.New("cluster name must not start with the reserved word \"login\"")
+	}
+
+	return nil
+}
+
 // ClusterNameMaxLength validates if the string provided length is
 // greater than maxlen argument.
 func ClusterNameMaxLength(v string, maxlen int) error {
@@ -161,12 +225,8 @@ func SubnetCIDR(cidr *net.IPNet) error {
 
 // ServiceSubnetCIDR checks if the given IP net is a valid CIDR for the Kubernetes service network
 func ServiceSubnetCIDR(cidr *net.IPNet) error {
-	if cidr.IP.IsUnspecified() {
-		return errors.New("address must be specified")
-	}
-	nip := cidr.IP.Mask(cidr.Mask)
-	if nip.String() != cidr.IP.String() {
-		return fmt.Errorf("invalid network address. got %s, expecting %s", cidr.String(), (&net.IPNet{IP: nip, Mask: cidr.Mask}).String())
+	if err := SubnetCIDR(cidr); err != nil {
+		return err
 	}
 	maskLen, addrLen := cidr.Mask.Size()
 	if addrLen == 32 && maskLen < 12 {

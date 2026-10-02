@@ -26,7 +26,7 @@ type WorkspacePowerEdgeRouterDetails struct {
 
 	// The state of a Power Edge Router
 	// Required: true
-	// Enum: ["active","error","warning","configuring","removing","inactive","user-validation"]
+	// Enum: ["active","error","warning","configuring","removing","inactive","user-validation","inaccessible"]
 	State *string `json:"state"`
 
 	// The Power Edge Router type
@@ -57,7 +57,7 @@ func (m *WorkspacePowerEdgeRouterDetails) Validate(formats strfmt.Registry) erro
 	return nil
 }
 
-var workspacePowerEdgeRouterDetailsTypeMigrationStatusPropEnum []interface{}
+var workspacePowerEdgeRouterDetailsTypeMigrationStatusPropEnum []any
 
 func init() {
 	var res []string
@@ -105,11 +105,11 @@ func (m *WorkspacePowerEdgeRouterDetails) validateMigrationStatus(formats strfmt
 	return nil
 }
 
-var workspacePowerEdgeRouterDetailsTypeStatePropEnum []interface{}
+var workspacePowerEdgeRouterDetailsTypeStatePropEnum []any
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["active","error","warning","configuring","removing","inactive","user-validation"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["active","error","warning","configuring","removing","inactive","user-validation","inaccessible"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -139,6 +139,9 @@ const (
 
 	// WorkspacePowerEdgeRouterDetailsStateUserDashValidation captures enum value "user-validation"
 	WorkspacePowerEdgeRouterDetailsStateUserDashValidation string = "user-validation"
+
+	// WorkspacePowerEdgeRouterDetailsStateInaccessible captures enum value "inaccessible"
+	WorkspacePowerEdgeRouterDetailsStateInaccessible string = "inaccessible"
 )
 
 // prop value enum
@@ -163,7 +166,7 @@ func (m *WorkspacePowerEdgeRouterDetails) validateState(formats strfmt.Registry)
 	return nil
 }
 
-var workspacePowerEdgeRouterDetailsTypeTypePropEnum []interface{}
+var workspacePowerEdgeRouterDetailsTypeTypePropEnum []any
 
 func init() {
 	var res []string

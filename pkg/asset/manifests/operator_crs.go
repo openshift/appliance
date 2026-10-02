@@ -1,6 +1,7 @@
 package manifests
 
 import (
+	"context"
 	"path/filepath"
 
 	"github.com/pkg/errors"
@@ -33,7 +34,7 @@ func (em *OperatorCRs) Dependencies() []asset.Asset {
 }
 
 // Generate is not required for OperatorCRs.
-func (em *OperatorCRs) Generate(dependencies asset.Parents) error {
+func (em *OperatorCRs) Generate(_ context.Context, _ asset.Parents) error {
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -9,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/installconfig"
 	"github.com/openshift/installer/pkg/asset/releaseimage"
@@ -18,6 +20,8 @@ import (
 	baremetalvalidation "github.com/openshift/installer/pkg/types/baremetal/validation"
 	"github.com/openshift/installer/pkg/types/external"
 	"github.com/openshift/installer/pkg/types/none"
+	"github.com/openshift/installer/pkg/types/nutanix"
+	nutanixvalidation "github.com/openshift/installer/pkg/types/nutanix/validation"
 	"github.com/openshift/installer/pkg/types/validation"
 	"github.com/openshift/installer/pkg/types/vsphere"
 )
@@ -46,17 +50,18 @@ func (a *OptionalInstallConfig) Dependencies() []asset.Asset {
 }
 
 // Generate generates the install-config.yaml file.
-func (a *OptionalInstallConfig) Generate(parents asset.Parents) error {
+func (a *OptionalInstallConfig) Generate(_ context.Context, parents asset.Parents) error {
 	// Just generate an empty install config, since we have no dependencies.
 	return nil
 }
 
 // Load returns the installconfig from disk.
 func (a *OptionalInstallConfig) Load(f asset.FileFetcher) (bool, error) {
+	ctx := context.TODO()
 	found, err := a.LoadFromFile(f)
 	if found && err == nil {
 		a.Supplied = true
-		if err := a.validateInstallConfig(a.Config).ToAggregate(); err != nil {
+		if err := a.validateInstallConfig(ctx, a.Config).ToAggregate(); err != nil {
 			return false, errors.Wrapf(err, "invalid install-config configuration")
 		}
 		if err := a.RecordFile(); err != nil {
@@ -66,7 +71,7 @@ func (a *OptionalInstallConfig) Load(f asset.FileFetcher) (bool, error) {
 	return found, err
 }
 
-func (a *OptionalInstallConfig) validateInstallConfig(installConfig *types.InstallConfig) field.ErrorList {
+func (a *OptionalInstallConfig) validateInstallConfig(ctx context.Context, installConfig *types.InstallConfig) field.ErrorList {
 	var allErrs field.ErrorList
 	if err := validation.ValidateInstallConfig(a.Config, true); err != nil {
 		allErrs = append(allErrs, err...)
@@ -79,18 +84,14 @@ func (a *OptionalInstallConfig) validateInstallConfig(installConfig *types.Insta
 	if err := a.validateSupportedArchs(installConfig); err != nil {
 		allErrs = append(allErrs, err...)
 	}
-	if err := a.validateReleaseArch(installConfig); err != nil {
+	if err := a.validateReleaseArch(ctx, installConfig); err != nil {
 		allErrs = append(allErrs, err...)
-	}
-
-	if installConfig.FeatureSet != configv1.Default {
-		allErrs = append(allErrs, field.NotSupported(field.NewPath("FeatureSet"), installConfig.FeatureSet, []string{string(configv1.Default)}))
 	}
 
 	warnUnusedConfig(installConfig)
 
-	numMasters, numWorkers := GetReplicaCount(installConfig)
-	logrus.Infof(fmt.Sprintf("Configuration has %d master replicas and %d worker replicas", numMasters, numWorkers))
+	numMasters, numArbiters, numWorkers := GetReplicaCount(installConfig)
+	logrus.Infof("Configuration has %d master replicas, %d arbiter replicas, and %d worker replicas", numMasters, numArbiters, numWorkers)
 
 	if err := a.validateControlPlaneConfiguration(installConfig); err != nil {
 		allErrs = append(allErrs, err...)
@@ -100,33 +101,56 @@ func (a *OptionalInstallConfig) validateInstallConfig(installConfig *types.Insta
 		allErrs = append(allErrs, err...)
 	}
 
+	if err := a.validateTwoNodeConfiguration(installConfig); err != nil {
+		allErrs = append(allErrs, err...)
+	}
+
 	return allErrs
 }
 
 func (a *OptionalInstallConfig) validateSupportedPlatforms(installConfig *types.InstallConfig) field.ErrorList {
+	allErrs := ValidateSupportedPlatforms(installConfig.Platform, string(installConfig.ControlPlane.Architecture))
+	return append(allErrs, a.validatePlatformsByName(installConfig)...)
+}
+
+// ValidateSupportedPlatforms verifies if the specified platform/arch is supported or not.
+func ValidateSupportedPlatforms(platform types.Platform, controlPlaneArch string) field.ErrorList {
 	var allErrs field.ErrorList
 
-	fieldPath := field.NewPath("Platform")
+	fieldPath := field.NewPath("platform")
 
-	if installConfig.Platform.Name() != "" && !IsSupportedPlatform(HivePlatformType(installConfig.Platform)) {
-		allErrs = append(allErrs, field.NotSupported(fieldPath, installConfig.Platform.Name(), SupportedInstallerPlatforms()))
+	if platform.Name() != "" && !IsSupportedPlatform(HivePlatformType(platform)) {
+		allErrs = append(allErrs, field.NotSupported(fieldPath, platform.Name(), SupportedInstallerPlatforms()))
 	}
-	if installConfig.Platform.Name() != none.Name && installConfig.ControlPlane.Architecture == types.ArchitecturePPC64LE {
-		allErrs = append(allErrs, field.Invalid(fieldPath, installConfig.Platform.Name(), fmt.Sprintf("CPU architecture \"%s\" only supports platform \"%s\".", types.ArchitecturePPC64LE, none.Name)))
+	if platform.Name() != none.Name && controlPlaneArch == types.ArchitecturePPC64LE {
+		allErrs = append(allErrs, field.Invalid(fieldPath, platform.Name(), fmt.Sprintf("CPU architecture \"%s\" only supports platform \"%s\".", types.ArchitecturePPC64LE, none.Name)))
 	}
-	if installConfig.Platform.Name() != none.Name && installConfig.ControlPlane.Architecture == types.ArchitectureS390X {
-		allErrs = append(allErrs, field.Invalid(fieldPath, installConfig.Platform.Name(), fmt.Sprintf("CPU architecture \"%s\" only supports platform \"%s\".", types.ArchitectureS390X, none.Name)))
+	if platform.Name() != none.Name && platform.Name() != external.Name && controlPlaneArch == types.ArchitectureS390X {
+		allErrs = append(allErrs, field.Invalid(fieldPath, platform.Name(), fmt.Sprintf("CPU architecture \"%s\" only supports platform \"%s\" or \"%s\".", types.ArchitectureS390X, none.Name, external.Name)))
 	}
+	return allErrs
+}
+
+func (a *OptionalInstallConfig) validatePlatformsByName(installConfig *types.InstallConfig) field.ErrorList {
+	var allErrs field.ErrorList
+
 	if installConfig.Platform.Name() == external.Name {
-		if installConfig.Platform.External.PlatformName == external.ExternalPlatformNameOci &&
+		// Validate OCI platform requirements
+		if installConfig.Platform.External.PlatformName == ExternalPlatformNameOci &&
 			installConfig.Platform.External.CloudControllerManager != external.CloudControllerManagerTypeExternal {
-			fieldPath := field.NewPath("Platform", "External", "CloudControllerManager")
-			allErrs = append(allErrs, field.Invalid(fieldPath, installConfig.Platform.External.CloudControllerManager, fmt.Sprintf("When using external %s platform, %s must be set to %s", external.ExternalPlatformNameOci, fieldPath, external.CloudControllerManagerTypeExternal)))
+			fieldPath := field.NewPath("platform", "external", "cloudControllerManager")
+			allErrs = append(allErrs, field.Invalid(fieldPath, installConfig.Platform.External.CloudControllerManager,
+				fmt.Sprintf("When using external %s platform, %s must be set to %s",
+					ExternalPlatformNameOci, fieldPath, external.CloudControllerManagerTypeExternal)))
 		}
 	}
 
 	if installConfig.Platform.Name() == vsphere.Name {
 		allErrs = append(allErrs, a.validateVSpherePlatform(installConfig)...)
+	}
+
+	if installConfig.Platform.Name() == nutanix.Name {
+		allErrs = append(allErrs, a.validateNutanixPlatform(installConfig)...)
 	}
 
 	if installConfig.Platform.Name() == baremetal.Name {
@@ -136,12 +160,12 @@ func (a *OptionalInstallConfig) validateSupportedPlatforms(installConfig *types.
 	return allErrs
 }
 
-func (a *OptionalInstallConfig) validateReleaseArch(installConfig *types.InstallConfig) field.ErrorList {
+func (a *OptionalInstallConfig) validateReleaseArch(ctx context.Context, installConfig *types.InstallConfig) field.ErrorList {
 	var allErrs field.ErrorList
 
-	fieldPath := field.NewPath("ControlPlane", "Architecture")
+	fieldPath := field.NewPath("controlPlane", "architecture")
 	releaseImage := &releaseimage.Image{}
-	asseterr := releaseImage.Generate(asset.Parents{})
+	asseterr := releaseImage.Generate(ctx, asset.Parents{})
 	if asseterr != nil {
 		allErrs = append(allErrs, field.InternalError(fieldPath, asseterr))
 	}
@@ -167,7 +191,7 @@ func (a *OptionalInstallConfig) validateReleaseArch(installConfig *types.Install
 func (a *OptionalInstallConfig) validateSupportedArchs(installConfig *types.InstallConfig) field.ErrorList {
 	var allErrs field.ErrorList
 
-	fieldPath := field.NewPath("ControlPlane", "Architecture")
+	fieldPath := field.NewPath("controlPlane", "architecture")
 
 	switch string(installConfig.ControlPlane.Architecture) {
 	case types.ArchitectureAMD64:
@@ -178,8 +202,9 @@ func (a *OptionalInstallConfig) validateSupportedArchs(installConfig *types.Inst
 		allErrs = append(allErrs, field.NotSupported(fieldPath, installConfig.ControlPlane.Architecture, []string{types.ArchitectureAMD64, types.ArchitectureARM64, types.ArchitecturePPC64LE, types.ArchitectureS390X}))
 	}
 
+	computePath := field.NewPath("compute")
 	for i, compute := range installConfig.Compute {
-		fieldPath := field.NewPath(fmt.Sprintf("Compute[%d]", i), "Architecture")
+		fieldPath := computePath.Index(i).Child("architecture")
 
 		switch string(compute.Architecture) {
 		case types.ArchitectureAMD64:
@@ -193,15 +218,88 @@ func (a *OptionalInstallConfig) validateSupportedArchs(installConfig *types.Inst
 
 	return allErrs
 }
+func (a *OptionalInstallConfig) validateTwoNodeConfiguration(installConfig *types.InstallConfig) field.ErrorList {
+	// Progressive disclosure: Early exit if not a 2-node scenario
+	if installConfig.ControlPlane == nil ||
+		installConfig.ControlPlane.Replicas == nil ||
+		*installConfig.ControlPlane.Replicas != 2 {
+		return nil // Not a 2-node case, nothing to validate
+	}
+
+	var allErrs field.ErrorList
+
+	// Validate TNA configuration if applicable
+	if err := a.validateTNAConfiguration(installConfig); err != nil {
+		allErrs = append(allErrs, err...)
+	}
+
+	// Validate TNF configuration if applicable
+	if err := a.validateTNFConfiguration(installConfig); err != nil {
+		allErrs = append(allErrs, err...)
+	}
+
+	// If we have errors from both TNA and TNF validation, then neither is properly configured
+	// This replaces the current "neither is valid" check
+	return allErrs
+}
+
+func (a *OptionalInstallConfig) validateTNAConfiguration(installConfig *types.InstallConfig) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// Only validate TNA if arbiter is configured
+	if installConfig.Arbiter == nil {
+		return nil
+	}
+
+	// Validate arbiter replicas count for TNA (should be exactly 1)
+	if *installConfig.Arbiter.Replicas != 1 {
+		fieldPath := field.NewPath("arbiter", "replicas")
+		allErrs = append(allErrs, field.Invalid(fieldPath, installConfig.Arbiter.Replicas,
+			"TNA (Two Node with Arbiter) configuration requires exactly 1 arbiter replica"))
+	}
+	return allErrs
+}
+
+func (a *OptionalInstallConfig) validateTNFConfiguration(installConfig *types.InstallConfig) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// Only validate TNF if fencing is configured
+	if installConfig.ControlPlane.Fencing == nil ||
+		len(installConfig.ControlPlane.Fencing.Credentials) == 0 {
+		return nil
+	}
+
+	// At this point we know: 2 replicas + fencing configured
+	// Check if TNF feature gate is enabled
+	if !installConfig.Enabled(features.FeatureGateDualReplica) {
+		fieldPath := field.NewPath("controlPlane", "fencing")
+		allErrs = append(allErrs, field.Invalid(fieldPath, "configured",
+			"fencing configuration requires FeatureGateDualReplica to be enabled"))
+	}
+
+	// Validate fencing credentials count matches control plane replicas
+	if len(installConfig.ControlPlane.Fencing.Credentials) != 2 {
+		fieldPath := field.NewPath("controlPlane", "fencing", "credentials")
+		allErrs = append(allErrs, field.Invalid(fieldPath, len(installConfig.ControlPlane.Fencing.Credentials),
+			"must provide exactly 2 fencing credentials for 2 control plane replicas"))
+	}
+
+	return allErrs
+}
 
 func (a *OptionalInstallConfig) validateControlPlaneConfiguration(installConfig *types.InstallConfig) field.ErrorList {
 	var allErrs field.ErrorList
 	var fieldPath *field.Path
 
 	if installConfig.ControlPlane != nil {
-		if *installConfig.ControlPlane.Replicas != 1 && *installConfig.ControlPlane.Replicas != 3 {
-			fieldPath = field.NewPath("ControlPlane", "Replicas")
-			allErrs = append(allErrs, field.Invalid(fieldPath, installConfig.ControlPlane.Replicas, fmt.Sprintf("ControlPlane.Replicas can only be set to 3 or 1. Found %v", *installConfig.ControlPlane.Replicas)))
+		// Basic boundary check for control plane replicas
+		if *installConfig.ControlPlane.Replicas < 1 || *installConfig.ControlPlane.Replicas > 5 {
+			fieldPath = field.NewPath("controlPlane", "replicas")
+			supportedControlPlaneRange := []string{"3", "1", "4", "5", "2 (with arbiter)"}
+			if installConfig.Enabled(features.FeatureGateDualReplica) {
+				supportedControlPlaneRange = append(supportedControlPlaneRange, "2 (with fencing)")
+			}
+			allErrs = append(allErrs, field.NotSupported(fieldPath, installConfig.ControlPlane.Replicas, supportedControlPlaneRange))
 		}
 	}
 	return allErrs
@@ -219,16 +317,20 @@ func (a *OptionalInstallConfig) validateSNOConfiguration(installConfig *types.In
 	if installConfig.ControlPlane != nil && *installConfig.ControlPlane.Replicas == 1 {
 		if workers == 0 {
 			if (installConfig.Platform.Name() == none.Name || installConfig.Platform.Name() == external.Name) && installConfig.Networking.NetworkType != "OVNKubernetes" {
-				fieldPath = field.NewPath("Networking", "NetworkType")
+				fieldPath = field.NewPath("networking", "networkType")
 				allErrs = append(allErrs, field.Invalid(fieldPath, installConfig.Networking.NetworkType, "Only OVNKubernetes network type is allowed for Single Node OpenShift (SNO) cluster"))
 			}
 			if installConfig.Platform.Name() != none.Name && installConfig.Platform.Name() != external.Name {
-				fieldPath = field.NewPath("Platform")
+				fieldPath = field.NewPath("platform")
 				allErrs = append(allErrs, field.Invalid(fieldPath, installConfig.Platform.Name(), fmt.Sprintf("Only platform %s and %s supports 1 ControlPlane and 0 Compute nodes", none.Name, external.Name)))
 			}
 		} else {
-			fieldPath = field.NewPath("Compute", "Replicas")
-			allErrs = append(allErrs, field.Required(fieldPath, fmt.Sprintf("Total number of Compute.Replicas must be 0 when ControlPlane.Replicas is 1 for platform %s or %s. Found %v", none.Name, external.Name, workers)))
+			fieldPath = field.NewPath("compute", "replicas")
+			allErrs = append(allErrs, field.Forbidden(fieldPath, fmt.Sprintf("Total number of compute replicas must be 0 when controlPlane.replicas is 1 for platform %s or %s. Found %v", none.Name, external.Name, workers)))
+		}
+		if installConfig.Arbiter != nil && installConfig.Arbiter.Replicas != nil && *installConfig.Arbiter.Replicas > 0 {
+			fieldPath = field.NewPath("arbiter", "replicas")
+			allErrs = append(allErrs, field.Forbidden(fieldPath, fmt.Sprintf("Total number of arbiter replicas must be 0 when controlPlane.replicas is 1 for Single Node Openshift (SNO) cluster. Found %d", *installConfig.Arbiter.Replicas)))
 		}
 	}
 	return allErrs
@@ -248,7 +350,9 @@ func (a *OptionalInstallConfig) validateVSpherePlatform(installConfig *types.Ins
 	vspherePlatform := installConfig.Platform.VSphere
 	vcenterServers := map[string]bool{}
 	userProvidedCredentials := false
-	for _, vcenter := range vspherePlatform.VCenters {
+	platformPath := field.NewPath("platform", "vsphere")
+	for i, vcenter := range vspherePlatform.VCenters {
+		vcenterPath := platformPath.Child("vcenters").Index(i)
 		vcenterServers[vcenter.Server] = true
 
 		// If any one of the required credential values is entered, then the user is choosing to enter credentials
@@ -257,28 +361,28 @@ func (a *OptionalInstallConfig) validateVSpherePlatform(installConfig *types.Ins
 			userProvidedCredentials = true
 			message := "All credential fields are required if any one is specified"
 			if vcenter.Server == "" {
-				fieldPath := field.NewPath("Platform", "VSphere", "vcenter")
+				fieldPath := vcenterPath.Child("server")
 				allErrs = append(allErrs, field.Required(fieldPath, message))
 			}
 			if vcenter.Username == "" {
-				fieldPath := field.NewPath("Platform", "VSphere", "user")
+				fieldPath := vcenterPath.Child("user")
 				if vspherePlatform.DeprecatedVCenter != "" || vspherePlatform.DeprecatedPassword != "" || vspherePlatform.DeprecatedDatacenter != "" {
-					fieldPath = field.NewPath("Platform", "VSphere", "username")
+					fieldPath = field.NewPath("platform", "vsphere", "username")
 				}
 				allErrs = append(allErrs, field.Required(fieldPath, message))
 			}
 			if vcenter.Password == "" {
-				fieldPath := field.NewPath("Platform", "VSphere", "password")
+				fieldPath := vcenterPath.Child("password")
 				allErrs = append(allErrs, field.Required(fieldPath, message))
 			}
 			if len(vcenter.Datacenters) == 0 {
-				fieldPath := field.NewPath("Platform", "VSphere", "datacenter")
+				fieldPath := vcenterPath.Child("datacenter")
 				allErrs = append(allErrs, field.Required(fieldPath, message))
 			}
 		}
 	}
 
-	for _, failureDomain := range vspherePlatform.FailureDomains {
+	for i, failureDomain := range vspherePlatform.FailureDomains {
 		// Although folder is optional in IPI/UPI, it must be set for agent-based installs.
 		// If it is not set, assisted-service will set a placeholder value for folder:
 		// "/datacenterplaceholder/vm/folderplaceholder"
@@ -288,12 +392,17 @@ func (a *OptionalInstallConfig) validateVSpherePlatform(installConfig *types.Ins
 		// the datacenter set in the failureDomain in the install-config.yaml submitted
 		// to the agent-based create image command.
 		if failureDomain.Topology.Folder == "" && userProvidedCredentials {
-			fieldPath := field.NewPath("Platform", "VSphere", "failureDomains", "topology", "folder")
+			fieldPath := platformPath.Child("failureDomains").Index(i).Child("topology", "folder")
 			allErrs = append(allErrs, field.Required(fieldPath, "must specify a folder for agent-based installs"))
 		}
 	}
 
 	return allErrs
+}
+
+func (a *OptionalInstallConfig) validateNutanixPlatform(installConfig *types.InstallConfig) field.ErrorList {
+	fldPath := field.NewPath("platform", "nutanix")
+	return nutanixvalidation.ValidatePlatform(installConfig.Platform.Nutanix, fldPath, installConfig, true)
 }
 
 // ClusterName returns the name of the cluster, or a default name if no
@@ -333,40 +442,46 @@ func (a *OptionalInstallConfig) validateBMCConfig(installConfig *types.InstallCo
 	}
 
 	if bmcConfigured {
-		fieldPath := field.NewPath("Platform", "BareMetal")
+		fieldPath := field.NewPath("platform", "baremetal")
 		allErrs = append(allErrs, baremetalvalidation.ValidateProvisioningNetworking(installConfig.Platform.BareMetal, installConfig.Networking, fieldPath)...)
 	}
 
 	return allErrs
 }
 
+// nolint:gocyclo
 func warnUnusedConfig(installConfig *types.InstallConfig) {
-	// "Proxyonly" is the default set from generic install config code
-	if installConfig.AdditionalTrustBundlePolicy != "Proxyonly" {
-		fieldPath := field.NewPath("AdditionalTrustBundlePolicy")
-		logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, installConfig.AdditionalTrustBundlePolicy))
-	}
-
 	for i, compute := range installConfig.Compute {
+		computePath := field.NewPath("compute").Index(i)
 		if compute.Hyperthreading != "Enabled" {
-			fieldPath := field.NewPath(fmt.Sprintf("Compute[%d]", i), "Hyperthreading")
-			logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, compute.Hyperthreading))
+			fieldPath := computePath.Child("hyperthreading")
+			logrus.Warnf("%s: %s is ignored", fieldPath, compute.Hyperthreading)
 		}
 
 		if compute.Platform != (types.MachinePoolPlatform{}) {
-			fieldPath := field.NewPath(fmt.Sprintf("Compute[%d]", i), "Platform")
-			logrus.Warnf(fmt.Sprintf("%s is ignored", fieldPath))
+			fieldPath := computePath.Child("platform")
+			logrus.Warnf("%s is ignored", fieldPath)
+		}
+
+		if len(compute.DiskSetup) > 0 {
+			fieldPath := computePath.Child("diskSetup")
+			logrus.Warnf("%s is ignored", fieldPath)
 		}
 	}
 
 	if installConfig.ControlPlane.Hyperthreading != "Enabled" {
-		fieldPath := field.NewPath("ControlPlane", "Hyperthreading")
-		logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, installConfig.ControlPlane.Hyperthreading))
+		fieldPath := field.NewPath("controlPlane", "hyperthreading")
+		logrus.Warnf("%s: %s is ignored", fieldPath, installConfig.ControlPlane.Hyperthreading)
 	}
 
 	if installConfig.ControlPlane.Platform != (types.MachinePoolPlatform{}) {
-		fieldPath := field.NewPath("ControlPlane", "Platform")
-		logrus.Warnf(fmt.Sprintf("%s is ignored", fieldPath))
+		fieldPath := field.NewPath("controlPlane", "platform")
+		logrus.Warnf("%s is ignored", fieldPath)
+	}
+
+	if len(installConfig.ControlPlane.DiskSetup) > 0 {
+		fieldPath := field.NewPath("controlPlane", "diskSetup")
+		logrus.Warnf("%s is ignored", fieldPath)
 	}
 
 	switch installConfig.Platform.Name() {
@@ -377,96 +492,123 @@ func warnUnusedConfig(installConfig *types.InstallConfig) {
 
 		baremetal := installConfig.Platform.BareMetal
 		defaultBM := defaultIc.Platform.BareMetal
+		bmPath := field.NewPath("platform", "baremetal")
 		// Compare values from generic installconfig code to check for changes
 		if baremetal.LibvirtURI != defaultBM.LibvirtURI {
-			fieldPath := field.NewPath("Platform", "Baremetal", "LibvirtURI")
-			logrus.Debugf(fmt.Sprintf("%s: %s is ignored", fieldPath, baremetal.LibvirtURI))
+			fieldPath := bmPath.Child("libvirtURI")
+			logrus.Debugf("%s: %s is ignored", fieldPath, baremetal.LibvirtURI)
 		}
 		if baremetal.BootstrapProvisioningIP != defaultBM.BootstrapProvisioningIP {
-			fieldPath := field.NewPath("Platform", "Baremetal", "BootstrapProvisioningIP")
-			logrus.Debugf(fmt.Sprintf("%s: %s is ignored", fieldPath, baremetal.BootstrapProvisioningIP))
+			fieldPath := bmPath.Child("bootstrapProvisioningIP")
+			logrus.Debugf("%s: %s is ignored", fieldPath, baremetal.BootstrapProvisioningIP)
 		}
 		if baremetal.ExternalBridge != defaultBM.ExternalBridge {
-			fieldPath := field.NewPath("Platform", "Baremetal", "ExternalBridge")
-			logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, baremetal.ExternalBridge))
+			fieldPath := bmPath.Child("externalBridge")
+			logrus.Warnf("%s: %s is ignored", fieldPath, baremetal.ExternalBridge)
 		}
 		if baremetal.ProvisioningBridge != defaultBM.ProvisioningBridge {
-			fieldPath := field.NewPath("Platform", "Baremetal", "ProvisioningBridge")
-			logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, baremetal.ProvisioningBridge))
+			fieldPath := bmPath.Child("provisioningBridge")
+			logrus.Warnf("%s: %s is ignored", fieldPath, baremetal.ProvisioningBridge)
 		}
 
 		for i, host := range baremetal.Hosts {
 			// The default is UEFI. +kubebuilder:validation:Enum="";UEFI;UEFISecureBoot;legacy. Set from generic install config code
 			if host.BootMode != "UEFI" {
-				fieldPath := field.NewPath("Platform", "Baremetal", fmt.Sprintf("Hosts[%d]", i), "BootMode")
-				logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, host.BootMode))
+				fieldPath := bmPath.Child("hosts").Index(i).Child("bootMode")
+				logrus.Warnf("%s: %s is ignored", fieldPath, host.BootMode)
 			}
 		}
 
 		if baremetal.DefaultMachinePlatform != nil {
-			fieldPath := field.NewPath("Platform", "Baremetal", "DefaultMachinePlatform")
-			logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, baremetal.DefaultMachinePlatform))
+			fieldPath := bmPath.Child("defaultMachinePlatform")
+			logrus.Warnf("%s: %s is ignored", fieldPath, baremetal.DefaultMachinePlatform)
 		}
-		if baremetal.BootstrapOSImage != "" {
-			fieldPath := field.NewPath("Platform", "Baremetal", "BootstrapOSImage")
-			logrus.Debugf(fmt.Sprintf("%s: %s is ignored", fieldPath, baremetal.BootstrapOSImage))
-		}
-		// ClusterOSImage is ignored even in IPI now, so we probably don't need to check it at all.
 
 		if baremetal.BootstrapExternalStaticIP != "" {
-			fieldPath := field.NewPath("Platform", "Baremetal", "BootstrapExternalStaticIP")
-			logrus.Debugf(fmt.Sprintf("%s: %s is ignored", fieldPath, baremetal.BootstrapExternalStaticIP))
+			fieldPath := bmPath.Child("bootstrapExternalStaticIP")
+			logrus.Debugf("%s: %s is ignored", fieldPath, baremetal.BootstrapExternalStaticIP)
 		}
 		if baremetal.BootstrapExternalStaticGateway != "" {
-			fieldPath := field.NewPath("Platform", "Baremetal", "BootstrapExternalStaticGateway")
-			logrus.Debugf(fmt.Sprintf("%s: %s is ignored", fieldPath, baremetal.BootstrapExternalStaticGateway))
+			fieldPath := bmPath.Child("bootstrapExternalStaticGateway")
+			logrus.Debugf("%s: %s is ignored", fieldPath, baremetal.BootstrapExternalStaticGateway)
 		}
 	case vsphere.Name:
 		vspherePlatform := installConfig.Platform.VSphere
+		vsPath := field.NewPath("platform", "vsphere")
 
 		if vspherePlatform.ClusterOSImage != "" {
-			fieldPath := field.NewPath("Platform", "VSphere", "ClusterOSImage")
-			logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, vspherePlatform.ClusterOSImage))
+			fieldPath := vsPath.Child("clusterOSImage")
+			logrus.Warnf("%s: %s is ignored", fieldPath, vspherePlatform.ClusterOSImage)
 		}
 		if vspherePlatform.DefaultMachinePlatform != nil && !reflect.DeepEqual(*vspherePlatform.DefaultMachinePlatform, vsphere.MachinePool{}) {
-			fieldPath := field.NewPath("Platform", "VSphere", "DefaultMachinePlatform")
-			logrus.Warnf(fmt.Sprintf("%s: %v is ignored", fieldPath, vspherePlatform.DefaultMachinePlatform))
+			fieldPath := vsPath.Child("defaultMachinePlatform")
+			logrus.Warnf("%s: %v is ignored", fieldPath, vspherePlatform.DefaultMachinePlatform)
 		}
 		if vspherePlatform.DiskType != "" {
-			fieldPath := field.NewPath("Platform", "VSphere", "DiskType")
-			logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, vspherePlatform.DiskType))
-		}
-
-		if vspherePlatform.LoadBalancer != nil && !reflect.DeepEqual(*vspherePlatform.LoadBalancer, configv1.VSpherePlatformLoadBalancer{}) {
-			fieldPath := field.NewPath("Platform", "VSphere", "LoadBalancer")
-			logrus.Warnf(fmt.Sprintf("%s: %v is ignored", fieldPath, vspherePlatform.LoadBalancer))
+			fieldPath := vsPath.Child("diskType")
+			logrus.Warnf("%s: %s is ignored", fieldPath, vspherePlatform.DiskType)
 		}
 
 		if len(vspherePlatform.Hosts) > 1 {
-			fieldPath := field.NewPath("Platform", "VSphere", "Hosts")
-			logrus.Warnf(fmt.Sprintf("%s: %v is ignored", fieldPath, vspherePlatform.Hosts))
+			fieldPath := vsPath.Child("hosts")
+			logrus.Warnf("%s: %v is ignored", fieldPath, vspherePlatform.Hosts)
+		}
+	case nutanix.Name:
+		ntxPlatform := installConfig.Platform.Nutanix
+		fieldPath := field.NewPath("Platform", "Nutanix")
+
+		if ntxPlatform.ClusterOSImage != "" {
+			logrus.Warnf("%s: %s is ignored", fieldPath.Child("ClusterOSImage").String(), ntxPlatform.ClusterOSImage)
+		}
+		if ntxPlatform.PreloadedOSImageName != "" {
+			logrus.Warnf("%s: %s is ignored", fieldPath.Child("PreloadedOSImageName").String(), ntxPlatform.PreloadedOSImageName)
+		}
+		if ntxPlatform.DefaultMachinePlatform != nil && !reflect.DeepEqual(*ntxPlatform.DefaultMachinePlatform, nutanix.MachinePool{}) {
+			logrus.Warnf("%s: %v is ignored", fieldPath.Child("DefaultMachinePlatform").String(), *ntxPlatform.DefaultMachinePlatform)
+		}
+		if ntxPlatform.LoadBalancer != nil && !reflect.DeepEqual(*ntxPlatform.LoadBalancer, configv1.NutanixPlatformLoadBalancer{}) {
+			logrus.Warnf("%s: %v is ignored", fieldPath.Child("LoadBalancer").String(), *ntxPlatform.LoadBalancer)
+		}
+		if ntxPlatform.PrismAPICallTimeout != nil {
+			logrus.Warnf("%s: %v is ignored", fieldPath.Child("PrismAPICallTimeout").String(), *ntxPlatform.PrismAPICallTimeout)
+		}
+		if ntxPlatform.FailureDomains != nil {
+			logrus.Warnf("%s: %v is ignored", fieldPath.Child("FailureDomains").String(), ntxPlatform.FailureDomains)
 		}
 	}
+
+	if installConfig.Networking != nil &&
+		installConfig.Networking.OVNKubernetesConfig != nil &&
+		installConfig.Networking.OVNKubernetesConfig.IPv4 != nil &&
+		installConfig.Networking.OVNKubernetesConfig.IPv4.InternalJoinSubnet != nil {
+		fieldPath := field.NewPath("networking", "ovnKubernetesConfig", "ipv4", "internalJoinSubnet")
+		logrus.Warnf("%s: %s is ignored", fieldPath, installConfig.Networking.OVNKubernetesConfig.IPv4.InternalJoinSubnet)
+	}
+
 	// "External" is the default set from generic install config code
 	if installConfig.Publish != "External" {
-		fieldPath := field.NewPath("Publish")
-		logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, installConfig.Publish))
+		fieldPath := field.NewPath("publish")
+		logrus.Warnf("%s: %s is ignored", fieldPath, installConfig.Publish)
 	}
 	if installConfig.CredentialsMode != "" {
-		fieldPath := field.NewPath("CredentialsMode")
-		logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, installConfig.CredentialsMode))
+		fieldPath := field.NewPath("credentialsMode")
+		logrus.Warnf("%s: %s is ignored", fieldPath, installConfig.CredentialsMode)
 	}
 	if installConfig.BootstrapInPlace != nil && installConfig.BootstrapInPlace.InstallationDisk != "" {
-		fieldPath := field.NewPath("BootstrapInPlace", "InstallationDisk")
-		logrus.Warnf(fmt.Sprintf("%s: %s is ignored", fieldPath, installConfig.BootstrapInPlace.InstallationDisk))
+		fieldPath := field.NewPath("bootstrapInPlace", "installationDisk")
+		logrus.Warnf("%s: %s is ignored", fieldPath, installConfig.BootstrapInPlace.InstallationDisk)
 	}
 }
 
-// GetReplicaCount gets the configured master and worker replicas.
-func GetReplicaCount(installConfig *types.InstallConfig) (numMasters, numWorkers int64) {
+// GetReplicaCount gets the configured master, arbiter and worker replicas.
+func GetReplicaCount(installConfig *types.InstallConfig) (numMasters, numArbiters, numWorkers int64) {
 	numRequiredMasters := int64(0)
 	if installConfig.ControlPlane != nil && installConfig.ControlPlane.Replicas != nil {
 		numRequiredMasters += *installConfig.ControlPlane.Replicas
+	}
+	numRequiredArbiters := int64(0)
+	if installConfig.Arbiter != nil && installConfig.Arbiter.Replicas != nil {
+		numRequiredArbiters += *installConfig.Arbiter.Replicas
 	}
 
 	numRequiredWorkers := int64(0)
@@ -476,5 +618,5 @@ func GetReplicaCount(installConfig *types.InstallConfig) (numMasters, numWorkers
 		}
 	}
 
-	return numRequiredMasters, numRequiredWorkers
+	return numRequiredMasters, numRequiredArbiters, numRequiredWorkers
 }

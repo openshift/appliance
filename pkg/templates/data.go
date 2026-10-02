@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/registry"
 	"github.com/openshift/appliance/pkg/consts"
@@ -70,7 +70,7 @@ func GetImageSetTemplateData(applianceConfig *config.ApplianceConfig, blockedIma
 		AdditionalImages string
 		Operators        string
 	}{
-		ReleaseImage:     swag.StringValue(applianceConfig.Config.OcpRelease.URL),
+		ReleaseImage:     conv.Value(applianceConfig.Config.OcpRelease.URL),
 		BlockedImages:    blockedImages,
 		AdditionalImages: additionalImages,
 		Operators:        operators,
@@ -92,7 +92,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 		{
 			"openshift_version": ocpReleaseImage.Version,
 			"version":           ocpReleaseImage.Version,
-			"cpu_architecture":  swag.StringValue(ocpReleaseImage.CpuArchitecture),
+			"cpu_architecture":  conv.Value(ocpReleaseImage.CpuArchitecture),
 			"url":               ocpReleaseImage.URL,
 		},
 	}
@@ -101,7 +101,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 	osImageArr := []map[string]any{
 		{
 			"openshift_version": ocpReleaseImage.Version,
-			"cpu_architecture":  swag.StringValue(ocpReleaseImage.CpuArchitecture),
+			"cpu_architecture":  conv.Value(ocpReleaseImage.CpuArchitecture),
 			"version":           "n/a",
 			"url":               "n/a",
 		},
@@ -128,7 +128,7 @@ func GetBootstrapIgnitionTemplateData(isLiveISO, enableInteractiveFlow bool, ocp
 
 		// Images
 		ReleaseImages: string(releaseImages),
-		ReleaseImage:  swag.StringValue(ocpReleaseImage.URL),
+		ReleaseImage:  conv.Value(ocpReleaseImage.URL),
 		OsImages:      string(osImages),
 
 		// Registry

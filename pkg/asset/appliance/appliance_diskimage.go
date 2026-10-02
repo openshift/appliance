@@ -1,9 +1,10 @@
 package appliance
 
 import (
+	"context"
 	"path/filepath"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/data"
@@ -39,7 +40,7 @@ func (a *ApplianceDiskImage) Dependencies() []asset.Asset {
 }
 
 // Generate the appliance disk.
-func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
+func (a *ApplianceDiskImage) Generate(_ context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	recoveryISO := &recovery.RecoveryISO{}
@@ -60,7 +61,7 @@ func (a *ApplianceDiskImage) Generate(dependencies asset.Parents) error {
 		consts.UserCfgTemplateFile,
 		templates.GetUserCfgTemplateData(
 			consts.GrubMenuEntryName,
-			swag.BoolValue(applianceConfig.Config.EnableFips),
+			conv.Value(applianceConfig.Config.EnableFips),
 			true),
 		envConfig.TempDir); err != nil {
 		return log.StopSpinner(spinner, err)

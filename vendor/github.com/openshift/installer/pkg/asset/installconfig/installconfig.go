@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -16,10 +17,12 @@ import (
 	icnutanix "github.com/openshift/installer/pkg/asset/installconfig/nutanix"
 	icopenstack "github.com/openshift/installer/pkg/asset/installconfig/openstack"
 	icovirt "github.com/openshift/installer/pkg/asset/installconfig/ovirt"
+	icpowervc "github.com/openshift/installer/pkg/asset/installconfig/powervc"
 	icpowervs "github.com/openshift/installer/pkg/asset/installconfig/powervs"
 	icvsphere "github.com/openshift/installer/pkg/asset/installconfig/vsphere"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/defaults"
+	"github.com/openshift/installer/pkg/types/gcp"
 	"github.com/openshift/installer/pkg/types/validation"
 )
 
@@ -60,8 +63,8 @@ func (a *InstallConfig) Dependencies() []asset.Asset {
 	}
 }
 
-// Generate generates the install-config.yaml file.
-func (a *InstallConfig) Generate(parents asset.Parents) error {
+// Generate the install-config.yaml file.
+func (a *InstallConfig) Generate(ctx context.Context, parents asset.Parents) error {
 	sshPublicKey := &sshPublicKey{}
 	baseDomain := &baseDomain{}
 	clusterName := &clusterName{}
@@ -98,18 +101,23 @@ func (a *InstallConfig) Generate(parents asset.Parents) error {
 	a.Config.BareMetal = platform.BareMetal
 	a.Config.Ovirt = platform.Ovirt
 	a.Config.PowerVS = platform.PowerVS
+	if a.Config.PowerVS != nil && baseDomain.PowerVSVPC != "" {
+		a.Config.PowerVS.VPC = baseDomain.PowerVSVPC
+	}
+	a.Config.PowerVC = platform.PowerVC
 	a.Config.Nutanix = platform.Nutanix
 
 	defaults.SetInstallConfigDefaults(a.Config)
 
-	return a.finish("")
+	return a.finish(ctx, "")
 }
 
 // Load returns the installconfig from disk.
 func (a *InstallConfig) Load(f asset.FileFetcher) (found bool, err error) {
+	ctx := context.TODO()
 	found, err = a.LoadFromFile(f)
 	if found && err == nil {
-		if err := a.finish(installConfigFilename); err != nil {
+		if err := a.finish(ctx, installConfigFilename); err != nil {
 			return false, errors.Wrap(err, asset.InstallConfigError)
 		}
 	}
@@ -117,11 +125,82 @@ func (a *InstallConfig) Load(f asset.FileFetcher) (found bool, err error) {
 	return found, err
 }
 
+// finishGCP will set default values in the install config that require api calls rather than static checks.
+func (a *InstallConfig) finishGCP() error {
+	if endpoint := a.Config.Platform.GCP.Endpoint; endpoint != nil && endpoint.ClusterUseOnly == nil {
+		client, err := icgcp.NewClient(context.TODO(), nil)
+		if err != nil {
+			return err
+		}
+		defaultClusterUseOnly := true
+		if _, err := client.GetRegions(context.TODO(), a.Config.Platform.GCP.ProjectID); err != nil {
+			defaultClusterUseOnly = false
+		}
+		a.Config.Platform.GCP.Endpoint.ClusterUseOnly = &defaultClusterUseOnly
+	}
+
+	project := a.Config.GCP.ProjectID
+	if a.Config.Platform.GCP.NetworkProjectID != "" {
+		project = a.Config.GCP.NetworkProjectID
+	}
+
+	if a.Config.GCP.FirewallRulesManagement == "" {
+		firewallPermissions, err := icgcp.HasPermission(context.TODO(), project, []string{
+			icgcp.CreateFirewallPermission,
+			icgcp.DeleteFirewallPermission,
+			icgcp.UpdateNetworksPermission,
+		}, a.Config.GCP.Endpoint)
+		if err != nil {
+			return err
+		}
+
+		a.Config.GCP.FirewallRulesManagement = gcp.ManagedFirewallRules
+		if !firewallPermissions {
+			if a.Config.GCP.NetworkProjectID != "" {
+				logrus.Debugf("missing firewall permissions, setting rule management to Unmanaged")
+				a.Config.GCP.FirewallRulesManagement = gcp.UnmanagedFirewallRules
+			} else {
+				logrus.Warnf("missing firewall permissions, add the permissions or set firewall rules management to Unmanaged and create firewall rules")
+			}
+		}
+	}
+
+	return nil
+}
+
+// finishAzure set defaults for Azure platform.
+func (a *InstallConfig) finishAzure() error {
+	defaultConfig := a.Config.Azure.DefaultMachinePlatform
+	session, err := a.Azure.Session()
+	if err != nil {
+		return err
+	}
+	if defaultConfig != nil && defaultConfig.OSDisk.DiskEncryptionSet != nil &&
+		defaultConfig.OSDisk.DiskEncryptionSet.SubscriptionID == "" {
+		a.Config.Azure.DefaultMachinePlatform.OSDisk.DiskEncryptionSet.SubscriptionID = session.Credentials.SubscriptionID
+	}
+
+	if a.Config.ControlPlane != nil && a.Config.ControlPlane.Platform.Azure != nil &&
+		a.Config.ControlPlane.Platform.Azure.OSDisk.DiskEncryptionSet != nil {
+		if a.Config.ControlPlane.Platform.Azure.OSDisk.DiskEncryptionSet.SubscriptionID == "" {
+			a.Config.ControlPlane.Platform.Azure.OSDisk.DiskEncryptionSet.SubscriptionID = session.Credentials.SubscriptionID
+		}
+	}
+
+	for _, compute := range a.Config.Compute {
+		if compute.Platform.Azure != nil && compute.Platform.Azure.OSDisk.DiskEncryptionSet != nil &&
+			compute.Platform.Azure.OSDisk.DiskEncryptionSet.SubscriptionID == "" {
+			compute.Platform.Azure.OSDisk.DiskEncryptionSet.SubscriptionID = session.Credentials.SubscriptionID
+		}
+	}
+	return nil
+}
+
 // finishAWS set defaults for AWS Platform before the config validation.
 func (a *InstallConfig) finishAWS() error {
 	// Set the Default Edge Compute pool when the subnets in AWS Local Zones are defined,
 	// when installing a cluster in existing VPC.
-	if len(a.Config.Platform.AWS.Subnets) > 0 {
+	if len(a.Config.Platform.AWS.VPC.Subnets) > 0 {
 		edgeSubnets, err := a.AWS.EdgeSubnets(context.TODO())
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("unable to load edge subnets: %v", err))
@@ -130,22 +209,30 @@ func (a *InstallConfig) finishAWS() error {
 		if totalEdgeSubnets == 0 {
 			return nil
 		}
-		if edgePool := defaults.CreateEdgeMachinePoolDefaults(a.Config.Compute, a.Config.Platform.Name(), totalEdgeSubnets); edgePool != nil {
+		if edgePool := defaults.CreateEdgeMachinePoolDefaults(a.Config.Compute, &a.Config.Platform, totalEdgeSubnets, a.Config.EnabledFeatureGates()); edgePool != nil {
 			a.Config.Compute = append(a.Config.Compute, *edgePool)
 		}
 	}
 	return nil
 }
 
-func (a *InstallConfig) finish(filename string) error {
+func (a *InstallConfig) finish(ctx context.Context, filename string) error {
 	if a.Config.AWS != nil {
-		a.AWS = aws.NewMetadata(a.Config.Platform.AWS.Region, a.Config.Platform.AWS.Subnets, a.Config.AWS.ServiceEndpoints)
+		a.AWS = aws.NewMetadata(a.Config.Platform.AWS.Region, a.Config.Platform.AWS.VPC.Subnets, a.Config.AWS.ServiceEndpoints)
 		if err := a.finishAWS(); err != nil {
 			return err
 		}
 	}
 	if a.Config.Azure != nil {
-		a.Azure = icazure.NewMetadata(a.Config.Azure.CloudName, a.Config.Azure.ARMEndpoint)
+		a.Azure = icazure.NewMetadata(a.Config.Azure, a.Config.ControlPlane, &a.Config.Compute[0])
+		if err := a.finishAzure(); err != nil {
+			return err
+		}
+	}
+	if a.Config.GCP != nil {
+		if err := a.finishGCP(); err != nil {
+			return err
+		}
 	}
 	if a.Config.IBMCloud != nil {
 		a.IBMCloud = icibmcloud.NewMetadata(a.Config)
@@ -168,31 +255,25 @@ func (a *InstallConfig) finish(filename string) error {
 		return errors.Wrapf(err, "invalid %q file", filename)
 	}
 
-	if err := a.platformValidation(); err != nil {
+	if err := a.platformValidation(ctx); err != nil {
 		return err
 	}
-
 	return a.RecordFile()
 }
 
 // platformValidation runs validations that require connecting to the
 // underlying platform. In some cases, platforms also duplicate validations
 // that have already been checked by validation.ValidateInstallConfig().
-func (a *InstallConfig) platformValidation() error {
+func (a *InstallConfig) platformValidation(ctx context.Context) error {
 	if a.Config.Platform.Azure != nil {
-		if a.Config.Platform.Azure.IsARO() {
-			// ARO performs platform validation in the Resource Provider before
-			// the Installer is called
-			return nil
-		}
 		client, err := a.Azure.Client()
 		if err != nil {
 			return err
 		}
-		return icazure.Validate(client, a.Config)
+		return icazure.Validate(client, a.Azure, a.Config)
 	}
 	if a.Config.Platform.GCP != nil {
-		client, err := icgcp.NewClient(context.TODO())
+		client, err := icgcp.NewClient(ctx, a.Config.GCP.Endpoint)
 		if err != nil {
 			return err
 		}
@@ -211,7 +292,7 @@ func (a *InstallConfig) platformValidation() error {
 		return icibmcloud.Validate(client, a.Config)
 	}
 	if a.Config.Platform.AWS != nil {
-		return aws.Validate(context.TODO(), a.AWS, a.Config)
+		return aws.Validate(ctx, a.AWS, a.Config)
 	}
 	if a.Config.Platform.VSphere != nil {
 		return icvsphere.Validate(a.Config)
@@ -219,8 +300,15 @@ func (a *InstallConfig) platformValidation() error {
 	if a.Config.Platform.Ovirt != nil {
 		return icovirt.Validate(a.Config)
 	}
+	// Since PowerVC is a thin platform, allow it to fall through so that it can also test the OpenStack case.
+	if a.Config.Platform.PowerVC != nil {
+		err := icpowervc.Validate(a.Config)
+		if err != nil {
+			return err
+		}
+	}
 	if a.Config.Platform.OpenStack != nil {
-		return icopenstack.Validate(a.Config)
+		return icopenstack.Validate(ctx, a.Config)
 	}
 	if a.Config.Platform.PowerVS != nil {
 		return icpowervs.Validate(a.Config)

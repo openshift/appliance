@@ -1,6 +1,7 @@
 package password
 
 import (
+	"context"
 	"crypto/rand"
 	"math/big"
 	"os"
@@ -31,7 +32,7 @@ func (a *KubeadminPassword) Dependencies() []asset.Asset {
 }
 
 // Generate the kubeadmin password
-func (a *KubeadminPassword) Generate(asset.Parents) error {
+func (a *KubeadminPassword) Generate(context.Context, asset.Parents) error {
 	err := a.generateRandomPasswordHash(23)
 	if err != nil {
 		return err
@@ -101,7 +102,7 @@ func (a *KubeadminPassword) Files() []*asset.File {
 	return []*asset.File{}
 }
 
-// Load loads a predefined hash only, if one is supplied
+// Load loads a predefined hash and/or password, if they are supplied.
 func (a *KubeadminPassword) Load(f asset.FileFetcher) (found bool, err error) {
 	hashFilePath := filepath.Join("tls", "kubeadmin-password.hash")
 	hashFile, err := f.FetchByName(hashFilePath)
@@ -113,10 +114,19 @@ func (a *KubeadminPassword) Load(f asset.FileFetcher) (found bool, err error) {
 	}
 
 	a.PasswordHash = hashFile.Data
+
+	// Also load the kubeadmin-password from the tls dir if it exists,
+	passwordFilePath := filepath.Join("tls", "kubeadmin-password")
+	passwordFile, err := f.FetchByName(passwordFilePath)
+	if err == nil {
+		a.Password = string(passwordFile.Data)
+	}
+
 	// Assisted-service expects to always see a password file, so generate an
-	// empty one
+	// empty one if there is no password file.
 	a.File = &asset.File{
 		Filename: kubeadminPasswordPath,
+		Data:     []byte(a.Password),
 	}
 	return true, nil
 }

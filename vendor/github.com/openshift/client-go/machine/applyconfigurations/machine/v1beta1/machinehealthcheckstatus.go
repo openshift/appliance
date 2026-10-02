@@ -2,16 +2,23 @@
 
 package v1beta1
 
-// MachineHealthCheckStatusApplyConfiguration represents an declarative configuration of the MachineHealthCheckStatus type for use
+// MachineHealthCheckStatusApplyConfiguration represents a declarative configuration of the MachineHealthCheckStatus type for use
 // with apply.
+//
+// MachineHealthCheckStatus defines the observed state of MachineHealthCheck
 type MachineHealthCheckStatusApplyConfiguration struct {
-	ExpectedMachines    *int                          `json:"expectedMachines,omitempty"`
-	CurrentHealthy      *int                          `json:"currentHealthy,omitempty"`
-	RemediationsAllowed *int32                        `json:"remediationsAllowed,omitempty"`
-	Conditions          []ConditionApplyConfiguration `json:"conditions,omitempty"`
+	// total number of machines counted by this machine health check
+	ExpectedMachines *int `json:"expectedMachines,omitempty"`
+	// total number of machines counted by this machine health check
+	CurrentHealthy *int `json:"currentHealthy,omitempty"`
+	// remediationsAllowed is the number of further remediations allowed by this machine health check before
+	// maxUnhealthy short circuiting will be applied
+	RemediationsAllowed *int32 `json:"remediationsAllowed,omitempty"`
+	// conditions defines the current state of the MachineHealthCheck
+	Conditions []ConditionApplyConfiguration `json:"conditions,omitempty"`
 }
 
-// MachineHealthCheckStatusApplyConfiguration constructs an declarative configuration of the MachineHealthCheckStatus type for use with
+// MachineHealthCheckStatusApplyConfiguration constructs a declarative configuration of the MachineHealthCheckStatus type for use with
 // apply.
 func MachineHealthCheckStatus() *MachineHealthCheckStatusApplyConfiguration {
 	return &MachineHealthCheckStatusApplyConfiguration{}

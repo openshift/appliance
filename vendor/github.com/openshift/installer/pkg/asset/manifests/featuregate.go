@@ -1,7 +1,8 @@
 package manifests
 
 import (
-	"path/filepath"
+	"context"
+	"path"
 
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,7 +14,7 @@ import (
 	"github.com/openshift/installer/pkg/types/featuregates"
 )
 
-var fgFileName = filepath.Join(openshiftManifestDir, "99_feature-gate.yaml")
+var fgFileName = path.Join(openshiftManifestDir, "99_feature-gate.yaml")
 
 // FeatureGate generates the feature gate manifest.
 type FeatureGate struct {
@@ -37,7 +38,7 @@ func (*FeatureGate) Dependencies() []asset.Asset {
 }
 
 // Generate generates the FeatureGate CRD.
-func (f *FeatureGate) Generate(dependencies asset.Parents) error {
+func (f *FeatureGate) Generate(_ context.Context, dependencies asset.Parents) error {
 	installConfig := &installconfig.InstallConfig{}
 	dependencies.Get(installConfig)
 

@@ -4,18 +4,21 @@ package gcp
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1" //nolint:staticcheck //CORS-3563
 
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/installconfig"
+	gcpmanifests "github.com/openshift/installer/pkg/asset/manifests/gcp"
 	gcpconsts "github.com/openshift/installer/pkg/constants/gcp"
 	"github.com/openshift/installer/pkg/types"
 	gcptypes "github.com/openshift/installer/pkg/types/gcp"
+	"github.com/openshift/installer/pkg/utils"
 )
 
 const (
@@ -48,7 +51,10 @@ func GenerateMachines(installConfig *installconfig.InstallConfig, infraID string
 	// Create GCP and CAPI machines for all master replicas in pool
 	for idx := int64(0); idx < total; idx++ {
 		name := fmt.Sprintf("%s-%s-%d", infraID, pool.Name, idx)
-		gcpMachine := createGCPMachine(name, installConfig, infraID, mpool, imageName)
+		gcpMachine, err := createGCPMachine(name, installConfig, infraID, mpool, imageName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create control plane (%d): %w", idx, err)
+		}
 
 		result = append(result, &asset.RuntimeFile{
 			File:   asset.File{Filename: fmt.Sprintf("10_inframachine_%s.yaml", gcpMachine.Name)},
@@ -56,7 +62,7 @@ func GenerateMachines(installConfig *installconfig.InstallConfig, infraID string
 		})
 
 		dataSecret := fmt.Sprintf("%s-%s", infraID, masterRole)
-		capiMachine := createCAPIMachine(gcpMachine.Name, dataSecret, infraID)
+		capiMachine := createCAPIMachine(gcpMachine.Name, dataSecret, infraID, installConfig.Config)
 
 		if len(mpool.Zones) > 0 {
 			// When there are fewer zones than the number of control plane instances,
@@ -82,7 +88,10 @@ func GenerateBootstrapMachines(name string, installConfig *installconfig.Install
 	mpool := pool.Platform.GCP
 
 	// Create one GCP and CAPI machine for bootstrap
-	bootstrapGCPMachine := createGCPMachine(name, installConfig, infraID, mpool, imageName)
+	bootstrapGCPMachine, err := createGCPMachine(name, installConfig, infraID, mpool, imageName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bootstrap machine: %w", err)
+	}
 
 	// Identify this as a bootstrap machine
 	bootstrapGCPMachine.Labels["install.openshift.io/bootstrap"] = ""
@@ -96,7 +105,7 @@ func GenerateBootstrapMachines(name string, installConfig *installconfig.Install
 	})
 
 	dataSecret := fmt.Sprintf("%s-%s", infraID, "bootstrap")
-	bootstrapCapiMachine := createCAPIMachine(bootstrapGCPMachine.Name, dataSecret, infraID)
+	bootstrapCapiMachine := createCAPIMachine(bootstrapGCPMachine.Name, dataSecret, infraID, installConfig.Config)
 
 	result = append(result, &asset.RuntimeFile{
 		File:   asset.File{Filename: fmt.Sprintf("10_machine_%s.yaml", bootstrapCapiMachine.Name)},
@@ -106,17 +115,13 @@ func GenerateBootstrapMachines(name string, installConfig *installconfig.Install
 }
 
 // Create a CAPG-specific machine.
-func createGCPMachine(name string, installConfig *installconfig.InstallConfig, infraID string, mpool *gcptypes.MachinePool, imageName string) *capg.GCPMachine {
+func createGCPMachine(name string, installConfig *installconfig.InstallConfig, infraID string, mpool *gcptypes.MachinePool, imageName string) (*capg.GCPMachine, error) {
 	// Use the rhcosImage as image name if not defined
-	var osImage string
-	if mpool.OSImage == nil {
-		osImage = imageName
-	} else {
-		osImage = mpool.OSImage.Name
+	osImage := imageName
+	if mpool.OSImage != nil {
+		osImage = fmt.Sprintf("projects/%s/global/images/%s", mpool.OSImage.Project, mpool.OSImage.Name)
+		logrus.Debugf("overriding gcp machine image: %s", osImage)
 	}
-
-	// TODO tags aren't currently being set in GCPMachine which only has
-	// AdditionalNetworkTags []string
 
 	masterSubnet := installConfig.Config.Platform.GCP.ControlPlaneSubnet
 	if masterSubnet == "" {
@@ -131,15 +136,19 @@ func createGCPMachine(name string, installConfig *installconfig.InstallConfig, i
 			},
 		},
 		Spec: capg.GCPMachineSpec{
-			InstanceType:     mpool.InstanceType,
-			Subnet:           ptr.To(masterSubnet),
-			AdditionalLabels: getLabelsFromInstallConfig(installConfig, infraID),
-			Image:            ptr.To(osImage),
-			RootDeviceType:   ptr.To(capg.DiskType(mpool.OSDisk.DiskType)),
-			RootDeviceSize:   mpool.OSDisk.DiskSizeGB,
+			InstanceType:          mpool.InstanceType,
+			Subnet:                ptr.To(masterSubnet),
+			AdditionalLabels:      getLabelsFromInstallConfig(installConfig, infraID),
+			Image:                 ptr.To(osImage),
+			RootDeviceType:        ptr.To(capg.DiskType(mpool.OSDisk.DiskType)),
+			RootDeviceSize:        mpool.OSDisk.DiskSizeGB,
+			AdditionalNetworkTags: mpool.Tags,
+			ResourceManagerTags:   gcpmanifests.GetTagsFromInstallConfig(installConfig),
+			IPForwarding:          ptr.To(capg.IPForwardingDisabled),
 		},
 	}
 	gcpMachine.SetGroupVersionKind(capg.GroupVersion.WithKind("GCPMachine"))
+	utils.SetMachineOSStreamLabels(gcpMachine, installConfig.Config)
 	// Set optional values from machinepool
 	if mpool.OnHostMaintenance != "" {
 		gcpMachine.Spec.OnHostMaintenance = ptr.To(capg.HostMaintenancePolicy(mpool.OnHostMaintenance))
@@ -153,24 +162,17 @@ func createGCPMachine(name string, installConfig *installconfig.InstallConfig, i
 		gcpMachine.Spec.ShieldedInstanceConfig = ptr.To(shieldedInstanceConfig)
 	}
 
+	serviceAccountEmail := gcptypes.GetConfiguredServiceAccount(installConfig.Config.Platform.GCP, mpool)
+	if serviceAccountEmail == "" {
+		serviceAccountEmail = gcptypes.GetDefaultServiceAccount(installConfig.Config.Platform.GCP, infraID, masterRole[0:1])
+	}
 	serviceAccount := &capg.ServiceAccount{
+		Email: serviceAccountEmail,
 		// Set scopes to value defined at
 		// https://cloud.google.com/compute/docs/access/service-accounts#scopes_best_practice
 		Scopes: []string{compute.CloudPlatformScope},
 	}
 
-	projectID := installConfig.Config.Platform.GCP.ProjectID
-	serviceAccount.Email = fmt.Sprintf("%s-%s@%s.iam.gserviceaccount.com", infraID, masterRole[0:1], projectID)
-	// The installer will create a service account for compute nodes with the above naming convention.
-	// The same service account will be used for control plane nodes during a vanilla installation. During a
-	// xpn installation, the installer will attempt to use an existing service account from a user supplied
-	// value in install-config.
-	// Note - the derivation of the ServiceAccount from credentials will no longer be supported.
-	if len(installConfig.Config.Platform.GCP.NetworkProjectID) > 0 {
-		if mpool.ServiceAccount != "" {
-			serviceAccount.Email = mpool.ServiceAccount
-		}
-	}
 	gcpMachine.Spec.ServiceAccount = serviceAccount
 
 	if mpool.OSDisk.EncryptionKey != nil {
@@ -186,11 +188,11 @@ func createGCPMachine(name string, installConfig *installconfig.InstallConfig, i
 		gcpMachine.Spec.RootDiskEncryptionKey = encryptionKey
 	}
 
-	return gcpMachine
+	return gcpMachine, nil
 }
 
 // Create a CAPI machine based on the CAPG machine.
-func createCAPIMachine(name string, dataSecret string, infraID string) *capi.Machine {
+func createCAPIMachine(name, dataSecret, infraID string, config *types.InstallConfig) *capi.Machine {
 	machine := &capi.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -211,6 +213,7 @@ func createCAPIMachine(name string, dataSecret string, infraID string) *capi.Mac
 		},
 	}
 	machine.SetGroupVersionKind(capi.GroupVersion.WithKind("Machine"))
+	utils.SetMachineOSStreamLabels(machine, config)
 
 	return machine
 }

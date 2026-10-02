@@ -1,6 +1,7 @@
 package ignition
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/coreos/ignition/v2/config/util"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/pkg/errors"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
@@ -104,7 +105,7 @@ func (i *BootstrapIgnition) Dependencies() []asset.Asset {
 }
 
 // Generate the base ISO.
-func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
+func (i *BootstrapIgnition) Generate(ctx context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	extraManifests := &agentManifests.ExtraManifests{}
@@ -156,7 +157,7 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	// Add bootstrap scripts to ignition
 	templateData := templates.GetBootstrapIgnitionTemplateData(
 		envConfig.IsLiveISO,
-		swag.BoolValue(applianceConfig.Config.EnableInteractiveFlow),
+		conv.Value(applianceConfig.Config.EnableInteractiveFlow),
 		applianceConfig.Config.OcpRelease,
 		string(installIgnitionConfig),
 		coreosImagePath,
@@ -214,7 +215,7 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 
 	// Add cluster-image-set file
 	clusterImageSet := &manifests.ClusterImageSet{}
-	if err = clusterImageSet.Generate(dependencies); err != nil {
+	if err = clusterImageSet.Generate(ctx, dependencies); err != nil {
 		return err
 	}
 	clusterImageSetFile := ignasset.FileFromBytes(filepath.Join("/etc/assisted", filepath.Base(clusterImageSet.File.Filename)),
@@ -254,13 +255,13 @@ func (i *BootstrapIgnition) Generate(dependencies asset.Parents) error {
 	}
 
 	// Disable all default CatalogSources to avoid failure on disconnected envs
-	if !swag.BoolValue(applianceConfig.Config.EnableDefaultSources) {
+	if !conv.Value(applianceConfig.Config.EnableDefaultSources) {
 		if err := i.disableDefaultCatalogSources(); err != nil {
 			return err
 		}
 	}
 
-	if swag.BoolValue(applianceConfig.Config.CreatePinnedImageSets) {
+	if conv.Value(applianceConfig.Config.CreatePinnedImageSets) {
 		if err := i.addPinnedImageSetConfigFiles(envConfig, applianceConfig); err != nil {
 			return err
 		}
@@ -315,7 +316,7 @@ func addExtraManifests(
 			}
 			if strings.Contains(fileString, "CatalogSource") {
 				// Convert to default source naming (e.g. redhat-operators)
-				if swag.BoolValue(useDefaultSourceNames) {
+				if conv.Value(useDefaultSourceNames) {
 					fileBytes, err = convertToDefaultSourceNaming(fileBytes)
 					if err != nil {
 						return err

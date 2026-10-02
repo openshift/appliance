@@ -6,9 +6,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	configv1 "github.com/openshift/api/config/v1"
-	features "github.com/openshift/api/features"
 	"github.com/openshift/installer/pkg/ipnet"
 	"github.com/openshift/installer/pkg/types/aws"
 	"github.com/openshift/installer/pkg/types/azure"
@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/installer/pkg/types/nutanix"
 	"github.com/openshift/installer/pkg/types/openstack"
 	"github.com/openshift/installer/pkg/types/ovirt"
+	"github.com/openshift/installer/pkg/types/powervc"
 	"github.com/openshift/installer/pkg/types/powervs"
 	"github.com/openshift/installer/pkg/types/vsphere"
 )
@@ -44,6 +45,7 @@ var (
 		ibmcloud.Name,
 		nutanix.Name,
 		openstack.Name,
+		powervc.Name,
 		powervs.Name,
 		vsphere.Name,
 	}
@@ -55,14 +57,12 @@ var (
 		none.Name,
 	}
 
-	// FCOS is a setting to enable Fedora CoreOS-only modifications
-	FCOS = false
 	// SCOS is a setting to enable CentOS Stream CoreOS-only modifications
 	SCOS = false
 )
 
 // PublishingStrategy is a strategy for how various endpoints for the cluster are exposed.
-// +kubebuilder:validation:Enum="";External;Internal
+// +kubebuilder:validation:Enum="";External;Internal;Mixed
 type PublishingStrategy string
 
 const (
@@ -87,6 +87,7 @@ const (
 )
 
 //go:generate go run ../../vendor/sigs.k8s.io/controller-tools/cmd/controller-gen crd:crdVersions=v1 paths=. output:dir=../../data/data/
+//go:generate go run ../../vendor/k8s.io/code-generator/cmd/deepcopy-gen --output-file zz_generated.deepcopy.go ./...
 
 // InstallConfig is the configuration for an OpenShift install.
 type InstallConfig struct {
@@ -124,6 +125,11 @@ type InstallConfig struct {
 	// +optional
 	ControlPlane *MachinePool `json:"controlPlane,omitempty"`
 
+	// Arbiter is the configuration for the machines that comprise the
+	// arbiter nodes.
+	// +optional
+	Arbiter *MachinePool `json:"arbiter,omitempty"`
+
 	// Compute is the configuration for the machines that comprise the
 	// compute nodes.
 	// +optional
@@ -151,6 +157,7 @@ type InstallConfig struct {
 	ImageDigestSources []ImageDigestSource `json:"imageDigestSources,omitempty"`
 
 	// Publish controls how the user facing endpoints of the cluster like the Kubernetes API, OpenShift routes etc. are exposed.
+	// A "Mixed" strategy only applies to the "azure" platform, and requires "operatorPublishingStrategy" to be configured.
 	// When no strategy is specified, the strategy is "External".
 	//
 	// +kubebuilder:default=External
@@ -186,13 +193,15 @@ type InstallConfig struct {
 	// "Passthrough": copy the credentials with all of the overall permissions for each CredentialsRequest
 	// "Manual": CredentialsRequests must be handled manually by the user
 	//
-	// For each of the following platforms, the field can set to the specified values. For all other platforms, the
+	// For each of the following platforms, the field can be set to the specified values. For all other platforms, the
 	// field must not be set.
 	// AWS: "Mint", "Passthrough", "Manual"
 	// Azure: "Passthrough", "Manual"
 	// AzureStack: "Manual"
 	// GCP: "Mint", "Passthrough", "Manual"
 	// IBMCloud: "Manual"
+	// OpenStack: "Passthrough"
+	// PowerVC: "Passthrough"
 	// PowerVS: "Manual"
 	// Nutanix: "Manual"
 	// +optional
@@ -218,16 +227,120 @@ type InstallConfig struct {
 	// E.g. "featureGates": ["FeatureGate1=true", "FeatureGate2=false"].
 	// +optional
 	FeatureGates []string `json:"featureGates,omitempty"`
+
+	// OSImageStream is the global OS Image Stream to be used for all machines in the cluster.
+	// +optional
+	OSImageStream OSImageStream `json:"osImageStream,omitempty"`
+
+	// PKI configures cryptographic parameters for installer-generated
+	// signer certificates. When specified, all signer certificates use the
+	// algorithm and parameters from signerCertificates.
+	// Feature gated by ConfigurablePKI.
+	// +openshift:enable:FeatureGate=ConfigurablePKI
+	// +optional
+	PKI *PKIConfig `json:"pki,omitempty"`
 }
+
+// PKIConfig configures cryptographic parameters for installer-generated
+// signer certificates. When pki is present in the install config,
+// signerCertificates must be fully specified with algorithm and key parameters.
+type PKIConfig struct {
+	// signerCertificates specifies key parameters for all installer-generated
+	// certificate authority (CA) certificates.
+	// When set, all signer certificates use the specified algorithm and parameters.
+	// +required
+	SignerCertificates CertificateConfig `json:"signerCertificates"`
+}
+
+// The types below (CertificateConfig, KeyConfig, RSAKeyConfig, ECDSAKeyConfig,
+// KeyAlgorithm, ECDSACurve) mirror configv1alpha1 types from openshift/api.
+// We maintain local copies so that new fields added in openshift/api do not
+// silently appear in the install-config YAML API without explicit opt-in and
+// validation by the installer. Conversion to the openshift/api type happens at
+// the manifest boundary (see pkg/types/pki/conversion.go).
+
+// CertificateConfig specifies configuration parameters for certificates.
+// +kubebuilder:validation:MinProperties=1
+type CertificateConfig struct {
+	// key specifies the cryptographic parameters for the certificate's key pair.
+	// +optional
+	Key KeyConfig `json:"key,omitzero"`
+}
+
+// KeyConfig specifies cryptographic parameters for key generation.
+//
+// +union
+// +kubebuilder:validation:XValidation:rule="has(self.algorithm) && self.algorithm == 'RSA' ?  has(self.rsa) : !has(self.rsa)",message="rsa is required when algorithm is RSA, and forbidden otherwise"
+// +kubebuilder:validation:XValidation:rule="has(self.algorithm) && self.algorithm == 'ECDSA' ?  has(self.ecdsa) : !has(self.ecdsa)",message="ecdsa is required when algorithm is ECDSA, and forbidden otherwise"
+type KeyConfig struct {
+	// algorithm specifies the key generation algorithm.
+	// Valid values are "RSA" and "ECDSA".
+	// +required
+	// +unionDiscriminator
+	Algorithm KeyAlgorithm `json:"algorithm,omitempty"`
+
+	// rsa specifies RSA key parameters.
+	// Required when algorithm is RSA, and forbidden otherwise.
+	// +optional
+	// +unionMember
+	RSA *RSAKeyConfig `json:"rsa,omitzero"`
+
+	// ecdsa specifies ECDSA key parameters.
+	// Required when algorithm is ECDSA, and forbidden otherwise.
+	// +optional
+	// +unionMember
+	ECDSA *ECDSAKeyConfig `json:"ecdsa,omitzero"`
+}
+
+// RSAKeyConfig specifies parameters for RSA key generation.
+type RSAKeyConfig struct {
+	// keySize specifies the size of RSA keys in bits.
+	// Valid values are multiples of 1024 from 2048 to 8192.
+	// +required
+	// +kubebuilder:validation:Minimum=2048
+	// +kubebuilder:validation:Maximum=8192
+	// +kubebuilder:validation:MultipleOf=1024
+	KeySize int32 `json:"keySize,omitempty"`
+}
+
+// ECDSAKeyConfig specifies parameters for ECDSA key generation.
+type ECDSAKeyConfig struct {
+	// curve specifies the NIST elliptic curve for ECDSA keys.
+	// Valid values are "P256", "P384", and "P521".
+	// +required
+	Curve ECDSACurve `json:"curve,omitempty"`
+}
+
+// KeyAlgorithm specifies the cryptographic algorithm used for key generation.
+// +kubebuilder:validation:Enum=RSA;ECDSA
+type KeyAlgorithm string
+
+const (
+	// KeyAlgorithmRSA specifies the RSA algorithm for key generation.
+	KeyAlgorithmRSA KeyAlgorithm = "RSA"
+
+	// KeyAlgorithmECDSA specifies the ECDSA algorithm for key generation.
+	KeyAlgorithmECDSA KeyAlgorithm = "ECDSA"
+)
+
+// ECDSACurve specifies the elliptic curve used for ECDSA key generation.
+// +kubebuilder:validation:Enum=P256;P384;P521
+type ECDSACurve string
+
+const (
+	// ECDSACurveP256 specifies the NIST P-256 curve.
+	ECDSACurveP256 ECDSACurve = "P256"
+
+	// ECDSACurveP384 specifies the NIST P-384 curve.
+	ECDSACurveP384 ECDSACurve = "P384"
+
+	// ECDSACurveP521 specifies the NIST P-521 curve.
+	ECDSACurveP521 ECDSACurve = "P521"
+)
 
 // ClusterDomain returns the DNS domain that all records for a cluster must belong to.
 func (c *InstallConfig) ClusterDomain() string {
 	return fmt.Sprintf("%s.%s", c.ObjectMeta.Name, strings.TrimSuffix(c.BaseDomain, "."))
-}
-
-// IsFCOS returns true if Fedora CoreOS-only modifications are enabled
-func (c *InstallConfig) IsFCOS() bool {
-	return FCOS
 }
 
 // IsSCOS returns true if CentOs Stream CoreOS-only modifications are enabled
@@ -237,13 +350,20 @@ func (c *InstallConfig) IsSCOS() bool {
 
 // IsOKD returns true if community-only modifications are enabled
 func (c *InstallConfig) IsOKD() bool {
-	return c.IsFCOS() || c.IsSCOS()
+	return c.IsSCOS()
 }
 
 // IsSingleNodeOpenShift returns true if the install-config has been configured for
 // bootstrapInPlace
 func (c *InstallConfig) IsSingleNodeOpenShift() bool {
 	return c.BootstrapInPlace != nil
+}
+
+// IsArbiterEnabled returns if arbiter is enabled based off of the install-config arbiter machine pool.
+func (c *InstallConfig) IsArbiterEnabled() bool {
+	return c.Arbiter != nil &&
+		c.Arbiter.Replicas != nil &&
+		*c.Arbiter.Replicas > 0
 }
 
 // CPUPartitioningMode defines how the nodes should be setup for partitioning the CPU Sets.
@@ -291,6 +411,10 @@ type Platform struct {
 	// OpenStack is the configuration used when installing on OpenStack.
 	// +optional
 	OpenStack *openstack.Platform `json:"openstack,omitempty"`
+
+	// PowerVC is the configuration used when installing on Power VC.
+	// +optional
+	PowerVC *powervc.Platform `json:"powervc,omitempty"`
 
 	// PowerVS is the configuration used when installing on Power VS.
 	// +optional
@@ -346,6 +470,9 @@ func (p *Platform) Name() string {
 		return none.Name
 	case p.External != nil:
 		return external.Name
+	// The PowerVC check needs to be performed before the OpenStack check
+	case p.PowerVC != nil:
+		return powervc.Name
 	case p.OpenStack != nil:
 		return openstack.Name
 	case p.VSphere != nil:
@@ -400,6 +527,17 @@ type Networking struct {
 	// +optional
 	ClusterNetworkMTU uint32 `json:"clusterNetworkMTU,omitempty"`
 
+	// OVNKubernetesConfig provides configuration for ovn-kubernetes as the default
+	// pod network when NetworkType is set to OVNKubernetes.
+	OVNKubernetesConfig *OVNKubernetesConfig `json:"ovnKubernetesConfig,omitempty"`
+
+	// NetworkObservability is an optional field that configures network observability installation
+	// during cluster deployment (day-0).
+	// When omitted, network observability will be installed unless this is a SNO cluster.
+	//
+	// +optional
+	NetworkObservability *NetworkObservability `json:"networkObservability,omitempty"`
+
 	// Deprecated types, scheduled to be removed
 
 	// Deprecated way to configure an IP address pool for machines.
@@ -436,6 +574,8 @@ type ClusterNetworkEntry struct {
 	// HostPrefix is the prefix size to allocate to each node from the CIDR.
 	// For example, 24 would allocate 2^8=256 adresses to each node. If this
 	// field is not used by the plugin, it can be left unset.
+	// When multiple CIDRs of the same family (i.e. IPv4/IPv6) are present,
+	// their HostPrefix value must be the same.
 	// +optional
 	HostPrefix int32 `json:"hostPrefix,omitempty"`
 
@@ -443,6 +583,29 @@ type ClusterNetworkEntry struct {
 	// This is the length in bits - so a 9 here will allocate a /23.
 	// +optional
 	DeprecatedHostSubnetLength int32 `json:"hostSubnetLength,omitempty"`
+}
+
+// OVNKubernetesConfig configures the ovn-kubernetes sdn plugin.
+type OVNKubernetesConfig struct {
+	// ipv4 allows users to configure IP settings for IPv4 connections. When omitted,
+	// this means no opinions and the default configuration is used. Check individual
+	// fields within ipv4 for details of default values.
+	// +optional
+	IPv4 *IPv4OVNKubernetesConfig `json:"ipv4,omitempty"`
+}
+
+// IPv4OVNKubernetesConfig is IPv4 configuration for the ovn-kubernetes sdn plugin.
+type IPv4OVNKubernetesConfig struct {
+	// internalJoinSubnet is a v4 subnet used internally by ovn-kubernetes in case the
+	// default one is being already used by something else. It must not overlap with
+	// any other subnet being used by OpenShift or by the node network. The size of the
+	// subnet must be larger than the number of nodes. The value cannot be changed
+	// after installation.
+	// The current default value is 100.64.0.0/16
+	// The subnet must be large enough to accommodate one IP per node in your cluster
+	// The value must be in proper IPV4 CIDR format
+	// +optional
+	InternalJoinSubnet *ipnet.IPNet `json:"internalJoinSubnet,omitempty"`
 }
 
 // Proxy defines the proxy settings for the cluster.
@@ -480,6 +643,11 @@ type ImageDigestSource struct {
 	// Mirrors is one or more repositories that may also contain the same images.
 	// +optional
 	Mirrors []string `json:"mirrors,omitempty"`
+
+	// SourcePolicy defines the fallback policy when there is a failure pulling an
+	// image from the mirrors.
+	// +optional
+	SourcePolicy configv1.MirrorSourcePolicy `json:"sourcePolicy"`
 }
 
 // CredentialsMode is the mode by which CredentialsRequests will be satisfied.
@@ -520,6 +688,32 @@ type Capabilities struct {
 	AdditionalEnabledCapabilities []configv1.ClusterVersionCapability `json:"additionalEnabledCapabilities,omitempty"`
 }
 
+// GetEnabledCapabilities returns a set of enabled ClusterVersionCapabilities.
+func (c *InstallConfig) GetEnabledCapabilities() sets.Set[configv1.ClusterVersionCapability] {
+	enabledCaps := sets.Set[configv1.ClusterVersionCapability]{}
+	if c.Capabilities == nil || c.Capabilities.BaselineCapabilitySet == "" {
+		// when Capabilities and/or BaselineCapabilitySet is not specified, default is vCurrent
+		baseSet := configv1.ClusterVersionCapabilitySets[configv1.ClusterVersionCapabilitySetCurrent]
+		for _, cap := range baseSet {
+			enabledCaps.Insert(cap)
+		}
+	}
+	if c.Capabilities != nil {
+		if c.Capabilities.BaselineCapabilitySet != "" {
+			baseSet := configv1.ClusterVersionCapabilitySets[c.Capabilities.BaselineCapabilitySet]
+			for _, cap := range baseSet {
+				enabledCaps.Insert(cap)
+			}
+		}
+		if c.Capabilities.AdditionalEnabledCapabilities != nil {
+			for _, cap := range c.Capabilities.AdditionalEnabledCapabilities {
+				enabledCaps.Insert(cap)
+			}
+		}
+	}
+	return enabledCaps
+}
+
 // WorkerMachinePool retrieves the worker MachinePool from InstallConfig.Compute
 func (c *InstallConfig) WorkerMachinePool() *MachinePool {
 	for _, machinePool := range c.Compute {
@@ -541,47 +735,25 @@ func (c *InstallConfig) EnabledFeatureGates() featuregates.FeatureGate {
 		customFS = featuregates.GenerateCustomFeatures(c.FeatureGates)
 	}
 
-	clusterProfile := GetClusterProfileName()
-	featureSets, ok := features.AllFeatureSets()[clusterProfile]
-	if !ok {
-		logrus.Warnf("no feature sets for cluster profile %q", clusterProfile)
+	featureSets, err := FeatureSetsForProfile()
+	if err != nil {
+		logrus.Warnf("no feature sets for cluster profile %q. %v", GetClusterProfileName(), err)
 	}
 	fg := featuregates.FeatureGateFromFeatureSets(featureSets, c.FeatureSet, customFS)
 
 	return fg
 }
 
-// ClusterAPIFeatureGateEnabled checks whether feature gates enabling
-// cluster api installs are enabled.
-func ClusterAPIFeatureGateEnabled(platform string, fgs featuregates.FeatureGate) bool {
-	// FeatureGateClusterAPIInstall enables for all platforms.
-	if fgs.Enabled(features.FeatureGateClusterAPIInstall) {
-		return true
-	}
-
-	// Check if CAPI install is enabled for individual platforms.
-	switch platform {
-	case aws.Name, nutanix.Name, openstack.Name, vsphere.Name:
-		return true
-	case azure.StackTerraformName, azure.StackCloud.Name():
-		return false
-	case azure.Name:
-		return fgs.Enabled(features.FeatureGateClusterAPIInstallAzure)
-	case gcp.Name:
-		return fgs.Enabled(features.FeatureGateClusterAPIInstallGCP)
-	case ibmcloud.Name:
-		return fgs.Enabled(features.FeatureGateClusterAPIInstallIBMCloud)
-	case powervs.Name:
-		return fgs.Enabled(features.FeatureGateClusterAPIInstallPowerVS)
-	default:
-		return false
-	}
+// Enabled returns true if the given feature gate is enabled in the current feature sets.
+func (c *InstallConfig) Enabled(key configv1.FeatureGateName) bool {
+	return c.EnabledFeatureGates().Enabled(key)
 }
 
 // PublicAPI indicates whether the API load balancer should be public
 // by inspecting the cluster and operator publishing strategies.
 func (c *InstallConfig) PublicAPI() bool {
-	if c.Publish == ExternalPublishingStrategy {
+	// When no strategy is specified, the strategy defaults to "External".
+	if c.Publish == "" || c.Publish == ExternalPublishingStrategy {
 		return true
 	}
 
@@ -589,4 +761,68 @@ func (c *InstallConfig) PublicAPI() bool {
 		return true
 	}
 	return false
+}
+
+// PublicIngress indicates whether the Ingress load balancer should be public
+// by inspecting the cluster and operator publishing strategies.
+func (c *InstallConfig) PublicIngress() bool {
+	// When no strategy is specified, the strategy defaults to "External".
+	if c.Publish == "" || c.Publish == ExternalPublishingStrategy {
+		return true
+	}
+
+	if op := c.OperatorPublishingStrategy; op != nil && strings.EqualFold(op.Ingress, "External") {
+		return true
+	}
+	return false
+}
+
+// OSImageStream represents the name of an OS Image Stream to use in a pool.
+// +kubebuilder:validation:Enum=rhel-9;rhel-10;centos-10
+type OSImageStream string
+
+const (
+	// OSImageStreamRHCOS9 represents the RHEL 9 OS Image Stream.
+	OSImageStreamRHCOS9 OSImageStream = "rhel-9"
+	// OSImageStreamRHCOS10 represents the RHEL 10 OS Image Stream.
+	OSImageStreamRHCOS10 OSImageStream = "rhel-10"
+	// OSImageStreamCentos10 represents the SCOS 10 OS Image Stream.
+	OSImageStreamCentos10 OSImageStream = "centos-10"
+
+	// OSStreamLabelKey represents the label key used to note the OS image stream on MachineSet
+	// and Machine resources.
+	OSStreamLabelKey = "machineconfiguration.openshift.io/osstream"
+)
+
+// OSImageStreamValues returns the list of valid values a OSImageStream can take.
+func OSImageStreamValues() []OSImageStream {
+	if SCOS {
+		return []OSImageStream{OSImageStreamCentos10}
+	}
+	return []OSImageStream{
+		OSImageStreamRHCOS9,
+		OSImageStreamRHCOS10,
+	}
+}
+
+// NetworkObservabilityInstallationPolicy is an enumeration of the available network observability installation policies
+// Valid values are "InstallAndEnable", "NoAction".
+// +kubebuilder:validation:Enum=InstallAndEnable;NoAction
+type NetworkObservabilityInstallationPolicy string
+
+const (
+	// NetworkObservabilityInstallAndEnable means that network observability should be installed and enabled during cluster deployment.
+	NetworkObservabilityInstallAndEnable NetworkObservabilityInstallationPolicy = "InstallAndEnable"
+	// NetworkObservabilityNoAction means that nothing will be done regarding network observability.
+	NetworkObservabilityNoAction NetworkObservabilityInstallationPolicy = "NoAction"
+)
+
+// NetworkObservability defines the configuration for network observability installation.
+type NetworkObservability struct {
+	// InstallationPolicy controls whether network observability is installed during cluster deployment.
+	// Valid values are "InstallAndEnable" and "NoAction".
+	// When set to "InstallAndEnable", network observability will be installed and enabled.
+	// When set to "NoAction", nothing will be done regarding network observability.
+	// +optional
+	InstallationPolicy *NetworkObservabilityInstallationPolicy `json:"installationPolicy,omitempty"`
 }

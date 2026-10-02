@@ -1,11 +1,12 @@
 package data
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
@@ -42,7 +43,7 @@ func (a *DataISO) Dependencies() []asset.Asset {
 }
 
 // Generate the recovery ISO.
-func (a *DataISO) Generate(dependencies asset.Parents) error {
+func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
@@ -102,8 +103,8 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 	// When mirror-path is provided, pre-populate the registry data directory before
 	// starting the registry so that bundle.Push() adds release-bundles on top of the
 	// mirrored data rather than overwriting it afterwards.
-	if applianceConfig.Config.MirrorPath != nil && swag.StringValue(applianceConfig.Config.MirrorPath) != "" {
-		if err := copyMirrorRegistryData(swag.StringValue(applianceConfig.Config.MirrorPath), dataDirPath); err != nil {
+	if applianceConfig.Config.MirrorPath != nil && conv.Value(applianceConfig.Config.MirrorPath) != "" {
+		if err := copyMirrorRegistryData(conv.Value(applianceConfig.Config.MirrorPath), dataDirPath); err != nil {
 			return log.StopSpinner(spinner, err)
 		}
 	}
@@ -112,8 +113,8 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		registry.RegistryConfig{
 			DataDirPath:    dataDirPath,
 			URI:            registryUri,
-			Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
-			UseBinary:      swag.BoolValue(applianceConfig.Config.ImageRegistry.UseBinary),
+			Port:           conv.Value(applianceConfig.Config.ImageRegistry.Port),
+			UseBinary:      conv.Value(applianceConfig.Config.ImageRegistry.UseBinary),
 			UseOcpRegistry: registry.ShouldUseOcpRegistry(envConfig, applianceConfig),
 		})
 
@@ -131,7 +132,7 @@ func (a *DataISO) Generate(dependencies asset.Parents) error {
 		return log.StopSpinner(spinner, err)
 	}
 	bundle := releasebundle.NewBundle(releasebundle.BundleConfig{
-		Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+		Port:           conv.Value(applianceConfig.Config.ImageRegistry.Port),
 		ReleaseVersion: bundleVersion,
 	})
 	if err = bundle.Push(); err != nil {

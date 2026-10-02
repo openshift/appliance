@@ -1,24 +1,27 @@
 package tls
 
 import (
+	"crypto"
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
-// PrivateKeyToPem converts an rsa.PrivateKey object to pem string
-func PrivateKeyToPem(key *rsa.PrivateKey) []byte {
-	keyInBytes := x509.MarshalPKCS1PrivateKey(key)
-	keyinPem := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: keyInBytes,
-		},
-	)
-	return keyinPem
+// PrivateKeyToPem converts a private key to PKCS#8 PEM format.
+func PrivateKeyToPem(key crypto.PrivateKey) ([]byte, error) {
+	bytes, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal private key: %w", err)
+	}
+	return pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: bytes,
+	}), nil
 }
 
 // CertToPem converts an x509.Certificate object to a pem string
@@ -59,13 +62,54 @@ func PublicKeyToPem(key *rsa.PublicKey) ([]byte, error) {
 	return keyinPem, nil
 }
 
-// PemToPrivateKey converts a data block to rsa.PrivateKey.
-func PemToPrivateKey(data []byte) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return nil, errors.Errorf("could not find a PEM block in the private key")
+// PemToPrivateKey converts a PEM data block to a private key (RSA or ECDSA).
+// It iterates through all PEM blocks to tolerate non-key blocks such as
+// EC PARAMETERS that OpenSSL may prepend to EC private keys.
+func PemToPrivateKey(data []byte) (crypto.PrivateKey, error) {
+	rest := data
+	var parseErr error
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+
+		switch block.Type {
+		case "RSA PRIVATE KEY":
+			key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+			if err != nil {
+				parseErr = err
+				continue
+			}
+			return key, nil
+		case "EC PRIVATE KEY":
+			key, err := x509.ParseECPrivateKey(block.Bytes)
+			if err != nil {
+				parseErr = err
+				continue
+			}
+			return key, nil
+		case "PRIVATE KEY":
+			key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				parseErr = err
+				continue
+			}
+			switch key.(type) {
+			case *rsa.PrivateKey, *ecdsa.PrivateKey:
+				return key, nil
+			default:
+				return nil, fmt.Errorf("unsupported PKCS#8 key type: %T", key)
+			}
+		default:
+			continue
+		}
 	}
-	return x509.ParsePKCS1PrivateKey(block.Bytes)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	return nil, errors.Errorf("could not find a PEM block with a supported private key type")
 }
 
 // PemToPublicKey converts a data block to rsa.PublicKey.

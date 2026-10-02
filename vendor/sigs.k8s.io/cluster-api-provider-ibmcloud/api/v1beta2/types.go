@@ -24,6 +24,9 @@ const (
 
 	// DefaultAPIServerPort is defuault API server port number.
 	DefaultAPIServerPort int32 = 6443
+
+	// UpdateMachineError indicates an error while trying to update a machine.
+	UpdateMachineError string = "UpdateError"
 )
 
 // PowerVSInstanceState describes the state of an IBM Power VS instance.
@@ -53,14 +56,17 @@ var (
 	// PowerVSImageStateACTIVE is the string representing an image in a active state.
 	PowerVSImageStateACTIVE = PowerVSImageState("active")
 
-	// PowerVSImageStateQue is the string representing an image in a queued state.
-	PowerVSImageStateQue = PowerVSImageState("queued")
+	// PowerVSImageStateQueued is the string representing an image in a queued state.
+	PowerVSImageStateQueued = PowerVSImageState("queued")
 
 	// PowerVSImageStateFailed is the string representing an image in a failed state.
 	PowerVSImageStateFailed = PowerVSImageState("failed")
 
 	// PowerVSImageStateImporting is the string representing an image in a failed state.
 	PowerVSImageStateImporting = PowerVSImageState("importing")
+
+	// PowerVSImageStateCompleted is the string representing an image in a completed state.
+	PowerVSImageStateCompleted = PowerVSImageState("completed")
 )
 
 // ServiceInstanceState describes the state of a service instance.
@@ -136,16 +142,16 @@ type VPCLoadBalancerBackendPoolProtocol string
 
 var (
 	// VPCLoadBalancerBackendPoolProtocolHTTP is the string representing the http protocol for load balancer backend pools.
-	VPCLoadBalancerBackendPoolProtocolHTTP VPCLoadBalancerBackendPoolProtocol = vpcv1.LoadBalancerPoolPrototypeProtocolHTTPConst
+	VPCLoadBalancerBackendPoolProtocolHTTP VPCLoadBalancerBackendPoolProtocol = vpcv1.LoadBalancerPoolPrototypeLoadBalancerContextProtocolHTTPConst
 
 	// VPCLoadBalancerBackendPoolProtocolHTTPS is the string representing the https protocol for load balancer backend pools.
-	VPCLoadBalancerBackendPoolProtocolHTTPS VPCLoadBalancerBackendPoolProtocol = vpcv1.LoadBalancerPoolPrototypeProtocolHTTPSConst
+	VPCLoadBalancerBackendPoolProtocolHTTPS VPCLoadBalancerBackendPoolProtocol = vpcv1.LoadBalancerPoolPrototypeLoadBalancerContextProtocolHTTPSConst
 
 	// VPCLoadBalancerBackendPoolProtocolTCP is the string representing the tcp protocol for load balancer backend pools.
-	VPCLoadBalancerBackendPoolProtocolTCP VPCLoadBalancerBackendPoolProtocol = vpcv1.LoadBalancerPoolPrototypeProtocolTCPConst
+	VPCLoadBalancerBackendPoolProtocolTCP VPCLoadBalancerBackendPoolProtocol = vpcv1.LoadBalancerPoolPrototypeLoadBalancerContextProtocolTCPConst
 
 	// VPCLoadBalancerBackendPoolProtocolUDP is the string representing the tudp protocol for load balancer backend pools.
-	VPCLoadBalancerBackendPoolProtocolUDP VPCLoadBalancerBackendPoolProtocol = vpcv1.LoadBalancerPoolPrototypeProtocolUDPConst
+	VPCLoadBalancerBackendPoolProtocolUDP VPCLoadBalancerBackendPoolProtocol = vpcv1.LoadBalancerPoolPrototypeLoadBalancerContextProtocolUDPConst
 )
 
 // VPCLoadBalancerListenerProtocol describes the protocol for load balancer listeners.
@@ -252,6 +258,8 @@ var (
 	ResourceTypeDHCPServer = ResourceType("dhcpServer")
 	// ResourceTypeLoadBalancer VPC loadBalancer resource.
 	ResourceTypeLoadBalancer = ResourceType("loadBalancer")
+	// ResourceTypeLoadBalancerPool is a Load Balancer Pool resource.
+	ResourceTypeLoadBalancerPool = ResourceType("loadBalancerPool")
 	// ResourceTypeTransitGateway is transit gateway resource.
 	ResourceTypeTransitGateway = ResourceType("transitGateway")
 	// ResourceTypeVPC is Power VS network resource.
@@ -411,9 +419,10 @@ type VPCMachinePlacementTarget struct {
 
 	// DedicatedHostGroup defines the Dedicated Host Group to use when placing a VPC Machine (Instance).
 	// +optional
-	DedicatedHostGroup *VPCResource `json:"dedicatedHostGroup"`
+	DedicatedHostGroup *VPCResource `json:"dedicatedHostGroup,omitempty"`
 
 	// PlacementGroup defines the Placement Group to use when placing a VPC Machine (Instance).
+	// +optional
 	PlacementGroup *VPCResource `json:"placementGroup,omitempty"`
 }
 
@@ -554,8 +563,9 @@ type Subnet struct {
 // VPCEndpoint describes a VPCEndpoint.
 type VPCEndpoint struct {
 	Address *string `json:"address"`
-	// +optional
 	// Deprecated: This field has no function and is going to be removed in the next release.
+	//
+	// +optional
 	FIPID *string `json:"floatingIPID,omitempty"`
 	// +optional
 	LBID *string `json:"loadBalancerIPID,omitempty"`

@@ -5,9 +5,13 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
+	capz "sigs.k8s.io/cluster-api-provider-azure/api/v1beta1"
 
 	configv1 "github.com/openshift/api/config/v1"
 	features "github.com/openshift/api/features"
+	"github.com/openshift/installer/pkg/types/azure"
+	"github.com/openshift/installer/pkg/version"
+	"github.com/openshift/installer/pkg/version/versioninfo"
 )
 
 // StringsToIPs is used to convert list of strings to list of IP addresses.
@@ -41,6 +45,23 @@ func MachineNetworksToCIDRs(nets []MachineNetworkEntry) []configv1.CIDR {
 	return res
 }
 
+// FeatureSetsForProfile returns the feature sets for the current cluster profile
+// and OpenShift major version.
+func FeatureSetsForProfile() (map[configv1.FeatureSet]*features.FeatureGateEnabledDisabled, error) {
+	clusterProfile := GetClusterProfileName()
+	allSets := features.AllFeatureSets()
+	versionInfo := versioninfo.GetInfo()
+	versionSets, ok := allSets[uint64(versionInfo.Major)]
+	if !ok {
+		return nil, fmt.Errorf("no FeatureSet available for version %d", versionInfo.Major)
+	}
+	profileSets, ok := versionSets[clusterProfile]
+	if !ok {
+		return nil, fmt.Errorf("no FeatureSet available for %s cluster profile", clusterProfile)
+	}
+	return profileSets, nil
+}
+
 // GetClusterProfileName utility method to retrieve the cluster profile setting.  This is used
 // when dealing with openshift api to get FeatureSets.
 func GetClusterProfileName() features.ClusterProfileName {
@@ -54,4 +75,38 @@ func GetClusterProfileName() features.ClusterProfileName {
 		clusterProfile = features.ClusterProfileName(fmt.Sprintf("%s%s", "include.release.openshift.io/", cp))
 	}
 	return clusterProfile
+}
+
+// CreateAzureIdentity determines whether a user-assigned
+// identity should be created by the installer, based on the
+// install config values.
+func (c *InstallConfig) CreateAzureIdentity() bool {
+	if c.Azure == nil || c.Azure.CloudName == azure.StackCloud {
+		return false
+	}
+
+	var defaultID *azure.VMIdentity
+	if dmp := c.Azure.DefaultMachinePlatform; dmp != nil {
+		defaultID = dmp.Identity
+	}
+	defaultNeedsID := defaultID == nil || (defaultID.Type == capz.VMIdentityUserAssigned && len(defaultID.UserAssignedIdentities) == 0)
+
+	var computeID *azure.VMIdentity
+	if comp := c.Compute; len(comp) > 0 && comp[0].Platform.Azure != nil {
+		computeID = comp[0].Platform.Azure.Identity
+	}
+	computeNeedsID := computeID == nil || (computeID.Type == capz.VMIdentityUserAssigned && len(computeID.UserAssignedIdentities) == 0)
+
+	var cpID *azure.VMIdentity
+	if cp := c.ControlPlane; cp != nil && cp.Platform.Azure != nil {
+		cpID = cp.Platform.Azure.Identity
+	}
+	cpNeedsID := cpID == nil || (cpID.Type == capz.VMIdentityUserAssigned && len(cpID.UserAssignedIdentities) == 0)
+
+	return defaultNeedsID && (computeNeedsID || cpNeedsID)
+}
+
+// DefaultArch returns the default release architecture.
+func DefaultArch() Architecture {
+	return Architecture(version.RawDefaultArch())
 }

@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/genisoimage"
@@ -56,7 +57,7 @@ func (u *UpgradeISO) Dependencies() []asset.Asset {
 }
 
 // Generate the upgrade ISO
-func (u *UpgradeISO) Generate(dependencies asset.Parents) error {
+func (u *UpgradeISO) Generate(_ context.Context, dependencies asset.Parents) error {
 	envConfig := &config.EnvConfig{}
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(envConfig, applianceConfig)
@@ -132,7 +133,7 @@ func (u *UpgradeISO) Generate(dependencies asset.Parents) error {
 		registry.RegistryConfig{
 			DataDirPath:    registryDir,
 			URI:            registryUri,
-			Port:           swag.IntValue(applianceConfig.Config.ImageRegistry.Port),
+			Port:           conv.Value(applianceConfig.Config.ImageRegistry.Port),
 			UseOcpRegistry: registry.ShouldUseOcpRegistry(envConfig, applianceConfig),
 		})
 
@@ -201,7 +202,7 @@ func (u *UpgradeISO) generateUpgradeMachineConfig(releaseVersion string) ([]byte
 		Systemd: igntypes.Systemd{
 			Units: []igntypes.Unit{{
 				Name:    fmt.Sprintf("start-cluster-upgrade@%s.service", releaseVersion),
-				Enabled: swag.Bool(true),
+				Enabled: conv.Pointer(true),
 			}},
 		},
 	}

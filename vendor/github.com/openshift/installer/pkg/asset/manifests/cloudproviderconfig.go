@@ -4,15 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
+	"path"
 
+	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	capz "sigs.k8s.io/cluster-api-provider-azure/api/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/installconfig"
+	awsic "github.com/openshift/installer/pkg/asset/installconfig/aws"
+	gcpic "github.com/openshift/installer/pkg/asset/installconfig/gcp"
+	powervsconfig "github.com/openshift/installer/pkg/asset/installconfig/powervs"
 	ibmcloudmachines "github.com/openshift/installer/pkg/asset/machines/ibmcloud"
 	"github.com/openshift/installer/pkg/asset/manifests/azure"
 	"github.com/openshift/installer/pkg/asset/manifests/capiutils"
@@ -22,22 +27,25 @@ import (
 	openstackmanifests "github.com/openshift/installer/pkg/asset/manifests/openstack"
 	powervsmanifests "github.com/openshift/installer/pkg/asset/manifests/powervs"
 	vspheremanifests "github.com/openshift/installer/pkg/asset/manifests/vsphere"
+	"github.com/openshift/installer/pkg/types"
 	awstypes "github.com/openshift/installer/pkg/types/aws"
 	azuretypes "github.com/openshift/installer/pkg/types/azure"
 	baremetaltypes "github.com/openshift/installer/pkg/types/baremetal"
 	externaltypes "github.com/openshift/installer/pkg/types/external"
 	gcptypes "github.com/openshift/installer/pkg/types/gcp"
 	ibmcloudtypes "github.com/openshift/installer/pkg/types/ibmcloud"
+	networktypes "github.com/openshift/installer/pkg/types/network"
 	nonetypes "github.com/openshift/installer/pkg/types/none"
 	nutanixtypes "github.com/openshift/installer/pkg/types/nutanix"
 	openstacktypes "github.com/openshift/installer/pkg/types/openstack"
 	ovirttypes "github.com/openshift/installer/pkg/types/ovirt"
+	powervctypes "github.com/openshift/installer/pkg/types/powervc"
 	powervstypes "github.com/openshift/installer/pkg/types/powervs"
 	vspheretypes "github.com/openshift/installer/pkg/types/vsphere"
 )
 
 var (
-	cloudProviderConfigFileName = filepath.Join(manifestDir, "cloud-provider-config.yaml")
+	cloudProviderConfigFileName = path.Join(manifestDir, "cloud-provider-config.yaml")
 )
 
 const (
@@ -74,7 +82,9 @@ func (*CloudProviderConfig) Dependencies() []asset.Asset {
 }
 
 // Generate generates the CloudProviderConfig.
-func (cpc *CloudProviderConfig) Generate(dependencies asset.Parents) error {
+//
+//nolint:gocyclo
+func (cpc *CloudProviderConfig) Generate(ctx context.Context, dependencies asset.Parents) error {
 	installConfig := &installconfig.InstallConfig{}
 	clusterID := &installconfig.ClusterID{}
 	dependencies.Get(installConfig, clusterID)
@@ -97,18 +107,37 @@ func (cpc *CloudProviderConfig) Generate(dependencies asset.Parents) error {
 	case awstypes.Name:
 		// Store the additional trust bundle in the ca-bundle.pem key if the cluster is being installed on a C2S region.
 		trustBundle := installConfig.Config.AdditionalTrustBundle
-		if trustBundle != "" && awstypes.IsSecretRegion(installConfig.Config.AWS.Region) {
+		isSecretRegion, err := awsic.IsSecretRegion(installConfig.Config.AWS.Region)
+		if err != nil {
+			return fmt.Errorf("failed to determine if AWS region is secret: %w", err)
+		}
+		if trustBundle != "" && isSecretRegion {
 			cm.Data[cloudProviderConfigCABundleDataKey] = trustBundle
 		}
 
-		// Include a non-empty kube config to appease components--such as the kube-apiserver--that
-		// expect there to be a kube config if the cloud-provider-config ConfigMap exists. See
-		// https://bugzilla.redhat.com/show_bug.cgi?id=1926975.
-		// Note that the newline is required in order to be valid yaml.
-		cm.Data[cloudProviderConfigDataKey] = `[Global]
+		var cloudCfg string
+		switch installConfig.Config.AWS.IPFamily {
+		case networktypes.DualStackIPv4Primary:
+			cloudCfg = `[Global]
+NodeIPFamilies=ipv4
+NodeIPFamilies=ipv6
 `
-	case openstacktypes.Name:
-		cloudProviderConfigData, cloudProviderConfigCABundleData, err := openstackmanifests.GenerateCloudProviderConfig(*installConfig.Config)
+		case networktypes.DualStackIPv6Primary:
+			cloudCfg = `[Global]
+NodeIPFamilies=ipv6
+NodeIPFamilies=ipv4
+`
+		default:
+			// Include a non-empty kube config to appease components--such as the kube-apiserver--that
+			// expect there to be a kube config if the cloud-provider-config ConfigMap exists. See
+			// https://bugzilla.redhat.com/show_bug.cgi?id=1926975.
+			// Note that the newline is required in order to be valid yaml.
+			cloudCfg = `[Global]
+`
+		}
+		cm.Data[cloudProviderConfigDataKey] = cloudCfg
+	case openstacktypes.Name, powervctypes.Name:
+		cloudProviderConfigData, cloudProviderConfigCABundleData, err := openstackmanifests.GenerateCloudProviderConfig(ctx, *installConfig.Config)
 		if err != nil {
 			return errors.Wrap(err, "failed to generate OpenStack provider config")
 		}
@@ -133,8 +162,11 @@ func (cpc *CloudProviderConfig) Generate(dependencies asset.Parents) error {
 			vnet = installConfig.Config.Azure.VirtualNetwork
 		}
 		subnet := fmt.Sprintf("%s-worker-subnet", clusterID.InfraID)
-		if installConfig.Config.Azure.ComputeSubnet != "" {
-			subnet = installConfig.Config.Azure.ComputeSubnet
+		for _, subnetSpec := range installConfig.Config.Azure.Subnets {
+			if subnetSpec.Role == capz.SubnetNode {
+				subnet = subnetSpec.Name
+				break
+			}
 		}
 		azureConfig, err := azure.CloudProviderConfig{
 			CloudName:                installConfig.Config.Azure.CloudName,
@@ -148,7 +180,7 @@ func (cpc *CloudProviderConfig) Generate(dependencies asset.Parents) error {
 			VirtualNetworkName:       vnet,
 			SubnetName:               subnet,
 			ResourceManagerEndpoint:  installConfig.Config.Azure.ARMEndpoint,
-			ARO:                      installConfig.Config.Azure.IsARO(),
+			UseManagedIdentity:       installConfig.Config.CreateAzureIdentity(),
 		}.JSON()
 		if err != nil {
 			return errors.Wrap(err, "could not create cloud provider config")
@@ -167,19 +199,49 @@ func (cpc *CloudProviderConfig) Generate(dependencies asset.Parents) error {
 		if installConfig.Config.GCP.ComputeSubnet != "" {
 			subnet = installConfig.Config.GCP.ComputeSubnet
 		}
-		gcpConfig, err := gcpmanifests.CloudProviderConfig(clusterID.InfraID, installConfig.Config.GCP.ProjectID, subnet, installConfig.Config.GCP.NetworkProjectID)
+
+		firewallManagement := gcpmanifests.FirewallManagementEnabled
+		if installConfig.Config.GCP.FirewallRulesManagement == gcptypes.UnmanagedFirewallRules {
+			firewallManagement = gcpmanifests.FirewallManagementDisabled
+		}
+
+		// TODO(padillon): The universe domain comparison can be removed (always set token-url = nil)
+		// when we want to switch all installs to use the credentialsrequest. Or, when
+		// https://github.com/kubernetes/cloud-provider-gcp/pull/1261 merges, we can remove this
+		// entirely from the cloud config.
+		var tokenURL string
+		session, err := gcpic.GetSession(ctx)
+		if err != nil {
+			return fmt.Errorf("could not get GCP session: %w", err)
+		}
+		ud, err := session.Credentials.GetUniverseDomain()
+		if err != nil {
+			return fmt.Errorf("could not get GCP universe domain: %w", err)
+		}
+		if ud != "" && ud != "googleapis.com" {
+			tokenURL = "nil"
+		}
+
+		gcpConfig, err := gcpmanifests.CloudProviderConfig(
+			clusterID.InfraID,
+			installConfig.Config.GCP.ProjectID,
+			subnet,
+			installConfig.Config.GCP.NetworkProjectID,
+			firewallManagement,
+			tokenURL,
+		)
 		if err != nil {
 			return errors.Wrap(err, "could not create cloud provider config")
 		}
 		cm.Data[cloudProviderConfigDataKey] = gcpConfig
 	case ibmcloudtypes.Name:
-		accountID, err := installConfig.IBMCloud.AccountID(context.TODO())
+		accountID, err := installConfig.IBMCloud.AccountID(ctx)
 		if err != nil {
 			return err
 		}
 
 		subnetNames := []string{}
-		cpSubnets, err := installConfig.IBMCloud.ControlPlaneSubnets(context.TODO())
+		cpSubnets, err := installConfig.IBMCloud.ControlPlaneSubnets(ctx)
 		if err != nil {
 			return errors.Wrap(err, "could not retrieve IBM Cloud control plane subnets")
 		}
@@ -187,7 +249,7 @@ func (cpc *CloudProviderConfig) Generate(dependencies asset.Parents) error {
 			subnetNames = append(subnetNames, cpSubnet.Name)
 		}
 
-		computeSubnets, err := installConfig.IBMCloud.ComputeSubnets(context.TODO())
+		computeSubnets, err := installConfig.IBMCloud.ComputeSubnets(ctx)
 		if err != nil {
 			return errors.Wrap(err, "could not retrieve IBM Cloud compute subnets")
 		}
@@ -233,10 +295,14 @@ func (cpc *CloudProviderConfig) Generate(dependencies asset.Parents) error {
 	case powervstypes.Name:
 		var (
 			accountID, vpcRegion string
+			client               *powervsconfig.Client
+			vpcNameOrID          string
+			vpc                  *vpcv1.VPC
+			vpcExists            = false
 			err                  error
 		)
 
-		if accountID, err = installConfig.PowerVS.AccountID(context.TODO()); err != nil {
+		if accountID, err = installConfig.PowerVS.AccountID(ctx); err != nil {
 			return err
 		}
 
@@ -248,12 +314,28 @@ func (cpc *CloudProviderConfig) Generate(dependencies asset.Parents) error {
 			return err
 		}
 
-		vpc := installConfig.Config.PowerVS.VPCName
-		vpcSubnets := installConfig.Config.PowerVS.VPCSubnets
-		if vpc == "" {
-			vpc = fmt.Sprintf("vpc-%s", clusterID.InfraID)
+		client, err = powervsconfig.NewClient()
+		if err != nil {
+			return err
+		}
+
+		vpcNameOrID = installConfig.Config.PowerVS.VPC
+
+		if vpcNameOrID == "" {
+			vpcNameOrID = fmt.Sprintf("vpc-%s", clusterID.InfraID)
+		} else if vpc, err = client.GetVPCByID(ctx, vpcNameOrID, vpcRegion); err == nil {
+			vpcNameOrID = *vpc.Name
+			vpcExists = true
+		} else if vpc, err = client.GetVPCByName(ctx, vpcNameOrID); err == nil {
+			vpcExists = true
 		} else {
-			existingSubnets, err := installConfig.PowerVS.GetVPCSubnets(context.TODO(), vpc)
+			return err
+		}
+
+		vpcSubnets := installConfig.Config.PowerVS.VPCSubnets
+
+		if vpcExists {
+			existingSubnets, err := installConfig.PowerVS.GetVPCSubnets(ctx, vpc)
 			if err != nil {
 				return err
 			}
@@ -297,10 +379,20 @@ func (cpc *CloudProviderConfig) Generate(dependencies asset.Parents) error {
 			serviceGUID = installConfig.Config.PowerVS.ServiceInstanceGUID
 		}
 
+		cosRegion, err := powervstypes.COSRegionForPowerVSRegion(installConfig.Config.PowerVS.Region)
+		if err != nil {
+			return err
+		}
+		overrides := installConfig.Config.PowerVS.ServiceEndpoints
+		if installConfig.Config.Publish == types.InternalPublishingStrategy &&
+			(len(installConfig.Config.ImageDigestSources) > 0 || len(installConfig.Config.DeprecatedImageContentSources) > 0) {
+			overrides = installConfig.PowerVS.SetDefaultPrivateServiceEndpoints(ctx, installConfig.Config.PowerVS.ServiceEndpoints, cosRegion, vpcRegion)
+		}
+
 		powervsConfig, err := powervsmanifests.CloudProviderConfig(
 			clusterID.InfraID,
 			accountID,
-			vpc,
+			vpcNameOrID,
 			vpcRegion,
 			installConfig.Config.Platform.PowerVS.PowerVSResourceGroup,
 			vpcSubnets,
@@ -308,13 +400,15 @@ func (cpc *CloudProviderConfig) Generate(dependencies asset.Parents) error {
 			serviceName,
 			installConfig.Config.PowerVS.Region,
 			installConfig.Config.PowerVS.Zone,
+			overrides,
 		)
 		if err != nil {
 			return errors.Wrap(err, "could not create cloud provider config")
 		}
 		cm.Data[cloudProviderConfigDataKey] = powervsConfig
 	case vspheretypes.Name:
-		vsphereConfig, err := vspheremanifests.CloudProviderConfigIni(clusterID.InfraID, installConfig.Config.Platform.VSphere)
+		vsphereConfig, err := vspheremanifests.CloudProviderConfigYaml(clusterID.InfraID, installConfig)
+
 		if err != nil {
 			return errors.Wrap(err, "could not create cloud provider config")
 		}

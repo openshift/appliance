@@ -1,6 +1,8 @@
 package config
 
 import (
+	"context"
+
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 )
@@ -24,7 +26,7 @@ func (*ApplianceConfigProvider) Dependencies() []asset.Asset {
 	return nil
 }
 
-func (a *ApplianceConfigProvider) Generate(_ asset.Parents) error {
+func (a *ApplianceConfigProvider) Generate(_ context.Context, _ asset.Parents) error {
 	return nil
 }
 

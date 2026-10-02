@@ -18,9 +18,9 @@ package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
+	capoerrors "sigs.k8s.io/cluster-api-provider-openstack/pkg/utils/errors"
 	"sigs.k8s.io/cluster-api-provider-openstack/pkg/utils/optional"
 )
 
@@ -31,6 +31,8 @@ const (
 )
 
 // OpenStackClusterSpec defines the desired state of OpenStackCluster.
+// +kubebuilder:validation:XValidation:rule="has(self.disableExternalNetwork) && self.disableExternalNetwork ? !has(self.bastion) || !has(self.bastion.floatingIP) : true",message="bastion floating IP cannot be set when disableExternalNetwork is true"
+// +kubebuilder:validation:XValidation:rule="has(self.disableExternalNetwork) && self.disableExternalNetwork ? has(self.disableAPIServerFloatingIP) && self.disableAPIServerFloatingIP : true",message="disableAPIServerFloatingIP cannot be false when disableExternalNetwork is true"
 type OpenStackClusterSpec struct {
 	// ManagedSubnets describe OpenStack Subnets to be created. Cluster actuator will create a network,
 	// subnets with the defined CIDR, and a router connected to these subnets. Currently only one IPv4
@@ -133,9 +135,9 @@ type OpenStackClusterSpec struct {
 	APIServerFixedIP optional.String `json:"apiServerFixedIP,omitempty"`
 
 	// APIServerPort is the port on which the listener on the APIServer
-	// will be created
+	// will be created. If specified, it must be an integer between 0 and 65535.
 	// +optional
-	APIServerPort optional.Int `json:"apiServerPort,omitempty"`
+	APIServerPort optional.UInt16 `json:"apiServerPort,omitempty"`
 
 	// ManagedSecurityGroups determines whether OpenStack security groups for the cluster
 	// will be managed by the OpenStack provider or whether pre-existing security groups will
@@ -164,7 +166,7 @@ type OpenStackClusterSpec struct {
 	// values set elsewhere.
 	// ControlPlaneEndpoint cannot be modified after ControlPlaneEndpoint.Host has been set.
 	// +optional
-	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
+	ControlPlaneEndpoint *clusterv1beta1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
 
 	// ControlPlaneAvailabilityZones is the set of availability zones which
 	// control plane machines may be deployed to.
@@ -194,11 +196,26 @@ type OpenStackClusterSpec struct {
 	IdentityRef OpenStackIdentityReference `json:"identityRef"`
 }
 
+// ClusterInitialization represents the initialization status of the cluster.
+type ClusterInitialization struct {
+	// Provisioned is set to true when the initial provisioning of the cluster infrastructure is completed.
+	// The value of this field is never updated after provisioning is completed.
+	// +optional
+	Provisioned bool `json:"provisioned,omitempty"`
+}
+
 // OpenStackClusterStatus defines the observed state of OpenStackCluster.
 type OpenStackClusterStatus struct {
 	// Ready is true when the cluster infrastructure is ready.
+	//
+	// Deprecated: This field is deprecated and will be removed in a future API version.
+	// Use status.conditions to determine the ready state of the cluster.
 	// +kubebuilder:default=false
 	Ready bool `json:"ready"`
+
+	// Initialization contains information about the initialization status of the cluster.
+	// +optional
+	Initialization *ClusterInitialization `json:"initialization,omitempty"`
 
 	// Network contains information about the created OpenStack Network.
 	// +optional
@@ -217,7 +234,7 @@ type OpenStackClusterStatus struct {
 	APIServerLoadBalancer *LoadBalancer `json:"apiServerLoadBalancer,omitempty"`
 
 	// FailureDomains represent OpenStack availability zones
-	FailureDomains clusterv1.FailureDomains `json:"failureDomains,omitempty"`
+	FailureDomains clusterv1beta1.FailureDomains `json:"failureDomains,omitempty"`
 
 	// ControlPlaneSecurityGroup contains the information about the
 	// OpenStack Security Group that needs to be applied to control plane
@@ -255,8 +272,11 @@ type OpenStackClusterStatus struct {
 	// Any transient errors that occur during the reconciliation of
 	// OpenStackClusters can be added as events to the OpenStackCluster object
 	// and/or logged in the controller's output.
+	//
+	// Deprecated: This field is deprecated and will be removed in a future API version.
+	// Use status.conditions to report failures.
 	// +optional
-	FailureReason *capierrors.ClusterStatusError `json:"failureReason,omitempty"`
+	FailureReason *capoerrors.DeprecatedCAPIClusterStatusError `json:"failureReason,omitempty"`
 
 	// FailureMessage will be set in the event that there is a terminal problem
 	// reconciling the OpenStackCluster and will contain a more verbose string suitable
@@ -274,12 +294,21 @@ type OpenStackClusterStatus struct {
 	// Any transient errors that occur during the reconciliation of
 	// OpenStackClusters can be added as events to the OpenStackCluster object
 	// and/or logged in the controller's output.
+	//
+	// Deprecated: This field is deprecated and will be removed in a future API version.
+	// Use status.conditions to report failures.
 	// +optional
 	FailureMessage *string `json:"failureMessage,omitempty"`
+
+	// Conditions defines current service state of the OpenStackCluster.
+	// This field surfaces into Cluster's status.conditions[InfrastructureReady] condition.
+	// The Ready condition must surface issues during the entire lifecycle of the OpenStackCluster
+	// (both during initial provisioning and after the initial provisioning is completed).
+	// +optional
+	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
 }
 
 // +genclient
-// +genclient:Namespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=openstackclusters,scope=Namespaced,categories=cluster-api,shortName=osc
 // +kubebuilder:storageversion
@@ -319,10 +348,43 @@ type ManagedSecurityGroups struct {
 	// +optional
 	AllNodesSecurityGroupRules []SecurityGroupRuleSpec `json:"allNodesSecurityGroupRules,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
+	// controlPlaneNodesSecurityGroupRules defines the rules that should be applied to control plane nodes.
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	ControlPlaneNodesSecurityGroupRules []SecurityGroupRuleSpec `json:"controlPlaneNodesSecurityGroupRules,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+
+	// workerNodesSecurityGroupRules defines the rules that should be applied to worker nodes.
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	WorkerNodesSecurityGroupRules []SecurityGroupRuleSpec `json:"workerNodesSecurityGroupRules,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+
 	// AllowAllInClusterTraffic allows all ingress and egress traffic between cluster nodes when set to true.
 	// +kubebuilder:default=false
 	// +kubebuilder:validation:Required
 	AllowAllInClusterTraffic bool `json:"allowAllInClusterTraffic"`
+}
+
+var _ IdentityRefProvider = &OpenStackCluster{}
+
+// GetConditions returns the observations of the operational state of the OpenStackCluster resource.
+func (c *OpenStackCluster) GetConditions() clusterv1beta1.Conditions {
+	return c.Status.Conditions
+}
+
+// SetConditions sets the underlying service state of the OpenStackCluster to the predescribed clusterv1.Conditions.
+func (c *OpenStackCluster) SetConditions(conditions clusterv1beta1.Conditions) {
+	c.Status.Conditions = conditions
+}
+
+// GetIdentifyRef returns the cluster's namespace and IdentityRef.
+func (c *OpenStackCluster) GetIdentityRef() (*string, *OpenStackIdentityReference) {
+	return &c.Namespace, &c.Spec.IdentityRef
 }
 
 func init() {

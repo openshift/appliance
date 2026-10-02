@@ -17,9 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
+
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta2"
 	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
-	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // ConvertTo converts the v1beta1 AWSMachine receiver to a v1beta2 AWSMachine.
@@ -42,6 +43,16 @@ func (src *AWSMachine) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.PrivateDNSName = restored.Spec.PrivateDNSName
 	dst.Spec.SecurityGroupOverrides = restored.Spec.SecurityGroupOverrides
 	dst.Spec.CapacityReservationID = restored.Spec.CapacityReservationID
+	dst.Spec.MarketType = restored.Spec.MarketType
+	dst.Spec.HostID = restored.Spec.HostID
+	dst.Spec.HostAffinity = restored.Spec.HostAffinity
+	dst.Spec.CapacityReservationPreference = restored.Spec.CapacityReservationPreference
+	dst.Spec.NetworkInterfaceType = restored.Spec.NetworkInterfaceType
+	dst.Spec.AssignPrimaryIPv6 = restored.Spec.AssignPrimaryIPv6
+	dst.Spec.CPUOptions = restored.Spec.CPUOptions
+	if restored.Spec.DynamicHostAllocation != nil {
+		dst.Spec.DynamicHostAllocation = restored.Spec.DynamicHostAllocation
+	}
 	if restored.Spec.ElasticIPPool != nil {
 		if dst.Spec.ElasticIPPool == nil {
 			dst.Spec.ElasticIPPool = &infrav1.ElasticIPPool{}
@@ -54,6 +65,7 @@ func (src *AWSMachine) ConvertTo(dstRaw conversion.Hub) error {
 		}
 	}
 
+	dst.Status.DedicatedHost = restored.Status.DedicatedHost
 	return nil
 }
 
@@ -104,6 +116,16 @@ func (r *AWSMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Template.Spec.PrivateDNSName = restored.Spec.Template.Spec.PrivateDNSName
 	dst.Spec.Template.Spec.SecurityGroupOverrides = restored.Spec.Template.Spec.SecurityGroupOverrides
 	dst.Spec.Template.Spec.CapacityReservationID = restored.Spec.Template.Spec.CapacityReservationID
+	dst.Spec.Template.Spec.MarketType = restored.Spec.Template.Spec.MarketType
+	dst.Spec.Template.Spec.HostID = restored.Spec.Template.Spec.HostID
+	dst.Spec.Template.Spec.HostAffinity = restored.Spec.Template.Spec.HostAffinity
+	dst.Spec.Template.Spec.CapacityReservationPreference = restored.Spec.Template.Spec.CapacityReservationPreference
+	dst.Spec.Template.Spec.NetworkInterfaceType = restored.Spec.Template.Spec.NetworkInterfaceType
+	dst.Spec.Template.Spec.AssignPrimaryIPv6 = restored.Spec.Template.Spec.AssignPrimaryIPv6
+	dst.Spec.Template.Spec.CPUOptions = restored.Spec.Template.Spec.CPUOptions
+	if restored.Spec.Template.Spec.DynamicHostAllocation != nil {
+		dst.Spec.Template.Spec.DynamicHostAllocation = restored.Spec.Template.Spec.DynamicHostAllocation
+	}
 	if restored.Spec.Template.Spec.ElasticIPPool != nil {
 		if dst.Spec.Template.Spec.ElasticIPPool == nil {
 			dst.Spec.Template.Spec.ElasticIPPool = &infrav1.ElasticIPPool{}
@@ -115,6 +137,10 @@ func (r *AWSMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Spec.Template.Spec.ElasticIPPool.PublicIpv4PoolFallBackOrder = restored.Spec.Template.Spec.ElasticIPPool.PublicIpv4PoolFallBackOrder
 		}
 	}
+
+	// Restore Status fields that don't exist in v1beta1.
+	dst.Status.NodeInfo = restored.Status.NodeInfo
+	dst.Status.Conditions = restored.Status.Conditions
 
 	return nil
 }

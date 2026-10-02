@@ -3,10 +3,10 @@
 package v1beta1
 
 import (
-	v1beta1 "github.com/openshift/api/machine/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	machinev1beta1 "github.com/openshift/api/machine/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // MachineSetLister helps list MachineSets.
@@ -14,7 +14,7 @@ import (
 type MachineSetLister interface {
 	// List lists all MachineSets in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.MachineSet, err error)
+	List(selector labels.Selector) (ret []*machinev1beta1.MachineSet, err error)
 	// MachineSets returns an object that can list and get MachineSets.
 	MachineSets(namespace string) MachineSetNamespaceLister
 	MachineSetListerExpansion
@@ -22,25 +22,17 @@ type MachineSetLister interface {
 
 // machineSetLister implements the MachineSetLister interface.
 type machineSetLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*machinev1beta1.MachineSet]
 }
 
 // NewMachineSetLister returns a new MachineSetLister.
 func NewMachineSetLister(indexer cache.Indexer) MachineSetLister {
-	return &machineSetLister{indexer: indexer}
-}
-
-// List lists all MachineSets in the indexer.
-func (s *machineSetLister) List(selector labels.Selector) (ret []*v1beta1.MachineSet, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.MachineSet))
-	})
-	return ret, err
+	return &machineSetLister{listers.New[*machinev1beta1.MachineSet](indexer, machinev1beta1.Resource("machineset"))}
 }
 
 // MachineSets returns an object that can list and get MachineSets.
 func (s *machineSetLister) MachineSets(namespace string) MachineSetNamespaceLister {
-	return machineSetNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return machineSetNamespaceLister{listers.NewNamespaced[*machinev1beta1.MachineSet](s.ResourceIndexer, namespace)}
 }
 
 // MachineSetNamespaceLister helps list and get MachineSets.
@@ -48,36 +40,15 @@ func (s *machineSetLister) MachineSets(namespace string) MachineSetNamespaceList
 type MachineSetNamespaceLister interface {
 	// List lists all MachineSets in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.MachineSet, err error)
+	List(selector labels.Selector) (ret []*machinev1beta1.MachineSet, err error)
 	// Get retrieves the MachineSet from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.MachineSet, error)
+	Get(name string) (*machinev1beta1.MachineSet, error)
 	MachineSetNamespaceListerExpansion
 }
 
 // machineSetNamespaceLister implements the MachineSetNamespaceLister
 // interface.
 type machineSetNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all MachineSets in the indexer for a given namespace.
-func (s machineSetNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.MachineSet, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.MachineSet))
-	})
-	return ret, err
-}
-
-// Get retrieves the MachineSet from the indexer for a given namespace and name.
-func (s machineSetNamespaceLister) Get(name string) (*v1beta1.MachineSet, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("machineset"), name)
-	}
-	return obj.(*v1beta1.MachineSet), nil
+	listers.ResourceIndexer[*machinev1beta1.MachineSet]
 }

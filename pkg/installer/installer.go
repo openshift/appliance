@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 
 	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
@@ -134,7 +134,7 @@ func (i *installer) downloadInstallerBinary() (string, error) {
 }
 
 func (i *installer) GetInstallerBinaryName() string {
-	if swag.BoolValue(i.ApplianceConfig.Config.EnableFips) {
+	if conv.Value(i.ApplianceConfig.Config.EnableFips) {
 		return installerFipsBinaryName
 	}
 	return installerBinaryName

@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
+	yaml "go.yaml.in/yaml/v3"
 	"sigs.k8s.io/kustomize/kyaml/errors"
-	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // Append creates an ElementAppender
@@ -724,8 +724,14 @@ func (s FieldSetter) Filter(rn *RNode) (*RNode, error) {
 		return rn, nil
 	}
 
-	// Clear the field if it is empty, or explicitly null
-	if s.Value == nil || s.Value.IsTaggedNull() {
+	// Clearing nil fields:
+	//   1. Clear any fields with no value
+	//   2. Clear any "null" YAML fields unless we explicitly want to keep them
+	// This is to balance
+	//   1. Persisting 'null' values passed by the user (see issue #4628)
+	//   2. Avoiding producing noisy documents that add any field defaulting to
+	//   'nil' even if they weren't present in the source document
+	if s.Value == nil || (s.Value.IsTaggedNull() && !s.Value.ShouldKeep) {
 		return rn.Pipe(Clear(s.Name))
 	}
 
@@ -822,6 +828,10 @@ func (e *InvalidNodeKindError) Error() string {
 		msg += fmt.Sprintf(": node contents:\n%s", content)
 	}
 	return msg
+}
+
+func (e *InvalidNodeKindError) Unwrap() error {
+	return errors.Errorf("InvalidNodeKindError")
 }
 
 func (e *InvalidNodeKindError) ActualNodeKind() Kind {

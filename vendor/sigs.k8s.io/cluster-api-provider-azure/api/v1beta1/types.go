@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"slices"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/net"
@@ -100,7 +102,7 @@ type NetworkSpec struct {
 
 	// APIServerLB is the configuration for the control-plane load balancer.
 	// +optional
-	APIServerLB LoadBalancerSpec `json:"apiServerLB,omitempty"`
+	APIServerLB *LoadBalancerSpec `json:"apiServerLB,omitempty"`
 
 	// NodeOutboundLB is the configuration for the node outbound load balancer.
 	// +optional
@@ -111,7 +113,27 @@ type NetworkSpec struct {
 	// +optional
 	ControlPlaneOutboundLB *LoadBalancerSpec `json:"controlPlaneOutboundLB,omitempty"`
 
+	// AdditionalAPIServerLBPorts specifies extra inbound ports for the APIServer load balancer.
+	// Each port specified (e.g., 9345) creates an inbound rule where the frontend port and the backend port are the same.
+	// +optional
+	AdditionalAPIServerLBPorts []LoadBalancerPort `json:"additionalAPIServerLBPorts,omitempty"`
+
+	// PrivateDNSZone enables private dns zone creation modes for a private cluster.
+	// When unspecified, it defaults to PrivateDNSZoneModeSystem which creates a private DNS zone.
+	// +kubebuilder:validation:Enum=System;None
+	// +optional
+	PrivateDNSZone *PrivateDNSZoneMode `json:"privateDNSZone,omitempty"`
+
 	NetworkClassSpec `json:",inline"`
+}
+
+// LoadBalancerPort specifies additional port for the API server load balancer.
+type LoadBalancerPort struct {
+	// Name for the additional port within LB definition
+	Name string `json:"name"`
+
+	// Port for the LB definition
+	Port int32 `json:"port"`
 }
 
 // VnetSpec configures an Azure virtual network.
@@ -238,6 +260,10 @@ type NatGateway struct {
 	ID string `json:"id,omitempty"`
 	// +optional
 	NatGatewayIP PublicIPSpec `json:"ip,omitempty"`
+
+	// Zones mentions the list of zones the NAT gateway should be a part of.
+	// +optional
+	Zones []string `json:"zones,omitempty"`
 
 	NatGatewayClassSpec `json:",inline"`
 }
@@ -390,6 +416,7 @@ type IPTag struct {
 }
 
 // VMState describes the state of an Azure virtual machine.
+//
 // Deprecated: use ProvisioningState.
 type VMState string
 
@@ -425,6 +452,7 @@ type Image struct {
 	ID *string `json:"id,omitempty"`
 
 	// SharedGallery specifies an image to use from an Azure Shared Image Gallery
+	//
 	// Deprecated: use ComputeGallery instead.
 	// +optional
 	SharedGallery *AzureSharedGalleryImage `json:"sharedGallery,omitempty"`
@@ -570,7 +598,7 @@ type UserAssignedIdentity struct {
 }
 
 // IdentityType represents different types of identities.
-// +kubebuilder:validation:Enum=ServicePrincipal;UserAssignedMSI;ManualServicePrincipal;ServicePrincipalCertificate;WorkloadIdentity
+// +kubebuilder:validation:Enum=ServicePrincipal;UserAssignedMSI;ManualServicePrincipal;ServicePrincipalCertificate;WorkloadIdentity;UserAssignedIdentityCredential
 type IdentityType string
 
 const (
@@ -588,6 +616,9 @@ const (
 
 	// WorkloadIdentity represents a WorkloadIdentity.
 	WorkloadIdentity IdentityType = "WorkloadIdentity"
+
+	// UserAssignedIdentityCredential represents a UserAssignedIdentityCredential.
+	UserAssignedIdentityCredential IdentityType = "UserAssignedIdentityCredential"
 )
 
 // OSDisk defines the operating system disk for a VM.
@@ -596,6 +627,7 @@ const (
 // conversion-gen where the warning message generated uses a relative directory import rather than the fully
 // qualified import when generating outside of the GOPATH.
 type OSDisk struct {
+	// +kubebuilder:default:=Linux
 	OSType string `json:"osType"`
 	// DiskSizeGB is the size in GB to assign to the OS disk.
 	// Will have a default of 30GB if not provided
@@ -609,6 +641,7 @@ type OSDisk struct {
 	// CachingType specifies the caching requirements.
 	// +optional
 	// +kubebuilder:validation:Enum=None;ReadOnly;ReadWrite
+	// +kubebuilder:default:=None
 	CachingType string `json:"cachingType,omitempty"`
 }
 
@@ -687,12 +720,45 @@ type DiskEncryptionSetParameters struct {
 	ID string `json:"id,omitempty"`
 }
 
+// DiffDiskPlacement - Specifies the ephemeral disk placement for operating system disk. This property can be used by user
+// in the request to choose the location i.e, cache disk, resource disk or nvme disk space for
+// Ephemeral OS disk provisioning. For more information on Ephemeral OS disk size requirements, please refer Ephemeral OS
+// disk size requirements for Windows VM at
+// https://docs.microsoft.com/azure/virtual-machines/windows/ephemeral-os-disks#size-requirements and Linux VM at
+// https://docs.microsoft.com/azure/virtual-machines/linux/ephemeral-os-disks#size-requirements.
+type DiffDiskPlacement string
+
+const (
+	// DiffDiskPlacementCacheDisk places the OsDisk on cache disk.
+	DiffDiskPlacementCacheDisk DiffDiskPlacement = "CacheDisk"
+
+	// DiffDiskPlacementNvmeDisk places the OsDisk on NVMe disk.
+	DiffDiskPlacementNvmeDisk DiffDiskPlacement = "NvmeDisk"
+
+	// DiffDiskPlacementResourceDisk places the OsDisk on temp disk.
+	DiffDiskPlacementResourceDisk DiffDiskPlacement = "ResourceDisk"
+)
+
+// PossibleDiffDiskPlacementValues returns the possible values for the DiffDiskPlacement const type.
+func PossibleDiffDiskPlacementValues() []DiffDiskPlacement {
+	return []DiffDiskPlacement{
+		DiffDiskPlacementCacheDisk,
+		DiffDiskPlacementNvmeDisk,
+		DiffDiskPlacementResourceDisk,
+	}
+}
+
 // DiffDiskSettings describe ephemeral disk settings for the os disk.
 type DiffDiskSettings struct {
 	// Option enables ephemeral OS when set to "Local"
 	// See https://learn.microsoft.com/azure/virtual-machines/ephemeral-os-disks for full details
 	// +kubebuilder:validation:Enum=Local
 	Option string `json:"option"`
+
+	// Placement specifies the ephemeral disk placement for operating system disk. If placement is specified, Option must be set to "Local".
+	// +kubebuilder:validation:Enum=CacheDisk;NvmeDisk;ResourceDisk
+	// +optional
+	Placement *DiffDiskPlacement `json:"placement,omitempty"`
 }
 
 // SubnetRole defines the unique role of a subnet.
@@ -847,12 +913,18 @@ func (s SubnetSpec) IsNatGatewayEnabled() bool {
 
 // IsIPv6Enabled returns whether or not IPv6 is enabled on the subnet.
 func (s SubnetSpec) IsIPv6Enabled() bool {
-	for _, cidr := range s.CIDRBlocks {
-		if net.IsIPv6CIDRString(cidr) {
-			return true
+	return slices.ContainsFunc(s.CIDRBlocks, net.IsIPv6CIDRString)
+}
+
+// GetSecurityRuleByDestination returns security group rule, which matches provided destination ports.
+func (s SubnetSpec) GetSecurityRuleByDestination(port string) *SecurityRule {
+	for _, rule := range s.SecurityGroup.SecurityRules {
+		if rule.DestinationPorts != nil && *rule.DestinationPorts == port {
+			return &rule
 		}
 	}
-	return false
+
+	return nil
 }
 
 // SecurityProfile specifies the Security profile settings for a
@@ -876,7 +948,6 @@ type SecurityProfile struct {
 
 // UefiSettings specifies the security settings like secure boot and vTPM used while creating the virtual
 // machine.
-// +optional
 type UefiSettings struct {
 	// SecureBootEnabled specifies whether secure boot should be enabled on the virtual machine.
 	// Secure Boot verifies the digital signature of all boot components and halts the boot process if signature verification fails.
@@ -894,8 +965,8 @@ type UefiSettings struct {
 
 // AddressRecord specifies a DNS record mapping a hostname to an IPV4 or IPv6 address.
 type AddressRecord struct {
-	Hostname string
-	IP       string
+	Hostname string `json:"hostname"`
+	IP       string `json:"ip"`
 }
 
 // CloudProviderConfigOverrides represents the fields that can be overridden in azure cloud provider config.
@@ -1182,3 +1253,23 @@ const (
 	// AKSAssignedIdentityUserAssigned ...
 	AKSAssignedIdentityUserAssigned AKSAssignedIdentity = "UserAssigned"
 )
+
+// DisableComponent defines a component to be disabled in CAPZ such as a controller or webhook.
+// +kubebuilder:validation:Enum=DisableASOSecretController;DisableAzureJSONMachineController
+type DisableComponent string
+
+// NOTE: when adding a new DisableComponent, please also add it to the ValidDisableableComponents map.
+const (
+	// DisableASOSecretController disables the ASOSecretController from being deployed.
+	DisableASOSecretController DisableComponent = "DisableASOSecretController"
+
+	// DisableAzureJSONMachineController disables the AzureJSONMachineController from being deployed.
+	DisableAzureJSONMachineController DisableComponent = "DisableAzureJSONMachineController"
+)
+
+// ValidDisableableComponents is a map of valid disableable components used to quickly validate whether a component is
+// valid or not.
+var ValidDisableableComponents = map[DisableComponent]struct{}{
+	DisableASOSecretController:        {},
+	DisableAzureJSONMachineController: {},
+}

@@ -1,12 +1,13 @@
 package ignition
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
 	configv32 "github.com/coreos/ignition/v2/config/v3_2"
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/installer"
@@ -42,7 +43,7 @@ func (i *RecoveryIgnition) Dependencies() []asset.Asset {
 }
 
 // Generate the ignition embedded in the recovery ISO.
-func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
+func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parents) error {
 	applianceConfig := &config.ApplianceConfig{}
 	envConfig := &config.EnvConfig{}
 	bootstrapIgnition := &BootstrapIgnition{}
@@ -74,7 +75,7 @@ func (i *RecoveryIgnition) Generate(dependencies asset.Parents) error {
 		return errors.Wrapf(err, "failed to parse un-configured ignition")
 	}
 
-	if swag.BoolValue(installerConfig.ApplianceConfig.Config.EnableInteractiveFlow) {
+	if conv.Value(installerConfig.ApplianceConfig.Config.EnableInteractiveFlow) {
 		_, releaseVersion, err := installerConfig.ApplianceConfig.GetRelease()
 		if err != nil {
 			return err

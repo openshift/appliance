@@ -10,6 +10,7 @@ import (
 	"github.com/vincent-petithory/dataurl"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	configv1 "github.com/openshift/api/config/v1"
 	mcfgv1 "github.com/openshift/api/machineconfiguration/v1"
 	"github.com/openshift/installer/pkg/asset/ignition"
 	"github.com/openshift/installer/pkg/types"
@@ -17,6 +18,7 @@ import (
 	nutanixtypes "github.com/openshift/installer/pkg/types/nutanix"
 	openstacktypes "github.com/openshift/installer/pkg/types/openstack"
 	ovirttypes "github.com/openshift/installer/pkg/types/ovirt"
+	powervctypes "github.com/openshift/installer/pkg/types/powervc"
 	vspheretypes "github.com/openshift/installer/pkg/types/vsphere"
 )
 
@@ -39,7 +41,12 @@ func pointerIgnitionConfig(installConfig *types.InstallConfig, rootCA []byte, ro
 			ignitionHost = net.JoinHostPort(installConfig.Nutanix.APIVIPs[0], "22623")
 		}
 	case openstacktypes.Name:
-		ignitionHost = net.JoinHostPort(installConfig.OpenStack.APIVIPs[0], "22623")
+		if installConfig.OpenStack.LoadBalancer.Type != configv1.LoadBalancerTypeUserManaged ||
+			installConfig.OpenStack.DNSRecordsType != configv1.DNSRecordsTypeExternal {
+			ignitionHost = net.JoinHostPort(installConfig.OpenStack.APIVIPs[0], "22623")
+		}
+	case powervctypes.Name:
+		ignitionHost = net.JoinHostPort(installConfig.PowerVC.APIVIPs[0], "22623")
 	case ovirttypes.Name:
 		ignitionHost = net.JoinHostPort(installConfig.Ovirt.APIVIPs[0], "22623")
 	case vspheretypes.Name:

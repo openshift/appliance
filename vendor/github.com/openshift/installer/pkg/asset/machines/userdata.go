@@ -19,7 +19,9 @@ data:
   userData: {{.content}}
 `))
 
-func userDataSecret(name string, content []byte) ([]byte, error) {
+// UserDataSecret generates the user data secret in openshift-machine-api.
+// For CAPI, the cluster-capi-operator syncs it to openshift-cluster-api.
+func UserDataSecret(name string, content []byte) ([]byte, error) {
 	encodedData := map[string]string{
 		"name":    name,
 		"content": base64.StdEncoding.EncodeToString(content),

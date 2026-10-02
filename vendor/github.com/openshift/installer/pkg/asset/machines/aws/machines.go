@@ -11,12 +11,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	v1 "github.com/openshift/api/config/v1"
 	machinev1 "github.com/openshift/api/machine/v1"
 	machineapi "github.com/openshift/api/machine/v1beta1"
+	"github.com/openshift/installer/pkg/asset/installconfig/aws"
 	"github.com/openshift/installer/pkg/types"
-	"github.com/openshift/installer/pkg/types/aws"
+	awstypes "github.com/openshift/installer/pkg/types/aws"
+	"github.com/openshift/installer/pkg/utils"
 )
 
 type machineProviderInput struct {
@@ -28,16 +31,19 @@ type machineProviderInput struct {
 	zone             string
 	role             string
 	userDataSecret   string
-	root             *aws.EC2RootVolume
-	imds             aws.EC2Metadata
+	instanceProfile  string
+	root             *awstypes.EC2RootVolume
+	imds             awstypes.EC2Metadata
 	userTags         map[string]string
 	publicSubnet     bool
 	securityGroupIDs []string
+	cpuOptions       *awstypes.CPUOptions
+	dedicatedHost    string
 }
 
 // Machines returns a list of machines for a machinepool.
-func Machines(clusterID string, region string, subnets map[string]string, pool *types.MachinePool, role, userDataSecret string, userTags map[string]string) ([]machineapi.Machine, *machinev1.ControlPlaneMachineSet, error) {
-	if poolPlatform := pool.Platform.Name(); poolPlatform != aws.Name {
+func Machines(clusterID string, region string, subnets aws.SubnetsByZone, pool *types.MachinePool, role, userDataSecret string, userTags map[string]string, publicSubnet bool, config *types.InstallConfig) ([]machineapi.Machine, *machinev1.ControlPlaneMachineSet, error) {
+	if poolPlatform := pool.Platform.Name(); poolPlatform != awstypes.Name {
 		return nil, nil, fmt.Errorf("non-AWS machine-pool: %q", poolPlatform)
 	}
 	mpool := pool.Platform.AWS
@@ -46,6 +52,12 @@ func Machines(clusterID string, region string, subnets map[string]string, pool *
 	if pool.Replicas != nil {
 		total = *pool.Replicas
 	}
+
+	instanceProfile := mpool.IAMProfile
+	if len(instanceProfile) == 0 {
+		instanceProfile = fmt.Sprintf("%s-%s-profile", clusterID, role)
+	}
+
 	var machines []machineapi.Machine
 	machineSetProvider := &machineapi.AWSMachineProviderConfig{}
 	for idx := int64(0); idx < total; idx++ {
@@ -57,17 +69,19 @@ func Machines(clusterID string, region string, subnets map[string]string, pool *
 		provider, err := provider(&machineProviderInput{
 			clusterID:        clusterID,
 			region:           region,
-			subnet:           subnet,
+			subnet:           subnet.ID,
 			instanceType:     mpool.InstanceType,
 			osImage:          mpool.AMIID,
 			zone:             zone,
 			role:             role,
 			userDataSecret:   userDataSecret,
+			instanceProfile:  instanceProfile,
 			root:             &mpool.EC2RootVolume,
 			imds:             mpool.EC2Metadata,
 			userTags:         userTags,
-			publicSubnet:     false,
+			publicSubnet:     publicSubnet,
 			securityGroupIDs: pool.Platform.AWS.AdditionalSecurityGroupIDs,
+			cpuOptions:       mpool.CPUOptions,
 		})
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to create provider")
@@ -94,7 +108,7 @@ func Machines(clusterID string, region string, subnets map[string]string, pool *
 				// we don't need to set Versions, because we control those via operators.
 			},
 		}
-
+		utils.SetMachineOSStreamLabels(&machine, config)
 		machines = append(machines, machine)
 	}
 
@@ -109,19 +123,21 @@ func Machines(clusterID string, region string, subnets map[string]string, pool *
 				AvailabilityZone: zone,
 			},
 		}
-		if subnet == "" {
+		if subnet.ID == "" {
 			domain.Subnet.Type = machinev1.AWSFiltersReferenceType
+			subnetFilterValue := fmt.Sprintf("%s-subnet-private-%s", clusterID, zone)
+			if publicSubnet {
+				subnetFilterValue = fmt.Sprintf("%s-subnet-public-%s", clusterID, zone)
+			}
 			domain.Subnet.Filters = &[]machinev1.AWSResourceFilter{
 				{
-					Name: "tag:Name",
-					Values: []string{
-						fmt.Sprintf("%s-subnet-private-%s", clusterID, zone),
-					},
+					Name:   "tag:Name",
+					Values: []string{subnetFilterValue},
 				},
 			}
 		} else {
 			domain.Subnet.Type = machinev1.AWSIDReferenceType
-			domain.Subnet.ID = pointer.String(subnet)
+			domain.Subnet.ID = pointer.String(subnet.ID)
 		}
 		failureDomains = append(failureDomains, domain)
 	}
@@ -173,6 +189,7 @@ func Machines(clusterID string, region string, subnets map[string]string, pool *
 			},
 		},
 	}
+	utils.SetCPMSOSStreamLabels(controlPlaneMachineSet, config)
 	return machines, controlPlaneMachineSet, nil
 }
 
@@ -228,17 +245,18 @@ func provider(in *machineProviderInput) (*machineapi.AWSMachineProviderConfig, e
 		BlockDevices: []machineapi.BlockDeviceMappingSpec{
 			{
 				EBS: &machineapi.EBSBlockDeviceSpec{
-					VolumeType: pointer.String(in.root.Type),
-					VolumeSize: pointer.Int64(int64(in.root.Size)),
-					Iops:       pointer.Int64(int64(in.root.IOPS)),
-					Encrypted:  pointer.Bool(true),
-					KMSKey:     machineapi.AWSResourceReference{ARN: pointer.String(in.root.KMSKeyARN)},
+					VolumeType:    pointer.String(in.root.Type),
+					VolumeSize:    pointer.Int64(int64(in.root.Size)),
+					Iops:          pointer.Int64(int64(in.root.IOPS)),
+					ThroughputMib: in.root.Throughput,
+					Encrypted:     pointer.Bool(true),
+					KMSKey:        machineapi.AWSResourceReference{ARN: pointer.String(in.root.KMSKeyARN)},
 				},
 			},
 		},
 		Tags: tags,
 		IAMInstanceProfile: &machineapi.AWSResourceReference{
-			ID: pointer.String(fmt.Sprintf("%s-%s-profile", in.clusterID, in.role)),
+			ID: pointer.String(in.instanceProfile),
 		},
 		UserDataSecret:    &corev1.LocalObjectReference{Name: in.userDataSecret},
 		CredentialsSecret: &corev1.LocalObjectReference{Name: "aws-cloud-credentials"},
@@ -278,6 +296,27 @@ func provider(in *machineProviderInput) (*machineapi.AWSMachineProviderConfig, e
 
 	if in.imds.Authentication != "" {
 		config.MetadataServiceOptions.Authentication = machineapi.MetadataServiceAuthentication(in.imds.Authentication)
+	}
+
+	if in.cpuOptions != nil {
+		cpuOptions := machineapi.CPUOptions{}
+
+		if in.cpuOptions.ConfidentialCompute != nil {
+			cpuOptions.ConfidentialCompute = ptr.To(machineapi.AWSConfidentialComputePolicy(*in.cpuOptions.ConfidentialCompute))
+		}
+
+		config.CPUOptions = &cpuOptions
+	}
+
+	if in.dedicatedHost != "" {
+		config.Placement.Tenancy = machineapi.HostTenancy
+		config.Placement.Host = &machineapi.HostPlacement{
+			Affinity: ptr.To(machineapi.HostAffinityDedicatedHost),
+			DedicatedHost: &machineapi.DedicatedHost{
+				AllocationStrategy: ptr.To(machineapi.AllocationStrategyUserProvided),
+				ID:                 in.dedicatedHost,
+			},
+		}
 	}
 
 	return config, nil
@@ -328,4 +367,19 @@ func ConfigMasters(machines []machineapi.Machine, controlPlane *machinev1.Contro
 
 	providerSpec := controlPlane.Spec.Template.OpenShiftMachineV1Beta1Machine.Spec.ProviderSpec.Value.Object.(*machineapi.AWSMachineProviderConfig)
 	providerSpec.LoadBalancers = lbrefs
+}
+
+// DedicatedHost sets dedicated hosts for the specified zone.
+func DedicatedHost(hosts map[string]aws.Host, placement *awstypes.HostPlacement, zone string) string {
+	// If install-config has HostPlacements configured, lets check the DedicatedHosts to see if one matches our region & zone.
+	if placement != nil {
+		// We only support one host ID currently for an instance.  Need to also get host that matches the zone the machines will be put into.
+		for _, host := range placement.DedicatedHost {
+			hostDetails, found := hosts[host.ID]
+			if found && hostDetails.Zone == zone {
+				return hostDetails.ID
+			}
+		}
+	}
+	return ""
 }

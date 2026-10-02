@@ -33,10 +33,6 @@ func ValidateMachinePool(platform *gcp.Platform, p *gcp.MachinePool, fldPath *fi
 		allErrs = append(allErrs, field.NotSupported(fldPath.Child("diskType"), diskType, sets.List(gcp.ComputeSupportedDisks)))
 	}
 
-	if p.ConfidentialCompute == string(gcp.EnabledFeature) && p.OnHostMaintenance != string(gcp.OnHostMaintenanceTerminate) {
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("OnHostMaintenance"), p.OnHostMaintenance, "OnHostMaintenace must be set to Terminate when ConfidentialCompute is Enabled"))
-	}
-
 	for i, tag := range p.Tags {
 		if tag == "" {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("tags").Index(i), tag, fmt.Sprintf("tag can not be empty")))
@@ -51,20 +47,10 @@ func ValidateMachinePool(platform *gcp.Platform, p *gcp.MachinePool, fldPath *fi
 	return allErrs
 }
 
-// ValidateServiceAccount checks that the service account is only supplied for control plane nodes and during
-// a shared vpn installation.
+// ValidateServiceAccount does not do any checks on the service account since it can be set for all nodes and
+// in non-shared vpn installations.
 func ValidateServiceAccount(platform *gcp.Platform, p *types.MachinePool, fldPath *field.Path) field.ErrorList {
-	allErrs := field.ErrorList{}
-
-	if p.Platform.GCP.ServiceAccount != "" {
-		if p.Name != "master" {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("serviceAccount"), p.Platform.GCP.ServiceAccount, fmt.Sprintf("service accounts only valid for master nodes, provided for %s nodes", p.Name)))
-		}
-		if platform.NetworkProjectID == "" {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("serviceAccount"), p.Platform.GCP.ServiceAccount, "service accounts only valid for xpn installs"))
-		}
-	}
-	return allErrs
+	return field.ErrorList{}
 }
 
 // ValidateMasterDiskType checks that the specified disk type is valid for control plane.
@@ -86,6 +72,33 @@ func ValidateDefaultDiskType(p *gcp.MachinePool, fldPath *field.Path) field.Erro
 		if !gcp.ControlPlaneSupportedDisks.Has(p.OSDisk.DiskType) {
 			allErrs = append(allErrs, field.NotSupported(fldPath.Child("diskType"), p.OSDisk.DiskType, sets.List(gcp.ControlPlaneSupportedDisks)))
 		}
+	}
+
+	return allErrs
+}
+
+// ValidateOSImageForSovereignCloud checks that an OS image is specified for sovereign cloud environments.
+func ValidateOSImageForSovereignCloud(platform *gcp.Platform, pool *gcp.MachinePool, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if gcp.GetCloudEnvironment(platform.ProjectID, platform.Region) != gcp.CloudEnvironmentSovereign {
+		return allErrs
+	}
+
+	if pool == nil || pool.OSImage == nil {
+		allErrs = append(allErrs, field.Required(fldPath.Child("osImage"),
+			"must specify an OS image for sovereign cloud environments (domain-scoped project ID and u- region prefix)"))
+		return allErrs
+	}
+
+	osImagePath := fldPath.Child("osImage")
+	if pool.OSImage.Name == "" {
+		allErrs = append(allErrs, field.Required(osImagePath.Child("name"),
+			"must specify an OS image name for sovereign cloud environments"))
+	}
+	if pool.OSImage.Project == "" {
+		allErrs = append(allErrs, field.Required(osImagePath.Child("project"),
+			"must specify an OS image project for sovereign cloud environments"))
 	}
 
 	return allErrs

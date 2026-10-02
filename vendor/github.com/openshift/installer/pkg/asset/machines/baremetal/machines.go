@@ -8,11 +8,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 
 	machineapi "github.com/openshift/api/machine/v1beta1"
 	baremetalprovider "github.com/openshift/cluster-api-provider-baremetal/pkg/apis/baremetal/v1alpha1"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/baremetal"
+	utils "github.com/openshift/installer/pkg/utils"
 )
 
 // Machines returns a list of machines for a machinepool.
@@ -29,7 +31,7 @@ func Machines(clusterID string, config *types.InstallConfig, pool *types.Machine
 	if pool.Replicas != nil {
 		total = *pool.Replicas
 	}
-	provider, err := provider(platform, userDataSecret)
+	provider, err := provider(platform, userDataSecret, config.OSImageStream)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create provider")
 	}
@@ -56,13 +58,14 @@ func Machines(clusterID string, config *types.InstallConfig, pool *types.Machine
 				// we don't need to set Versions, because we control those via cluster operators.
 			},
 		}
+		utils.SetMachineOSStreamLabels(&machine, config)
 		machines = append(machines, machine)
 	}
 
 	return machines, nil
 }
 
-func provider(platform *baremetal.Platform, userDataSecret string) (*baremetalprovider.BareMetalMachineProviderSpec, error) {
+func provider(platform *baremetal.Platform, userDataSecret string, osImageStream types.OSImageStream) (*baremetalprovider.BareMetalMachineProviderSpec, error) {
 	config := &baremetalprovider.BareMetalMachineProviderSpec{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "baremetal.cluster.k8s.io/v1alpha1",
@@ -71,7 +74,26 @@ func provider(platform *baremetal.Platform, userDataSecret string) (*baremetalpr
 		CustomDeploy: baremetalprovider.CustomDeploy{
 			Method: "install_coreos",
 		},
-		UserData: &corev1.SecretReference{Name: userDataSecret},
+		UserData:     &corev1.SecretReference{Name: userDataSecret},
+		HostSelector: hostSelectorForStream(osImageStream),
 	}
 	return config, nil
+}
+
+func hostSelectorForStream(stream types.OSImageStream) baremetalprovider.HostSelector {
+	var exclude []string
+	for _, s := range types.OSImageStreamValues() {
+		if s != stream {
+			exclude = append(exclude, string(s))
+		}
+	}
+	return baremetalprovider.HostSelector{
+		MatchExpressions: []baremetalprovider.HostSelectorRequirement{
+			{
+				Key:      streamLabelKey,
+				Operator: selection.NotIn,
+				Values:   exclude,
+			},
+		},
+	}
 }

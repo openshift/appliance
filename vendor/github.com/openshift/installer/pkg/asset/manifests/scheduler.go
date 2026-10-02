@@ -1,7 +1,8 @@
 package manifests
 
 import (
-	"path/filepath"
+	"context"
+	"path"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -15,7 +16,7 @@ import (
 
 var (
 	// SchedulerCfgFilename is the path of the Scheduler Config file
-	SchedulerCfgFilename = filepath.Join(manifestDir, "cluster-scheduler-02-config.yml")
+	SchedulerCfgFilename = path.Join(manifestDir, "cluster-scheduler-02-config.yml")
 )
 
 // Scheduler generates the cluster-scheduler-*.yml files.
@@ -39,7 +40,7 @@ func (*Scheduler) Dependencies() []asset.Asset {
 }
 
 // Generate generates the scheduler config and its CRD.
-func (s *Scheduler) Generate(dependencies asset.Parents) error {
+func (s *Scheduler) Generate(_ context.Context, dependencies asset.Parents) error {
 	config := &configv1.Scheduler{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: configv1.SchemeGroupVersion.String(),

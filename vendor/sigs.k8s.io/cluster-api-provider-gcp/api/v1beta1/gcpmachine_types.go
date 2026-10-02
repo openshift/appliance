@@ -19,7 +19,6 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/cluster-api/errors"
 )
 
 const (
@@ -47,6 +46,8 @@ type AttachedDiskSpec struct {
 	// 1. "pd-standard" - Standard (HDD) persistent disk
 	// 2. "pd-ssd" - SSD persistent disk
 	// 3. "local-ssd" - Local SSD disk (https://cloud.google.com/compute/docs/disks/local-ssd).
+	// 4. "pd-balanced" - Balanced Persistent Disk
+	// 5. "hyperdisk-balanced" - Hyperdisk Balanced
 	// Default is "pd-standard".
 	// +optional
 	DeviceType *DiskType `json:"deviceType,omitempty"`
@@ -133,11 +134,13 @@ const (
 	ConfidentialComputePolicyEnabled ConfidentialComputePolicy = "Enabled"
 	// ConfidentialComputePolicyDisabled disables confidential compute for the GCP machine.
 	ConfidentialComputePolicyDisabled ConfidentialComputePolicy = "Disabled"
+	// ConfidentialComputePolicySEV sets AMD SEV as the VM instance's confidential computing technology of choice.
+	ConfidentialComputePolicySEV ConfidentialComputePolicy = "AMDEncryptedVirtualization"
+	// ConfidentialComputePolicySEVSNP sets AMD SEV-SNP as the VM instance's confidential computing technology of choice.
+	ConfidentialComputePolicySEVSNP ConfidentialComputePolicy = "AMDEncryptedVirtualizationNestedPaging"
+	// ConfidentialComputePolicyTDX sets Intel TDX as the VM instance's confidential computing technology of choice.
+	ConfidentialComputePolicyTDX ConfidentialComputePolicy = "IntelTrustedDomainExtensions"
 )
-
-// Confidential VM supports Compute Engine machine types in the following series:
-// reference: https://cloud.google.com/compute/confidential-vm/docs/os-and-machine-type#machine-type
-var confidentialComputeSupportedMachineSeries = []string{"n2d", "c2d"}
 
 // HostMaintenancePolicy represents the desired behavior ase of a host maintenance event.
 type HostMaintenancePolicy string
@@ -164,7 +167,7 @@ type ManagedKey struct {
 	// KMSKeyName is the name of the encryption key that is stored in Google Cloud KMS. For example:
 	// "kmsKeyName": "projects/kms_project_id/locations/region/keyRings/key_region/cryptoKeys/key
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`projects\/[-_[A-Za-z0-9]+\/locations\/[-_[A-Za-z0-9]+\/keyRings\/[-_[A-Za-z0-9]+\/cryptoKeys\/[-_[A-Za-z0-9]+`
+	// +kubebuilder:validation:Pattern=`projects\/[-_:[A-Za-z0-9]+\/locations\/[-_[A-Za-z0-9]+\/keyRings\/[-_[A-Za-z0-9]+\/cryptoKeys\/[-_[A-Za-z0-9]+`
 	// +kubebuilder:validation:MaxLength=160
 	KMSKeyName string `json:"kmsKeyName,omitempty"`
 }
@@ -204,7 +207,7 @@ type CustomerEncryptionKey struct {
 	// The maximum length is based on the Service Account ID (max 30), Project (max 30), and a valid gcloud email
 	// suffix ("iam.gserviceaccount.com").
 	// +kubebuilder:validation:MaxLength=85
-	// +kubebuilder:validation:Pattern=`[-_[A-Za-z0-9]+@[-_[A-Za-z0-9]+.iam.gserviceaccount.com`
+	// +kubebuilder:validation:Pattern=`[-_.[A-Za-z0-9]+@[-_.[A-Za-z0-9]+.iam.gserviceaccount.com`
 	// +optional
 	KMSKeyServiceAccount *string `json:"kmsKeyServiceAccount,omitempty"`
 	// ManagedKey references keys managed by the Cloud Key Management Service. This should be set when KeyType is Managed.
@@ -213,6 +216,33 @@ type CustomerEncryptionKey struct {
 	// SuppliedKey provides the key used to create or manage a disk. This should be set when KeyType is Managed.
 	// +optional
 	SuppliedKey *SuppliedKey `json:"suppliedKey,omitempty"`
+}
+
+// ProvisioningModel is a type for Spot VM enablement.
+type ProvisioningModel string
+
+const (
+	// ProvisioningModelStandard specifies the VM type to NOT be Spot.
+	ProvisioningModelStandard ProvisioningModel = "Standard"
+	// ProvisioningModelSpot specifies the VM type to be Spot.
+	ProvisioningModelSpot ProvisioningModel = "Spot"
+)
+
+// AliasIPRange is an alias IP range attached to an instance's network interface.
+type AliasIPRange struct {
+	// IPCidrRange is the IP alias ranges to allocate for this interface. This IP
+	// CIDR range must belong to the specified subnetwork and cannot contain IP
+	// addresses reserved by system or used by other network interfaces. This range
+	// may be a single IP address (such as 10.2.3.4), a netmask (such as /24) or a
+	// CIDR-formatted string (such as 10.1.2.0/24).
+	// +kubebuilder:validation:Pattern=`^((([0-9]|[0-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[0-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])/([0-9]|[12][0-9]|3[0-2])|(([0-9]|[0-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[0-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|(/([0-9]|[12][0-9]|3[0-2])))$`
+	// +required
+	IPCidrRange string `json:"ipCidrRange"`
+	// SubnetworkRangeName is the name of a subnetwork secondary IP range from which
+	// to allocate an IP alias range. If not specified, the primary range of the
+	// subnetwork is used.
+	// +optional
+	SubnetworkRangeName string `json:"subnetworkRangeName,omitempty"`
 }
 
 // GCPMachineSpec defines the desired state of GCPMachine.
@@ -224,6 +254,10 @@ type GCPMachineSpec struct {
 	// the first subnetwork retrieved from the Cluster Region and Network is picked.
 	// +optional
 	Subnet *string `json:"subnet,omitempty"`
+
+	// AliasIPRanges let you assign ranges of internal IP addresses as aliases to a VM's network interfaces.
+	// +optional
+	AliasIPRanges []AliasIPRange `json:"aliasIPRanges,omitempty"`
 
 	// ProviderID is the unique identifier as specified by the cloud provider.
 	// +optional
@@ -281,6 +315,8 @@ type GCPMachineSpec struct {
 	// Supported types of root volumes:
 	// 1. "pd-standard" - Standard (HDD) persistent disk
 	// 2. "pd-ssd" - SSD persistent disk
+	// 3. "pd-balanced" - Balanced Persistent Disk
+	// 4. "hyperdisk-balanced" - Hyperdisk Balanced
 	// Default is "pd-standard".
 	// +optional
 	RootDeviceType *DiskType `json:"rootDeviceType,omitempty"`
@@ -297,6 +333,13 @@ type GCPMachineSpec struct {
 	// Preemptible defines if instance is preemptible
 	// +optional
 	Preemptible bool `json:"preemptible,omitempty"`
+
+	// ProvisioningModel defines if instance is spot.
+	// If set to "Standard" while preemptible is true, then the VM will be of type "Preemptible".
+	// If "Spot", VM type is "Spot". When unspecified, defaults to "Standard".
+	// +kubebuilder:validation:Enum=Standard;Spot
+	// +optional
+	ProvisioningModel *ProvisioningModel `json:"provisioningModel,omitempty"`
 
 	// IPForwarding Allows this instance to send and receive packets with non-matching destination or source IPs.
 	// This is required if you plan to use this instance to forward routes. Defaults to enabled.
@@ -315,16 +358,40 @@ type GCPMachineSpec struct {
 	// +optional
 	OnHostMaintenance *HostMaintenancePolicy `json:"onHostMaintenance,omitempty"`
 
-	// ConfidentialCompute Defines whether the instance should have confidential compute enabled.
-	// If enabled OnHostMaintenance is required to be set to "Terminate".
+	// ConfidentialCompute Defines whether the instance should have confidential compute enabled or not, and the confidential computing technology of choice.
+	// If Disabled, the machine will not be configured to be a confidential computing instance.
+	// If Enabled, confidential computing will be configured and AMD Secure Encrypted Virtualization will be configured by default. That is subject to change over time. If using AMD Secure Encrypted Virtualization is vital, use AMDEncryptedVirtualization explicitly instead.
+	// If AMDEncryptedVirtualization, it will configure AMD Secure Encrypted Virtualization (AMD SEV) as the confidential computing technology.
+	// If AMDEncryptedVirtualizationNestedPaging, it will configure AMD Secure Encrypted Virtualization Secure Nested Paging (AMD SEV-SNP) as the confidential computing technology.
+	// If IntelTrustedDomainExtensions, it will configure Intel TDX as the confidential computing technology.
+	// If enabled (any value other than Disabled) OnHostMaintenance is required to be set to "Terminate".
 	// If omitted, the platform chooses a default, which is subject to change over time, currently that default is false.
-	// +kubebuilder:validation:Enum=Enabled;Disabled
+	// +kubebuilder:validation:Enum=Enabled;Disabled;AMDEncryptedVirtualization;AMDEncryptedVirtualizationNestedPaging;IntelTrustedDomainExtensions
 	// +optional
 	ConfidentialCompute *ConfidentialComputePolicy `json:"confidentialCompute,omitempty"`
 
 	// RootDiskEncryptionKey defines the KMS key to be used to encrypt the root disk.
 	// +optional
 	RootDiskEncryptionKey *CustomerEncryptionKey `json:"rootDiskEncryptionKey,omitempty"`
+
+	// GuestAccelerators is a list of the type and count of accelerator cards
+	// attached to the instance.
+	// +optional
+	GuestAccelerators []Accelerator `json:"guestAccelerators,omitempty"`
+}
+
+// Accelerator is a specification of the type and number of accelerator
+// cards attached to the instance.
+type Accelerator struct {
+	// Count is the number of the guest accelerator cards exposed to this
+	// instance.
+	Count int64 `json:"count,omitempty"`
+	// Type is the full or partial URL of the accelerator type resource to
+	// attach to this instance. For example:
+	// projects/my-project/zones/us-central1-c/acceleratorTypes/nvidia-tesla-p100
+	// If you are creating an instance template, specify only the accelerator name.
+	// See GPUs on Compute Engine for a full list of accelerator types.
+	Type string `json:"type,omitempty"`
 }
 
 // MetadataItem defines a single piece of metadata associated with an instance.
@@ -365,7 +432,7 @@ type GCPMachineStatus struct {
 	// can be added as events to the Machine object and/or logged in the
 	// controller's output.
 	// +optional
-	FailureReason *errors.MachineStatusError `json:"failureReason,omitempty"`
+	FailureReason *string `json:"failureReason,omitempty"`
 
 	// FailureMessage will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a more verbose string suitable

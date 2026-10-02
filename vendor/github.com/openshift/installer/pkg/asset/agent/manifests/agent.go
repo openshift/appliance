@@ -1,10 +1,13 @@
 package manifests
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -13,6 +16,10 @@ import (
 	"github.com/openshift/assisted-service/models"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	"github.com/openshift/installer/pkg/asset"
+	"github.com/openshift/installer/pkg/asset/agent/workflow"
+	workflowreport "github.com/openshift/installer/pkg/asset/agent/workflow/report"
+	"github.com/openshift/installer/pkg/rhcos"
+	"github.com/openshift/installer/pkg/types"
 )
 
 const (
@@ -56,7 +63,11 @@ func (m *AgentManifests) Dependencies() []asset.Asset {
 }
 
 // Generate generates the respective manifest files.
-func (m *AgentManifests) Generate(dependencies asset.Parents) error {
+func (m *AgentManifests) Generate(ctx context.Context, dependencies asset.Parents) error {
+	if err := workflowreport.GetReport(ctx).Stage(workflow.StageCreateManifests); err != nil {
+		return err
+	}
+
 	for _, a := range []asset.WritableAsset{
 		&AgentPullSecret{},
 		&InfraEnv{},
@@ -111,6 +122,35 @@ func (m *AgentManifests) GetPullSecretData() string {
 	return m.PullSecret.StringData[".dockerconfigjson"]
 }
 
+// GetOSImageStream extracts the osImageStream from the AgentClusterInstall
+// installConfigOverrides annotation, or returns the default if not present.
+func (m *AgentManifests) GetOSImageStream() types.OSImageStream {
+	if m.AgentClusterInstall == nil {
+		return rhcos.BuildDefaultOSImageStream()
+	}
+
+	if m.AgentClusterInstall.Annotations == nil {
+		return rhcos.BuildDefaultOSImageStream()
+	}
+
+	overridesJSON, ok := m.AgentClusterInstall.Annotations[installConfigOverrides]
+	if !ok {
+		return rhcos.BuildDefaultOSImageStream()
+	}
+
+	var overrides agentClusterInstallInstallConfigOverrides
+	if err := json.Unmarshal([]byte(overridesJSON), &overrides); err != nil {
+		logrus.Debugf("Failed to parse installConfigOverrides: %v", err)
+		return rhcos.BuildDefaultOSImageStream()
+	}
+
+	if overrides.OSImageStream == nil || *overrides.OSImageStream == "" {
+		return rhcos.BuildDefaultOSImageStream()
+	}
+
+	return *overrides.OSImageStream
+}
+
 func (m *AgentManifests) finish() error {
 	if err := m.validateAgentManifests().ToAggregate(); err != nil {
 		return errors.Wrapf(err, "invalid agent configuration")
@@ -133,11 +173,11 @@ func (m *AgentManifests) validateNMStateLabelSelector() field.ErrorList {
 
 	var allErrs field.ErrorList
 
-	fieldPath := field.NewPath("Spec", "NMStateConfigLabelSelector", "MatchLabels")
+	fieldPath := field.NewPath("spec", "nmStateConfigLabelSelector", "matchLabels")
 
 	for _, networkConfig := range m.NMStateConfigs {
 		if !reflect.DeepEqual(m.InfraEnv.Spec.NMStateConfigLabelSelector.MatchLabels, networkConfig.ObjectMeta.Labels) {
-			allErrs = append(allErrs, field.Required(fieldPath, fmt.Sprintf("infraEnv and %s.NMStateConfig labels do not match. Expected: %s Found: %s",
+			allErrs = append(allErrs, field.Required(fieldPath, fmt.Sprintf("infraEnv and %s NMState Config labels do not match. Expected: %s Found: %s",
 				networkConfig.Name,
 				m.InfraEnv.Spec.NMStateConfigLabelSelector.MatchLabels,
 				networkConfig.ObjectMeta.Labels)))

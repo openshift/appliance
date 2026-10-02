@@ -7,6 +7,7 @@ package service_instances
 
 import (
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 
@@ -22,7 +23,7 @@ type ServiceInstanceUpdateReader struct {
 }
 
 // ReadResponse reads a server response into the received o.
-func (o *ServiceInstanceUpdateReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
+func (o *ServiceInstanceUpdateReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (any, error) {
 	switch response.Code() {
 	case 200:
 		result := NewServiceInstanceUpdateOK()
@@ -82,7 +83,7 @@ ServiceInstanceUpdateOK describes a response with status code 200, with default 
 OK
 */
 type ServiceInstanceUpdateOK struct {
-	Payload models.Object
+	Payload *models.ServiceInstanceUpdate
 }
 
 // IsSuccess returns true when this service instance update o k response has a 2xx status code
@@ -125,14 +126,16 @@ func (o *ServiceInstanceUpdateOK) String() string {
 	return fmt.Sprintf("[PATCH /v2/service_instances/{instance_id}][%d] serviceInstanceUpdateOK %s", 200, payload)
 }
 
-func (o *ServiceInstanceUpdateOK) GetPayload() models.Object {
+func (o *ServiceInstanceUpdateOK) GetPayload() *models.ServiceInstanceUpdate {
 	return o.Payload
 }
 
 func (o *ServiceInstanceUpdateOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
+	o.Payload = new(models.ServiceInstanceUpdate)
+
 	// response payload
-	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -202,7 +205,7 @@ func (o *ServiceInstanceUpdateAccepted) readResponse(response runtime.ClientResp
 	o.Payload = new(models.ServiceInstanceAsyncOperation)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -272,7 +275,7 @@ func (o *ServiceInstanceUpdateBadRequest) readResponse(response runtime.ClientRe
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -342,7 +345,7 @@ func (o *ServiceInstanceUpdateUnauthorized) readResponse(response runtime.Client
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -412,7 +415,7 @@ func (o *ServiceInstanceUpdateForbidden) readResponse(response runtime.ClientRes
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -482,7 +485,7 @@ func (o *ServiceInstanceUpdateNotFound) readResponse(response runtime.ClientResp
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -552,7 +555,7 @@ func (o *ServiceInstanceUpdateUnprocessableEntity) readResponse(response runtime
 	o.Payload = new(models.Error)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 

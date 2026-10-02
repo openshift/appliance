@@ -3,7 +3,7 @@ package manifests
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"path"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -13,6 +13,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/installconfig"
+	gcpic "github.com/openshift/installer/pkg/asset/installconfig/gcp"
 	externalinfra "github.com/openshift/installer/pkg/asset/manifests/external"
 	gcpmanifests "github.com/openshift/installer/pkg/asset/manifests/gcp"
 	nutanixinfra "github.com/openshift/installer/pkg/asset/manifests/nutanix"
@@ -21,20 +22,23 @@ import (
 	"github.com/openshift/installer/pkg/types/aws"
 	"github.com/openshift/installer/pkg/types/azure"
 	"github.com/openshift/installer/pkg/types/baremetal"
+	"github.com/openshift/installer/pkg/types/dns"
 	"github.com/openshift/installer/pkg/types/external"
 	"github.com/openshift/installer/pkg/types/gcp"
 	"github.com/openshift/installer/pkg/types/ibmcloud"
+	"github.com/openshift/installer/pkg/types/network"
 	"github.com/openshift/installer/pkg/types/none"
 	"github.com/openshift/installer/pkg/types/nutanix"
 	"github.com/openshift/installer/pkg/types/openstack"
 	"github.com/openshift/installer/pkg/types/ovirt"
+	"github.com/openshift/installer/pkg/types/powervc"
 	"github.com/openshift/installer/pkg/types/powervs"
 	"github.com/openshift/installer/pkg/types/vsphere"
 )
 
 var (
-	infraCfgFilename           = filepath.Join(manifestDir, "cluster-infrastructure-02-config.yml")
-	cloudControllerUIDFilename = filepath.Join(manifestDir, "cloud-controller-uid-config.yml")
+	infraCfgFilename           = path.Join(manifestDir, "cluster-infrastructure-02-config.yml")
+	cloudControllerUIDFilename = path.Join(manifestDir, "cloud-controller-uid-config.yml")
 )
 
 // Infrastructure generates the cluster-infrastructure-*.yml files.
@@ -61,7 +65,9 @@ func (*Infrastructure) Dependencies() []asset.Asset {
 }
 
 // Generate generates the Infrastructure config and its CRD.
-func (i *Infrastructure) Generate(dependencies asset.Parents) error {
+//
+//nolint:gocyclo
+func (i *Infrastructure) Generate(ctx context.Context, dependencies asset.Parents) error {
 	cloudProviderConfigMapKey := cloudProviderConfigDataKey
 	clusterID := &installconfig.ClusterID{}
 	installConfig := &installconfig.InstallConfig{}
@@ -126,6 +132,18 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 					config.Status.PlatformStatus.AWS.ServiceEndpoints[j].Name
 			})
 		}
+		// If the user has requested the use of a DNS provisioned by them, then OpenShift needs to
+		// start an in-cluster DNS for the installation to succeed. The user can then configure their
+		// DNS post-install.
+		config.Status.PlatformStatus.AWS.CloudLoadBalancerConfig = &configv1.CloudLoadBalancerConfig{
+			DNSType: configv1.PlatformDefaultDNSType,
+		}
+		if installConfig.Config.AWS.UserProvisionedDNS == dns.UserProvisionedDNSEnabled {
+			config.Status.PlatformStatus.AWS.CloudLoadBalancerConfig.DNSType = configv1.ClusterHostedDNSType
+		}
+
+		// Set IPFamily from install-config to Infrastructure status
+		config.Status.PlatformStatus.AWS.IPFamily = ipFamilyToConfigIPFamily(installConfig.Config.AWS.IPFamily)
 	case azure.Name:
 		config.Spec.PlatformSpec.Type = configv1.AzurePlatformType
 
@@ -148,6 +166,18 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 			}
 			config.Status.PlatformStatus.Azure.ResourceTags = resourceTags
 		}
+		// If the user has requested the use of a DNS provisioned by them, then OpenShift needs to
+		// start an in-cluster DNS for the installation to succeed. The user can then configure their
+		// DNS post-install.
+		config.Status.PlatformStatus.Azure.CloudLoadBalancerConfig = &configv1.CloudLoadBalancerConfig{
+			DNSType: configv1.PlatformDefaultDNSType,
+		}
+		if installConfig.Config.Azure.UserProvisionedDNS == dns.UserProvisionedDNSEnabled {
+			config.Status.PlatformStatus.Azure.CloudLoadBalancerConfig.DNSType = configv1.ClusterHostedDNSType
+		}
+
+		// Set IPFamily from install-config to Infrastructure status
+		config.Status.PlatformStatus.Azure.IPFamily = ipFamilyToConfigIPFamily(installConfig.Config.Azure.IPFamily)
 	case baremetal.Name:
 		config.Spec.PlatformSpec.Type = configv1.BareMetalPlatformType
 		config.Spec.PlatformSpec.BareMetal = &configv1.BareMetalPlatformSpec{}
@@ -157,11 +187,15 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 			APIServerInternalIPs: installConfig.Config.Platform.BareMetal.APIVIPs,
 			IngressIPs:           installConfig.Config.Platform.BareMetal.IngressVIPs,
 			LoadBalancer:         installConfig.Config.Platform.BareMetal.LoadBalancer,
+			DNSRecordsType:       installConfig.Config.Platform.BareMetal.DNSRecordsType,
 		}
 		config.Spec.PlatformSpec.BareMetal.APIServerInternalIPs = types.StringsToIPs(installConfig.Config.Platform.BareMetal.APIVIPs)
 		config.Spec.PlatformSpec.BareMetal.IngressIPs = types.StringsToIPs(installConfig.Config.Platform.BareMetal.IngressVIPs)
 		config.Spec.PlatformSpec.BareMetal.MachineNetworks = types.MachineNetworksToCIDRs(installConfig.Config.MachineNetwork)
 		config.Status.PlatformStatus.BareMetal.MachineNetworks = types.MachineNetworksToCIDRs(installConfig.Config.MachineNetwork)
+		if installConfig.Config.Platform.BareMetal.BGPVIPConfig != nil {
+			config.Status.PlatformStatus.BareMetal.VIPManagement = configv1.VIPManagementTypeBGP
+		}
 	case gcp.Name:
 		config.Spec.PlatformSpec.Type = configv1.GCPPlatformType
 		config.Status.PlatformStatus.GCP = &configv1.GCPPlatformStatus{
@@ -191,25 +225,39 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 			}
 			config.Status.PlatformStatus.GCP.ResourceTags = resourceTags
 		}
+
+		ssn, err := gcpic.GetSession(ctx)
+		if err != nil {
+			return fmt.Errorf("could not get GCP session: %w", err)
+		}
+		ud, err := ssn.Credentials.GetUniverseDomain()
+		if err != nil {
+			return fmt.Errorf("could not get GCP universe domain: %w", err)
+		}
+		if gcp.IsNonDefaultUniverseDomain(ud) {
+			config.Status.PlatformStatus.GCP.UniverseDomain = ud
+		}
+
 		// If the user has requested the use of a DNS provisioned by them, then OpenShift needs to
 		// start an in-cluster DNS for the installation to succeed. The user can then configure their
 		// DNS post-install.
-		config.Status.PlatformStatus.GCP.CloudLoadBalancerConfig = &configv1.CloudLoadBalancerConfig{}
-		config.Status.PlatformStatus.GCP.CloudLoadBalancerConfig.DNSType = configv1.PlatformDefaultDNSType
-		if installConfig.Config.GCP.UserProvisionedDNS == gcp.UserProvisionedDNSEnabled {
+		config.Status.PlatformStatus.GCP.CloudLoadBalancerConfig = &configv1.CloudLoadBalancerConfig{
+			DNSType: configv1.PlatformDefaultDNSType,
+		}
+		if installConfig.Config.GCP.UserProvisionedDNS == dns.UserProvisionedDNSEnabled {
 			config.Status.PlatformStatus.GCP.CloudLoadBalancerConfig.DNSType = configv1.ClusterHostedDNSType
 		}
 	case ibmcloud.Name:
 		config.Spec.PlatformSpec.Type = configv1.IBMCloudPlatformType
 		var cisInstanceCRN, dnsInstanceCRN string
 		if installConfig.Config.Publish == types.InternalPublishingStrategy {
-			dnsInstance, err := installConfig.IBMCloud.DNSInstance(context.TODO())
+			dnsInstance, err := installConfig.IBMCloud.DNSInstance(ctx)
 			if err != nil {
 				return errors.Wrap(err, "cannot retrieve IBM DNS Services instance CRN")
 			}
 			dnsInstanceCRN = dnsInstance.CRN
 		} else {
-			crn, err := installConfig.IBMCloud.CISInstanceCRN(context.TODO())
+			crn, err := installConfig.IBMCloud.CISInstanceCRN(ctx)
 			if err != nil {
 				return errors.Wrap(err, "cannot retrieve IBM Cloud Internet Services instance CRN")
 			}
@@ -229,7 +277,7 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 		config.Status.PlatformStatus.External = externalinfra.GetInfraPlatformStatus(installConfig)
 	case none.Name:
 		config.Spec.PlatformSpec.Type = configv1.NonePlatformType
-	case openstack.Name:
+	case openstack.Name, powervc.Name:
 		config.Spec.PlatformSpec.Type = configv1.OpenStackPlatformType
 		config.Spec.PlatformSpec.OpenStack = &configv1.OpenStackPlatformSpec{}
 		config.Status.PlatformStatus.OpenStack = &configv1.OpenStackPlatformStatus{
@@ -238,6 +286,7 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 			APIServerInternalIPs: installConfig.Config.OpenStack.APIVIPs,
 			IngressIPs:           installConfig.Config.OpenStack.IngressVIPs,
 			LoadBalancer:         installConfig.Config.OpenStack.LoadBalancer,
+			DNSRecordsType:       installConfig.Config.OpenStack.DNSRecordsType,
 		}
 		config.Spec.PlatformSpec.OpenStack.APIServerInternalIPs = types.StringsToIPs(installConfig.Config.Platform.OpenStack.APIVIPs)
 		config.Spec.PlatformSpec.OpenStack.IngressIPs = types.StringsToIPs(installConfig.Config.Platform.OpenStack.IngressVIPs)
@@ -248,22 +297,22 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 		config.Spec.PlatformSpec.VSphere = &configv1.VSpherePlatformSpec{}
 		if len(installConfig.Config.VSphere.APIVIPs) > 0 {
 			config.Status.PlatformStatus.VSphere = &configv1.VSpherePlatformStatus{
-				APIServerInternalIP:  installConfig.Config.VSphere.APIVIPs[0],
-				IngressIP:            installConfig.Config.VSphere.IngressVIPs[0],
 				APIServerInternalIPs: installConfig.Config.VSphere.APIVIPs,
 				IngressIPs:           installConfig.Config.VSphere.IngressVIPs,
 				LoadBalancer:         installConfig.Config.VSphere.LoadBalancer,
+				DNSRecordsType:       installConfig.Config.VSphere.DNSRecordsType,
 			}
 		} else {
 			config.Status.PlatformStatus.VSphere = &configv1.VSpherePlatformStatus{}
 		}
 
 		config.Spec.PlatformSpec.VSphere = vsphereinfra.GetInfraPlatformSpec(installConfig, clusterID.InfraID)
-		if _, exists := cloudproviderconfig.ConfigMap.Data["vsphere.conf"]; exists {
-			cloudProviderConfigMapKey = "vsphere.conf"
+		if cloudproviderconfig.ConfigMap != nil {
+			if _, exists := cloudproviderconfig.ConfigMap.Data["vsphere.conf"]; exists {
+				cloudProviderConfigMapKey = "vsphere.conf"
+			}
 		}
-
-		config.Status.PlatformStatus.VSphere.MachineNetworks = types.MachineNetworksToCIDRs(installConfig.Config.MachineNetwork)
+		config.Status.PlatformStatus.VSphere.MachineNetworks = config.Spec.PlatformSpec.VSphere.MachineNetworks
 	case ovirt.Name:
 		config.Spec.PlatformSpec.Type = configv1.OvirtPlatformType
 		config.Status.PlatformStatus.Ovirt = &configv1.OvirtPlatformStatus{
@@ -275,21 +324,41 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 		}
 	case powervs.Name:
 		config.Spec.PlatformSpec.Type = configv1.PowerVSPlatformType
+		config.Spec.PlatformSpec.PowerVS = &configv1.PowerVSPlatformSpec{}
 		var cisInstanceCRN, dnsInstanceCRN string
 		var err error
 		switch installConfig.Config.Publish {
 		case types.InternalPublishingStrategy:
-			dnsInstanceCRN, err = installConfig.PowerVS.DNSInstanceCRN(context.TODO())
+			dnsInstanceCRN, err = installConfig.PowerVS.DNSInstanceCRN(ctx)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get instance CRN")
 			}
 		case types.ExternalPublishingStrategy:
-			cisInstanceCRN, err = installConfig.PowerVS.CISInstanceCRN(context.TODO())
+			cisInstanceCRN, err = installConfig.PowerVS.CISInstanceCRN(ctx)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get instance CRN")
 			}
 		default:
 			return errors.New("unknown publishing strategy")
+		}
+		for _, service := range installConfig.Config.Platform.PowerVS.ServiceEndpoints {
+			config.Spec.PlatformSpec.PowerVS.ServiceEndpoints = append(config.Spec.PlatformSpec.PowerVS.ServiceEndpoints, configv1.PowerVSServiceEndpoint{
+				Name: service.Name,
+				URL:  service.URL,
+			})
+		}
+		if installConfig.Config.Publish == types.InternalPublishingStrategy &&
+			(len(installConfig.Config.ImageDigestSources) > 0 || len(installConfig.Config.DeprecatedImageContentSources) > 0) {
+			piRegion := installConfig.Config.PowerVS.Region
+			vpcRegion, err := powervs.VPCRegionForPowerVSRegion(piRegion)
+			if err != nil {
+				return fmt.Errorf("failed to determine VPC region: %w", err)
+			}
+			cosRegion, err := powervs.COSRegionForPowerVSRegion(piRegion)
+			if err != nil {
+				return fmt.Errorf("failed to determine COS region: %w", err)
+			}
+			config.Spec.PlatformSpec.PowerVS.ServiceEndpoints = installConfig.PowerVS.SetDefaultPrivateServiceEndpoints(ctx, config.Spec.PlatformSpec.PowerVS.ServiceEndpoints, cosRegion, vpcRegion)
 		}
 		config.Status.PlatformStatus.PowerVS = &configv1.PowerVSPlatformStatus{
 			Region:           installConfig.Config.Platform.PowerVS.Region,
@@ -297,7 +366,7 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 			ResourceGroup:    installConfig.Config.Platform.PowerVS.PowerVSResourceGroup,
 			CISInstanceCRN:   cisInstanceCRN,
 			DNSInstanceCRN:   dnsInstanceCRN,
-			ServiceEndpoints: installConfig.Config.Platform.PowerVS.ServiceEndpoints,
+			ServiceEndpoints: config.Spec.PlatformSpec.PowerVS.ServiceEndpoints,
 		}
 	case nutanix.Name:
 		config.Spec.PlatformSpec.Type = configv1.NutanixPlatformType
@@ -315,6 +384,7 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 				APIServerInternalIPs: installConfig.Config.Nutanix.APIVIPs,
 				IngressIPs:           installConfig.Config.Nutanix.IngressVIPs,
 				LoadBalancer:         installConfig.Config.Nutanix.LoadBalancer,
+				DNSRecordsType:       installConfig.Config.Nutanix.DNSRecordsType,
 			}
 		}
 	default:
@@ -352,4 +422,20 @@ func (i *Infrastructure) Files() []*asset.File {
 // Load returns false since this asset is not written to disk by the installer.
 func (i *Infrastructure) Load(f asset.FileFetcher) (bool, error) {
 	return false, nil
+}
+
+// ipFamilyToConfigIPFamily converts the install-config IPFamily type
+// to the Infrastructure configv1.IPFamilyType.
+func ipFamilyToConfigIPFamily(ipFamily network.IPFamily) configv1.IPFamilyType {
+	switch ipFamily {
+	case network.DualStackIPv4Primary:
+		return configv1.DualStackIPv4Primary
+	case network.DualStackIPv6Primary:
+		return configv1.DualStackIPv6Primary
+	case network.IPv4:
+		return configv1.IPv4
+	default:
+		// Default to IPv4 if not specified or invalid
+		return configv1.IPv4
+	}
 }

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
 	"github.com/openshift/appliance/pkg/consts"
@@ -108,7 +108,7 @@ var _ = Describe("Test Graph", func() {
 
 	It("GetReleaseImage - Cincinnati returns 404", func() {
 		graphConfig.Version = "4.13.1"
-		graphConfig.CincinnatiAddress = swag.String(fakeCincinnatiAddress)
+		graphConfig.CincinnatiAddress = conv.Pointer(fakeCincinnatiAddress)
 
 		testGraph = NewGraph(graphConfig)
 		_, _, err := testGraph.GetReleaseImage()

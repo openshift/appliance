@@ -4,17 +4,22 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	utilsslice "k8s.io/utils/strings/slices"
+	"sigs.k8s.io/cluster-api-provider-azure/api/v1beta1"
 
 	operv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/installer/pkg/ipnet"
 	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/aws"
+	"github.com/openshift/installer/pkg/types/azure"
 	"github.com/openshift/installer/pkg/types/baremetal"
+	powervcconversion "github.com/openshift/installer/pkg/types/conversion/powervc"
 	"github.com/openshift/installer/pkg/types/nutanix"
 	"github.com/openshift/installer/pkg/types/openstack"
 	"github.com/openshift/installer/pkg/types/ovirt"
+	"github.com/openshift/installer/pkg/types/powervc"
 	"github.com/openshift/installer/pkg/types/vsphere"
 	vsphereconversion "github.com/openshift/installer/pkg/types/vsphere/conversion"
 )
@@ -43,12 +48,25 @@ func ConvertInstallConfig(config *types.InstallConfig) error {
 		if err := convertNutanix(config); err != nil {
 			return err
 		}
+	case powervc.Name:
+		// The first thing on the agenda is to convert the PowerVC install config
+		// to an underlying OpenStack install config.
+		if err := powervcconversion.ConvertPowerVCInstallConfig(config); err != nil {
+			return err
+		}
+		if err := convertOpenStack(config); err != nil {
+			return err
+		}
 	case openstack.Name:
 		if err := convertOpenStack(config); err != nil {
 			return err
 		}
 	case aws.Name:
 		if err := convertAWS(config); err != nil {
+			return err
+		}
+	case azure.Name:
+		if err := convertAzure(config); err != nil {
 			return err
 		}
 	case vsphere.Name:
@@ -95,10 +113,13 @@ func convertNetworking(config *types.InstallConfig) {
 		netconf.NetworkType = netconf.DeprecatedType
 	}
 
-	// Recognize the OpenShiftSDN network plugin name regardless of capitalization, for
+	// Recognize the network plugin name regardless of capitalization, for
 	// backward compatibility
-	if strings.ToLower(netconf.NetworkType) == strings.ToLower(string(operv1.NetworkTypeOpenShiftSDN)) {
+	if strings.EqualFold(netconf.NetworkType, string(operv1.NetworkTypeOpenShiftSDN)) {
 		netconf.NetworkType = string(operv1.NetworkTypeOpenShiftSDN)
+	}
+	if strings.EqualFold(netconf.NetworkType, string(operv1.NetworkTypeOVNKubernetes)) {
+		netconf.NetworkType = string(operv1.NetworkTypeOVNKubernetes)
 	}
 
 	// Convert hostSubnetLength to hostPrefix
@@ -281,13 +302,55 @@ func upconvertVIP(newVIPValues *[]string, oldVIPValue, newFieldName, oldFieldNam
 
 // convertAWS upconverts deprecated fields in the AWS platform.
 func convertAWS(config *types.InstallConfig) error {
-	// Deprecated ExperimentalPropagateUserTag takes precedence when set
-	if config.Platform.AWS.ExperimentalPropagateUserTag != nil {
-		config.Platform.AWS.PropagateUserTag = *config.Platform.AWS.ExperimentalPropagateUserTag
-	}
 	// BestEffortDeleteIgnition takes precedence when set
 	if !config.AWS.BestEffortDeleteIgnition {
 		config.AWS.BestEffortDeleteIgnition = config.AWS.PreserveBootstrapIgnition
 	}
+	if ami := config.AWS.AMIID; len(ami) > 0 {
+		if config.AWS.DefaultMachinePlatform == nil {
+			config.AWS.DefaultMachinePlatform = &aws.MachinePool{}
+		}
+		// DefaultMachinePlatform.AMIID takes precedence in the machine manifest code anyway
+		if len(config.AWS.DefaultMachinePlatform.AMIID) == 0 {
+			config.AWS.DefaultMachinePlatform.AMIID = ami
+		}
+	}
+
+	// Subnets field is deprecated in favor of VPC.Subnets.
+	fldPath := field.NewPath("platform", "aws")
+	if len(config.AWS.DeprecatedSubnets) > 0 && len(config.AWS.VPC.Subnets) > 0 { // nolint: staticcheck
+		return field.Forbidden(fldPath.Child("subnets"), fmt.Sprintf("cannot specify %s and %s together", fldPath.Child("subnets"), fldPath.Child("vpc", "subnets")))
+	} else if len(config.AWS.DeprecatedSubnets) > 0 { // nolint: staticcheck
+		var subnets []aws.Subnet
+		for _, subnetID := range config.AWS.DeprecatedSubnets { // nolint: staticcheck
+			subnets = append(subnets, aws.Subnet{
+				ID: aws.AWSSubnetID(subnetID),
+			})
+		}
+		config.AWS.VPC.Subnets = subnets
+		logrus.Warnf("%s is deprecated. Converted to %s", fldPath.Child("subnets"), fldPath.Child("vpc", "subnets"))
+	}
+
+	return nil
+}
+
+func convertAzure(config *types.InstallConfig) error {
+	subnets := config.Azure.Subnets
+	if len(subnets) == 0 {
+		subnets = []azure.SubnetSpec{}
+	}
+	if config.Azure.DeprecatedControlPlaneSubnet != "" { // nolint: staticcheck
+		subnets = append(subnets, azure.SubnetSpec{
+			Name: config.Azure.DeprecatedControlPlaneSubnet, // nolint: staticcheck
+			Role: v1beta1.SubnetControlPlane,
+		})
+	}
+	if config.Azure.DeprecatedComputeSubnet != "" { // nolint: staticcheck
+		subnets = append(subnets, azure.SubnetSpec{
+			Name: config.Azure.DeprecatedComputeSubnet, // nolint: staticcheck
+			Role: v1beta1.SubnetNode,
+		})
+	}
+	config.Azure.Subnets = subnets
 	return nil
 }

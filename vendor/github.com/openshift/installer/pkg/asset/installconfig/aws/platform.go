@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,20 +10,30 @@ import (
 	"github.com/AlecAivazis/survey/v2/core"
 	"github.com/sirupsen/logrus"
 
+	"github.com/openshift/installer/pkg/rhcos"
+	"github.com/openshift/installer/pkg/types"
 	"github.com/openshift/installer/pkg/types/aws"
-	"github.com/openshift/installer/pkg/version"
 )
 
 // Platform collects AWS-specific configuration.
-func Platform() (*aws.Platform, error) {
-	architecture := version.DefaultArch()
-	regions := knownPublicRegions(architecture)
-	longRegions := make([]string, 0, len(regions))
-	shortRegions := make([]string, 0, len(regions))
-	for id, location := range regions {
-		longRegions = append(longRegions, fmt.Sprintf("%s (%s)", id, location))
-		shortRegions = append(shortRegions, id)
+func Platform(ctx context.Context) (*aws.Platform, error) {
+	architecture := types.DefaultArch()
+	defaultStream := rhcos.BuildDefaultOSImageStream()
+	regions, err := knownPublicRegions(architecture, defaultStream)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AWS public regions: %w", err)
 	}
+	longRegions := make([]string, 0, len(aws.RegionLookupMap))
+	shortRegions := make([]string, 0, len(aws.RegionLookupMap))
+	for _, region := range regions {
+		if longName, ok := aws.RegionLookupMap[region]; ok {
+			longRegions = append(longRegions, fmt.Sprintf("%s (%s)", region, longName))
+		} else {
+			longRegions = append(longRegions, region)
+		}
+		shortRegions = append(shortRegions, region)
+	}
+
 	var regionTransform survey.Transformer = func(ans interface{}) interface{} {
 		switch v := ans.(type) {
 		case core.OptionAnswer:
@@ -34,21 +45,24 @@ func Platform() (*aws.Platform, error) {
 	}
 
 	defaultRegion := "us-east-1"
-	if !IsKnownPublicRegion(defaultRegion, architecture) {
+	if found, err := IsKnownPublicRegion(defaultRegion, architecture, defaultStream); !found || err != nil {
 		panic(fmt.Sprintf("installer bug: invalid default AWS region %q", defaultRegion))
 	}
 
-	ssn, err := GetSession()
+	config, err := GetConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	defaultRegionPointer := ssn.Config.Region
-	if defaultRegionPointer != nil && *defaultRegionPointer != "" {
-		if IsKnownPublicRegion(*defaultRegionPointer, architecture) {
-			defaultRegion = *defaultRegionPointer
+	if config.Region != "" {
+		found, err := IsKnownPublicRegion(config.Region, architecture, defaultStream)
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine if region is public: %w", err)
+		}
+		if found {
+			defaultRegion = config.Region
 		} else {
-			logrus.Warnf("Unrecognized AWS region %q, defaulting to %s", *defaultRegionPointer, defaultRegion)
+			logrus.Warnf("Unrecognized AWS region %q, defaulting to %s", config.Region, defaultRegion)
 		}
 	}
 
@@ -61,7 +75,7 @@ func Platform() (*aws.Platform, error) {
 			Prompt: &survey.Select{
 				Message: "Region",
 				Help:    "The AWS region to be used for installation.",
-				Default: fmt.Sprintf("%s (%s)", defaultRegion, regions[defaultRegion]),
+				Default: fmt.Sprintf("%s (%s)", defaultRegion, aws.RegionLookupMap[defaultRegion]),
 				Options: longRegions,
 			},
 			Validate: survey.ComposeValidators(survey.Required, func(ans interface{}) error {

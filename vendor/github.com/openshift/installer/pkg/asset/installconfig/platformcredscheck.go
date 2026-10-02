@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/pkg/errors"
 
 	"github.com/openshift/installer/pkg/asset"
+	awsconfig "github.com/openshift/installer/pkg/asset/installconfig/aws"
 	azureconfig "github.com/openshift/installer/pkg/asset/installconfig/azure"
 	gcpconfig "github.com/openshift/installer/pkg/asset/installconfig/gcp"
 	ibmcloudconfig "github.com/openshift/installer/pkg/asset/installconfig/ibmcloud"
@@ -24,6 +26,7 @@ import (
 	"github.com/openshift/installer/pkg/types/nutanix"
 	"github.com/openshift/installer/pkg/types/openstack"
 	"github.com/openshift/installer/pkg/types/ovirt"
+	"github.com/openshift/installer/pkg/types/powervc"
 	"github.com/openshift/installer/pkg/types/powervs"
 	"github.com/openshift/installer/pkg/types/vsphere"
 )
@@ -43,8 +46,7 @@ func (a *PlatformCredsCheck) Dependencies() []asset.Asset {
 }
 
 // Generate queries for input from the user.
-func (a *PlatformCredsCheck) Generate(dependencies asset.Parents) error {
-	ctx := context.TODO()
+func (a *PlatformCredsCheck) Generate(ctx context.Context, dependencies asset.Parents) error {
 	ic := &InstallConfig{}
 	dependencies.Get(ic)
 
@@ -52,12 +54,13 @@ func (a *PlatformCredsCheck) Generate(dependencies asset.Parents) error {
 	platform := ic.Config.Platform.Name()
 	switch platform {
 	case aws.Name:
-		_, err := ic.AWS.Session(ctx)
+		region := ic.Config.AWS.Region
+		_, err := awsconfig.GetConfigWithOptions(ctx, config.WithRegion(region))
 		if err != nil {
 			return err
 		}
 	case gcp.Name:
-		client, err := gcpconfig.NewClient(context.TODO())
+		client, err := gcpconfig.NewClient(ctx, ic.Config.GCP.Endpoint)
 		if err != nil {
 			return err
 		}
@@ -78,7 +81,7 @@ func (a *PlatformCredsCheck) Generate(dependencies asset.Parents) error {
 		if err != nil {
 			return errors.Wrap(err, "creating IBM Cloud session")
 		}
-	case openstack.Name:
+	case openstack.Name, powervc.Name:
 		_, err = openstackconfig.GetSession(ic.Config.Platform.OpenStack.Cloud)
 		if err != nil {
 			return errors.Wrap(err, "creating OpenStack session")

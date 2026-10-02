@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/hashicorp/go-version"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
@@ -196,7 +196,7 @@ func LoadRegistryImage(cacheDir string) error {
 // Returns true only if no user config is set AND OCP version >= 4.21 AND OCP release has docker-registry available
 func ShouldUseOcpRegistry(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) bool {
 	// Only use OCP registry if user hasn't configured their own imageRegistry.uri
-	if swag.StringValue(applianceConfig.Config.ImageRegistry.URI) != "" {
+	if conv.Value(applianceConfig.Config.ImageRegistry.URI) != "" {
 		logrus.Debug("User-configured registry detected, not using OCP docker-registry")
 		return false
 	}
@@ -256,7 +256,7 @@ func ocpVersionContainsDistributionRegistry(applianceConfig *config.ApplianceCon
 // GetRegistryImageURI returns the registry image URI to use based on configuration priority
 func GetRegistryImageURI(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) string {
 	// First priority: appliance config imageRegistry.uri (user-specified)
-	sourceRegistryUri := swag.StringValue(applianceConfig.Config.ImageRegistry.URI)
+	sourceRegistryUri := conv.Value(applianceConfig.Config.ImageRegistry.URI)
 	if sourceRegistryUri != "" {
 		return sourceRegistryUri
 	}

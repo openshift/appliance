@@ -28,8 +28,15 @@ type SharedProcessorPool struct {
 	// Required: true
 	AvailableCores *float64 `json:"availableCores"`
 
+	// The creation time of the Shared Processor Pool
+	// Format: date-time
+	CreationDate *strfmt.DateTime `json:"creationDate,omitempty"`
+
 	// crn
 	Crn CRN `json:"crn,omitempty"`
+
+	// ID of the dedicated host where the Shared Processor Pool resides, if applicable
+	DedicatedHostID string `json:"dedicatedHostID,omitempty"`
 
 	// The host group the host belongs to
 	HostGroup string `json:"hostGroup,omitempty"`
@@ -71,6 +78,10 @@ func (m *SharedProcessorPool) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateAvailableCores(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateCreationDate(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -116,6 +127,18 @@ func (m *SharedProcessorPool) validateAllocatedCores(formats strfmt.Registry) er
 func (m *SharedProcessorPool) validateAvailableCores(formats strfmt.Registry) error {
 
 	if err := validate.Required("availableCores", "body", m.AvailableCores); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *SharedProcessorPool) validateCreationDate(formats strfmt.Registry) error {
+	if swag.IsZero(m.CreationDate) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("creationDate", "body", "date-time", m.CreationDate.String(), formats); err != nil {
 		return err
 	}
 

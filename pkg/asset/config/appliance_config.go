@@ -1,13 +1,14 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/hashicorp/go-version"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/validate"
@@ -84,7 +85,7 @@ func (a *ApplianceConfig) GetConfigFilename() string {
 }
 
 // Generate generates the Agent Config manifest.
-func (a *ApplianceConfig) Generate(dependencies asset.Parents) error {
+func (a *ApplianceConfig) Generate(_ context.Context, dependencies asset.Parents) error {
 	base := &ApplianceConfigProvider{}
 	dependencies.Get(base)
 
@@ -328,14 +329,14 @@ func (a *ApplianceConfig) finalize() error {
 	}
 
 	if a.Config.OcpRelease.CpuArchitecture == nil {
-		a.Config.OcpRelease.CpuArchitecture = swag.String(CpuArchitectureX86)
+		a.Config.OcpRelease.CpuArchitecture = conv.Pointer(CpuArchitectureX86)
 	}
 
 	cpuArch := strings.ToLower(*a.Config.OcpRelease.CpuArchitecture)
 	if !funk.Contains(cpuArchitectures, cpuArch) {
 		return errors.Errorf("Unsupported CPU architecture: %s", cpuArch)
 	}
-	a.Config.OcpRelease.CpuArchitecture = swag.String(cpuArch)
+	a.Config.OcpRelease.CpuArchitecture = conv.Pointer(cpuArch)
 
 	if err := a.storePullSecret(); err != nil {
 		return err
@@ -350,15 +351,15 @@ func (a *ApplianceConfig) finalize() error {
 
 	if a.Config.ImageRegistry == nil {
 		a.Config.ImageRegistry = &types.ImageRegistry{
-			URI:  swag.String(""),
-			Port: swag.Int(consts.RegistryPort),
+			URI:  conv.Pointer(""),
+			Port: conv.Pointer(consts.RegistryPort),
 		}
 	} else {
 		if a.Config.ImageRegistry.URI == nil {
-			a.Config.ImageRegistry.URI = swag.String("")
+			a.Config.ImageRegistry.URI = conv.Pointer("")
 		}
 		if a.Config.ImageRegistry.Port == nil {
-			a.Config.ImageRegistry.Port = swag.Int(consts.RegistryPort)
+			a.Config.ImageRegistry.Port = conv.Pointer(consts.RegistryPort)
 		}
 	}
 
@@ -367,7 +368,7 @@ func (a *ApplianceConfig) finalize() error {
 
 func (a *ApplianceConfig) GetCpuArchitecture() string {
 	// Note: in Load func, we ensure that CpuArchitecture is not nil and fallback to x86_64
-	return swag.StringValue(a.Config.OcpRelease.CpuArchitecture)
+	return conv.Value(a.Config.OcpRelease.CpuArchitecture)
 }
 
 func (a *ApplianceConfig) GetCoreosIsoName() string {
@@ -407,7 +408,7 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 		g := graph.NewGraph(graphConfig)
 		releaseImage, releaseVersion, err = g.GetReleaseImage()
 	} else {
-		releaseImage = swag.StringValue(a.Config.OcpRelease.URL)
+		releaseImage = conv.Value(a.Config.OcpRelease.URL)
 
 		// Get version
 		cmd := fmt.Sprintf(templateGetVersion, releaseImage)
@@ -509,23 +510,23 @@ func (a *ApplianceConfig) validateImageRegistry() field.ErrorList {
 	}
 
 	if a.Config.ImageRegistry.URI != nil {
-		uri := swag.StringValue(a.Config.ImageRegistry.URI)
+		uri := conv.Value(a.Config.ImageRegistry.URI)
 		if uri != "" { // Building an image internally when the uri is empty
-			cmd := fmt.Sprintf(PodmanPull, swag.StringValue(a.Config.ImageRegistry.URI))
+			cmd := fmt.Sprintf(PodmanPull, conv.Value(a.Config.ImageRegistry.URI))
 			logrus.Debugf("Running uri validation cmd: %s", cmd)
 			if _, err := executer.NewExecuter().Execute(cmd); err != nil {
 				allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("imageRegistry.uri"),
-					swag.StringValue(a.Config.ImageRegistry.URI),
+					conv.Value(a.Config.ImageRegistry.URI),
 					fmt.Sprintf("Invalid uri: %s", err.Error()))}...)
 			}
 		}
 	}
 
 	if a.Config.ImageRegistry.Port != nil {
-		registryPort := swag.IntValue(a.Config.ImageRegistry.Port)
+		registryPort := conv.Value(a.Config.ImageRegistry.Port)
 		if registryPort < RegistryMinPort || registryPort > RegistryMaxPort {
 			allErrs = append(allErrs, field.ErrorList{field.Invalid(field.NewPath("imageRegistry.port"),
-				swag.IntValue(a.Config.ImageRegistry.Port),
+				conv.Value(a.Config.ImageRegistry.Port),
 				fmt.Sprintf("registryPort must be between %d and %d", RegistryMinPort, RegistryMaxPort))}...)
 		}
 	}
@@ -584,7 +585,7 @@ func (a *ApplianceConfig) validateOcpRelease() field.ErrorList {
 	}
 
 	// Validate ocpRelease.cpuArchitecture
-	if swag.StringValue(a.Config.OcpRelease.CpuArchitecture) != "" {
+	if conv.Value(a.Config.OcpRelease.CpuArchitecture) != "" {
 		switch *a.Config.OcpRelease.CpuArchitecture {
 		case CpuArchitectureX86:
 		case CpuArchitectureAARCH64:
@@ -610,7 +611,7 @@ func (a *ApplianceConfig) validateDiskSize() error {
 }
 
 func (a *ApplianceConfig) validatePinnedImageSet() error {
-	if !swag.BoolValue(a.Config.CreatePinnedImageSets) {
+	if !conv.Value(a.Config.CreatePinnedImageSets) {
 		return nil
 	}
 	minOcpVer, _ := version.NewVersion(consts.MinOcpVersionForPinnedImageSet)
@@ -625,7 +626,7 @@ func (a *ApplianceConfig) validateMirrorPath() field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if a.Config.MirrorPath != nil {
-		mirrorPath := swag.StringValue(a.Config.MirrorPath)
+		mirrorPath := conv.Value(a.Config.MirrorPath)
 		if mirrorPath != "" {
 			// Validate mirror path exists and is a directory
 			info, err := os.Stat(mirrorPath)

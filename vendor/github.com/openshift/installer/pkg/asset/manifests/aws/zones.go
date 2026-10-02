@@ -16,17 +16,9 @@ import (
 	awstypes "github.com/openshift/installer/pkg/types/aws"
 )
 
-// subnetsInput handles subnets information gathered from metadata.
-type subnetsInput struct {
-	vpc            string
-	privateSubnets aws.Subnets
-	publicSubnets  aws.Subnets
-	edgeSubnets    aws.Subnets
-}
-
-// zonesInput handles input parameters required to create managed and unmanaged
+// networkInput handles input parameters required to create managed and unmanaged
 // Subnets to CAPI.
-type zonesInput struct {
+type networkInput struct {
 	InstallConfig *installconfig.InstallConfig
 	Cluster       *capa.AWSCluster
 	ClusterID     *installconfig.ClusterID
@@ -36,8 +28,8 @@ type zonesInput struct {
 
 // GatherZonesFromMetadata retrieves zones from AWS API to be used
 // when building the subnets to CAPA.
-func (zin *zonesInput) GatherZonesFromMetadata(ctx context.Context) (err error) {
-	zin.ZonesInRegion, err = zin.InstallConfig.AWS.AvailabilityZones(ctx)
+func (nin *networkInput) GatherZonesFromMetadata(ctx context.Context) (err error) {
+	nin.ZonesInRegion, err = nin.InstallConfig.AWS.AvailabilityZones(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get availability zones: %w", err)
 	}
@@ -46,21 +38,44 @@ func (zin *zonesInput) GatherZonesFromMetadata(ctx context.Context) (err error) 
 
 // GatherSubnetsFromMetadata retrieves subnets from AWS API to be used
 // when building the subnets to CAPA.
-func (zin *zonesInput) GatherSubnetsFromMetadata(ctx context.Context) (err error) {
-	zin.Subnets = &subnetsInput{}
-	if zin.Subnets.privateSubnets, err = zin.InstallConfig.AWS.PrivateSubnets(ctx); err != nil {
+func (nin *networkInput) GatherSubnetsFromMetadata(ctx context.Context) (err error) {
+	nin.Subnets = &subnetsInput{
+		providedSubnets: nin.InstallConfig.Config.AWS.VPC.Subnets,
+	}
+	if nin.Subnets.privateSubnets, err = nin.InstallConfig.AWS.PrivateSubnets(ctx); err != nil {
 		return fmt.Errorf("failed to get private subnets: %w", err)
 	}
-	if zin.Subnets.publicSubnets, err = zin.InstallConfig.AWS.PublicSubnets(ctx); err != nil {
+	if nin.Subnets.publicSubnets, err = nin.InstallConfig.AWS.PublicSubnets(ctx); err != nil {
 		return fmt.Errorf("failed to get public subnets: %w", err)
 	}
-	if zin.Subnets.edgeSubnets, err = zin.InstallConfig.AWS.EdgeSubnets(ctx); err != nil {
+	if nin.Subnets.edgeSubnets, err = nin.InstallConfig.AWS.EdgeSubnets(ctx); err != nil {
 		return fmt.Errorf("failed to get edge subnets: %w", err)
 	}
-	if zin.Subnets.vpc, err = zin.InstallConfig.AWS.VPC(ctx); err != nil {
+	if nin.Subnets.vpc, err = nin.InstallConfig.AWS.VPCID(ctx); err != nil {
 		return fmt.Errorf("failed to get VPC: %w", err)
 	}
 	return nil
+}
+
+// subnetsInput handles subnets information gathered from metadata.
+type subnetsInput struct {
+	vpc             string
+	privateSubnets  aws.Subnets
+	publicSubnets   aws.Subnets
+	edgeSubnets     aws.Subnets
+	providedSubnets []awstypes.Subnet
+}
+
+// GetSubnetIDsGroupedByRole retrieves map of subnet roles to the IDs of their assigned subnets.
+// If managed subnets or byo subnets have no roles, the map is empty.
+func (sni *subnetsInput) GetSubnetIDsGroupedByRole() map[awstypes.SubnetRoleType][]string {
+	subnetIDsByRole := make(map[awstypes.SubnetRoleType][]string)
+	for _, subnet := range sni.providedSubnets {
+		for _, role := range subnet.Roles {
+			subnetIDsByRole[role.Type] = append(subnetIDsByRole[role.Type], string(subnet.ID))
+		}
+	}
+	return subnetIDsByRole
 }
 
 // ZonesCAPI handles the discovered zones used to create subnets to CAPA.
@@ -123,7 +138,7 @@ func (zo *ZonesCAPI) SetDefaultConfigZones(pool string, defConfig []string, defR
 // setSubnets is the entrypoint to create the CAPI NetworkSpec structures
 // for managed or BYO VPC deployments from install-config.yaml.
 // The NetworkSpec.Subnets will be populated with the desired zones.
-func setSubnets(ctx context.Context, in *zonesInput) error {
+func setSubnets(ctx context.Context, in *networkInput) error {
 	if in.InstallConfig == nil {
 		return fmt.Errorf("failed to get installConfig")
 	}
@@ -138,7 +153,7 @@ func setSubnets(ctx context.Context, in *zonesInput) error {
 	}
 
 	// BYO VPC ("unmanaged") deployments
-	if len(in.InstallConfig.Config.AWS.Subnets) > 0 {
+	if len(in.InstallConfig.Config.AWS.VPC.Subnets) > 0 {
 		if err := in.GatherSubnetsFromMetadata(ctx); err != nil {
 			return fmt.Errorf("failed to get subnets from metadata: %w", err)
 		}
@@ -158,10 +173,17 @@ func setSubnets(ctx context.Context, in *zonesInput) error {
 // so all API calls must be done prior this execution.
 // TODO: create support to mock AWS API calls in the unit tests, then the method
 // GatherSubnetsFromMetadata() can be added in setSubnetsBYOVPC.
-func setSubnetsBYOVPC(in *zonesInput) error {
-	in.Cluster.Spec.NetworkSpec.VPC = capa.VPCSpec{
+func setSubnetsBYOVPC(in *networkInput) error {
+	enableIPv6 := in.InstallConfig.Config.AWS.IPFamily.DualStackEnabled()
+	// dualstack: we don't need to configure all IPv6 configurations, for example, VPC or subnet IPv6 CIDRs
+	// as CAPA will query AWS API to fill them in
+	vpcSpec := capa.VPCSpec{
 		ID: in.Subnets.vpc,
 	}
+	if enableIPv6 {
+		vpcSpec.IPv6 = &capa.IPv6{}
+	}
+	in.Cluster.Spec.NetworkSpec.VPC = vpcSpec
 
 	// Skip adding private subnets if this is a public-only subnets install.
 	// We need to skip because the Installer is tricked into thinking the public subnets are also private and we would
@@ -197,6 +219,14 @@ func setSubnetsBYOVPC(in *zonesInput) error {
 		})
 	}
 
+	// If subnet roles are assigned, set the subnets to approriate components.
+	if subnetIDsByRole := in.Subnets.GetSubnetIDsGroupedByRole(); len(subnetIDsByRole) > 0 {
+		in.Cluster.Spec.ControlPlaneLoadBalancer.Subnets = subnetIDsByRole[awstypes.ControlPlaneInternalLBSubnetRole]
+		if in.InstallConfig.Config.PublicAPI() {
+			in.Cluster.Spec.SecondaryControlPlaneLoadBalancer.Subnets = subnetIDsByRole[awstypes.ControlPlaneExternalLBSubnetRole]
+		}
+	}
+
 	return nil
 }
 
@@ -210,27 +240,34 @@ func setSubnetsBYOVPC(in *zonesInput) error {
 // this execution.
 // TODO: create support to mock AWS API calls in the unit tests, then the method
 // GatherZonesFromMetadata() can be added in setSubnetsManagedVPC.
-func setSubnetsManagedVPC(in *zonesInput) error {
+func setSubnetsManagedVPC(in *networkInput) error {
 	out, err := extractZonesFromInstallConfig(in)
 	if err != nil {
 		return fmt.Errorf("failed to get availability zones: %w", err)
 	}
 
+	enableIPv6 := in.InstallConfig.Config.AWS.IPFamily.DualStackEnabled()
 	isPublishingExternal := in.InstallConfig.Config.Publish == types.ExternalPublishingStrategy
 	allAvailabilityZones := out.GetAvailabilityZones()
 	allEdgeZones := out.GetEdgeZones()
 
 	mainCIDR := capiutils.CIDRFromInstallConfig(in.InstallConfig)
-	in.Cluster.Spec.NetworkSpec.VPC = capa.VPCSpec{
+	vpcSpec := capa.VPCSpec{
 		CidrBlock: mainCIDR.String(),
 	}
+	if enableIPv6 {
+		vpcSpec.IPv6 = &capa.IPv6{}
+	}
+	in.Cluster.Spec.NetworkSpec.VPC = vpcSpec
+
+	isPublicOnly := awstypes.IsPublicOnlySubnetsEnabled()
 
 	// Base subnets count considering only private zones, leaving one free block to allow
 	// future subnet expansions in Day-2.
 	numSubnets := len(allAvailabilityZones) + 1
 
 	// Public subnets consumes one range from private CIDR block.
-	if isPublishingExternal {
+	if isPublishingExternal && !isPublicOnly {
 		numSubnets++
 	}
 
@@ -245,24 +282,33 @@ func setSubnetsManagedVPC(in *zonesInput) error {
 		return fmt.Errorf("unable to generate CIDR blocks for all private subnets: %w", err)
 	}
 
-	publicCIDR := privateCIDRs[len(allAvailabilityZones)].String()
-
+	// In public-only mode, public subnets use the first N CIDRs directly;
+	// otherwise they start after the private subnet CIDRs.
 	var edgeCIDR string
-	if len(allEdgeZones) > 0 {
-		edgeCIDR = privateCIDRs[len(allAvailabilityZones)+1].String()
-	}
-
 	var publicCIDRs []*net.IPNet
-	if isPublishingExternal {
-		// The last num(zones) blocks are dedicated to the public subnets.
-		publicCIDRs, err = utilscidr.SplitIntoSubnetsIPv4(publicCIDR, len(allAvailabilityZones))
-		if err != nil {
-			return fmt.Errorf("unable to generate CIDR blocks for all public subnets: %w", err)
+	if isPublicOnly {
+		publicCIDRs = privateCIDRs[:len(allAvailabilityZones)]
+		if len(allEdgeZones) > 0 {
+			edgeCIDR = privateCIDRs[len(allAvailabilityZones)].String()
+		}
+	} else {
+		publicCIDR := privateCIDRs[len(allAvailabilityZones)].String()
+
+		if len(allEdgeZones) > 0 {
+			edgeCIDR = privateCIDRs[len(allAvailabilityZones)+1].String()
+		}
+
+		if isPublishingExternal {
+			// The last num(zones) blocks are dedicated to the public subnets.
+			publicCIDRs, err = utilscidr.SplitIntoSubnetsIPv4(publicCIDR, len(allAvailabilityZones))
+			if err != nil {
+				return fmt.Errorf("unable to generate CIDR blocks for all public subnets: %w", err)
+			}
 		}
 	}
 
 	// Create subnets from zone pools (control plane and compute) with type availability-zone.
-	if len(privateCIDRs) < len(allAvailabilityZones) {
+	if !isPublicOnly && len(privateCIDRs) < len(allAvailabilityZones) {
 		return fmt.Errorf("unable to define CIDR blocks to all zones for private subnets")
 	}
 	if isPublishingExternal && len(publicCIDRs) < len(allAvailabilityZones) {
@@ -270,18 +316,22 @@ func setSubnetsManagedVPC(in *zonesInput) error {
 	}
 
 	for idxCIDR, zone := range allAvailabilityZones {
-		in.Cluster.Spec.NetworkSpec.Subnets = append(in.Cluster.Spec.NetworkSpec.Subnets, capa.SubnetSpec{
-			AvailabilityZone: zone,
-			CidrBlock:        privateCIDRs[idxCIDR].String(),
-			ID:               fmt.Sprintf("%s-subnet-private-%s", in.ClusterID.InfraID, zone),
-			IsPublic:         false,
-		})
+		if !isPublicOnly {
+			in.Cluster.Spec.NetworkSpec.Subnets = append(in.Cluster.Spec.NetworkSpec.Subnets, capa.SubnetSpec{
+				AvailabilityZone: zone,
+				CidrBlock:        privateCIDRs[idxCIDR].String(),
+				ID:               fmt.Sprintf("%s-subnet-private-%s", in.ClusterID.InfraID, zone),
+				IsPublic:         false,
+				IsIPv6:           enableIPv6,
+			})
+		}
 		if isPublishingExternal {
 			in.Cluster.Spec.NetworkSpec.Subnets = append(in.Cluster.Spec.NetworkSpec.Subnets, capa.SubnetSpec{
 				AvailabilityZone: zone,
 				CidrBlock:        publicCIDRs[idxCIDR].String(),
 				ID:               fmt.Sprintf("%s-subnet-public-%s", in.ClusterID.InfraID, zone),
 				IsPublic:         true,
+				IsIPv6:           enableIPv6,
 			})
 		}
 	}
@@ -296,7 +346,7 @@ func setSubnetsManagedVPC(in *zonesInput) error {
 	// Slice the main CIDR (edgeCIDR) into N*zones for privates subnets,
 	// and, when publish external, duplicate to create public subnets.
 	numEdgeSubnets := len(allEdgeZones)
-	if isPublishingExternal {
+	if !isPublicOnly && isPublishingExternal {
 		numEdgeSubnets *= 2
 	}
 
@@ -308,25 +358,32 @@ func setSubnetsManagedVPC(in *zonesInput) error {
 	if err != nil {
 		return fmt.Errorf("unable to generate CIDR blocks for all edge subnets: %w", err)
 	}
-	if len(edgeCIDRs) < len(allEdgeZones) {
+	if !isPublicOnly && len(edgeCIDRs) < len(allEdgeZones) {
 		return fmt.Errorf("unable to define CIDR blocks to all edge zones for private subnets")
 	}
-	if isPublishingExternal && (len(edgeCIDRs) < (len(allEdgeZones) * 2)) {
+	if !isPublicOnly && isPublishingExternal && (len(edgeCIDRs) < (len(allEdgeZones) * 2)) {
 		return fmt.Errorf("unable to define CIDR blocks to all edge zones for public subnets")
 	}
 
 	// Create subnets from zone pool with type local-zone or wavelength-zone (edge zones)
+	// Important: We do not support IPv6 networking (i.e. dualstack) for edge zones
 	for idxCIDR, zone := range allEdgeZones {
-		in.Cluster.Spec.NetworkSpec.Subnets = append(in.Cluster.Spec.NetworkSpec.Subnets, capa.SubnetSpec{
-			AvailabilityZone: zone,
-			CidrBlock:        edgeCIDRs[idxCIDR].String(),
-			ID:               fmt.Sprintf("%s-subnet-private-%s", in.ClusterID.InfraID, zone),
-			IsPublic:         false,
-		})
-		if isPublishingExternal {
+		if !isPublicOnly {
 			in.Cluster.Spec.NetworkSpec.Subnets = append(in.Cluster.Spec.NetworkSpec.Subnets, capa.SubnetSpec{
 				AvailabilityZone: zone,
-				CidrBlock:        edgeCIDRs[len(allEdgeZones)+idxCIDR].String(),
+				CidrBlock:        edgeCIDRs[idxCIDR].String(),
+				ID:               fmt.Sprintf("%s-subnet-private-%s", in.ClusterID.InfraID, zone),
+				IsPublic:         false,
+			})
+		}
+		if isPublishingExternal {
+			publicEdgeIdx := idxCIDR
+			if !isPublicOnly {
+				publicEdgeIdx = len(allEdgeZones) + idxCIDR
+			}
+			in.Cluster.Spec.NetworkSpec.Subnets = append(in.Cluster.Spec.NetworkSpec.Subnets, capa.SubnetSpec{
+				AvailabilityZone: zone,
+				CidrBlock:        edgeCIDRs[publicEdgeIdx].String(),
 				ID:               fmt.Sprintf("%s-subnet-public-%s", in.ClusterID.InfraID, zone),
 				IsPublic:         true,
 			})
@@ -337,7 +394,7 @@ func setSubnetsManagedVPC(in *zonesInput) error {
 }
 
 // extractZonesFromInstallConfig extracts zones defined in the install-config.
-func extractZonesFromInstallConfig(in *zonesInput) (*ZonesCAPI, error) {
+func extractZonesFromInstallConfig(in *networkInput) (*ZonesCAPI, error) {
 	out := ZonesCAPI{
 		ControlPlaneZones: sets.New[string](),
 		ComputeZones:      sets.New[string](),

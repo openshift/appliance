@@ -29,9 +29,52 @@ const (
 )
 
 const (
-	masterRole string = "master"
-	workerRole string = "worker"
+	masterRole  string = "master"
+	arbiterRole string = "arbiter"
+	workerRole  string = "worker"
 )
+
+// BGPPeerConfig defines the configuration for a BGP peer.
+type BGPPeerConfig struct {
+	// PeerAddress is the IP address of the BGP peer (e.g., ToR switch).
+	PeerAddress string `json:"peerAddress"`
+
+	// PeerASN is the Autonomous System Number of the BGP peer.
+	PeerASN int64 `json:"peerASN"`
+
+	// Password is the optional TCP MD5 signature password for the BGP
+	// session (RFC 2385), consumed by FRR.
+	Password string `json:"password,omitempty"` //nolint:gosec // BGP protocol session password field, not a hardcoded credential
+
+	// Port is the TCP port for the BGP session. Defaults to 179.
+	Port int32 `json:"port,omitempty"`
+
+	// BFDEnabled configures Bi-directional Forwarding Detection.
+	// Valid values are "true" and "false".
+	BFDEnabled string `json:"bfdEnabled,omitempty"`
+
+	// EBGPMultiHop enables multi-hop eBGP when the peer is not directly connected.
+	EBGPMultiHop string `json:"ebgpMultiHop,omitempty"`
+
+	// HoldTime is the BGP hold time for this peer (e.g., "90s").
+	HoldTime string `json:"holdTime,omitempty"`
+
+	// KeepaliveTime is the BGP keepalive interval for this peer (e.g., "30s").
+	KeepaliveTime string `json:"keepaliveTime,omitempty"`
+}
+
+// BGPVIPConfig configures BGP-based VIP advertisement for API and Ingress VIPs.
+type BGPVIPConfig struct {
+	// LocalASN is the Autonomous System Number for this cluster's BGP speaker.
+	LocalASN int64 `json:"localASN"`
+
+	// Peers is the list of BGP peers to advertise VIPs to.
+	Peers []BGPPeerConfig `json:"peers"`
+
+	// Communities is an optional list of BGP communities to attach to
+	// advertised VIP routes, in the format "ASN:value" (e.g., "64512:100").
+	Communities []string `json:"communities,omitempty"`
+}
 
 // Host stores all the configuration data for a baremetal host.
 type Host struct {
@@ -43,6 +86,11 @@ type Host struct {
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 	BootMode        BootMode         `json:"bootMode,omitempty"`
 	NetworkConfig   *apiextv1.JSON   `json:"networkConfig,omitempty"`
+
+	// BGPPeers overrides the global bgpVIPConfig.peers for this specific
+	// host. When set, this host will peer with the listed BGP peers instead
+	// of the global peer list.
+	BGPPeers []BGPPeerConfig `json:"bgpPeers,omitempty"`
 }
 
 // IsMaster checks if the current host is a master
@@ -50,12 +98,17 @@ func (h *Host) IsMaster() bool {
 	return h.Role == masterRole
 }
 
+// IsArbiter checks if the current host is an arbiter.
+func (h *Host) IsArbiter() bool {
+	return h.Role == arbiterRole
+}
+
 // IsWorker checks if the current host is a worker
 func (h *Host) IsWorker() bool {
 	return h.Role == workerRole
 }
 
-var sortIndex = map[string]int{masterRole: -1, workerRole: 0, "": 1}
+var sortIndex = map[string]int{masterRole: -1, arbiterRole: 0, workerRole: 1, "": 2}
 
 // CompareByRole allows to compare two hosts by the Role
 func (h *Host) CompareByRole(k *Host) bool {
@@ -160,6 +213,17 @@ type Platform struct {
 	// +optional
 	ProvisioningDHCPRange string `json:"provisioningDHCPRange,omitempty"`
 
+	// ProvisioningNetworkGateway is the IP address of the default gateway
+	// for the provisioning network. This gateway is provided to baremetal
+	// hosts via DHCP to enable routing to external networks during
+	// introspection and provisioning. This field is only honored when
+	// provisioningNetwork is set to Managed (installer-managed DHCP).
+	// It is ignored when provisioningNetwork is Unmanaged or Disabled.
+	//
+	// +kubebuilder:validation:Format=ip
+	// +optional
+	ProvisioningNetworkGateway string `json:"provisioningNetworkGateway,omitempty"`
+
 	// Hosts is the information needed to create the objects in Ironic.
 	Hosts []*Host `json:"hosts"`
 
@@ -181,7 +245,6 @@ type Platform struct {
 	// one VIP
 	//
 	// +kubebuilder:validation:MaxItems=2
-	// +kubebuilder:validation:UniqueItems=true
 	// +kubebuilder:validation:Format=ip
 	// +optional
 	APIVIPs []string `json:"apiVIPs,omitempty"`
@@ -197,7 +260,6 @@ type Platform struct {
 	// clusters it contains an IPv4 and IPv6 address, otherwise only one VIP
 	//
 	// +kubebuilder:validation:MaxItems=2
-	// +kubebuilder:validation:UniqueItems=true
 	// +kubebuilder:validation:Format=ip
 	// +optional
 	IngressVIPs []string `json:"ingressVIPs,omitempty"`
@@ -205,16 +267,19 @@ type Platform struct {
 	// BootstrapOSImage is a URL to override the default OS image
 	// for the bootstrap node. The URL must contain a sha256 hash of the image
 	// e.g https://mirror.example.com/images/qemu.qcow2.gz?sha256=a07bd...
+	// Deprecated: This is no longer used.
 	//
 	// +optional
-	BootstrapOSImage string `json:"bootstrapOSImage,omitempty" validate:"omitempty,osimageuri,urlexist"`
+	DeprecatedBootstrapOSImage string `json:"bootstrapOSImage,omitempty"`
 
 	// ClusterOSImage is a URL to override the default OS image
 	// for cluster nodes. The URL must contain a sha256 hash of the image
 	// e.g https://mirror.example.com/images/metal.qcow2.gz?sha256=3b5a8...
+	// Deprecated: This is no longer required, the OS image is now part of the
+	// OpenShift release.
 	//
 	// +optional
-	ClusterOSImage string `json:"clusterOSImage,omitempty" validate:"omitempty,osimageuri,urlexist"`
+	DeprecatedClusterOSImage string `json:"clusterOSImage,omitempty"`
 
 	// BootstrapExternalStaticIP is the static IP address of the bootstrap node.
 	// This can be useful in environments without a DHCP server.
@@ -229,13 +294,42 @@ type Platform struct {
 	BootstrapExternalStaticGateway string `json:"bootstrapExternalStaticGateway,omitempty"`
 
 	// LoadBalancer defines how the load balancer used by the cluster is configured.
-	// LoadBalancer is available in TechPreview.
 	// +optional
 	LoadBalancer *configv1.BareMetalPlatformLoadBalancer `json:"loadBalancer,omitempty"`
+
+	// dnsRecordsType determines whether records for api, api-int, and ingress
+	// are provided by the internal DNS service or externally.
+	// Allowed values are `Internal`, `External`, and omitted.
+	// When set to `Internal`, records are provided by the internal infrastructure and
+	// no additional user configuration is required for the cluster to function.
+	// When set to `External`, records are not provided by the internal infrastructure
+	// and must be configured by the user on a DNS server outside the cluster.
+	// Cluster nodes must use this external server for their upstream DNS requests.
+	// This value may only be set when loadBalancer.type is set to UserManaged.
+	// When omitted, this means the user has no opinion and the platform is left
+	// to choose reasonable defaults. These defaults are subject to change over time.
+	// The current default is `Internal`.
+	// +openshift:enable:FeatureGate=OnPremDNSRecords
+	// +optional
+	DNSRecordsType configv1.DNSRecordsType `json:"dnsRecordsType,omitempty"`
+
+	// BGPVIPConfig configures BGP-based advertisement of the API and
+	// Ingress VIPs. When set, kube-vip (Routing Table Mode) and frr-k8s
+	// are deployed as static pods on control plane nodes to advertise
+	// VIPs via BGP, replacing the default keepalived/VRRP mechanism.
+	// +optional
+	BGPVIPConfig *BGPVIPConfig `json:"bgpVIPConfig,omitempty"`
 
 	// BootstrapExternalStaticDNS is the static network DNS of the bootstrap node.
 	// This can be useful in environments without a DHCP server.
 	// +kubebuilder:validation:Format=ip
 	// +optional
 	BootstrapExternalStaticDNS string `json:"bootstrapExternalStaticDNS,omitempty"`
+
+	// AdditionalNTPServers defines a list of additional NTP servers
+	// to use for provisioning
+	//  +optional
+	AdditionalNTPServers []string `json:"additionalNTPServers,omitempty"`
+
+	BMCVerifyCA string `json:"bmcVerifyCA,omitempty"`
 }

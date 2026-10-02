@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,31 +81,31 @@ func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.
 			Channel: &channel,
 		},
 		PullSecret:            cfg.PullSecret,
-		DiskSizeGB:            swag.Int(200),
-		StopLocalRegistry:     swag.Bool(false),
-		EnableDefaultSources:  swag.Bool(false),
-		UseDefaultSourceNames: swag.Bool(true),
-		EnableInteractiveFlow: swag.Bool(true),
-		SkipLocalRegistry:     swag.Bool(true),
+		DiskSizeGB:            conv.Pointer(200),
+		StopLocalRegistry:     conv.Pointer(false),
+		EnableDefaultSources:  conv.Pointer(false),
+		UseDefaultSourceNames: conv.Pointer(true),
+		EnableInteractiveFlow: conv.Pointer(true),
+		SkipLocalRegistry:     conv.Pointer(true),
 		ImageRegistry: &types.ImageRegistry{
-			UseBinary: swag.Bool(false),
+			UseBinary: conv.Pointer(false),
 		},
 	}
 
 	if cfg.Architecture != "" {
-		appCfg.OcpRelease.CpuArchitecture = swag.String(cfg.Architecture)
+		appCfg.OcpRelease.CpuArchitecture = conv.Pointer(cfg.Architecture)
 	}
 
 	if cfg.ReleaseImageURL != "" {
-		appCfg.OcpRelease.URL = swag.String(cfg.ReleaseImageURL)
+		appCfg.OcpRelease.URL = conv.Pointer(cfg.ReleaseImageURL)
 	}
 
 	if len(cfg.SSHKey) > 0 {
-		appCfg.SshKey = swag.String(strings.Join(cfg.SSHKey, "\n"))
+		appCfg.SshKey = conv.Pointer(strings.Join(cfg.SSHKey, "\n"))
 	}
 
 	if cfg.FIPS {
-		appCfg.EnableFips = swag.Bool(true)
+		appCfg.EnableFips = conv.Pointer(true)
 	}
 
 	if len(cfg.AdditionalImages) > 0 {

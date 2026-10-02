@@ -9,9 +9,6 @@ const (
 
 	// CloudControllerManagerTypeNone specifies that no cloud provider is to be configured.
 	CloudControllerManagerTypeNone = ""
-
-	// ExternalPlatformNameOci specifies oci platform.
-	ExternalPlatformNameOci = "oci"
 )
 
 // Platform stores configuration related to external cloud providers.

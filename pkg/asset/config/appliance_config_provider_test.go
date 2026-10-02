@@ -1,13 +1,14 @@
 package config
 
 import (
+	"context"
 	"testing"
 )
 
 func TestApplianceConfigProviderDefaults(t *testing.T) {
 	provider := &ApplianceConfigProvider{}
 
-	if err := provider.Generate(nil); err != nil {
+	if err := provider.Generate(context.Background(), nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
