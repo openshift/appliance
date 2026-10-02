@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/sirupsen/logrus"
 )
@@ -85,7 +85,7 @@ func NewGraph(config GraphConfig) Graph {
 	}
 
 	if config.CincinnatiAddress == nil {
-		config.CincinnatiAddress = swag.String(cincinnatiAddress)
+		config.CincinnatiAddress = conv.Pointer(cincinnatiAddress)
 	}
 
 	if config.Channel == nil {

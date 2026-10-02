@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/coreos/stream-metadata-go/arch"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/openconfig/goyang/pkg/indent"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/registry"
@@ -121,7 +121,7 @@ func (r *release) ExtractFile(image string, filename string) (string, error) {
 }
 
 func (r *release) GetImageFromRelease(imageName string) (string, error) {
-	cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
+	cmd := fmt.Sprintf(templateGetImage, imageName, true, conv.Value(r.ApplianceConfig.Config.OcpRelease.URL))
 
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 	image, err := r.execute(cmd)
@@ -130,7 +130,7 @@ func (r *release) GetImageFromRelease(imageName string) (string, error) {
 	}
 
 	// Fix incomplete image references from local registries
-	image, err = r.fixImageReference(image, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
+	image, err = r.fixImageReference(image, conv.Value(r.ApplianceConfig.Config.OcpRelease.URL))
 	if err != nil {
 		return "", err
 	}
@@ -245,7 +245,7 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 		}
 
 		tempDir = filepath.Join(r.EnvConfig.TempDir, "oc-mirror")
-		registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
+		registryPort := conv.Value(r.ApplianceConfig.Config.ImageRegistry.Port)
 		cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)
 
 		if !isStable {
@@ -301,7 +301,7 @@ func (r *release) copyMappingFile(ocMirrorDir string) error {
 func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *bool) error {
 	// If interactive flow is enabled, use localhost as registry domain, otherwise use the default registry domain
 	var registryDomain string
-	if swag.BoolValue(enableInteractiveFlow) {
+	if conv.Value(enableInteractiveFlow) {
 		registryDomain = "localhost"
 	} else {
 		registryDomain = registry.RegistryDomain
@@ -321,7 +321,7 @@ func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *boo
 		}
 
 		// Replace localhost with internal registry URI
-		buildRegistryURI := fmt.Sprintf("127.0.0.1:%d", swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port))
+		buildRegistryURI := fmt.Sprintf("127.0.0.1:%d", conv.Value(r.ApplianceConfig.Config.ImageRegistry.Port))
 		internalRegistryURI := fmt.Sprintf("%s:%d", registryDomain, registry.RegistryPort)
 		newYaml := strings.ReplaceAll(string(yamlBytes), buildRegistryURI, internalRegistryURI)
 
@@ -350,7 +350,7 @@ func (r *release) copyOutputYamls(ocMirrorDir string, enableInteractiveFlow *boo
 // a custom release URL (not upstream quay.io). This ensures that pulls from the
 // registry mirror are redirected to the appliance's internal registry.
 func (r *release) addLocalRegistryIDMS(yamlContent, internalRegistryURI string) (string, error) {
-	releaseURL := swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL)
+	releaseURL := conv.Value(r.ApplianceConfig.Config.OcpRelease.URL)
 
 	// Check if using a custom registry (not upstream quay.io)
 	if !strings.Contains(releaseURL, "quay.io") && !strings.Contains(releaseURL, "registry.ci.openshift.org") {
@@ -451,7 +451,7 @@ func (r *release) GetMappingFile() ([]byte, error) {
 	}
 
 	dryRunDir := filepath.Join(r.EnvConfig.TempDir, "oc-mirror-dry-run")
-	registryPort := swag.IntValue(r.ApplianceConfig.Config.ImageRegistry.Port)
+	registryPort := conv.Value(r.ApplianceConfig.Config.ImageRegistry.Port)
 	dryRunCmd := fmt.Sprintf(ocMirrorDryRun, imageSetFilePath, registryPort, dryRunDir)
 
 	// Add --ignore-release-signature for CI/nightly builds to avoid signature verification errors
@@ -485,7 +485,7 @@ func (r *release) getMetadata() error {
 		return nil
 	}
 
-	cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(r.ApplianceConfig.Config.OcpRelease.URL))
+	cmd := fmt.Sprintf(templateGetMetadata, conv.Value(r.ApplianceConfig.Config.OcpRelease.URL))
 	logrus.Debugf("Fetching architecture and version from OCP release (%s)", cmd)
 
 	output, err := r.execute(cmd)

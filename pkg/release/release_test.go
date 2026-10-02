@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/ginkgo/v2/dsl/table"
@@ -72,12 +72,12 @@ var _ = Describe("Test Release", func() {
 		applianceConfig = &config.ApplianceConfig{
 			Config: &types.ApplianceConfig{
 				OcpRelease: types.ReleaseImage{
-					CpuArchitecture: swag.String(config.CpuArchitectureX86),
+					CpuArchitecture: conv.Pointer(config.CpuArchitectureX86),
 					Version:         "4.13.1",
 					Channel:         &channel,
 				},
 				ImageRegistry: &types.ImageRegistry{
-					Port: swag.Int(5123),
+					Port: conv.Pointer(5123),
 				},
 			},
 		}
@@ -102,7 +102,7 @@ var _ = Describe("Test Release", func() {
 
 	It("MirrorInstallImages - success", func() {
 		// Mock IsStableRelease call
-		metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+		metadataCmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 		jsonOutput := `{"metadata":{"version":"4.13.1"}}`
 		mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
@@ -115,7 +115,7 @@ var _ = Describe("Test Release", func() {
 
 	It("MirrorInstallImages - fail oc mirror", func() {
 		// Mock IsStableRelease call
-		metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+		metadataCmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 		jsonOutput := `{"metadata":{"version":"4.13.1"}}`
 		mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
@@ -129,10 +129,10 @@ var _ = Describe("Test Release", func() {
 	Context("MirrorInstallImages with signature handling", func() {
 		It("should add --ignore-release-signature for CI release", func() {
 			// Set up CI release
-			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.ci-2026-04-23-153053")
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("registry.ci.openshift.org/ocp/release:5.0.0-0.ci-2026-04-23-153053")
 
 			// Expect IsStableRelease call (returns CI release metadata)
-			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			metadataCmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"metadata":{"version":"5.0.0-0.ci-2026-04-23-153053"}}`
 			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
@@ -148,10 +148,10 @@ var _ = Describe("Test Release", func() {
 
 		It("should NOT add --ignore-release-signature for stable release", func() {
 			// Set up stable release
-			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-x86_64")
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("quay.io/openshift-release-dev/ocp-release:4.22.0-x86_64")
 
 			// Expect IsStableRelease call (returns stable release metadata)
-			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			metadataCmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"metadata":{"version":"4.22.0"}}`
 			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
@@ -167,10 +167,10 @@ var _ = Describe("Test Release", func() {
 
 		It("should add --ignore-release-signature for nightly release", func() {
 			// Set up nightly release
-			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.nightly-2026-04-23-082815")
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("registry.ci.openshift.org/ocp/release:5.0.0-0.nightly-2026-04-23-082815")
 
 			// Expect IsStableRelease call (returns nightly release metadata)
-			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			metadataCmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"metadata":{"version":"5.0.0-0.nightly-2026-04-23-082815"}}`
 			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
@@ -186,10 +186,10 @@ var _ = Describe("Test Release", func() {
 
 		It("should NOT add --ignore-release-signature for EC release", func() {
 			// Set up EC release
-			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-ec.5-x86_64")
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("quay.io/openshift-release-dev/ocp-release:4.22.0-ec.5-x86_64")
 
 			// Expect IsStableRelease call (returns EC release metadata)
-			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			metadataCmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"metadata":{"version":"4.22.0-ec.5"}}`
 			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
@@ -205,10 +205,10 @@ var _ = Describe("Test Release", func() {
 
 		It("should NOT add --ignore-release-signature for RC release", func() {
 			// Set up RC release
-			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-rc.0-x86_64")
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("quay.io/openshift-release-dev/ocp-release:4.22.0-rc.0-x86_64")
 
 			// Expect IsStableRelease call (returns RC release metadata)
-			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			metadataCmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"metadata":{"version":"4.22.0-rc.0"}}`
 			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
@@ -226,10 +226,10 @@ var _ = Describe("Test Release", func() {
 	Context("GetMappingFile with signature handling", func() {
 		It("should add --ignore-release-signature for CI release", func() {
 			// Set up CI release
-			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.ci-2026-04-23-153053")
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("registry.ci.openshift.org/ocp/release:5.0.0-0.ci-2026-04-23-153053")
 
 			// Expect IsStableRelease call
-			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			metadataCmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"metadata":{"version":"5.0.0-0.ci-2026-04-23-153053"}}`
 			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
@@ -247,10 +247,10 @@ var _ = Describe("Test Release", func() {
 
 		It("should NOT add --ignore-release-signature for stable release", func() {
 			// Set up stable release
-			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-x86_64")
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("quay.io/openshift-release-dev/ocp-release:4.22.0-x86_64")
 
 			// Expect IsStableRelease call
-			metadataCmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			metadataCmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"metadata":{"version":"4.22.0"}}`
 			mockExecuter.EXPECT().Execute(metadataCmd).Return(jsonOutput, nil).Times(1)
 
@@ -269,7 +269,7 @@ var _ = Describe("Test Release", func() {
 
 	It("GetImageFromRelease - success", func() {
 		imageName := "machine-os-images"
-		cmd := fmt.Sprintf(templateGetImage, imageName, true, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+		cmd := fmt.Sprintf(templateGetImage, imageName, true, conv.Value(applianceConfig.Config.OcpRelease.URL))
 		mockExecuter.EXPECT().Execute(cmd).Return("", nil).Times(1)
 
 		_, err = testRelease.GetImageFromRelease(imageName)
@@ -286,8 +286,8 @@ var _ = Describe("Test Release", func() {
 
 	Context("GetArchitecture", func() {
 		It("should convert amd64 to x86_64 with digest URL", func() {
-			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release@sha256:809c037c016c7c0cbc83ce459ed344a55d65fa6cc0d3aa4d51e9a2d9d0cf7ffa")
-			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("quay.io/openshift-release-dev/ocp-release@sha256:809c037c016c7c0cbc83ce459ed344a55d65fa6cc0d3aa4d51e9a2d9d0cf7ffa")
+			cmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"config":{"architecture":"amd64"},"metadata":{"version":"4.21.0"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
@@ -297,8 +297,8 @@ var _ = Describe("Test Release", func() {
 		})
 
 		It("should convert amd64 to x86_64 with tag URL", func() {
-			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.21.12-x86_64")
-			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("quay.io/openshift-release-dev/ocp-release:4.21.12-x86_64")
+			cmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"config":{"architecture":"amd64"},"metadata":{"version":"4.21.12"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
@@ -308,7 +308,7 @@ var _ = Describe("Test Release", func() {
 		})
 
 		It("should handle error when getting architecture", func() {
-			applianceConfig.Config.OcpRelease.URL = swag.String("invalid-url")
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("invalid-url")
 			mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("failed to get architecture")).Times(1)
 
 			_, err := testRelease.GetArchitecture()
@@ -318,8 +318,8 @@ var _ = Describe("Test Release", func() {
 
 	Context("IsStableRelease", func() {
 		It("should return true for stable release version", func() {
-			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-x86_64")
-			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("quay.io/openshift-release-dev/ocp-release:4.22.0-x86_64")
+			cmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"config":{"architecture":"x86_64"},"metadata":{"version":"4.22.0"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
@@ -329,8 +329,8 @@ var _ = Describe("Test Release", func() {
 		})
 
 		It("should return true for EC release 4.22.0-ec.5", func() {
-			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-ec.5-x86_64")
-			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("quay.io/openshift-release-dev/ocp-release:4.22.0-ec.5-x86_64")
+			cmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"config":{"architecture":"x86_64"},"metadata":{"version":"4.22.0-ec.5"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
@@ -340,8 +340,8 @@ var _ = Describe("Test Release", func() {
 		})
 
 		It("should return true for RC release version", func() {
-			applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:4.22.0-rc.0-x86_64")
-			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("quay.io/openshift-release-dev/ocp-release:4.22.0-rc.0-x86_64")
+			cmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"config":{"architecture":"x86_64"},"metadata":{"version":"4.22.0-rc.0"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
@@ -351,8 +351,8 @@ var _ = Describe("Test Release", func() {
 		})
 
 		It("should return false for nightly release version", func() {
-			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.nightly-2026-04-23-082815")
-			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("registry.ci.openshift.org/ocp/release:5.0.0-0.nightly-2026-04-23-082815")
+			cmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"config":{"architecture":"x86_64"},"metadata":{"version":"5.0.0-0.nightly-2026-04-23-082815"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
@@ -362,8 +362,8 @@ var _ = Describe("Test Release", func() {
 		})
 
 		It("should return false for CI release 5.0.0-0.ci", func() {
-			applianceConfig.Config.OcpRelease.URL = swag.String("registry.ci.openshift.org/ocp/release:5.0.0-0.ci-2026-04-23-153053")
-			cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("registry.ci.openshift.org/ocp/release:5.0.0-0.ci-2026-04-23-153053")
+			cmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 			jsonOutput := `{"config":{"architecture":"x86_64"},"metadata":{"version":"5.0.0-0.ci-2026-04-23-153053"}}`
 			mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
@@ -373,7 +373,7 @@ var _ = Describe("Test Release", func() {
 		})
 
 		It("should handle error when getting version", func() {
-			applianceConfig.Config.OcpRelease.URL = swag.String("invalid-url")
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("invalid-url")
 			mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("failed to get version")).Times(1)
 
 			_, err := testRelease.IsStableRelease()
@@ -384,8 +384,8 @@ var _ = Describe("Test Release", func() {
 	Context("BundleVersion", func() {
 		DescribeTable("resolves the version used to name the release bundle",
 			func(releaseVersion, architecture, expected string) {
-				applianceConfig.Config.OcpRelease.URL = swag.String("quay.io/openshift-release-dev/ocp-release:" + releaseVersion)
-				cmd := fmt.Sprintf(templateGetMetadata, swag.StringValue(applianceConfig.Config.OcpRelease.URL))
+				applianceConfig.Config.OcpRelease.URL = conv.Pointer("quay.io/openshift-release-dev/ocp-release:" + releaseVersion)
+				cmd := fmt.Sprintf(templateGetMetadata, conv.Value(applianceConfig.Config.OcpRelease.URL))
 				jsonOutput := fmt.Sprintf(`{"config":{"architecture":%q},"metadata":{"version":%q}}`, architecture, releaseVersion)
 				mockExecuter.EXPECT().Execute(cmd).Return(jsonOutput, nil).Times(1)
 
@@ -405,7 +405,7 @@ var _ = Describe("Test Release", func() {
 		)
 
 		It("should handle error when getting release metadata", func() {
-			applianceConfig.Config.OcpRelease.URL = swag.String("invalid-url")
+			applianceConfig.Config.OcpRelease.URL = conv.Pointer("invalid-url")
 			mockExecuter.EXPECT().Execute(gomock.Any()).Return("", errors.New("failed to get version")).Times(1)
 
 			_, err := testRelease.BundleVersion("4.22.16")

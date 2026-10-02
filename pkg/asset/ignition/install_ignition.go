@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/manifests"
 	"github.com/openshift/appliance/pkg/consts"
@@ -97,16 +97,16 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 		corePassHash = string(passBytes)
 	}
 
-	if !swag.BoolValue(applianceConfig.Config.SkipLocalRegistry) {
+	if !conv.Value(applianceConfig.Config.SkipLocalRegistry) {
 		installServices = append(installServices, "start-local-registry.service")
 		installScripts = append(installScripts, "load-registry-image.sh", "setup-local-registry.sh")
 	}
 
-	if swag.BoolValue(applianceConfig.Config.StopLocalRegistry) {
+	if conv.Value(applianceConfig.Config.StopLocalRegistry) {
 		installServices = append(installServices, "stop-local-registry.service")
 	}
 
-	if swag.BoolValue(applianceConfig.Config.CreatePinnedImageSets) {
+	if conv.Value(applianceConfig.Config.CreatePinnedImageSets) {
 		installServices = append(installServices, "create-pinned-image-sets.service")
 		installScripts = append(installScripts, "create-pinned-image-sets.sh")
 	}
@@ -124,7 +124,7 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 	// Create install template data
 	templateData := templates.GetInstallIgnitionTemplateData(
 		envConfig.IsLiveISO,
-		swag.BoolValue(applianceConfig.Config.EnableInteractiveFlow),
+		conv.Value(applianceConfig.Config.EnableInteractiveFlow),
 		corePassHash)
 
 	// Add registry service from appropriate directory (OCP or default)
@@ -173,7 +173,7 @@ func (i *InstallIgnition) Generate(_ context.Context, dependencies asset.Parents
 		&i.Config,
 		operatorCRs.FileList,
 		filepath.Join(extraManifestsPath, postInstallationCrsDir),
-		swag.Bool(false)); err != nil {
+		conv.Pointer(false)); err != nil {
 		return err
 	}
 
@@ -186,7 +186,7 @@ func (i *InstallIgnition) addRecoveryGrubConfigFile(tempDir string, enableFips *
 	// Generate user.cfg
 	if err := templates.RenderTemplateFile(
 		consts.UserCfgTemplateFile,
-		templates.GetUserCfgTemplateData(consts.GrubMenuEntryNameRecovery, swag.BoolValue(enableFips), false),
+		templates.GetUserCfgTemplateData(consts.GrubMenuEntryNameRecovery, conv.Value(enableFips), false),
 		tempDir); err != nil {
 		return err
 	}

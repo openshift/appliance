@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	. "github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
 	assetignition "github.com/openshift/installer/pkg/asset/ignition"
@@ -105,10 +105,10 @@ var _ = Describe("Test Ignition", func() {
 
 	It("MergeIgnitionConfig - success", func() {
 		fakeUser := "core"
-		fakePass := swag.String("fakePwdHash")
+		fakePass := conv.Pointer("fakePwdHash")
 		fakeDevice := "/boot"
-		fakeFormat := swag.String("ext4")
-		fakePath := swag.String("/dev/disk/by-partlabel/boot")
+		fakeFormat := conv.Pointer("ext4")
+		fakePath := conv.Pointer("/dev/disk/by-partlabel/boot")
 		fakeInstallConfig := igntypes.Config{
 			Passwd: igntypes.Passwd{
 				Users: []igntypes.PasswdUser{
@@ -142,7 +142,7 @@ var _ = Describe("Test Ignition", func() {
 		Expect(mergedConfig.Ignition.Version).To(Equal(igntypes.MaxVersion.String()))
 		Expect(mergedConfig.Passwd.Users[0].Name).To(Equal(fakeUser))
 		Expect(mergedConfig.Passwd.Users[0].PasswordHash).To(Equal(fakePass))
-		Expect(mergedConfig.Storage.Files[0].Mode).To(Equal(swag.Int(0644)))
+		Expect(mergedConfig.Storage.Files[0].Mode).To(Equal(conv.Pointer(0644)))
 		Expect(mergedConfig.Storage.Filesystems[0].Device).To(Equal(fakeDevice))
 		Expect(mergedConfig.Storage.Filesystems[0].Format).To(Equal(fakeFormat))
 		Expect(mergedConfig.Storage.Filesystems[0].Path).To(Equal(fakePath))

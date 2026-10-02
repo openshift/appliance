@@ -4,7 +4,7 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/asset/data"
@@ -61,7 +61,7 @@ func (a *ApplianceDiskImage) Generate(_ context.Context, dependencies asset.Pare
 		consts.UserCfgTemplateFile,
 		templates.GetUserCfgTemplateData(
 			consts.GrubMenuEntryName,
-			swag.BoolValue(applianceConfig.Config.EnableFips),
+			conv.Value(applianceConfig.Config.EnableFips),
 			true),
 		envConfig.TempDir); err != nil {
 		return log.StopSpinner(spinner, err)

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/openshift/appliance/pkg/graph"
 	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/appliance/pkg/types"
@@ -34,7 +34,7 @@ var _ = Describe("Test Installer", func() {
 	It("GetInstallerDownloadURL - x86_64 stable", func() {
 		version := "4.13.1"
 		channel := graph.ReleaseChannelStable
-		cpuArc := swag.String(config.CpuArchitectureX86)
+		cpuArc := conv.Pointer(config.CpuArchitectureX86)
 		installerConfig := InstallerConfig{
 			Executer:  mockExecuter,
 			Release:   mockRelease,
@@ -53,13 +53,13 @@ var _ = Describe("Test Installer", func() {
 
 		res, err := testInstaller.GetInstallerDownloadURL()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", swag.StringValue(cpuArc), "ocp", version)))
+		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", conv.Value(cpuArc), "ocp", version)))
 	})
 
 	It("GetInstallerDownloadURL - aarch64 candidate", func() {
 		version := "4.13.2"
 		channel := graph.ReleaseChannelCandidate
-		cpuArc := swag.String(config.CpuArchitectureAARCH64)
+		cpuArc := conv.Pointer(config.CpuArchitectureAARCH64)
 		installerConfig := InstallerConfig{
 			Executer:  mockExecuter,
 			Release:   mockRelease,
@@ -78,13 +78,13 @@ var _ = Describe("Test Installer", func() {
 
 		res, err := testInstaller.GetInstallerDownloadURL()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", swag.StringValue(cpuArc), "ocp", version)))
+		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", conv.Value(cpuArc), "ocp", version)))
 	})
 
 	It("GetInstallerDownloadURL - x86_64 preview", func() {
 		version := "4.16.0-ec.0"
 		channel := graph.ReleaseChannelCandidate
-		cpuArc := swag.String(config.CpuArchitectureX86)
+		cpuArc := conv.Pointer(config.CpuArchitectureX86)
 		installerConfig := InstallerConfig{
 			Executer:  mockExecuter,
 			Release:   mockRelease,
@@ -103,13 +103,13 @@ var _ = Describe("Test Installer", func() {
 
 		res, err := testInstaller.GetInstallerDownloadURL()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", swag.StringValue(cpuArc), "ocp-dev-preview", version)))
+		Expect(res).To(Equal(fmt.Sprintf(templateInstallerDownloadURL, "4", conv.Value(cpuArc), "ocp-dev-preview", version)))
 	})
 
 	It("CreateUnconfiguredIgnition - DebugBaseIgnition: false", func() {
 		version := "4.13.1"
 		channel := graph.ReleaseChannelStable
-		cpuArc := swag.String(config.CpuArchitectureX86)
+		cpuArc := conv.Pointer(config.CpuArchitectureX86)
 
 		tmpDir, err := filepath.Abs("")
 		Expect(err).ToNot(HaveOccurred())
@@ -144,7 +144,7 @@ var _ = Describe("Test Installer", func() {
 	It("CreateUnconfiguredIgnition - DebugBaseIgnition: true", func() {
 		version := "4.13.1"
 		channel := graph.ReleaseChannelStable
-		cpuArc := swag.String(config.CpuArchitectureX86)
+		cpuArc := conv.Pointer(config.CpuArchitectureX86)
 		tmpDir := "/path/to/tempdir"
 
 		cmd := fmt.Sprintf(templateUnconfiguredIgnitionBinary, installerBinaryName, tmpDir)

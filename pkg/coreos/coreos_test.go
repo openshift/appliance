@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/types"
 
@@ -34,7 +34,7 @@ var _ = Describe("Test CoreOS", func() {
 				Config: &types.ApplianceConfig{
 					PullSecret: "'{\"auths\":{\"\":{\"auth\":\"dXNlcjpwYXNz\"}}}'",
 					OcpRelease: types.ReleaseImage{
-						CpuArchitecture: swag.String(config.CpuArchitectureX86),
+						CpuArchitecture: conv.Pointer(config.CpuArchitectureX86),
 						Version:         "4.16.0",
 					},
 				},
@@ -63,7 +63,7 @@ var _ = Describe("Test CoreOS", func() {
 			ApplianceConfig: &config.ApplianceConfig{
 				Config: &types.ApplianceConfig{
 					OcpRelease: types.ReleaseImage{
-						CpuArchitecture: swag.String(config.CpuArchitectureX86),
+						CpuArchitecture: conv.Pointer(config.CpuArchitectureX86),
 						Version:         "5.0.0",
 					},
 				},

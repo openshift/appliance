@@ -9,7 +9,7 @@ import (
 	"regexp"
 
 	"github.com/containers/image/pkg/sysregistriesv2"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/installer/pkg/asset"
@@ -123,7 +123,7 @@ func (i *RegistriesConf) generateRegistries(enableInteractiveFlow *bool) (*sysre
 			logrus.Debugf("adding mirrors for %s", r.Location)
 			for _, m := range idmsMirror.Mirrors {
 				re := regexp.MustCompile(`^[^/]+`)
-				if swag.BoolValue(enableInteractiveFlow) {
+				if conv.Value(enableInteractiveFlow) {
 					r.Mirrors = append(r.Mirrors, sysregistriesv2.Endpoint{
 						Location: re.ReplaceAllString(m, fmt.Sprintf("%s:%d", "localhost", RegistryPort)),
 					})
