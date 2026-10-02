@@ -399,9 +399,9 @@ func (l *LockFile) lock(lType rawfilelock.LockType) {
 		if err := rawfilelock.LockFile(l.fd, lType); err != nil {
 			panic(err)
 		}
+		l.lockType = lType
+		l.locked = true
 	}
-	l.lockType = lType
-	l.locked = true
 	l.counter++
 }
 
@@ -420,7 +420,10 @@ func (l *LockFile) tryLock(lType rawfilelock.LockType) error {
 	if !success {
 		return fmt.Errorf("resource temporarily unavailable")
 	}
-	l.stateMutex.Lock()
+	if !l.stateMutex.TryLock() {
+		rwMutexUnlocker()
+		return fmt.Errorf("resource temporarily unavailable")
+	}
 	defer l.stateMutex.Unlock()
 	if l.counter == 0 {
 		// If we're the first reference on the lock, we need to open the file again.
@@ -439,9 +442,9 @@ func (l *LockFile) tryLock(lType rawfilelock.LockType) error {
 			rwMutexUnlocker()
 			return err
 		}
+		l.lockType = lType
+		l.locked = true
 	}
-	l.lockType = lType
-	l.locked = true
 	l.counter++
 	return nil
 }
