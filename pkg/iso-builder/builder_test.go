@@ -6,8 +6,7 @@ import (
 )
 
 func TestLoadEmbeddedConfigEmpty(t *testing.T) {
-	b := NewBuilder(t.TempDir())
-	_, err := b.loadEmbeddedConfig()
+	_, err := loadEmbeddedConfig()
 	if err == nil {
 		t.Fatal("expected error for empty embed area, got nil")
 	}
