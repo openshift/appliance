@@ -8,8 +8,14 @@ import (
 	"reflect"
 	"strings"
 	"time"
+)
 
-	"github.com/redis/go-redis/v9"
+const (
+	// defaultMaxEntries is the default max number of entries returned by the catalog endpoint
+	defaultMaxEntries = 1000
+
+	// defaultMaxTags is the default max number of tags returned by the tags endpoint
+	defaultMaxTags = 1000
 )
 
 // Configuration is a versioned registry configuration, intended to be provided by a yaml file, and
@@ -60,6 +66,10 @@ type Configuration struct {
 	// options to control the maximum number of entries returned by the catalog endpoint.
 	Catalog Catalog `yaml:"catalog,omitempty"`
 
+	// Tags provides configuration for the tags list (/v2/<name>/tags/list) endpoint.
+	// It allows specifying the maximum number of tags returned by the endpoint.
+	Tags Tags `yaml:"tags,omitempty"`
+
 	// Proxy defines the configuration options for using the registry as a pull-through cache.
 	Proxy Proxy `yaml:"proxy,omitempty"`
 
@@ -107,7 +117,7 @@ type Log struct {
 
 	// Fields allows users to specify static string fields to include in
 	// the logger context.
-	Fields map[string]interface{} `yaml:"fields,omitempty"`
+	Fields map[string]any `yaml:"fields,omitempty"`
 
 	// Hooks allows users to configure the log hooks, to enabling the
 	// sequent handling behavior, when defined levels of log message emit.
@@ -265,6 +275,14 @@ type LetsEncrypt struct {
 	DirectoryURL string `yaml:"directoryurl,omitempty"`
 }
 
+// Tags provides configuration options for the "/v2/<name>/tags/list" endpoint.
+type Tags struct {
+	// MaxTags limits the maximum number of tags returned by the tags endpoint.
+	// Requesting n tags to the tags endpoint will return at most MaxTags tags.
+	// Default to 1000 tags if not set.
+	MaxTags int `yaml:"maxtags,omitempty"`
+}
+
 // LogHook is composed of hook Level and Type.
 // After hooks configuration, it can execute the next handling automatically,
 // when defined levels of log message emitted.
@@ -411,7 +429,7 @@ type v0_1Configuration Configuration
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface
 // Unmarshals a string of the form X.Y into a Version, validating that X and Y can represent unsigned integers
-func (version *Version) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (version *Version) UnmarshalYAML(unmarshal func(any) error) error {
 	var versionString string
 	err := unmarshal(&versionString)
 	if err != nil {
@@ -441,7 +459,7 @@ type Loglevel string
 // UnmarshalYAML implements the yaml.Umarshaler interface
 // Unmarshals a string into a Loglevel, lowercasing the string and validating that it represents a
 // valid loglevel
-func (loglevel *Loglevel) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (loglevel *Loglevel) UnmarshalYAML(unmarshal func(any) error) error {
 	var loglevelString string
 	err := unmarshal(&loglevelString)
 	if err != nil {
@@ -460,7 +478,7 @@ func (loglevel *Loglevel) UnmarshalYAML(unmarshal func(interface{}) error) error
 }
 
 // Parameters defines a key-value parameters mapping
-type Parameters map[string]interface{}
+type Parameters map[string]any
 
 // Storage defines the configuration for registry object storage
 type Storage map[string]Parameters
@@ -501,7 +519,7 @@ func (storage Storage) TagParameters() Parameters {
 }
 
 // setTagParameter changes the parameter at the provided key to the new value
-func (storage Storage) setTagParameter(key string, value interface{}) {
+func (storage Storage) setTagParameter(key string, value any) {
 	if _, ok := storage["tag"]; !ok {
 		storage["tag"] = make(Parameters)
 	}
@@ -514,13 +532,13 @@ func (storage Storage) Parameters() Parameters {
 }
 
 // setParameter changes the parameter at the provided key to the new value
-func (storage Storage) setParameter(key string, value interface{}) {
+func (storage Storage) setParameter(key string, value any) {
 	storage[storage.Type()][key] = value
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface
 // Unmarshals a single item map into a Storage or a string into a Storage type with no parameters
-func (storage *Storage) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (storage *Storage) UnmarshalYAML(unmarshal func(any) error) error {
 	var storageMap map[string]Parameters
 	err := unmarshal(&storageMap)
 	if err == nil {
@@ -562,7 +580,7 @@ func (storage *Storage) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface
-func (storage Storage) MarshalYAML() (interface{}, error) {
+func (storage Storage) MarshalYAML() (any, error) {
 	if storage.Parameters() == nil {
 		return storage.Type(), nil
 	}
@@ -587,13 +605,13 @@ func (auth Auth) Parameters() Parameters {
 }
 
 // setParameter changes the parameter at the provided key to the new value
-func (auth Auth) setParameter(key string, value interface{}) {
+func (auth Auth) setParameter(key string, value any) {
 	auth[auth.Type()][key] = value
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface
 // Unmarshals a single item map into a Storage or a string into a Storage type with no parameters
-func (auth *Auth) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (auth *Auth) UnmarshalYAML(unmarshal func(any) error) error {
 	var m map[string]Parameters
 	err := unmarshal(&m)
 	if err == nil {
@@ -623,7 +641,7 @@ func (auth *Auth) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface
-func (auth Auth) MarshalYAML() (interface{}, error) {
+func (auth Auth) MarshalYAML() (any, error) {
 	if auth.Parameters() == nil {
 		return auth.Type(), nil
 	}
@@ -694,6 +712,12 @@ type Proxy struct {
 	// if not set, defaults to 7 * 24 hours
 	// If set to zero, will never expire cache
 	TTL *time.Duration `yaml:"ttl,omitempty"`
+
+	// CacheWriteTimeout is the maximum duration allowed for cache write operations
+	// to complete when pulling blobs from the remote registry. This timeout ensures
+	// that cache writes don't hang indefinitely if the storage backend is slow.
+	// If not set, defaults to 5 minutes.
+	CacheWriteTimeout *time.Duration `yaml:"cachewritetimeout,omitempty"`
 }
 
 // ExecConfig defines the configuration for executing a command as a credential helper.
@@ -762,7 +786,7 @@ type Platforms string
 // UnmarshalYAML implements the yaml.Umarshaler interface
 // Unmarshals a string into a Platforms option, lowercasing the string and validating that it represents a
 // valid option
-func (platforms *Platforms) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (platforms *Platforms) UnmarshalYAML(unmarshal func(any) error) error {
 	var platformsString string
 	err := unmarshal(&platformsString)
 	if err != nil {
@@ -796,8 +820,8 @@ func Parse(rd io.Reader) (*Configuration, error) {
 	p := NewParser("registry", []VersionedParseInfo{
 		{
 			Version: MajorMinorVersion(0, 1),
-			ParseAs: reflect.TypeOf(v0_1Configuration{}),
-			ConversionFunc: func(c interface{}) (interface{}, error) {
+			ParseAs: reflect.TypeFor[v0_1Configuration](),
+			ConversionFunc: func(c any) (any, error) {
 				if v0_1, ok := c.(*v0_1Configuration); ok {
 					if v0_1.Log.Level == Loglevel("") {
 						if v0_1.Loglevel != Loglevel("") {
@@ -811,7 +835,14 @@ func Parse(rd io.Reader) (*Configuration, error) {
 					}
 
 					if v0_1.Catalog.MaxEntries <= 0 {
-						v0_1.Catalog.MaxEntries = 1000
+						v0_1.Catalog.MaxEntries = defaultMaxEntries
+					}
+
+					if v0_1.Tags.MaxTags <= 0 {
+						if v0_1.Tags.MaxTags < 0 {
+							return nil, errors.New("maxtags limit must be a non-negative integer value")
+						}
+						v0_1.Tags.MaxTags = defaultMaxTags
 					}
 
 					if v0_1.Storage.Type() == "" {
@@ -833,10 +864,105 @@ func Parse(rd io.Reader) (*Configuration, error) {
 	return config, nil
 }
 
-// RedisOptions represents the configuration options for Redis, which are
-// provided by the redis package. This struct can be used to configure the
-// connection to Redis in a universal (clustered or standalone) setup.
-type RedisOptions = redis.UniversalOptions
+// RedisOptions represents the configuration options for Redis. This struct can be used
+// to configure the connection to Redis in a universal (clustered or standalone) setup.
+type RedisOptions struct {
+	// Addrs is either a single address or a seed list of host:port addresses
+	// of cluster/sentinel nodes.
+	Addrs []string `yaml:"addrs,omitempty"`
+
+	// ClientName will execute the `CLIENT SETNAME ClientName` command for each connection.
+	ClientName string `yaml:"clientname,omitempty"`
+
+	// DB is the database to be selected after connecting to the server.
+	// Only applicable to single-node and failover clients.
+	DB int `yaml:"db,omitempty"`
+
+	// Protocol specifies the Redis protocol version to use.
+	Protocol int `yaml:"protocol,omitempty"`
+
+	// Username for authentication (used with ACLs).
+	Username string `yaml:"username,omitempty"`
+
+	// Password for authentication.
+	Password string `yaml:"password,omitempty"`
+
+	// SentinelUsername is the username for Sentinel authentication.
+	SentinelUsername string `yaml:"sentinelusername,omitempty"`
+
+	// SentinelPassword is the password for Sentinel authentication.
+	SentinelPassword string `yaml:"sentinelpassword,omitempty"`
+
+	// MaxRetries is the maximum number of retries before giving up.
+	MaxRetries int `yaml:"maxretries,omitempty"`
+
+	// MinRetryBackoff is the minimum backoff between each retry.
+	MinRetryBackoff time.Duration `yaml:"minretrybackoff,omitempty"`
+
+	// MaxRetryBackoff is the maximum backoff between each retry.
+	MaxRetryBackoff time.Duration `yaml:"maxretrybackoff,omitempty"`
+
+	// DialTimeout is the timeout for establishing new connections.
+	DialTimeout time.Duration `yaml:"dialtimeout,omitempty"`
+
+	// ReadTimeout is the timeout for reading a single command reply.
+	ReadTimeout time.Duration `yaml:"readtimeout,omitempty"`
+
+	// WriteTimeout is the timeout for writing a single command.
+	WriteTimeout time.Duration `yaml:"writetimeout,omitempty"`
+
+	// ContextTimeoutEnabled enables wrapping operations with a context timeout.
+	ContextTimeoutEnabled bool `yaml:"contexttimeoutenabled,omitempty"`
+
+	// PoolFIFO uses FIFO mode for each node connection pool GET/PUT (default is LIFO).
+	PoolFIFO bool `yaml:"poolfifo,omitempty"`
+
+	// PoolSize is the maximum number of socket connections.
+	PoolSize int `yaml:"poolsize,omitempty"`
+
+	// PoolTimeout is the amount of time a client waits for a connection if all are busy.
+	PoolTimeout time.Duration `yaml:"pooltimeout,omitempty"`
+
+	// MinIdleConns is the minimum number of idle connections maintained in the pool.
+	MinIdleConns int `yaml:"minidleconns,omitempty"`
+
+	// MaxIdleConns is the maximum number of idle connections.
+	MaxIdleConns int `yaml:"maxidleconns,omitempty"`
+
+	// MaxActiveConns is the maximum number of active connections (cluster mode only).
+	MaxActiveConns int `yaml:"maxactiveconns,omitempty"`
+
+	// ConnMaxIdleTime is the maximum amount of time a connection can be idle.
+	ConnMaxIdleTime time.Duration `yaml:"connmaxidletime,omitempty"`
+
+	// ConnMaxLifetime is the maximum lifetime of a connection.
+	ConnMaxLifetime time.Duration `yaml:"connmaxlifetime,omitempty"`
+
+	// MaxRedirects is the maximum number of redirects to follow in cluster mode.
+	MaxRedirects int `yaml:"maxredirects,omitempty"`
+
+	// ReadOnly enables read-only mode for cluster clients.
+	ReadOnly bool `yaml:"readonly,omitempty"`
+
+	// RouteByLatency routes commands to the closest node based on latency.
+	RouteByLatency bool `yaml:"routebylatency,omitempty"`
+
+	// RouteRandomly routes commands randomly among eligible nodes.
+	RouteRandomly bool `yaml:"routerandomly,omitempty"`
+
+	// MasterName is the Sentinel master name.
+	// Only applicable for failover clients.
+	MasterName string `yaml:"mastername,omitempty"`
+
+	// DisableIdentity disables the CLIENT SETINFO command on connect.
+	DisableIdentity bool `yaml:"disableidentity,omitempty"`
+
+	// IdentitySuffix is an optional suffix for CLIENT SETINFO.
+	IdentitySuffix string `yaml:"identitysuffix,omitempty"`
+
+	// UnstableResp3 enables RESP3 features that are not finalized yet.
+	UnstableResp3 bool `yaml:"unstableresp3,omitempty"`
+}
 
 // RedisTLSOptions configures the TLS (Transport Layer Security) settings for
 // Redis connections, allowing secure communication over the network.
@@ -849,9 +975,9 @@ type RedisTLSOptions struct {
 	// This key is used to authenticate the client during the TLS handshake.
 	Key string `yaml:"key,omitempty"`
 
-	// ClientCAs specifies a list of certificates to be used to verify the server's
-	// certificate during the TLS handshake. This can be used for mutual TLS authentication.
-	ClientCAs []string `yaml:"clientcas,omitempty"`
+	// RootCAs specifies a list of root certificate authorities that clients use when
+	// verifying server certificates. If RootCAs is nil, TLS uses the host's root CA set.
+	RootCAs []string `yaml:"rootcas,omitempty"`
 }
 
 // Redis represents the configuration for connecting to a Redis server. It includes
@@ -867,162 +993,6 @@ type Redis struct {
 	TLS RedisTLSOptions `yaml:"tls,omitempty"`
 }
 
-func (c Redis) MarshalYAML() (interface{}, error) {
-	fields := make(map[string]interface{})
-
-	val := reflect.ValueOf(c.Options)
-	typ := val.Type()
-
-	for i := 0; i < val.NumField(); i++ {
-		field := typ.Field(i)
-		fieldValue := val.Field(i)
-
-		// ignore funcs fields in redis.UniversalOptions
-		if fieldValue.Kind() == reflect.Func {
-			continue
-		}
-
-		fields[strings.ToLower(field.Name)] = fieldValue.Interface()
-	}
-
-	// Add TLS fields if they're not empty
-	if c.TLS.Certificate != "" || c.TLS.Key != "" || len(c.TLS.ClientCAs) > 0 {
-		fields["tls"] = c.TLS
-	}
-
-	return fields, nil
-}
-
-func (c *Redis) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var fields map[string]interface{}
-	err := unmarshal(&fields)
-	if err != nil {
-		return err
-	}
-
-	val := reflect.ValueOf(&c.Options).Elem()
-	typ := val.Type()
-
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		fieldName := strings.ToLower(field.Name)
-
-		if value, ok := fields[fieldName]; ok {
-			fieldValue := val.Field(i)
-			if fieldValue.CanSet() {
-				switch field.Type {
-				case reflect.TypeOf(time.Duration(0)):
-					durationStr, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("invalid duration value for field: %s", fieldName)
-					}
-					duration, err := time.ParseDuration(durationStr)
-					if err != nil {
-						return fmt.Errorf("failed to parse duration for field: %s, error: %v", fieldName, err)
-					}
-					fieldValue.Set(reflect.ValueOf(duration))
-				default:
-					if err := setFieldValue(fieldValue, value); err != nil {
-						return fmt.Errorf("failed to set value for field: %s, error: %v", fieldName, err)
-					}
-				}
-			}
-		}
-	}
-
-	// Handle TLS fields
-	if tlsData, ok := fields["tls"]; ok {
-		tlsMap, ok := tlsData.(map[interface{}]interface{})
-		if !ok {
-			return fmt.Errorf("invalid TLS data structure")
-		}
-
-		if cert, ok := tlsMap["certificate"]; ok {
-			var isString bool
-			c.TLS.Certificate, isString = cert.(string)
-			if !isString {
-				return fmt.Errorf("Redis TLS certificate must be a string")
-			}
-		}
-		if key, ok := tlsMap["key"]; ok {
-			var isString bool
-			c.TLS.Key, isString = key.(string)
-			if !isString {
-				return fmt.Errorf("Redis TLS (private) key must be a string")
-			}
-		}
-		if cas, ok := tlsMap["clientcas"]; ok {
-			caList, ok := cas.([]interface{})
-			if !ok {
-				return fmt.Errorf("invalid clientcas data structure")
-			}
-			for _, ca := range caList {
-				if caStr, ok := ca.(string); ok {
-					c.TLS.ClientCAs = append(c.TLS.ClientCAs, caStr)
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func setFieldValue(field reflect.Value, value interface{}) error {
-	if value == nil {
-		return nil
-	}
-
-	switch field.Kind() {
-	case reflect.String:
-		stringValue, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("failed to convert value to string")
-		}
-		field.SetString(stringValue)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		intValue, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("failed to convert value to integer")
-		}
-		field.SetInt(int64(intValue))
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		uintValue, ok := value.(uint)
-		if !ok {
-			return fmt.Errorf("failed to convert value to unsigned integer")
-		}
-		field.SetUint(uint64(uintValue))
-	case reflect.Float32, reflect.Float64:
-		floatValue, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("failed to convert value to float")
-		}
-		field.SetFloat(floatValue)
-	case reflect.Bool:
-		boolValue, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("failed to convert value to boolean")
-		}
-		field.SetBool(boolValue)
-	case reflect.Slice:
-		slice := reflect.MakeSlice(field.Type(), 0, 0)
-		valueSlice, ok := value.([]interface{})
-		if !ok {
-			return fmt.Errorf("failed to convert value to slice")
-		}
-		for _, item := range valueSlice {
-			sliceValue := reflect.New(field.Type().Elem()).Elem()
-			if err := setFieldValue(sliceValue, item); err != nil {
-				return err
-			}
-			slice = reflect.Append(slice, sliceValue)
-		}
-		field.Set(slice)
-	default:
-		return fmt.Errorf("unsupported field type: %v", field.Type())
-	}
-	return nil
-}
-
 const (
 	ClientAuthRequestClientCert          = "request-client-cert"
 	ClientAuthRequireAnyClientCert       = "require-any-client-cert"
@@ -1034,7 +1004,7 @@ type ClientAuth string
 
 // UnmarshalYAML implements the yaml.Umarshaler interface
 // Unmarshals a string into a ClientAuth, validating that it represents a valid ClientAuth mod
-func (clientAuth *ClientAuth) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (clientAuth *ClientAuth) UnmarshalYAML(unmarshal func(any) error) error {
 	var clientAuthString string
 	err := unmarshal(&clientAuthString)
 	if err != nil {

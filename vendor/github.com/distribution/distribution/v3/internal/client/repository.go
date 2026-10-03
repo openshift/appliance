@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -45,14 +46,7 @@ func checkHTTPRedirect(req *http.Request, via []*http.Request) error {
 				// Don't add to redirected request if redirected
 				// request already has a header with the same
 				// name and value.
-				hasValue := false
-				for _, existingVal := range req.Header[headerName] {
-					if existingVal == val {
-						hasValue = true
-						break
-					}
-				}
-				if !hasValue {
+				if !slices.Contains(req.Header[headerName], val) {
 					req.Header.Add(headerName, val)
 				}
 			}
@@ -350,7 +344,67 @@ func (t *tags) Lookup(ctx context.Context, digest v1.Descriptor) ([]string, erro
 	panic("not implemented")
 }
 
-func (t *tags) Tag(ctx context.Context, tag string, desc v1.Descriptor) error {
+func (t *tags) List(ctx context.Context, limit int, last string) ([]string, error) {
+	if limit < 0 {
+		tags, err := t.All(ctx)
+		if err != nil {
+			return tags, err
+		}
+		// return io.EOF, indicating that there are no more tags to list
+		return tags, io.EOF
+	}
+	v := url.Values{}
+	v.Add("n", strconv.Itoa(limit))
+	if last != "" {
+		v.Add("last", last)
+	}
+	listURLStr, err := t.ub.BuildTagsURL(t.name, v)
+	if err != nil {
+		return nil, err
+	}
+
+	listURL, err := url.Parse(listURLStr)
+	if err != nil {
+		return nil, err
+	}
+
+	preAlloc := min(limit, 1000)
+	tags := make([]string, 0, preAlloc)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, listURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := t.client.Do(req)
+	if err != nil {
+		return tags, err
+	}
+	defer resp.Body.Close()
+
+	if err := HandleHTTPResponseError(resp); err != nil {
+		return tags, err
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return tags, err
+	}
+
+	tagsResponse := struct {
+		Tags []string `json:"tags"`
+	}{}
+	if err := json.Unmarshal(b, &tagsResponse); err != nil {
+		return tags, err
+	}
+	tags = append(tags, tagsResponse.Tags...)
+	// if there is a Link header, return nil to indicate that there are more tags to list
+	// otherwise return io.EOF to indicate that there are no more tags to list
+	if link := resp.Header.Get("Link"); link != "" {
+		return tags, nil
+	}
+	return tags, io.EOF
+}
+
+func (t *tags) Tag(ctx context.Context, tag string, desc distribution.Descriptor) error {
 	panic("not implemented")
 }
 
@@ -399,6 +453,12 @@ func (ms *manifests) Exists(ctx context.Context, dgst digest.Digest) (bool, erro
 	if err != nil {
 		return false, err
 	}
+
+	mediaTypes := distribution.ManifestMediaTypes()
+	for _, t := range mediaTypes {
+		req.Header.Add("Accept", t)
+	}
+
 	resp, err := ms.client.Do(req)
 	if err != nil {
 		return false, err
@@ -476,6 +536,10 @@ func (ms *manifests) Get(ctx context.Context, dgst digest.Digest, options ...dis
 		}
 	}
 
+	// byDigest records whether the caller pinned the manifest by digest (as
+	// opposed to fetching by tag). When true, the returned content must hash to
+	// the requested digest.
+	byDigest := digestOrTag == ""
 	if digestOrTag == "" {
 		digestOrTag = dgst.String()
 		ref, err = reference.WithDigest(ms.name, dgst)
@@ -529,6 +593,28 @@ func (ms *manifests) Get(ctx context.Context, dgst digest.Digest, options ...dis
 	if err != nil {
 		return nil, err
 	}
+
+	// When the manifest was requested by digest, verify that the content the
+	// registry returned actually hashes to that digest. The server-supplied
+	// Docker-Content-Digest header is not trustworthy: a malicious registry or
+	// a MITM can forge it while serving arbitrary bytes. Without this check,
+	// digest pinning provides no integrity guarantee.
+	if byDigest {
+		// Reject a digest whose algorithm is unsupported/unavailable rather
+		// than letting dgst.Verifier() panic; such a digest cannot be verified,
+		// so fail closed.
+		if err := dgst.Validate(); err != nil {
+			return nil, err
+		}
+		verifier := dgst.Verifier()
+		if _, err := verifier.Write(body); err != nil {
+			return nil, err
+		}
+		if !verifier.Verified() {
+			return nil, fmt.Errorf("manifest digest mismatch: requested %s but received content does not match", dgst)
+		}
+	}
+
 	m, _, err := distribution.UnmarshalManifest(mt, body)
 	if err != nil {
 		return nil, err
@@ -659,16 +745,45 @@ func (bs *blobs) Stat(ctx context.Context, dgst digest.Digest) (v1.Descriptor, e
 	return bs.statter.Stat(ctx, dgst)
 }
 
+// Get fetches the blob for dgst and verifies that the returned content hashes
+// to it. Because the blob is content-addressed, a malicious registry or a MITM
+// can serve arbitrary bytes for a digest-pinned request; buffering and hashing
+// the whole body is what makes digest pinning meaningful. Callers that need an
+// integrity guarantee should use Get rather than Open (see Open).
 func (bs *blobs) Get(ctx context.Context, dgst digest.Digest) ([]byte, error) {
+	// Reject a digest whose algorithm is unsupported/unavailable rather than
+	// letting dgst.Verifier() panic; such a digest cannot be verified, so fail
+	// closed.
+	if err := dgst.Validate(); err != nil {
+		return nil, err
+	}
 	reader, err := bs.Open(ctx, dgst)
 	if err != nil {
 		return nil, err
 	}
 	defer reader.Close()
 
-	return io.ReadAll(reader)
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	verifier := dgst.Verifier()
+	if _, err := verifier.Write(body); err != nil {
+		return nil, err
+	}
+	if !verifier.Verified() {
+		return nil, fmt.Errorf("blob digest mismatch: requested %s but received content does not match", dgst)
+	}
+	return body, nil
 }
 
+// Open returns a reader that streams the blob for dgst. The returned content is
+// NOT verified against dgst: a content digest can only be checked once the whole
+// blob has been read, but Open hands bytes to the caller as they stream (and a
+// caller may read only part of the blob or seek), so verification cannot be
+// guaranteed in a single pass. Callers that rely on the digest for integrity
+// must use Get, which buffers and verifies the entire blob before returning it.
 func (bs *blobs) Open(ctx context.Context, dgst digest.Digest) (io.ReadSeekCloser, error) {
 	ref, err := reference.WithDigest(bs.name, dgst)
 	if err != nil {
@@ -733,16 +848,16 @@ func (bs *blobs) Put(ctx context.Context, mediaType string, p []byte) (v1.Descri
 	})
 }
 
-type optionFunc func(interface{}) error
+type optionFunc func(any) error
 
-func (f optionFunc) Apply(v interface{}) error {
+func (f optionFunc) Apply(v any) error {
 	return f(v)
 }
 
 // WithMountFrom returns a BlobCreateOption which designates that the blob should be
 // mounted from the given canonical reference.
 func WithMountFrom(ref reference.Canonical) distribution.BlobCreateOption {
-	return optionFunc(func(v interface{}) error {
+	return optionFunc(func(v any) error {
 		opts, ok := v.(*distribution.CreateOptions)
 		if !ok {
 			return fmt.Errorf("unexpected options type: %T", v)
