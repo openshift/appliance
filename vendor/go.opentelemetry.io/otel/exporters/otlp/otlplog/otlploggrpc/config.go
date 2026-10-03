@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package otlploggrpc // import "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
+package otlploggrpc
 
 import (
 	"crypto/tls"
@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -24,9 +25,10 @@ import (
 
 // Default values.
 var (
-	defaultEndpoint = "localhost:4317"
-	defaultTimeout  = 10 * time.Second
-	defaultRetryCfg = retry.DefaultConfig
+	defaultEndpoint       = "localhost:4317"
+	defaultTimeout        = 10 * time.Second
+	defaultMaxRequestSize = 64 * 1024 * 1024
+	defaultRetryCfg       = retry.DefaultConfig
 )
 
 // Environment variable keys.
@@ -84,13 +86,14 @@ type Option interface {
 }
 
 type config struct {
-	endpoint    setting[string]
-	insecure    setting[bool]
-	tlsCfg      setting[*tls.Config]
-	headers     setting[map[string]string]
-	compression setting[Compression]
-	timeout     setting[time.Duration]
-	retryCfg    setting[retry.Config]
+	endpoint       setting[string]
+	insecure       setting[bool]
+	tlsCfg         setting[*tls.Config]
+	headers        setting[map[string]string]
+	compression    setting[Compression]
+	maxRequestSize setting[int]
+	timeout        setting[time.Duration]
+	retryCfg       setting[retry.Config]
 
 	// gRPC configurations
 	gRPCCredentials    setting[credentials.TransportCredentials]
@@ -127,6 +130,9 @@ func newConfig(options []Option) config {
 	c.timeout = c.timeout.Resolve(
 		getEnv[time.Duration](envTimeout, convDuration),
 		fallback[time.Duration](defaultTimeout),
+	)
+	c.maxRequestSize = c.maxRequestSize.Resolve(
+		fallback[int](defaultMaxRequestSize),
 	)
 	c.retryCfg = c.retryCfg.Resolve(
 		fallback[retry.Config](defaultRetryCfg),
@@ -352,6 +358,19 @@ func WithTimeout(duration time.Duration) Option {
 	})
 }
 
+// WithMaxRequestSize sets the maximum size, in bytes, of a serialized export
+// request, before compression, that the exporter will send.
+//
+// If size is less than or equal to zero, no request-size limit is applied.
+// Disabling the limit is not recommended because it can lead to excessive
+// resource consumption or abuse.
+func WithMaxRequestSize(size int) Option {
+	return fnOpt(func(c config) config {
+		c.maxRequestSize = newSetting(size)
+		return c
+	})
+}
+
 // WithRetry sets the retry policy for transient retryable errors that are
 // returned by the target endpoint.
 //
@@ -359,8 +378,9 @@ func WithTimeout(duration time.Duration) Option {
 // explicitly returns a backoff time in the response, that time will take
 // precedence over these settings.
 //
-// These settings do not define any network retry strategy. That is entirely
-// handled by the gRPC ClientConn.
+// These settings define the retry strategy implemented by the exporter.
+// These settings do not define any network retry strategy.
+// That is handled by the gRPC ClientConn.
 //
 // If unset, the default retry policy will be used. It will retry the export
 // 5 seconds after receiving a retryable error and increase exponentially
@@ -435,20 +455,22 @@ func loadInsecureFromEnvEndpoint(envEndpoint []string) resolver[bool] {
 func convHeaders(s string) (map[string]string, error) {
 	out := make(map[string]string)
 	var err error
-	for _, header := range strings.Split(s, ",") {
+	for header := range strings.SplitSeq(s, ",") {
 		rawKey, rawVal, found := strings.Cut(header, "=")
 		if !found {
 			err = errors.Join(err, fmt.Errorf("invalid header: %s", header))
 			continue
 		}
 
-		escKey, e := url.PathUnescape(rawKey)
-		if e != nil {
+		key := strings.TrimSpace(rawKey)
+
+		// Validate the key.
+		if !isValidHeaderKey(key) {
 			err = errors.Join(err, fmt.Errorf("invalid header key: %s", rawKey))
 			continue
 		}
-		key := strings.TrimSpace(escKey)
 
+		// Only decode the value.
 		escVal, e := url.PathUnescape(rawVal)
 		if e != nil {
 			err = errors.Join(err, fmt.Errorf("invalid header value: %s", rawVal))
@@ -559,7 +581,7 @@ func loadCertificates(certPath, keyPath string) ([]tls.Certificate, error) {
 func insecureFromScheme(prev setting[bool], scheme string) setting[bool] {
 	if scheme == "https" {
 		return newSetting(false)
-	} else if len(scheme) > 0 {
+	} else if scheme != "" {
 		return newSetting(true)
 	}
 
@@ -650,4 +672,23 @@ func fallback[T any](val T) resolver[T] {
 		}
 		return s
 	}
+}
+
+func isValidHeaderKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	for _, c := range key {
+		if !isTokenChar(c) {
+			return false
+		}
+	}
+	return true
+}
+
+func isTokenChar(c rune) bool {
+	return c <= unicode.MaxASCII && (unicode.IsLetter(c) ||
+		unicode.IsDigit(c) ||
+		c == '!' || c == '#' || c == '$' || c == '%' || c == '&' || c == '\'' || c == '*' ||
+		c == '+' || c == '-' || c == '.' || c == '^' || c == '_' || c == '`' || c == '|' || c == '~')
 }
