@@ -33,19 +33,33 @@ tests/
         ├── config.txt
         └── errors.txt
 
-Create a makefile target `make integration-tests` to run only integration tests. Make sure that other makefile targets
-do not run the integration tests
+Create a makefile target `make integration-test` to run only integration tests. Make sure that other makefile targets
+do not run the integration tests.
+
+---
 
 ## Tests
 
-### build: missing configuration
+### build 
 
+#### missing configuration
 * setup: just the iso-builder, with no config
-* run: openshift-iso-builder build
-* verify: error due missing config
+* run: build command
+* verify: error due to missing config
 
-### show-config: missing configuration
+### show-config
 
+#### missing configuration
 * setup: just the iso-builder, with no config
-* run: openshift-iso-builder show-config
-* verify: error due missing config
+* run: show-config command
+* verify: error due to missing config
+
+#### complete sample config
+* setup: 
+  - create a sample but complete embedder yaml config, containing all the fields
+  - embed the config in the iso-builder
+* run: show-config command
+* verify: 
+  - the embedder succeeded
+  - the content shown matches the yaml config
+

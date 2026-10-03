@@ -1,0 +1,64 @@
+# Embed a complete config and verify show-config output.
+exec iso-config-embedder embed -c config.yaml -o $WORK/openshift-iso-builder-patched $ISO_BUILDER_BIN_RAW
+stderr 'Configuration embedded into'
+
+exec $WORK/openshift-iso-builder-patched show-config
+stdout 'OpenShift Version:\s+4.18'
+stdout 'Release Image:\s+quay\.io/openshift-release-dev/ocp-release:4\.18\.0-x86_64'
+stdout 'Architecture:\s+x86_64'
+stdout 'Pull Secret:\s+\*\*\*'
+stdout 'SSH Keys:\s+1 key'
+stdout 'FIPS:\s+Enabled'
+stdout 'Rendezvous IP:\s+192\.168\.1\.100'
+stdout 'Proxy:'
+stdout 'HTTP Proxy:\s+http://proxy\.example\.com:8080'
+stdout 'HTTPS Proxy:\s+https://proxy\.example\.com:8443'
+stdout 'No Proxy:\s+\.example\.com,10\.0\.0\.0/8'
+stdout 'Additional Trust Bundle:\s+present'
+stdout 'NTP Servers:\s+ntp1\.example\.com, ntp2\.example\.com'
+stdout 'OLM Operators:'
+stdout 'local-storage-operator v4\.18 \(channel: stable\)'
+stdout 'Additional Images:'
+stdout 'quay\.io/example/image:latest'
+stdout 'Network Configs:\s+1 config'
+stdout 'Extra Manifests:'
+stdout 'custom-config\.yaml'
+
+-- config.yaml --
+openshiftVersion: "4.18"
+releaseImageURL: "quay.io/openshift-release-dev/ocp-release:4.18.0-x86_64"
+pullSecret: '{"auths":{"example.com":{"auth":"dGVzdDp0ZXN0"}}}'
+architecture: x86_64
+sshKey:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC1example test@example
+fips: true
+rendezvousIP: "192.168.1.100"
+proxy:
+  httpProxy: http://proxy.example.com:8080
+  httpsProxy: https://proxy.example.com:8443
+  noProxy: ".example.com,10.0.0.0/8"
+additionalTrustBundle: |
+  -----BEGIN CERTIFICATE-----
+  MIIDExample
+  -----END CERTIFICATE-----
+additionalNTPServers:
+  - ntp1.example.com
+  - ntp2.example.com
+olmOperators:
+  - name: local-storage-operator
+    channel: stable
+    version: "4.18"
+additionalImages:
+  - quay.io/example/image:latest
+networkConfig:
+  - interfaces:
+      - name: eth0
+        type: ethernet
+        state: up
+extraManifests:
+  - name: custom-config.yaml
+    content: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: custom-config
