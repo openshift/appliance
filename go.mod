@@ -88,7 +88,7 @@ require (
 	github.com/IBM/vpc-go-sdk v0.76.2 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
-	github.com/PaesslerAG/gval v1.0.0 // indirect
+	github.com/PaesslerAG/gval v1.2.4 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
 	github.com/apparentlymart/go-cidr v1.1.0 // indirect
