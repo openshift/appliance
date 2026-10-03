@@ -19,7 +19,7 @@ func main() {
 	// layout on disk.
 	installerdata.Assets = http.FS(appliancedata.EmbeddedAssets)
 
-	if err := isobuilder.RunCommand(); err != nil {
+	if err := isobuilder.Run(); err != nil {
 		logrus.Fatalf("Error executing %s: %v", filepath.Base(os.Args[0]), err)
 	}
 }

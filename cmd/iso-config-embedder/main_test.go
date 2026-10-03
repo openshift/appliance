@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	isobuilder "github.com/openshift/appliance/pkg/iso-builder"
+	isoconfigembedder "github.com/openshift/appliance/pkg/iso-config-embedder"
 	isobuilderconfig "github.com/openshift/appliance/pkg/iso-builder/config"
 )
 
@@ -110,8 +110,8 @@ extraManifests:
 			configPath := writeYAMLFile(t, tc.yaml)
 			out := outputPath(t)
 
-			if err := isobuilder.EmbedConfigFile(configPath, binaryPath, out, false); err != nil {
-				t.Fatalf("isobuilder.EmbedConfigFile: %v", err)
+			if err := isoconfigembedder.EmbedConfigFile(configPath, binaryPath, out, false); err != nil {
+				t.Fatalf("isoconfigembedder.EmbedConfigFile: %v", err)
 			}
 
 			cfg, err := isobuilderconfig.ReadFromBinary(out)
@@ -192,7 +192,7 @@ func TestEmbedPullSecretFromRegistryAuthFile(t *testing.T) {
 				}
 			}
 
-			err := isobuilder.EmbedConfigFile(configPath, binaryPath, out, false)
+			err := isoconfigembedder.EmbedConfigFile(configPath, binaryPath, out, false)
 
 			if tc.wantErr != "" {
 				if err == nil {
@@ -205,7 +205,7 @@ func TestEmbedPullSecretFromRegistryAuthFile(t *testing.T) {
 			}
 
 			if err != nil {
-				t.Fatalf("isobuilder.EmbedConfigFile: %v", err)
+				t.Fatalf("isoconfigembedder.EmbedConfigFile: %v", err)
 			}
 
 			if tc.wantSecret == "" {
@@ -231,8 +231,8 @@ architecture: x86_64
 `)
 	out := outputPath(t)
 
-	if err := isobuilder.EmbedConfigFile(configPath, binaryPath, out, false); err != nil {
-		t.Fatalf("isobuilder.EmbedConfigFile: %v", err)
+	if err := isoconfigembedder.EmbedConfigFile(configPath, binaryPath, out, false); err != nil {
+		t.Fatalf("isoconfigembedder.EmbedConfigFile: %v", err)
 	}
 
 	cfg, err := isobuilderconfig.ReadFromBinary(out)
@@ -256,7 +256,7 @@ func TestEmbedInvalidYAML(t *testing.T) {
 	binaryPath := writeFakeBinary(t)
 	configPath := writeYAMLFile(t, `{invalid: yaml: [`)
 
-	err := isobuilder.EmbedConfigFile(configPath, binaryPath, outputPath(t), false)
+	err := isoconfigembedder.EmbedConfigFile(configPath, binaryPath, outputPath(t), false)
 	if err == nil {
 		t.Fatal("expected error for invalid YAML, got nil")
 	}
@@ -268,7 +268,7 @@ func TestEmbedInvalidYAML(t *testing.T) {
 func TestEmbedMissingConfigFile(t *testing.T) {
 	binaryPath := writeFakeBinary(t)
 
-	err := isobuilder.EmbedConfigFile("/nonexistent/config.yaml", binaryPath, outputPath(t), false)
+	err := isoconfigembedder.EmbedConfigFile("/nonexistent/config.yaml", binaryPath, outputPath(t), false)
 	if err == nil {
 		t.Fatal("expected error for missing config file, got nil")
 	}
@@ -280,7 +280,7 @@ func TestEmbedMissingConfigFile(t *testing.T) {
 func TestEmbedMissingBinary(t *testing.T) {
 	configPath := writeYAMLFile(t, `pullSecret: '{"auths":{}}'`)
 
-	err := isobuilder.EmbedConfigFile(configPath, "/nonexistent/binary", outputPath(t), false)
+	err := isoconfigembedder.EmbedConfigFile(configPath, "/nonexistent/binary", outputPath(t), false)
 	if err == nil {
 		t.Fatal("expected error for missing binary, got nil")
 	}
@@ -292,7 +292,7 @@ func TestEmbedMissingBinary(t *testing.T) {
 func TestShowNoEmbeddedConfig(t *testing.T) {
 	binaryPath := writeFakeBinary(t)
 
-	err := isobuilder.ShowConfigFromBinary(binaryPath)
+	err := isoconfigembedder.ShowConfigFromBinary(binaryPath)
 	if err == nil {
 		t.Fatal("expected error for empty embed area, got nil")
 	}
@@ -302,7 +302,7 @@ func TestShowNoEmbeddedConfig(t *testing.T) {
 }
 
 func TestShowMissingBinary(t *testing.T) {
-	err := isobuilder.ShowConfigFromBinary("/nonexistent/binary")
+	err := isoconfigembedder.ShowConfigFromBinary("/nonexistent/binary")
 	if err == nil {
 		t.Fatal("expected error for missing binary, got nil")
 	}
@@ -317,7 +317,7 @@ func TestEmbedStrictYAMLRejectsUnknownFields(t *testing.T) {
 unknownField: should-be-rejected
 `)
 
-	err := isobuilder.EmbedConfigFile(configPath, binaryPath, outputPath(t), false)
+	err := isoconfigembedder.EmbedConfigFile(configPath, binaryPath, outputPath(t), false)
 	if err == nil {
 		t.Fatal("expected error for unknown YAML field, got nil")
 	}
@@ -331,14 +331,14 @@ func TestEmbedForceOverwrite(t *testing.T) {
 	first := writeYAMLFile(t, `pullSecret: '{"auths":{"first":{}}}'`)
 	embedded := outputPath(t)
 
-	if err := isobuilder.EmbedConfigFile(first, binaryPath, embedded, false); err != nil {
+	if err := isoconfigembedder.EmbedConfigFile(first, binaryPath, embedded, false); err != nil {
 		t.Fatalf("first embed: %v", err)
 	}
 
 	second := writeYAMLFile(t, `pullSecret: '{"auths":{"second":{}}}'`)
 	out2 := filepath.Join(t.TempDir(), "output2")
 
-	err := isobuilder.EmbedConfigFile(second, embedded, out2, false)
+	err := isoconfigembedder.EmbedConfigFile(second, embedded, out2, false)
 	if err == nil {
 		t.Fatal("expected error when overwriting without --force")
 	}
@@ -346,7 +346,7 @@ func TestEmbedForceOverwrite(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	if err := isobuilder.EmbedConfigFile(second, embedded, out2, true); err != nil {
+	if err := isoconfigembedder.EmbedConfigFile(second, embedded, out2, true); err != nil {
 		t.Fatalf("embed with --force: %v", err)
 	}
 
@@ -364,7 +364,7 @@ func TestEmbedDoesNotModifySource(t *testing.T) {
 	configPath := writeYAMLFile(t, `pullSecret: '{"auths":{}}'`)
 	out := outputPath(t)
 
-	if err := isobuilder.EmbedConfigFile(configPath, binaryPath, out, false); err != nil {
+	if err := isoconfigembedder.EmbedConfigFile(configPath, binaryPath, out, false); err != nil {
 		t.Fatalf("embed: %v", err)
 	}
 
@@ -399,8 +399,8 @@ func TestEmbedFromStdin(t *testing.T) {
 		_ = w.Close()
 	}()
 
-	if err := isobuilder.EmbedConfigFile("", binaryPath, out, false); err != nil {
-		t.Fatalf("isobuilder.EmbedConfigFile from stdin: %v", err)
+	if err := isoconfigembedder.EmbedConfigFile("", binaryPath, out, false); err != nil {
+		t.Fatalf("isoconfigembedder.EmbedConfigFile from stdin: %v", err)
 	}
 
 	cfg, err := isobuilderconfig.ReadFromBinary(out)

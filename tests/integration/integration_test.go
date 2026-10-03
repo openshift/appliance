@@ -14,12 +14,13 @@ import (
 
 	appliancedata "github.com/openshift/appliance/data"
 	isobuilder "github.com/openshift/appliance/pkg/iso-builder"
+	isoconfigembedder "github.com/openshift/appliance/pkg/iso-config-embedder"
 	installerdata "github.com/openshift/installer/data"
 )
 
 func isoBuilderMain() {
 	installerdata.Assets = http.FS(appliancedata.EmbeddedAssets)
-	if err := isobuilder.RunCommand(); err != nil {
+	if err := isobuilder.Run(); err != nil {
 		logrus.Fatalf("Error executing %s: %v", filepath.Base(os.Args[0]), err)
 	}
 }
@@ -29,7 +30,7 @@ func TestMain(m *testing.M) {
 		"openshift-iso-builder":         isoBuilderMain,
 		"openshift-iso-builder-patched": isoBuilderMain,
 		"iso-config-embedder": func() {
-			if err := isobuilder.RunEmbedder(); err != nil {
+			if err := isoconfigembedder.Run(); err != nil {
 				logrus.Fatalf("Error executing %s: %v", filepath.Base(os.Args[0]), err)
 			}
 		},

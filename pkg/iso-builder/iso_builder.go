@@ -7,11 +7,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/openshift/appliance/pkg/iso-builder/commands"
 	"github.com/openshift/appliance/pkg/log"
 )
 
-// RunCommand builds and executes the iso-builder CLI command tree.
-func RunCommand() error {
+// Run builds and executes the iso-builder CLI command tree.
+func Run() error {
 	var logLevel string
 	var workingDir string
 
@@ -30,7 +31,7 @@ func RunCommand() error {
 		Use:   "build",
 		Short: "Build the ISO using the embedded configuration",
 		Run: func(cmd *cobra.Command, args []string) {
-			builder := NewBuilder(workingDir)
+			builder := commands.NewBuilder(workingDir)
 			if err := builder.Build(cmd.Context()); err != nil {
 				logrus.Fatal(err)
 			}
@@ -43,7 +44,7 @@ func RunCommand() error {
 		Use:   "show-config",
 		Short: "Display the embedded configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return ShowConfig(os.Stdout)
+			return commands.ShowConfig(os.Stdout)
 		},
 	}
 	rootCmd.AddCommand(showConfigCmd)

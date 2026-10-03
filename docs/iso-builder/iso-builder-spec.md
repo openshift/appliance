@@ -116,8 +116,28 @@ the existing appliance code, to run the ISO build.
 
 ### 4.3 Internal structure
 
-* Use cmd/iso-builder to specify the new command
-* Use pkg/iso-builder for all the code related to the iso-builder
+```
+cmd/
+├── iso-builder/                  # main() for the iso-builder CLI
+└── iso-config-embedder/          # main() for the iso-config-embedder CLI
+
+pkg/
+├── iso-builder/                  # Root: CLI wiring (cobra root command + subcommands)
+│   ├── commands/                 # Command implementations (Builder, ShowConfig)
+│   ├── config/                   # Config model and binary embed I/O (standalone module)
+│   ├── embeddedconfig/           # Runtime loader for the embedded config area
+│   └── gen_embed_area/           # Build-time generator for config_embed_area.bin
+└── iso-config-embedder/          # iso-config-embedder tool (embed + show commands)
+```
+
+| Package | Role |
+|---|---|
+| `pkg/iso-builder` | Defines the iso-builder CLI command tree (root, `build`, `show-config`) via cobra. Entry point: `Run()`. |
+| `pkg/iso-builder/commands` | Implements the iso-builder commands: `Builder` orchestrates the ISO build, `ShowConfig` displays the embedded configuration. |
+| `pkg/iso-builder/config` | Standalone Go module defining the `Config` model, serialisation (JSON/base64), and binary embed read/write. Importable by external projects (e.g. assisted-service) without pulling the full dependency tree. |
+| `pkg/iso-builder/embeddedconfig` | Holds the `config_embed_area.bin` blob (`//go:embed`), its generator directive (`//go:generate`), and the `LoadConfig()` function that decodes the embedded area at runtime. Keeps `rawConfigArea` unexported. |
+| `pkg/iso-builder/gen_embed_area` | Build-time generator (`go generate`) that produces `config_embed_area.bin` (start marker + 1 MiB NUL pad + end marker). |
+| `pkg/iso-config-embedder` | Implements the iso-config-embedder CLI, a separate tool that embeds a YAML config into an iso-builder binary and can read it back. Entry point: `Run()`. |
 
 ### 4.4 External dependencies
 

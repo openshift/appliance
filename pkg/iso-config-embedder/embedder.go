@@ -1,4 +1,4 @@
-package isobuilder
+package isoconfigembedder
 
 import (
 	"fmt"
@@ -15,8 +15,8 @@ import (
 	"github.com/openshift/appliance/pkg/log"
 )
 
-// RunEmbedder builds and executes the iso-config-embedder CLI command tree.
-func RunEmbedder() error {
+// Run builds and executes the iso-config-embedder CLI command tree.
+func Run() error {
 	var logLevel string
 	var configPath string
 	var force bool
