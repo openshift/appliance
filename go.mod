@@ -11,7 +11,7 @@ require (
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coreos/ignition/v2 v2.25.0
 	github.com/coreos/stream-metadata-go v0.4.10
-	github.com/diskfs/go-diskfs v1.7.1-0.20251217162235-58541aa8f559
+	github.com/diskfs/go-diskfs v1.9.4
 	github.com/distribution/distribution/v3 v3.0.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-openapi/swag v0.25.4
