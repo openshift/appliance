@@ -80,7 +80,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.54.0 // indirect
 	github.com/IBM-Cloud/bluemix-go v0.0.0-20250618042132-471bd83e0b74 // indirect
 	github.com/IBM-Cloud/power-go-client v1.14.4 // indirect
-	github.com/IBM/go-sdk-core/v5 v5.21.2 // indirect
+	github.com/IBM/go-sdk-core/v5 v5.23.5 // indirect
 	github.com/IBM/ibm-cos-sdk-go v1.12.4 // indirect
 	github.com/IBM/keyprotect-go-client v0.12.2 // indirect
 	github.com/IBM/networking-go-sdk v0.51.15 // indirect
