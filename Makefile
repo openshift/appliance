@@ -97,5 +97,9 @@ _unit_test: $(REPORTS)
 	# TODO: Add code coverage reports
 	gotestsum $(GO_UNITTEST_FLAGS) $(TEST) $(GINKGO_UNITTEST_FLAGS) -timeout $(TIMEOUT)
 
+.PHONY: integration-test
+integration-test:
+	go test -v -count=1 -tags integration ./tests/integration/...
+
 update-rpm-lockfile:
 	./hack/update-rpm-lockfile.sh

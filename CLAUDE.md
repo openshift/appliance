@@ -52,6 +52,12 @@ Refer to `docs/iso-builder/iso-builder-spec.md` for the full design specificatio
 - Do not add too many comments to the tests
 - Try to use only the exported methods for a given type in the tests. 
 
+#### Integration testing
+
+- Refer to `docs/iso-builder/iso-builder-integration-tests.md` for more details on how to write and
+  run integration tests
+- `make integration-test` - runs integration tests only
+
 ### Error handling
 
 - Wrap errors with context: `errors.Wrap(err, "descriptive message")`

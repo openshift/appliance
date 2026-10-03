@@ -1,0 +1,3 @@
+# Verify that building without embedded configuration fails.
+! exec openshift-iso-builder build
+stderr 'no configuration has been found'
