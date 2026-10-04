@@ -1,0 +1,10 @@
+# Verify that building without openshiftVersion fails with a clear error.
+exec iso-config-embedder embed -c config.yaml -o $WORK/openshift-iso-builder-patched $ISO_BUILDER_BIN_RAW
+stderr 'Configuration embedded into'
+
+! exec $WORK/openshift-iso-builder-patched build
+stderr 'ocpRelease version is required'
+
+-- config.yaml --
+releaseImageURL: quay.io/example/release:4.18.0
+pullSecret: '{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'

@@ -97,6 +97,10 @@ _unit_test: $(REPORTS)
 	# TODO: Add code coverage reports
 	gotestsum $(GO_UNITTEST_FLAGS) $(TEST) $(GINKGO_UNITTEST_FLAGS) -timeout $(TIMEOUT)
 
+.PHONY: integration-test-fast
+integration-test-fast:
+	go test -v -count=1 -short -tags integration ./tests/integration/...
+
 .PHONY: integration-test
 integration-test:
 	go test -v -count=1 -tags integration ./tests/integration/...

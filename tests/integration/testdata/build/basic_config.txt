@@ -1,0 +1,13 @@
+[short] skip 'requires network access to quay.io'
+
+# Embed a complete config and verify build command.
+exec iso-config-embedder embed -c config.yaml -o $WORK/openshift-iso-builder-patched $ISO_BUILDER_BIN_RAW
+stderr 'Configuration embedded into'
+
+exec $WORK/openshift-iso-builder-patched build
+exists agent.x86_64.iso
+
+-- config.yaml --
+openshiftVersion: 5.0.0
+releaseImageURL: quay.io/okd/scos-release:5.0.0-okd-scos.0
+pullSecret: '{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'

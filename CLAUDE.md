@@ -56,7 +56,8 @@ Refer to `docs/iso-builder/iso-builder-spec.md` for the full design specificatio
 
 - Refer to `docs/iso-builder/iso-builder-integration-tests.md` for more details on how to write and
   run integration tests
-- `make integration-test` - runs integration tests only
+- `make integration-test-fast` - runs short integration tests only
+- `make integration-test` - runs all integration tests (to be used mainly in CI)
 
 ### Error handling
 
