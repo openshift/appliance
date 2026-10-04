@@ -279,7 +279,7 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect
 	github.com/std-uritemplate/std-uritemplate/go/v2 v2.0.5 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
-	github.com/vmware/govmomi v0.53.0 // indirect
+	github.com/vmware/govmomi v0.56.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.mongodb.org/mongo-driver v1.17.10 // indirect
