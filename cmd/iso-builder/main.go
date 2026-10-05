@@ -20,7 +20,8 @@ var (
 		logLevel string
 	}
 	buildOpts struct {
-		workingDir string
+		workingDir       string
+		additionalImages []string
 	}
 )
 
@@ -68,12 +69,13 @@ func newBuildCmd() *cobra.Command {
 		Use:   "build",
 		Short: "Build the ISO using the embedded configuration",
 		Run: func(cmd *cobra.Command, args []string) {
-			builder := isobuilder.NewBuilder(buildOpts.workingDir)
+			builder := isobuilder.NewBuilder(buildOpts.workingDir, buildOpts.additionalImages)
 			if err := builder.Build(cmd.Context()); err != nil {
 				logrus.Fatal(err)
 			}
 		},
 	}
 	cmd.Flags().StringVar(&buildOpts.workingDir, "working-dir", ".", "working directory for the ISO build")
+	cmd.Flags().StringArrayVar(&buildOpts.additionalImages, "additional-image", nil, "additional container image to include in the ISO (can be specified multiple times)")
 	return cmd
 }
