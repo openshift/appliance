@@ -19,6 +19,7 @@ GINKGO_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo
 
 TIMEOUT = 30m
 GINKGO_REPORTFILE := $(or $(GINKGO_REPORTFILE), ./junit_unit_test.xml)
+# Required by go.podman.io/image: use pure-Go OpenPGP (no GPGME C dep) and skip the btrfs driver.
 GO_BUILD_TAGS = containers_image_openpgp,exclude_graphdriver_btrfs
 GO_UNITTEST_FLAGS = --format=$(GO_TEST_FORMAT) $(GOTEST_PUBLISH_FLAGS) -- -tags $(GO_BUILD_TAGS) -count=1 -cover -coverprofile=$(COVER_PROFILE)
 GINKGO_UNITTEST_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo.v -ginkgo.junit-report=$(GINKGO_REPORTFILE)

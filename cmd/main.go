@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"go.podman.io/storage/pkg/reexec"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -18,13 +17,6 @@ var (
 )
 
 func main() {
-	if reexec.Init() {
-		return
-	}
-	applianceMain()
-}
-
-func applianceMain() {
 	rootCmd := newRootCmd()
 
 	for _, subCmd := range []*cobra.Command{
