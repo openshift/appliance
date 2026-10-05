@@ -103,7 +103,7 @@ integration-test-fast:
 
 .PHONY: integration-test
 integration-test:
-	go test -v -count=1 -tags integration ./tests/integration/...
+	go test -count=1 -timeout $(TIMEOUT) -tags integration ./tests/integration/...
 
 update-rpm-lockfile:
 	./hack/update-rpm-lockfile.sh

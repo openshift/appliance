@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -43,6 +44,24 @@ func setupISOBuilder(env *testscript.Env) error {
 		return err
 	}
 	env.Setenv("ISO_BUILDER_BIN_RAW", binPath)
+
+	// Override the default /no-home with a real writable HOME inside the test workdir.
+	homeDir := filepath.Join(env.WorkDir, "home")
+	if err := os.Mkdir(homeDir, 0777); err != nil {
+		return err
+	}
+	for i, v := range env.Vars {
+		if v == "HOME=/no-home" {
+			env.Vars[i] = fmt.Sprintf("HOME=%s", homeDir)
+			break
+		}
+	}
+
+	// Forward host XDG_RUNTIME_DIR so container runtimes can find their socket.
+	if xdgDir := os.Getenv("XDG_RUNTIME_DIR"); xdgDir != "" {
+		env.Setenv("XDG_RUNTIME_DIR", xdgDir)
+	}
+
 	return nil
 }
 

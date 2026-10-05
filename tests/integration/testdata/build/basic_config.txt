@@ -4,7 +4,7 @@
 exec iso-config-embedder embed -c config.yaml -o $WORK/openshift-iso-builder-patched $ISO_BUILDER_BIN_RAW
 stderr 'Configuration embedded into'
 
-exec $WORK/openshift-iso-builder-patched build
+exec $WORK/openshift-iso-builder-patched build --log-level=debug
 exists agent.x86_64.iso
 
 -- config.yaml --
