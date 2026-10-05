@@ -1,4 +1,4 @@
-package isobuilder
+package commands
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	isobuilderconfig "github.com/openshift/appliance/pkg/iso-builder/config"
+	"github.com/openshift/appliance/pkg/iso-builder/embeddedconfig"
 )
 
 const redactedValue = "***"
@@ -13,7 +14,7 @@ const redactedValue = "***"
 // ShowConfig loads the embedded configuration and writes a human-readable,
 // redacted summary to w.
 func ShowConfig(w io.Writer) error {
-	cfg, err := loadEmbeddedConfig()
+	cfg, err := embeddedconfig.LoadConfig()
 	if err != nil {
 		if strings.Contains(err.Error(), "no embedded configuration") {
 			_, err = fmt.Fprintln(w, "No configuration has been found in this binary.")

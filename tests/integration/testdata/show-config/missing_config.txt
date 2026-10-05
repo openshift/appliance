@@ -1,0 +1,3 @@
+# Verify that show-config without embedded configuration prints a message and exits successfully.
+exec openshift-iso-builder show-config
+stdout 'No configuration has been found'

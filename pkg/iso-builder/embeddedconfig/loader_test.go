@@ -1,12 +1,12 @@
-package isobuilder
+package embeddedconfig
 
 import (
 	"strings"
 	"testing"
 )
 
-func TestLoadEmbeddedConfigEmpty(t *testing.T) {
-	_, err := loadEmbeddedConfig()
+func TestLoadConfigEmpty(t *testing.T) {
+	_, err := LoadConfig()
 	if err == nil {
 		t.Fatal("expected error for empty embed area, got nil")
 	}

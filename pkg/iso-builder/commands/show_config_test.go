@@ -1,4 +1,4 @@
-package isobuilder
+package commands
 
 import (
 	"bytes"

@@ -1,8 +1,7 @@
-package isobuilder
+package commands
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,15 +17,11 @@ import (
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/graph"
 	isobuilderconfig "github.com/openshift/appliance/pkg/iso-builder/config"
+	"github.com/openshift/appliance/pkg/iso-builder/embeddedconfig"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
 )
-
-//go:generate go run ./gen_embed_area
-
-//go:embed config_embed_area.bin
-var rawConfigArea string
 
 const (
 	// OutputISOPattern is the naming pattern for the generated ISO file.
@@ -46,7 +41,7 @@ func NewBuilder(workingDir string) *Builder {
 
 // Build generates the installation ISO using the embedded configuration.
 func (b *Builder) Build(ctx context.Context) error {
-	embeddedCfg, err := loadEmbeddedConfig()
+	embeddedCfg, err := embeddedconfig.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("no configuration has been found in this binary")
 	}
@@ -178,5 +173,3 @@ func (b *Builder) renameOutput(outputISO string) error {
 	}
 	return nil
 }
-
-
