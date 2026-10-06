@@ -19,7 +19,9 @@ GINKGO_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo
 
 TIMEOUT = 30m
 GINKGO_REPORTFILE := $(or $(GINKGO_REPORTFILE), ./junit_unit_test.xml)
-GO_UNITTEST_FLAGS = --format=$(GO_TEST_FORMAT) $(GOTEST_PUBLISH_FLAGS) -- -count=1 -cover -coverprofile=$(COVER_PROFILE)
+# Required by go.podman.io/image: use pure-Go OpenPGP (no GPGME C dep) and skip the btrfs driver.
+GO_BUILD_TAGS = containers_image_openpgp,exclude_graphdriver_btrfs
+GO_UNITTEST_FLAGS = --format=$(GO_TEST_FORMAT) $(GOTEST_PUBLISH_FLAGS) -- -tags $(GO_BUILD_TAGS) -count=1 -cover -coverprofile=$(COVER_PROFILE)
 GINKGO_UNITTEST_FLAGS = -ginkgo.focus="$(FOCUS)" -ginkgo.v -ginkgo.skip="$(SKIP)" -ginkgo.v -ginkgo.junit-report=$(GINKGO_REPORTFILE)
 
 
@@ -30,7 +32,7 @@ build:
 
 build-appliance:
 	mkdir -p build
-	cd ./cmd && CGO_ENABLED=1 GOFLAGS="" go build -o ../build/openshift-appliance
+	cd ./cmd && CGO_ENABLED=1 GOFLAGS="" go build -tags $(GO_BUILD_TAGS) -o ../build/openshift-appliance
 
 build-iso-builder:
 	mkdir -p build
@@ -50,10 +52,10 @@ build-openshift-ci-test-bin:
 	./hack/setup_env.sh
 
 lint:
-	golangci-lint run -v --timeout=20m
+	golangci-lint run -v --timeout=20m --build-tags $(GO_BUILD_TAGS)
 
 test: $(REPORTS)
-	go test -v -count=1 -cover -coverprofile=$(COVER_PROFILE) ./...
+	go test -tags $(GO_BUILD_TAGS) -v -count=1 -cover -coverprofile=$(COVER_PROFILE) ./...
 	$(MAKE) _coverage
 
 _coverage:
@@ -62,7 +64,7 @@ ifeq ($(CI), true)
 endif
 
 test-short:
-	go test -short ./...
+	go test -tags $(GO_BUILD_TAGS) -short ./...
 
 generate:
 	go generate $(shell go list ./...)
@@ -99,11 +101,11 @@ _unit_test: $(REPORTS)
 
 .PHONY: integration-test-fast
 integration-test-fast:
-	go test -v -count=1 -short -tags integration ./tests/integration/...
+	go test -v -count=1 -short -tags integration,$(GO_BUILD_TAGS) ./tests/integration/...
 
 .PHONY: integration-test
 integration-test:
-	go test -count=1 -timeout $(TIMEOUT) -tags integration ./tests/integration/...
+	go test -count=1 -timeout $(TIMEOUT) -tags integration,$(GO_BUILD_TAGS) ./tests/integration/...
 
 update-rpm-lockfile:
 	./hack/update-rpm-lockfile.sh

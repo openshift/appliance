@@ -5,7 +5,8 @@ COPY go.sum go.sum
 COPY pkg/iso-builder/config/go.mod pkg/iso-builder/config/go.mod
 RUN go mod download
 COPY . .
-RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/openshift-appliance
+# Build tags: pure-Go OpenPGP (no GPGME C dep), skip btrfs driver (go.podman.io/image)
+RUN cd cmd && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -tags containers_image_openpgp,exclude_graphdriver_btrfs -o /tmp/openshift-appliance
 
 # Build registry
 RUN cd registry && CGO_ENABLED=1 GOFLAGS="" GO111MODULE=on go build -o /tmp/registry
