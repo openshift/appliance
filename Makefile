@@ -101,11 +101,11 @@ _unit_test: $(REPORTS)
 
 .PHONY: integration-test-fast
 integration-test-fast:
-	go test -v -count=1 -short -tags integration ./tests/integration/...
+	go test -v -count=1 -short -tags integration,$(GO_BUILD_TAGS) ./tests/integration/...
 
 .PHONY: integration-test
 integration-test:
-	go test -count=1 -timeout $(TIMEOUT) -tags integration ./tests/integration/...
+	go test -count=1 -timeout $(TIMEOUT) -tags integration,$(GO_BUILD_TAGS) ./tests/integration/...
 
 update-rpm-lockfile:
 	./hack/update-rpm-lockfile.sh
