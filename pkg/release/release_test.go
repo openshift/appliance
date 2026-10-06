@@ -267,6 +267,46 @@ var _ = Describe("Test Release", func() {
 		})
 	})
 
+	It("commands use OcBinaryPath when set", func() {
+		releaseWithPath := NewRelease(ReleaseConfig{
+			OSInterface:     &FakeOS{},
+			ApplianceConfig: applianceConfig,
+			Executer:        mockExecuter,
+			EnvConfig: &config.EnvConfig{
+				TempDir: tempDir,
+			},
+			OcBinaryPath: "/tmp/oc",
+		})
+
+		imageName := "machine-os-images"
+		expectedCmd := fmt.Sprintf("/tmp/oc adm release info --image-for=%s --insecure=%t %s",
+			imageName, true, conv.Value(applianceConfig.Config.OcpRelease.URL))
+		mockExecuter.EXPECT().Execute(expectedCmd).Return("quay.io/test/image@sha256:abc", nil).Times(1)
+
+		_, err = releaseWithPath.GetImageFromRelease(imageName)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("commands inherit OcBinaryPath from EnvConfig", func() {
+		releaseWithEnvPath := NewRelease(ReleaseConfig{
+			OSInterface:     &FakeOS{},
+			ApplianceConfig: applianceConfig,
+			Executer:        mockExecuter,
+			EnvConfig: &config.EnvConfig{
+				TempDir:      tempDir,
+				OcBinaryPath: "/cached/oc",
+			},
+		})
+
+		imageName := "machine-os-images"
+		expectedCmd := fmt.Sprintf("/cached/oc adm release info --image-for=%s --insecure=%t %s",
+			imageName, true, conv.Value(applianceConfig.Config.OcpRelease.URL))
+		mockExecuter.EXPECT().Execute(expectedCmd).Return("quay.io/test/image@sha256:abc", nil).Times(1)
+
+		_, err = releaseWithEnvPath.GetImageFromRelease(imageName)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("GetImageFromRelease - success", func() {
 		imageName := "machine-os-images"
 		cmd := fmt.Sprintf(templateGetImage, imageName, true, conv.Value(applianceConfig.Config.OcpRelease.URL))

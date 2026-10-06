@@ -15,9 +15,11 @@ import (
 	"github.com/openshift/appliance/pkg/asset/appliance"
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
+	"github.com/openshift/appliance/pkg/fileutil"
 	"github.com/openshift/appliance/pkg/graph"
 	isobuilderconfig "github.com/openshift/appliance/pkg/iso-builder/config"
 	"github.com/openshift/appliance/pkg/iso-builder/embeddedconfig"
+	"github.com/openshift/appliance/pkg/oc"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
@@ -146,19 +148,41 @@ func (b *Builder) applyLiveISOBuilderAsset(ctx context.Context, isoBuilderConfig
 		return errors.Wrap(err, "failed to create asset store")
 	}
 
-	isoBuilderAssets := []asset.Asset{
-		&config.ApplianceConfigProvider{
-			Config: b.convertToApplianceConfig(isoBuilderConfig),
-		},
-		&config.EnvConfig{
-			AssetsDir: b.workingDir,
-			IsLiveISO: true,
-		},
-		&appliance.ApplianceLiveISO{},
+	// Phase 1: Resolve config (uses Cincinnati graph API, no oc needed)
+	appCfgProvider := &config.ApplianceConfigProvider{
+		Config: b.convertToApplianceConfig(isoBuilderConfig),
 	}
-	for _, a := range isoBuilderAssets {
+	envCfg := &config.EnvConfig{
+		AssetsDir: b.workingDir,
+		IsLiveISO: true,
+	}
+	appCfg := &config.ApplianceConfig{}
+	for _, a := range []asset.Asset{appCfgProvider, envCfg, appCfg} {
 		if err := store.Fetch(ctx, a); err != nil {
 			return errors.Wrapf(err, "failed to fetch %s", a.Name())
+		}
+	}
+
+	// Phase 2: Download oc for the resolved OCP version
+	ocClient := oc.NewClient(oc.ClientConfig{
+		ReleaseVersion: appCfg.Config.OcpRelease.Version,
+		CacheDir:       envCfg.CacheDir,
+	})
+	ocResult, err := ocClient.Acquire()
+	if err != nil {
+		return errors.Wrap(err, "failed to acquire oc client")
+	}
+	envCfg.OcBinaryPath = ocResult.Path
+
+	// Phase 3: Build ISO (downstream assets pick up OcBinaryPath from EnvConfig)
+	if err := store.Fetch(ctx, &appliance.ApplianceLiveISO{}); err != nil {
+		return errors.Wrapf(err, "failed to fetch %s", (&appliance.ApplianceLiveISO{}).Name())
+	}
+
+	// Phase 4: Deliver oc to working directory (skip for system fallback)
+	if !ocResult.FromSystem {
+		if err := fileutil.CopyFile(ocResult.Path, filepath.Join(b.workingDir, "oc")); err != nil {
+			return errors.Wrap(err, "failed to copy oc binary to working directory")
 		}
 	}
 
