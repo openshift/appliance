@@ -4,9 +4,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/openshift/appliance/pkg/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/openshift/appliance/pkg/log"
+
+	"go.podman.io/storage/pkg/reexec"
 )
 
 var (
@@ -17,6 +20,14 @@ var (
 )
 
 func main() {
+	// Required by go.podman.io/storage: the containers-storage library
+	// re-executes the current process as a helper subprocess for overlay
+	// operations (e.g. applying tar layers). Without this call, any code
+	// path that opens a storage.Store will panic.
+	if reexec.Init() {
+		return
+	}
+
 	rootCmd := newRootCmd()
 
 	for _, subCmd := range []*cobra.Command{
