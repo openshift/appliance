@@ -168,20 +168,22 @@ func (b *Builder) applyLiveISOBuilderAsset(ctx context.Context, isoBuilderConfig
 		ReleaseVersion: appCfg.Config.OcpRelease.Version,
 		CacheDir:       envCfg.CacheDir,
 	})
-	ocPath, err := ocClient.Acquire()
+	ocResult, err := ocClient.Acquire()
 	if err != nil {
 		return errors.Wrap(err, "failed to acquire oc client")
 	}
-	envCfg.OcBinaryPath = ocPath
+	envCfg.OcBinaryPath = ocResult.Path
 
 	// Phase 3: Build ISO (downstream assets pick up OcBinaryPath from EnvConfig)
 	if err := store.Fetch(ctx, &appliance.ApplianceLiveISO{}); err != nil {
 		return errors.Wrapf(err, "failed to fetch %s", (&appliance.ApplianceLiveISO{}).Name())
 	}
 
-	// Phase 4: Deliver oc to working directory
-	if err := fileutil.CopyFile(ocPath, filepath.Join(b.workingDir, "oc")); err != nil {
-		return errors.Wrap(err, "failed to copy oc binary to working directory")
+	// Phase 4: Deliver oc to working directory (skip for system fallback)
+	if !ocResult.FromSystem {
+		if err := fileutil.CopyFile(ocResult.Path, filepath.Join(b.workingDir, "oc")); err != nil {
+			return errors.Wrap(err, "failed to copy oc binary to working directory")
+		}
 	}
 
 	return nil

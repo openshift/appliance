@@ -2,6 +2,7 @@ package oc
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -115,11 +116,68 @@ func TestAcquireCacheHit(t *testing.T) {
 		CacheDir:       cacheDir,
 	})
 
-	got, err := c.Acquire()
+	result, err := c.Acquire()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != ocPath {
-		t.Errorf("expected cached path %s, got %s", ocPath, got)
+	if result.Path != ocPath {
+		t.Errorf("expected cached path %s, got %s", ocPath, result.Path)
+	}
+	if result.FromSystem {
+		t.Error("expected FromSystem to be false for cached binary")
+	}
+}
+
+func TestAcquireSystemFallback(t *testing.T) {
+	cacheDir := t.TempDir()
+	fakeOcDir := t.TempDir()
+	fakeOcPath := filepath.Join(fakeOcDir, "oc")
+	if err := os.WriteFile(fakeOcPath, []byte("fake-system-oc"), 0755); err != nil {
+		t.Fatalf("failed to create fake system oc: %v", err)
+	}
+
+	origLookPath := lookPath
+	lookPath = func(file string) (string, error) {
+		if file == "oc" {
+			return fakeOcPath, nil
+		}
+		return "", &exec.Error{Name: file, Err: exec.ErrNotFound}
+	}
+	defer func() { lookPath = origLookPath }()
+
+	c := NewClient(ClientConfig{
+		ReleaseVersion: "99.0.0",
+		CacheDir:       cacheDir,
+	})
+
+	result, err := c.Acquire()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Path != fakeOcPath {
+		t.Errorf("expected system path %s, got %s", fakeOcPath, result.Path)
+	}
+	if !result.FromSystem {
+		t.Error("expected FromSystem to be true for system fallback")
+	}
+}
+
+func TestAcquireNoDownloadNoSystem(t *testing.T) {
+	cacheDir := t.TempDir()
+
+	origLookPath := lookPath
+	lookPath = func(file string) (string, error) {
+		return "", &exec.Error{Name: file, Err: exec.ErrNotFound}
+	}
+	defer func() { lookPath = origLookPath }()
+
+	c := NewClient(ClientConfig{
+		ReleaseVersion: "99.0.0",
+		CacheDir:       cacheDir,
+	})
+
+	_, err := c.Acquire()
+	if err == nil {
+		t.Fatal("expected error when download and system lookup both fail")
 	}
 }

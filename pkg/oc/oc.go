@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -17,8 +18,9 @@ import (
 )
 
 var (
-	goOS   = runtime.GOOS
-	goArch = runtime.GOARCH
+	goOS     = runtime.GOOS
+	goArch   = runtime.GOARCH
+	lookPath = exec.LookPath
 )
 
 const (
@@ -42,38 +44,62 @@ func NewClient(config ClientConfig) *Client {
 	return &Client{config: config}
 }
 
-// Acquire returns the absolute path to the oc binary, downloading it if not cached.
-func (c *Client) Acquire() (string, error) {
+// AcquireResult holds the outcome of an Acquire call.
+type AcquireResult struct {
+	Path       string // absolute path to the oc binary
+	FromSystem bool   // true when oc was found on PATH rather than downloaded
+}
+
+// Acquire returns the path to the oc binary. It first checks the cache, then
+// tries to download from mirror.openshift.com, and finally falls back to a
+// system-installed oc on PATH.
+func (c *Client) Acquire() (*AcquireResult, error) {
 	cached := findInCache(c.config.CacheDir, ocBinaryName)
 	if cached != "" {
 		logrus.Infof("Reusing oc binary from cache")
-		return cached, nil
+		return &AcquireResult{Path: cached}, nil
 	}
 
+	result, downloadErr := c.download()
+	if downloadErr == nil {
+		return result, nil
+	}
+
+	logrus.Warnf("Failed to download oc client: %v", downloadErr)
+	systemPath, lookErr := lookPath(ocBinaryName)
+	if lookErr != nil {
+		return nil, errors.Wrap(downloadErr, "failed to download oc client and no system oc found on PATH")
+	}
+
+	logrus.Warnf("Using system oc at %s as fallback", systemPath)
+	return &AcquireResult{Path: systemPath, FromSystem: true}, nil
+}
+
+func (c *Client) download() (*AcquireResult, error) {
 	url, err := c.downloadURL()
 	if err != nil {
-		return "", errors.Wrap(err, "failed to build oc download URL")
+		return nil, errors.Wrap(err, "failed to build oc download URL")
 	}
 
 	logrus.Infof("Downloading oc client from %s", url)
 	archivePath := filepath.Join(c.config.CacheDir, "openshift-client.tar.gz")
 	_, err = grab.Get(archivePath, url)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to download oc client")
+		return nil, errors.Wrap(err, "failed to download oc client")
 	}
 	defer func() { _ = os.Remove(archivePath) }()
 
 	ocPath, err := extractOcFromArchive(archivePath, c.config.CacheDir)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to extract oc from archive")
+		return nil, errors.Wrap(err, "failed to extract oc from archive")
 	}
 
 	if err := os.Chmod(ocPath, 0755); err != nil {
-		return "", errors.Wrap(err, "failed to make oc executable")
+		return nil, errors.Wrap(err, "failed to make oc executable")
 	}
 
 	logrus.Infof("oc client ready at %s", ocPath)
-	return ocPath, nil
+	return &AcquireResult{Path: ocPath}, nil
 }
 
 func (c *Client) downloadURL() (string, error) {
