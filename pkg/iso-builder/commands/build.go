@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/appliance/pkg/graph"
 	isobuilderconfig "github.com/openshift/appliance/pkg/iso-builder/config"
 	"github.com/openshift/appliance/pkg/iso-builder/embeddedconfig"
+	"github.com/openshift/appliance/pkg/oc"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
@@ -52,6 +53,10 @@ func (b *Builder) Build(ctx context.Context) error {
 	if len(b.additionalImages) > 0 {
 		logrus.Infof("Adding %d additional image(s) from CLI flags", len(b.additionalImages))
 		embeddedCfg.AdditionalImages = append(embeddedCfg.AdditionalImages, b.additionalImages...)
+	}
+
+	if err := b.acquireTools(embeddedCfg); err != nil {
+		return err
 	}
 
 	if err := b.applyLiveISOBuilderAsset(ctx, embeddedCfg); err != nil {
@@ -144,6 +149,55 @@ func convertOperators(openshiftVersion string, olmOps []isobuilderconfig.OLMOper
 		Catalog:       catalog,
 		IncludeConfig: types.IncludeConfig{Packages: packages},
 	}}
+}
+
+// acquireTools downloads the external tools into a "tools" folder under the working
+// directory and prepends it to PATH, so the legacy builder can resolve them from
+// the environment.
+func (b *Builder) acquireTools(isoBuilderConfig *isobuilderconfig.Config) error {
+	releaseVersion, err := resolveReleaseVersion(isoBuilderConfig)
+	if err != nil {
+		return errors.Wrap(err, "failed to resolve OCP release version")
+	}
+
+	toolsDir := filepath.Join(b.workingDir, "tools")
+	ocClient := oc.NewClient(oc.ClientConfig{
+		ReleaseVersion: releaseVersion,
+		ToolsDir:       toolsDir,
+	})
+	if _, err := ocClient.Acquire(); err != nil {
+		return errors.Wrap(err, "failed to acquire oc client")
+	}
+
+	return prependToPath(toolsDir)
+}
+
+// resolveReleaseVersion returns the full OCP version used to pick the matching oc
+// client. When release image URL is set, the configured version is used as-is.
+func resolveReleaseVersion(cfg *isobuilderconfig.Config) (string, error) {
+	if cfg.ReleaseImageURL != "" {
+		return cfg.OpenshiftVersion, nil
+	}
+
+	channel := graph.ReleaseChannelStable
+	_, version, err := graph.NewGraph(graph.GraphConfig{
+		Arch:    "amd64",
+		Version: cfg.OpenshiftVersion,
+		Channel: &channel,
+	}).GetReleaseImage()
+	if err != nil {
+		return "", err
+	}
+	return version, nil
+}
+
+// prependToPath puts dir at the front of the PATH environment variable.
+func prependToPath(dir string) error {
+	path := os.Getenv("PATH")
+	if path != "" {
+		dir = dir + string(os.PathListSeparator) + path
+	}
+	return os.Setenv("PATH", dir)
 }
 
 // This method is used to clearly mark the adoption of the legacy code.
