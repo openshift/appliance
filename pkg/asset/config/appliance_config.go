@@ -206,8 +206,9 @@ pullSecret: pull-secret
 # [Optional]
 # createPinnedImageSets: %t
 
-# Enable FIPS mode for the cluster.
-# Note: 'fips' should be enabled also in install-config.yaml.
+# Enable FIPS mode for the cluster. Adds the 'fips=1' kernel argument to the ISO.
+# Note: for the disk-image flow, 'fips' should be enabled also in install-config.yaml.
+# For the OVE/live-ISO flow this is not needed; FIPS is detected from the booted host.
 # Default: false
 # [Optional]
 # enableFips: %t

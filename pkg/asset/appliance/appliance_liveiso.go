@@ -198,6 +198,12 @@ func (a *ApplianceLiveISO) buildLiveISO(
 		return log.StopSpinner(spinner, err)
 	}
 
+	// Append FIPS kernel arguments to the extracted boot config, before repacking.
+	if err := appendFipsKargs(coreosIsoPath, workDir, applianceConfig.Config.EnableFips); err != nil {
+		logrus.Errorf("Failed to append FIPS kernel arguments: %s", err.Error())
+		return log.StopSpinner(spinner, err)
+	}
+
 	// Generate live ISO
 	volumeID, err := isoeditor.VolumeIdentifier(coreosIsoPath)
 	if err != nil {
