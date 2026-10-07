@@ -10,7 +10,7 @@ import (
 	"github.com/openshift/appliance/pkg/asset/config"
 	"github.com/openshift/appliance/pkg/consts"
 	"github.com/openshift/appliance/pkg/executer"
-	"github.com/openshift/appliance/pkg/genisoimage"
+	"github.com/openshift/appliance/pkg/isoimage"
 	"github.com/openshift/appliance/pkg/log"
 	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/release"
@@ -153,8 +153,7 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 		envConfig,
 	)
 	spinner.FileToMonitor = dataIsoName
-	imageGen := genisoimage.NewGenIsoImage(nil)
-	if err = imageGen.GenerateImage(envConfig.CacheDir, dataIsoName, dataDirPath, dataVolumeName); err != nil {
+	if err = isoimage.Create(filepath.Join(envConfig.CacheDir, dataIsoName), dataDirPath, dataVolumeName); err != nil {
 		return log.StopSpinner(spinner, err)
 	}
 	return log.StopSpinner(spinner, a.updateAsset(envConfig))
