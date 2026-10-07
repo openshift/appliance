@@ -24,7 +24,7 @@ require (
 	github.com/openshift/appliance/pkg/iso-builder/config v0.0.0-00010101000000-000000000000
 	github.com/openshift/assisted-image-service v0.0.0-20260428115106-2b81dd8e7120
 	github.com/openshift/assisted-service/api v0.0.0
-	github.com/openshift/hive/apis v0.0.0-20260415205034-aa1db747a6ba
+	github.com/openshift/hive/apis v0.0.0-20261002161616-a00caa79b98d
 	github.com/openshift/installer v0.0.0-20260928153737-6d44cca7d82f
 	github.com/openshift/machine-config-operator v0.0.1-0.20201023110058-6c8bd9b2915c
 	github.com/pelletier/go-toml v1.9.5
