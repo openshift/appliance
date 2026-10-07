@@ -270,7 +270,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/opencontainers/selinux v1.14.1 // indirect
 	github.com/openshift/assisted-service/models v0.0.0 // indirect
-	github.com/openshift/client-go v0.0.0-20260603140539-6892dc3e1ffc // indirect
+	github.com/openshift/client-go 348fc1ca8bb1 // indirect
 	github.com/openshift/cloud-credential-operator v0.0.0-20250925191450-a3e50aeacc55 // indirect
 	github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e // indirect
 	github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20240104064818-a336f0b5f7ee // indirect
