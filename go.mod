@@ -16,7 +16,7 @@ require (
 	github.com/go-openapi/swag/conv v0.25.4
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/hashicorp/go-version v1.9.0
-	github.com/itchyny/gojq v0.12.18
+	github.com/itchyny/gojq v0.12.19
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
 	github.com/openconfig/goyang v1.6.3
