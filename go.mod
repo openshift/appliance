@@ -51,7 +51,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	cloud.google.com/go/iam v1.12.0 // indirect
 	cloud.google.com/go/kms v1.26.0 // indirect
-	cloud.google.com/go/longrunning v1.2.0 // indirect
+	cloud.google.com/go/longrunning v1.3.0 // indirect
 	cloud.google.com/go/monitoring v1.24.3 // indirect
 	cloud.google.com/go/storage v1.58.0 // indirect
 	cyphar.com/go-pathrs v0.2.4 // indirect
