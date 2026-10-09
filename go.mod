@@ -20,7 +20,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
 	github.com/openconfig/goyang v1.6.3
-	github.com/openshift/api v0.0.0-20260825094607-13a84dedc5a3
+	github.com/openshift/api f9511d3fcb26
 	github.com/openshift/appliance/pkg/iso-builder/config v0.0.0-00010101000000-000000000000
 	github.com/openshift/assisted-image-service v0.0.0-20260428115106-2b81dd8e7120
 	github.com/openshift/assisted-service/api v0.0.0
