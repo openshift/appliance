@@ -4,7 +4,8 @@
 exec iso-config-embedder embed -c config.yaml -o $WORK/openshift-iso-builder-patched $ISO_BUILDER_BIN_RAW
 stderr 'Configuration embedded into'
 
-exec $WORK/openshift-iso-builder-patched build --log-level=debug
+exec $WORK/openshift-iso-builder-patched build --log-level=debug --image registry.example.com/app:v1 --image registry.example.com/tool:latest
+stderr 'Adding 2 additional image\(s\) from CLI flags'
 exists agent.x86_64.iso
 
 -- config.yaml --

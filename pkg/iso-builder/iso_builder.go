@@ -15,6 +15,7 @@ import (
 func Run() error {
 	var logLevel string
 	var workingDir string
+	var images []string
 
 	rootCmd := &cobra.Command{
 		Use:           filepath.Base(os.Args[0]),
@@ -31,13 +32,14 @@ func Run() error {
 		Use:   "build",
 		Short: "Build the ISO using the embedded configuration",
 		Run: func(cmd *cobra.Command, args []string) {
-			builder := commands.NewBuilder(workingDir)
+			builder := commands.NewBuilder(workingDir, images)
 			if err := builder.Build(cmd.Context()); err != nil {
 				logrus.Fatal(err)
 			}
 		},
 	}
 	buildCmd.Flags().StringVar(&workingDir, "working-dir", ".", "working directory for the ISO build")
+	buildCmd.Flags().StringArrayVar(&images, "image", nil, "additional image to include in the ISO (can be specified multiple times)")
 	rootCmd.AddCommand(buildCmd)
 
 	showConfigCmd := &cobra.Command{

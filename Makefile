@@ -37,11 +37,11 @@ build-appliance:
 build-iso-builder:
 	mkdir -p build
 	cd ./pkg/iso-builder && go generate ./...
-	cd ./cmd/iso-builder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/openshift-iso-builder
+	cd ./cmd/iso-builder && CGO_ENABLED=0 GOFLAGS="" go build -tags $(GO_BUILD_TAGS) -o ../../build/openshift-iso-builder
 
 build-iso-config-embedder:
 	mkdir -p build
-	cd ./cmd/iso-config-embedder && CGO_ENABLED=0 GOFLAGS="" go build -o ../../build/iso-config-embedder
+	cd ./cmd/iso-config-embedder && CGO_ENABLED=0 GOFLAGS="" go build -tags $(GO_BUILD_TAGS) -o ../../build/iso-config-embedder
 
 build-iso-builder-tools: build-iso-builder build-iso-config-embedder
 
