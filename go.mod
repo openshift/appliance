@@ -86,7 +86,7 @@ require (
 	github.com/IBM/ibm-cos-sdk-go v1.12.4 // indirect
 	github.com/IBM/keyprotect-go-client v0.12.2 // indirect
 	github.com/IBM/networking-go-sdk v0.51.15 // indirect
-	github.com/IBM/platform-services-go-sdk v0.91.0 // indirect
+	github.com/IBM/platform-services-go-sdk v0.103.4 // indirect
 	github.com/IBM/vpc-go-sdk v0.76.2 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
