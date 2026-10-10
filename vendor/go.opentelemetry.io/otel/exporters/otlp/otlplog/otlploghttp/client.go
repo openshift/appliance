@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package otlploghttp // import "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+package otlploghttp
 
 import (
 	"bytes"
@@ -16,14 +16,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
-	"go.opentelemetry.io/otel"
 	collogpb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	logpb "go.opentelemetry.io/proto/otlp/logs/v1"
+	"google.golang.org/protobuf/proto"
 
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp/internal"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp/internal/observ"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp/internal/retry"
 )
 
@@ -42,22 +43,46 @@ func newNoopClient() *client {
 	return &client{}
 }
 
+var exporterN atomic.Int64
+
+var errInsecureEndpointWithTLS = errors.New("insecure HTTP endpoint cannot use TLS client configuration")
+
+// maxResponseBodySize is the maximum number of bytes to read from a response
+// body. It is set to 4 MiB per the OTLP specification recommendation to
+// mitigate excessive memory usage caused by a misconfigured or malicious
+// server. If exceeded, the response is treated as a not-retryable error.
+// This is a variable to allow tests to override it.
+var maxResponseBodySize int64 = 4 * 1024 * 1024
+
+// nextExporterID returns the next unique ID for an exporter.
+func nextExporterID() int64 {
+	const inc = 1
+	return exporterN.Add(inc) - inc
+}
+
 // newHTTPClient creates a new HTTP log client.
-func newHTTPClient(cfg config) (*client, error) {
-	hc := &http.Client{
-		Transport: ourTransport,
-		Timeout:   cfg.timeout.Value,
+func newHTTPClient(ctx context.Context, cfg config) (*client, error) {
+	if cfg.insecure.Value && cfg.tlsCfg.Value != nil {
+		return nil, errInsecureEndpointWithTLS
 	}
 
-	if cfg.tlsCfg.Value != nil || cfg.proxy.Value != nil {
-		clonedTransport := ourTransport.Clone()
-		hc.Transport = clonedTransport
-
-		if cfg.tlsCfg.Value != nil {
-			clonedTransport.TLSClientConfig = cfg.tlsCfg.Value
+	hc := cfg.httpClient
+	if hc == nil {
+		hc = &http.Client{
+			Transport: ourTransport,
+			Timeout:   cfg.timeout.Value,
 		}
-		if cfg.proxy.Value != nil {
-			clonedTransport.Proxy = cfg.proxy.Value
+
+		if cfg.tlsCfg.Value != nil || cfg.proxy.Value != nil {
+			clonedTransport := ourTransport.Clone()
+			hc.Transport = clonedTransport
+
+			if cfg.tlsCfg.Value != nil {
+				clonedTransport.TLSClientConfig = cfg.tlsCfg.Value
+			}
+			if cfg.proxy.Value != nil {
+				clonedTransport.Proxy = cfg.proxy.Value
+			}
 		}
 	}
 
@@ -70,7 +95,7 @@ func newHTTPClient(cfg config) (*client, error) {
 		u.Scheme = "http"
 	}
 	// Body is set when this is cloned during upload.
-	req, err := http.NewRequest(http.MethodPost, u.String(), http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -86,20 +111,28 @@ func newHTTPClient(cfg config) (*client, error) {
 	req.Header.Set("Content-Type", "application/x-protobuf")
 
 	c := &httpClient{
-		compression: cfg.compression.Value,
-		req:         req,
-		requestFunc: cfg.retryCfg.Value.RequestFunc(evaluate),
-		client:      hc,
+		compression:    cfg.compression.Value,
+		maxRequestSize: cfg.maxRequestSize.Value,
+		req:            req,
+		requestFunc:    cfg.retryCfg.Value.RequestFunc(evaluate),
+		client:         hc,
 	}
-	return &client{uploadLogs: c.uploadLogs}, nil
+
+	id := nextExporterID()
+	c.inst, err = observ.NewInstrumentation(id, cfg.endpoint.Value)
+
+	return &client{uploadLogs: c.uploadLogs}, err
 }
 
 type httpClient struct {
 	// req is cloned for every upload the client makes.
-	req         *http.Request
-	compression Compression
-	requestFunc retry.RequestFunc
-	client      *http.Client
+	req            *http.Request
+	compression    Compression
+	maxRequestSize int
+	requestFunc    retry.RequestFunc
+	client         *http.Client
+
+	inst *observ.Instrumentation
 }
 
 // Keep it in sync with golang's DefaultTransport from net/http! We
@@ -119,7 +152,7 @@ var ourTransport = &http.Transport{
 	ExpectContinueTimeout: 1 * time.Second,
 }
 
-func (c *httpClient) uploadLogs(ctx context.Context, data []*logpb.ResourceLogs) error {
+func (c *httpClient) uploadLogs(ctx context.Context, data []*logpb.ResourceLogs) (uploadErr error) {
 	// The Exporter synchronizes access to client methods. This is not called
 	// after the Exporter is shutdown. Only thing to do here is send data.
 
@@ -128,19 +161,37 @@ func (c *httpClient) uploadLogs(ctx context.Context, data []*logpb.ResourceLogs)
 	if err != nil {
 		return err
 	}
+
+	var statusCode int
+	if c.inst != nil {
+		var count int64
+		for _, resLogs := range data {
+			for _, scopeLogs := range resLogs.ScopeLogs {
+				count += int64(len(scopeLogs.LogRecords))
+			}
+		}
+		op := c.inst.ExportLogs(ctx, count)
+		defer func() { op.End(uploadErr, statusCode) }()
+	}
+
+	if maxSize := c.maxRequestSize; maxSize > 0 && len(body) > maxSize {
+		return fmt.Errorf("request body too large: exceeded %d bytes", maxSize)
+	}
 	request, err := c.newRequest(ctx, body)
 	if err != nil {
 		return err
 	}
 
-	return c.requestFunc(ctx, func(iCtx context.Context) error {
+	return errors.Join(uploadErr, c.requestFunc(ctx, func(iCtx context.Context) error {
 		select {
 		case <-iCtx.Done():
 			return iCtx.Err()
 		default:
 		}
 
+		statusCode = 0
 		request.reset(iCtx)
+		// nolint:gosec // URL is constructed from validated OTLP endpoint configuration
 		resp, err := c.client.Do(request.Request)
 		var urlErr *url.Error
 		if errors.As(err, &urlErr) && urlErr.Temporary() {
@@ -149,15 +200,25 @@ func (c *httpClient) uploadLogs(ctx context.Context, data []*logpb.ResourceLogs)
 		if err != nil {
 			return err
 		}
+		if resp != nil && resp.Body != nil {
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					uploadErr = errors.Join(uploadErr, err)
+				}
+			}()
+		}
 
-		var rErr error
-		switch sc := resp.StatusCode; {
-		case sc >= 200 && sc <= 299:
+		statusCode = resp.StatusCode
+		if sc := resp.StatusCode; sc >= 200 && sc <= 299 {
 			// Success, do not retry.
 
 			// Read the partial success message, if any.
 			var respData bytes.Buffer
-			if _, err := io.Copy(&respData, resp.Body); err != nil {
+			if _, err := io.Copy(&respData, http.MaxBytesReader(nil, resp.Body, maxResponseBodySize)); err != nil {
+				var maxBytesErr *http.MaxBytesError
+				if errors.As(err, &maxBytesErr) {
+					return fmt.Errorf("response body too large: exceeded %d bytes", maxBytesErr.Limit)
+				}
 				return err
 			}
 			if respData.Len() == 0 {
@@ -174,49 +235,49 @@ func (c *httpClient) uploadLogs(ctx context.Context, data []*logpb.ResourceLogs)
 					msg := respProto.PartialSuccess.GetErrorMessage()
 					n := respProto.PartialSuccess.GetRejectedLogRecords()
 					if n != 0 || msg != "" {
-						err := fmt.Errorf("OTLP partial success: %s (%d log records rejected)", msg, n)
-						otel.Handle(err)
+						err := internal.LogPartialSuccessError(n, msg)
+						uploadErr = errors.Join(uploadErr, err)
 					}
 				}
 			}
 			return nil
-		case sc == http.StatusTooManyRequests,
-			sc == http.StatusBadGateway,
-			sc == http.StatusServiceUnavailable,
-			sc == http.StatusGatewayTimeout:
-			// Retry-able failure.
-			rErr = newResponseError(resp.Header, nil)
-
-			// server may return a message with the response
-			// body, so we read it to include in the error
-			// message to be returned. It will help in
-			// debugging the actual issue.
-			var respData bytes.Buffer
-			if _, err := io.Copy(&respData, resp.Body); err != nil {
-				_ = resp.Body.Close()
-				return err
-			}
-
-			// overwrite the error message with the response body
-			// if it is not empty
-			if respStr := strings.TrimSpace(respData.String()); respStr != "" {
-				// Include response for context.
-				e := errors.New(respStr)
-				rErr = newResponseError(resp.Header, e)
-			}
-		default:
-			rErr = fmt.Errorf("failed to send logs to %s: %s", request.URL, resp.Status)
 		}
+		// Error cases.
 
-		if err := resp.Body.Close(); err != nil {
+		// server may return a message with the response
+		// body, so we read it to include in the error
+		// message to be returned. It will help in
+		// debugging the actual issue.
+		var respData bytes.Buffer
+		if _, err := io.Copy(&respData, http.MaxBytesReader(nil, resp.Body, maxResponseBodySize)); err != nil {
+			var maxBytesErr *http.MaxBytesError
+			if errors.As(err, &maxBytesErr) {
+				return fmt.Errorf("response body too large: exceeded %d bytes", maxBytesErr.Limit)
+			}
 			return err
 		}
-		return rErr
-	})
+		respStr := strings.TrimSpace(respData.String())
+		if respStr == "" {
+			respStr = "(empty)"
+		}
+		bodyErr := fmt.Errorf("body: %s", respStr)
+
+		switch resp.StatusCode {
+		case http.StatusTooManyRequests,
+			http.StatusBadGateway,
+			http.StatusServiceUnavailable,
+			http.StatusGatewayTimeout:
+			// Retryable failure.
+			return newResponseError(resp.Header, bodyErr)
+		default:
+			// Non-retryable failure.
+			return fmt.Errorf("failed to send logs to %s: %s (%w)", request.URL, resp.Status, bodyErr)
+		}
+	}))
 }
 
 var gzPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		w := gzip.NewWriter(io.Discard)
 		return w
 	},
@@ -228,15 +289,19 @@ func (c *httpClient) newRequest(ctx context.Context, body []byte) (request, erro
 
 	switch c.compression {
 	case NoCompression:
-		r.ContentLength = (int64)(len(body))
+		r.ContentLength = int64(len(body))
 		req.bodyReader = bodyReader(body)
+		req.GetBody = bodyReaderErr(body)
 	case GzipCompression:
 		// Ensure the content length is not used.
 		r.ContentLength = -1
 		r.Header.Set("Content-Encoding", "gzip")
 
 		gz := gzPool.Get().(*gzip.Writer)
-		defer gzPool.Put(gz)
+		defer func() {
+			gz.Reset(io.Discard)
+			gzPool.Put(gz)
+		}()
 
 		var b bytes.Buffer
 		gz.Reset(&b)
@@ -250,6 +315,7 @@ func (c *httpClient) newRequest(ctx context.Context, body []byte) (request, erro
 		}
 
 		req.bodyReader = bodyReader(b.Bytes())
+		req.GetBody = bodyReaderErr(b.Bytes())
 	}
 
 	return req, nil
@@ -259,6 +325,13 @@ func (c *httpClient) newRequest(ctx context.Context, body []byte) (request, erro
 func bodyReader(buf []byte) func() io.ReadCloser {
 	return func() io.ReadCloser {
 		return io.NopCloser(bytes.NewReader(buf))
+	}
+}
+
+// bodyReaderErr returns a closure returning a new reader for buf.
+func bodyReaderErr(buf []byte) func() (io.ReadCloser, error) {
+	return func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(buf)), nil
 	}
 }
 
@@ -278,7 +351,7 @@ func (r *request) reset(ctx context.Context) {
 
 // retryableError represents a request failure that can be retried.
 type retryableError struct {
-	throttle int64
+	throttle time.Duration
 	err      error
 }
 
@@ -288,13 +361,27 @@ type retryableError struct {
 func newResponseError(header http.Header, wrapped error) error {
 	var rErr retryableError
 	if v := header.Get("Retry-After"); v != "" {
-		if t, err := strconv.ParseInt(v, 10, 64); err == nil {
-			rErr.throttle = t
-		}
+		rErr.throttle = retryAfterDuration(v)
 	}
 
 	rErr.err = wrapped
 	return rErr
+}
+
+func retryAfterDuration(v string) time.Duration {
+	if t, err := strconv.ParseInt(v, 10, 64); err == nil && t >= 0 {
+		const maxRetryAfterSeconds = int64(1<<63-1) / int64(time.Second)
+		if t > maxRetryAfterSeconds {
+			return time.Duration(1<<63 - 1)
+		}
+		return time.Duration(t) * time.Second
+	}
+
+	if date, err := http.ParseTime(v); err == nil {
+		return max(time.Until(date), 0)
+	}
+
+	return 0
 }
 
 func (e retryableError) Error() string {
@@ -309,7 +396,7 @@ func (e retryableError) Unwrap() error {
 	return e.err
 }
 
-func (e retryableError) As(target interface{}) bool {
+func (e retryableError) As(target any) bool {
 	if e.err == nil {
 		return false
 	}
@@ -338,5 +425,5 @@ func evaluate(err error) (bool, time.Duration) {
 		return false, 0
 	}
 
-	return true, time.Duration(rErr.throttle)
+	return true, rErr.throttle
 }
