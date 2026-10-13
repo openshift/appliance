@@ -36,7 +36,7 @@ require (
 	github.com/vincent-petithory/dataurl v1.0.0
 	go.podman.io/image/v5 v5.39.3
 	go.podman.io/storage v1.63.0
-	golang.org/x/crypto v0.54.0
+	golang.org/x/crypto v0.58.0
 	golang.org/x/term v0.45.0
 	k8s.io/api v0.36.2
 	k8s.io/apimachinery v0.36.2
