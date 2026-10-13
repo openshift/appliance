@@ -37,7 +37,7 @@ require (
 	go.podman.io/image/v5 v5.39.3
 	go.podman.io/storage v1.63.0
 	golang.org/x/crypto v0.54.0
-	golang.org/x/term v0.45.0
+	golang.org/x/term v0.47.0
 	k8s.io/api v0.36.2
 	k8s.io/apimachinery v0.36.2
 	sigs.k8s.io/yaml v1.6.0
