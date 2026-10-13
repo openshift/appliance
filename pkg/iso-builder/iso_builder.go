@@ -9,10 +9,19 @@ import (
 
 	"github.com/openshift/appliance/pkg/iso-builder/commands"
 	"github.com/openshift/appliance/pkg/log"
+	"go.podman.io/storage/pkg/reexec"
 )
 
 // Run builds and executes the iso-builder CLI command tree.
 func Run() error {
+	// Required by go.podman.io/storage: the containers-storage library
+	// re-executes the current process as a helper subprocess for overlay
+	// operations (e.g. applying tar layers). Without this call, any code
+	// path that opens a storage.Store will panic.
+	if reexec.Init() {
+		return nil
+	}
+
 	var logLevel string
 	var workingDir string
 
