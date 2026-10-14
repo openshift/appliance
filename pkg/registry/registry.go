@@ -61,6 +61,7 @@ type RegistryConfig struct {
 	Port           int
 	URI            string
 	DataDirPath    string
+	TempDir        string
 	UseBinary      bool
 	UseOcpRegistry bool
 }
@@ -69,6 +70,7 @@ type registry struct {
 	RegistryConfig
 	registryURL string
 	binaryPath  string
+	logFile     *os.File
 }
 
 func NewRegistry(config RegistryConfig) Registry {
@@ -158,12 +160,29 @@ func (r *registry) runRegistryBinary() error {
 		cmd = fmt.Sprintf("%s serve %s", r.binaryPath, configPath)
 	}
 
-	logrus.Debugf("Running registry binary: %s", cmd)
-	err := r.Executer.ExecuteBackground(cmd, envVars)
+	logFile, err := r.openLogFile()
 	if err != nil {
+		return errors.Wrap(err, "creating registry log file")
+	}
+	r.logFile = logFile
+
+	logrus.Debugf("Running registry binary: %s", cmd)
+	if err := r.Executer.ExecuteBackground(cmd, envVars, logFile, logFile); err != nil {
+		_ = r.logFile.Close()
+		r.logFile = nil
 		return errors.Wrapf(err, "registry binary run failure")
 	}
 	return nil
+}
+
+func (r *registry) openLogFile() (*os.File, error) {
+	logDir := filepath.Join(r.TempDir, "logs")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return nil, err
+	}
+	logPath := filepath.Join(logDir, "registry.log")
+	logrus.Infof("Registry log file: %s", logPath)
+	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 }
 
 func (r *registry) writeRegistryConfig() (string, error) {
@@ -180,6 +199,11 @@ func (r *registry) StopRegistry() error {
 	if r.UseBinary {
 		// The binary runs as a child process (cmd.Start) and is
 		// automatically terminated when the parent process exits.
+		if r.logFile != nil {
+			if err := r.logFile.Close(); err != nil {
+				logrus.Warnf("Failed to close registry log file: %v", err)
+			}
+		}
 		return nil
 	}
 	logrus.Debug("Stopping registry container")

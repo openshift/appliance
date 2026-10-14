@@ -96,6 +96,7 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 			DataDirPath:    dataDirPath,
 			URI:            registryUri,
 			Port:           conv.Value(applianceConfig.Config.ImageRegistry.Port),
+			TempDir:        envConfig.TempDir,
 			UseBinary:      useBinary,
 			UseOcpRegistry: registry.ShouldUseOcpRegistry(envConfig, applianceConfig),
 		})

@@ -115,7 +115,7 @@ var _ = Describe("Test Image Registry", func() {
 		expectedConfigPath := filepath.Join(registryDir, "config.yml")
 		expectedCmd := fmt.Sprintf("%s serve %s", binPath, expectedConfigPath)
 
-		mockExecuter.EXPECT().ExecuteBackground(expectedCmd, gomock.Any()).Return(nil).Times(1)
+		mockExecuter.EXPECT().ExecuteBackground(expectedCmd, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
 		imageRegistry := NewRegistry(
 			RegistryConfig{
@@ -123,6 +123,7 @@ var _ = Describe("Test Image Registry", func() {
 				Executer:    mockExecuter,
 				HTTPClient:  &ClientMock{},
 				DataDirPath: dataDirPath,
+				TempDir:     tmpDir,
 				UseBinary:   true,
 			})
 		imageRegistry.(*registry).binaryPath = binPath
@@ -134,13 +135,21 @@ var _ = Describe("Test Image Registry", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(configContent)).To(ContainSubstring("version: 0.1"))
 		Expect(string(configContent)).To(ContainSubstring(fmt.Sprintf("addr: 127.0.0.1:%d", port)))
+
+		logPath := filepath.Join(tmpDir, "logs", "registry.log")
+		_, err = os.Stat(logPath)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("Start Registry - binary mode with default path", func() {
+		tmpDir, err := os.MkdirTemp("", "registry-test-*")
+		Expect(err).NotTo(HaveOccurred())
+		defer os.RemoveAll(tmpDir)
+
 		dataDirPath, err := GetRegistryDataPath("/fake/path", "/data")
 		Expect(err).NotTo(HaveOccurred())
 
-		mockExecuter.EXPECT().ExecuteBackground(registryRunBinaryCmd, gomock.Any()).Return(nil).Times(1)
+		mockExecuter.EXPECT().ExecuteBackground(registryRunBinaryCmd, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
 		imageRegistry := NewRegistry(
 			RegistryConfig{
@@ -148,6 +157,7 @@ var _ = Describe("Test Image Registry", func() {
 				Executer:    mockExecuter,
 				HTTPClient:  &ClientMock{},
 				DataDirPath: dataDirPath,
+				TempDir:     tmpDir,
 				UseBinary:   true,
 			})
 
