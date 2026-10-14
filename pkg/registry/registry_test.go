@@ -103,7 +103,7 @@ var _ = Describe("Test Image Registry", func() {
 	It("Start Registry - binary mode with extracted binary", func() {
 		tmpDir, err := os.MkdirTemp("", "registry-test-*")
 		Expect(err).NotTo(HaveOccurred())
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		dataDirPath, err := GetRegistryDataPath("/fake/path", "/data")
 		Expect(err).NotTo(HaveOccurred())
@@ -144,7 +144,7 @@ var _ = Describe("Test Image Registry", func() {
 	It("Start Registry - binary mode with default path", func() {
 		tmpDir, err := os.MkdirTemp("", "registry-test-*")
 		Expect(err).NotTo(HaveOccurred())
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		dataDirPath, err := GetRegistryDataPath("/fake/path", "/data")
 		Expect(err).NotTo(HaveOccurred())

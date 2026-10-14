@@ -152,7 +152,7 @@ var _ = Describe("ImageExtractor", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 	})
 
 	It("extracts a binary from a single-arch image", func() {

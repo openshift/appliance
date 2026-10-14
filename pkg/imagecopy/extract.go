@@ -103,13 +103,13 @@ func (e *imageExtractor) extractFromLayer(layerDigest digest.Digest, targetPath,
 	if err != nil {
 		return false, fmt.Errorf("opening blob %s: %w", layerDigest.Encoded()[:12], err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	decompressed, _, err := compression.AutoDecompress(f)
 	if err != nil {
 		return false, fmt.Errorf("decompressing blob: %w", err)
 	}
-	defer decompressed.Close()
+	defer func() { _ = decompressed.Close() }()
 
 	tr := tar.NewReader(decompressed)
 	for {
@@ -157,13 +157,10 @@ func (e *imageExtractor) writeFile(outputPath string, r io.Reader, mode os.FileM
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
-	if _, err := io.Copy(out, r); err != nil {
-		return err
-	}
-
-	return nil
+	_, err = io.Copy(out, r)
+	return err
 }
 
 func (e *imageExtractor) cleanFilePath(p string) string {
