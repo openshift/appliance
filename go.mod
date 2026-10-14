@@ -384,7 +384,7 @@ require (
 	k8s.io/kubectl v0.36.0 // indirect
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 // indirect
 	sigs.k8s.io/cluster-api v1.13.4 // indirect
-	sigs.k8s.io/cluster-api-provider-aws/v2 v2.12.1 // indirect
+	sigs.k8s.io/cluster-api-provider-aws/v2 v2.13.1 // indirect
 	sigs.k8s.io/cluster-api-provider-azure v1.24.2 // indirect
 	sigs.k8s.io/cluster-api-provider-gcp v1.13.1-0.20260810150012-23049b61863d // indirect
 	sigs.k8s.io/cluster-api-provider-ibmcloud v0.13.1 // indirect
