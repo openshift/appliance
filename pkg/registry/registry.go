@@ -27,6 +27,17 @@ const (
 	registrySaveCmd      = "podman push %s dir:%s/registry"
 	registryRunBinaryCmd = "/registry serve config.yml"
 
+	registryConfigTemplate = `version: 0.1
+log:
+  fields:
+    service: registry
+storage:
+  filesystem:
+    rootdirectory: %s
+http:
+  addr: 127.0.0.1:%d
+`
+
 	registryAttempts             = 3
 	registrySleepBetweenAttempts = 5
 
@@ -35,6 +46,7 @@ const (
 )
 
 type Registry interface {
+	Prepare(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error
 	StartRegistry() error
 	StopRegistry() error
 }
@@ -49,6 +61,7 @@ type RegistryConfig struct {
 	Port           int
 	URI            string
 	DataDirPath    string
+	TempDir        string
 	UseBinary      bool
 	UseOcpRegistry bool
 }
@@ -56,6 +69,8 @@ type RegistryConfig struct {
 type registry struct {
 	RegistryConfig
 	registryURL string
+	binaryPath  string
+	logFile     *os.File
 }
 
 func NewRegistry(config RegistryConfig) Registry {
@@ -132,22 +147,63 @@ func (r *registry) runRegistryImage() error {
 }
 
 func (r *registry) runRegistryBinary() error {
-	// Add env vars
 	envVars := os.Environ()
 	envVars = append(envVars, fmt.Sprintf("REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=%s", r.DataDirPath))
 	envVars = append(envVars, fmt.Sprintf("REGISTRY_HTTP_ADDR=127.0.0.1:%d", r.Port))
 
-	// Run the registry binary
-	logrus.Debug("Running registry binary")
-	err := r.Executer.ExecuteBackground(registryRunBinaryCmd, envVars)
+	cmd := registryRunBinaryCmd
+	if r.binaryPath != "" {
+		configPath, err := r.writeRegistryConfig()
+		if err != nil {
+			return errors.Wrap(err, "writing registry config")
+		}
+		cmd = fmt.Sprintf("%s serve %s", r.binaryPath, configPath)
+	}
+
+	logFile, err := r.openLogFile()
 	if err != nil {
+		return errors.Wrap(err, "creating registry log file")
+	}
+	r.logFile = logFile
+
+	logrus.Debugf("Running registry binary: %s", cmd)
+	if err := r.Executer.ExecuteBackground(cmd, envVars, logFile, logFile); err != nil {
+		_ = r.logFile.Close()
+		r.logFile = nil
 		return errors.Wrapf(err, "registry binary run failure")
 	}
 	return nil
 }
 
+func (r *registry) openLogFile() (*os.File, error) {
+	logDir := filepath.Join(r.TempDir, "logs")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return nil, err
+	}
+	logPath := filepath.Join(logDir, "registry.log")
+	logrus.Infof("Registry log file: %s", logPath)
+	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+}
+
+func (r *registry) writeRegistryConfig() (string, error) {
+	content := fmt.Sprintf(registryConfigTemplate, r.DataDirPath, r.Port)
+	configPath := filepath.Join(filepath.Dir(r.binaryPath), "config.yml")
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("writing registry config to %s: %w", configPath, err)
+	}
+	logrus.Debugf("Wrote registry config to %s", configPath)
+	return configPath, nil
+}
+
 func (r *registry) StopRegistry() error {
 	if r.UseBinary {
+		// The binary runs as a child process (cmd.Start) and is
+		// automatically terminated when the parent process exits.
+		if r.logFile != nil {
+			if err := r.logFile.Close(); err != nil {
+				logrus.Warnf("Failed to close registry log file: %v", err)
+			}
+		}
 		return nil
 	}
 	logrus.Debug("Stopping registry container")
@@ -183,9 +239,15 @@ func BuildRegistryImage(destDir string) error {
 	return err
 }
 
+// LoadRegistryImage loads the registry image from the cache directory
+// (in dir format) into podman's containers-storage via skopeo.
 func LoadRegistryImage(cacheDir, arch string) error {
 	dirPath := filepath.Join(cacheDir, "registry")
-	return imagecopy.LoadToStorage(dirPath, consts.RegistryImage, arch)
+	exec := executer.NewExecuter()
+	cmd := fmt.Sprintf("skopeo copy --override-arch %s dir:%s containers-storage:%s", arch, dirPath, consts.RegistryImage)
+	logrus.Debugf("Loading registry image into containers-storage: %s", cmd)
+	_, err := exec.Execute(cmd)
+	return err
 }
 
 // ShouldUseOcpRegistry determines if the OCP docker-registry image should be used
@@ -273,6 +335,68 @@ func GetRegistryImageURI(envConfig *config.EnvConfig, applianceConfig *config.Ap
 
 	// Last resort: Use an internally built registry image
 	return consts.RegistryImage
+}
+
+// Prepare downloads the registry image, extracts the distribution
+// binary from its layers, and stages the image for the data ISO.
+// It sets r.binaryPath so that StartRegistry runs the extracted binary.
+func (r *registry) Prepare(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) error {
+	registryFilename := filepath.Base(consts.RegistryFilePath)
+	fileInCachePath := filepath.Join(envConfig.CacheDir, registryFilename)
+
+	// Download (or build) the registry image in dir format into the cache
+	sourceRegistryUri := GetRegistryImageURI(envConfig, applianceConfig)
+	logrus.Debugf("Registry image URI: %s", sourceRegistryUri)
+
+	if fileName := envConfig.FindInCache(registryFilename); fileName == "" {
+		if sourceRegistryUri == consts.RegistryImage {
+			if err := BuildRegistryImage(envConfig.CacheDir); err != nil {
+				return err
+			}
+		} else {
+			logrus.Infof("Copying registry image from %s", sourceRegistryUri)
+			if err := imagecopy.CopyToFile(
+				sourceRegistryUri,
+				consts.RegistryImage,
+				fileInCachePath); err != nil {
+				return err
+			}
+		}
+	} else {
+		logrus.Debug("Reusing registry from cache")
+	}
+
+	// Binary path depends on the image: OCP >= 4.21 ships /usr/bin/distribution
+	binaryInImage := "/registry"
+	if ShouldUseOcpRegistry(envConfig, applianceConfig) {
+		binaryInImage = "/usr/bin/distribution"
+	}
+
+	// Extract the binary from the image layers into iso-builder-registry/
+	arch := config.GetReleaseArchitectureByCPU(applianceConfig.GetCpuArchitecture())
+	registryDir := filepath.Join(envConfig.CacheDir, "iso-builder-registry")
+	if err := os.MkdirAll(registryDir, os.ModePerm); err != nil {
+		return err
+	}
+	r.binaryPath = filepath.Join(registryDir, "iso-builder-registry")
+
+	logrus.Debugf("Extracting registry binary %s for %s", binaryInImage, arch)
+	extractor := imagecopy.NewImageExtractor(fileInCachePath, arch)
+	if err := extractor.ExtractFile(binaryInImage, r.binaryPath); err != nil {
+		return errors.Wrap(err, "extracting registry binary from image")
+	}
+
+	// Stage the registry image into data/images/ for the data ISO
+	fileInDataDir := filepath.Join(envConfig.TempDir, dataDir, imagesDir, consts.RegistryFilePath)
+	exec := executer.NewExecuter()
+	if err := os.MkdirAll(filepath.Dir(fileInDataDir), os.ModePerm); err != nil {
+		return err
+	}
+	if _, err := exec.Execute(fmt.Sprintf("cp -r %s %s", fileInCachePath, fileInDataDir)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *config.ApplianceConfig) (string, error) {

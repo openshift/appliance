@@ -5,6 +5,7 @@
 package executer
 
 import (
+	io "io"
 	os "os"
 	reflect "reflect"
 
@@ -50,17 +51,17 @@ func (mr *MockExecuterMockRecorder) Execute(command interface{}) *gomock.Call {
 }
 
 // ExecuteBackground mocks base method.
-func (m *MockExecuter) ExecuteBackground(command string, envVars []string) error {
+func (m *MockExecuter) ExecuteBackground(command string, envVars []string, stdout, stderr io.Writer) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExecuteBackground", command, envVars)
+	ret := m.ctrl.Call(m, "ExecuteBackground", command, envVars, stdout, stderr)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ExecuteBackground indicates an expected call of ExecuteBackground.
-func (mr *MockExecuterMockRecorder) ExecuteBackground(command, envVars interface{}) *gomock.Call {
+func (mr *MockExecuterMockRecorder) ExecuteBackground(command, envVars, stdout, stderr interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteBackground", reflect.TypeOf((*MockExecuter)(nil).ExecuteBackground), command, envVars)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteBackground", reflect.TypeOf((*MockExecuter)(nil).ExecuteBackground), command, envVars, stdout, stderr)
 }
 
 // TempFile mocks base method.

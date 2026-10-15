@@ -80,10 +80,33 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 		"Failed to generate container registry image",
 		envConfig,
 	)
-	registryUri, err := registry.CopyRegistryImageIfNeeded(envConfig, applianceConfig)
-	if err != nil {
-		return log.StopSpinner(spinner, err)
+
+	var registryUri string
+	useBinary := conv.Value(applianceConfig.Config.ImageRegistry.UseBinary)
+
+	if !useBinary {
+		registryUri, err = registry.CopyRegistryImageIfNeeded(envConfig, applianceConfig)
+		if err != nil {
+			return log.StopSpinner(spinner, err)
+		}
 	}
+
+	releaseImageRegistry := registry.NewRegistry(
+		registry.RegistryConfig{
+			DataDirPath:    dataDirPath,
+			URI:            registryUri,
+			Port:           conv.Value(applianceConfig.Config.ImageRegistry.Port),
+			TempDir:        envConfig.TempDir,
+			UseBinary:      useBinary,
+			UseOcpRegistry: registry.ShouldUseOcpRegistry(envConfig, applianceConfig),
+		})
+
+	if useBinary {
+		if err = releaseImageRegistry.Prepare(envConfig, applianceConfig); err != nil {
+			return log.StopSpinner(spinner, err)
+		}
+	}
+
 	if err = log.StopSpinner(spinner, nil); err != nil {
 		return err
 	}
@@ -108,15 +131,6 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 			return log.StopSpinner(spinner, err)
 		}
 	}
-
-	releaseImageRegistry := registry.NewRegistry(
-		registry.RegistryConfig{
-			DataDirPath:    dataDirPath,
-			URI:            registryUri,
-			Port:           conv.Value(applianceConfig.Config.ImageRegistry.Port),
-			UseBinary:      conv.Value(applianceConfig.Config.ImageRegistry.UseBinary),
-			UseOcpRegistry: registry.ShouldUseOcpRegistry(envConfig, applianceConfig),
-		})
 
 	if err = releaseImageRegistry.StartRegistry(); err != nil {
 		return log.StopSpinner(spinner, err)

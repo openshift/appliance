@@ -83,7 +83,7 @@ func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.
 		EnableInteractiveFlow: conv.Pointer(true),
 		SkipLocalRegistry:     conv.Pointer(true),
 		ImageRegistry: &types.ImageRegistry{
-			UseBinary: conv.Pointer(false),
+			UseBinary: conv.Pointer(true),
 		},
 	}
 

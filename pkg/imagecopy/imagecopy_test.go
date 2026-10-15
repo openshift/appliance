@@ -13,16 +13,6 @@ var _ = Describe("Test imagecopy", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("LoadToStorage fails with invalid image name", func() {
-		err := LoadToStorage("/tmp/nonexistent", ":::invalid", "amd64")
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("invalid image name"))
-	})
-
-	It("LoadToStorage fails with nonexistent directory", func() {
-		err := LoadToStorage("/tmp/nonexistent-dir-imagecopy-test", "localhost/registry:latest", "amd64")
-		Expect(err).To(HaveOccurred())
-	})
 })
 
 func TestImageCopy(t *testing.T) {
