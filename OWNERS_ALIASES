@@ -1,16 +1,16 @@
 # See the OWNERS docs at https://go.k8s.io/owners
 
 aliases:
-  approvers:
+ approvers:
+    - andfasano
+    - bfournie
+    - pawanpinjarkar
+    - rwsu
+    - zaneb
+emeritus_approvers:
     - romfreiman
     - avishayt
     - gamli75
     - danielerez
     - jhernand
     - oourfali
-  agent-approvers:
-    - andfasano
-    - bfournie
-    - pawanpinjarkar
-    - rwsu
-    - zaneb
