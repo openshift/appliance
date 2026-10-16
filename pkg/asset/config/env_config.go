@@ -27,6 +27,8 @@ type EnvConfig struct {
 
 	DebugBootstrap    bool
 	DebugBaseIgnition bool
+
+	OcBinaryPath string // path to downloaded oc binary (set by iso-builder)
 }
 
 var _ asset.Asset = (*EnvConfig)(nil)

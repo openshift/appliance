@@ -74,6 +74,7 @@ type ReleaseConfig struct {
 	EnvConfig       *config.EnvConfig
 	ApplianceConfig *config.ApplianceConfig
 	OSInterface     fileutil.OSInterface
+	OcBinaryPath    string // when set, overrides "oc" in all commands
 }
 
 type release struct {
@@ -100,6 +101,9 @@ func NewRelease(config ReleaseConfig) Release {
 	if config.OSInterface == nil {
 		config.OSInterface = &fileutil.OSFS{}
 	}
+	if config.OcBinaryPath == "" && config.EnvConfig != nil {
+		config.OcBinaryPath = config.EnvConfig.OcBinaryPath
+	}
 
 	return &release{
 		ReleaseConfig: config,
@@ -121,7 +125,7 @@ func (r *release) ExtractFile(image string, filename string) (string, error) {
 }
 
 func (r *release) GetImageFromRelease(imageName string) (string, error) {
-	cmd := fmt.Sprintf(templateGetImage, imageName, true, conv.Value(r.ApplianceConfig.Config.OcpRelease.URL))
+	cmd := r.prepareCmd(fmt.Sprintf(templateGetImage, imageName, true, conv.Value(r.ApplianceConfig.Config.OcpRelease.URL)))
 
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 	image, err := r.execute(cmd)
@@ -178,7 +182,7 @@ func (r *release) fixImageReference(imageRef, releaseURL string) (string, error)
 }
 
 func (r *release) extractFileFromImage(image, file, outputDir string) (string, error) {
-	cmd := fmt.Sprintf(templateImageExtract, file, outputDir, image)
+	cmd := r.prepareCmd(fmt.Sprintf(templateImageExtract, file, outputDir, image))
 	logrus.Debugf("extracting %s to %s, %s", file, outputDir, cmd)
 	_, err := retry.Do(OcDefaultTries, OcDefaultRetryDelay, r.execute, cmd)
 	if err != nil {
@@ -195,7 +199,7 @@ func (r *release) extractFileFromImage(image, file, outputDir string) (string, e
 }
 
 func (r *release) ExtractCommand(command string, dest string) (string, error) {
-	cmd := fmt.Sprintf(templateExtractCmd, command, dest, *r.ApplianceConfig.Config.OcpRelease.URL)
+	cmd := r.prepareCmd(fmt.Sprintf(templateExtractCmd, command, dest, *r.ApplianceConfig.Config.OcpRelease.URL))
 	logrus.Debugf("extracting %s to %s, %s", command, dest, cmd)
 	stdout, err := r.execute(cmd)
 	if err != nil {
@@ -210,6 +214,14 @@ func (r *release) execute(command string) (string, error) {
 		return strings.TrimSpace(stdout), nil
 	}
 	return "", err
+}
+
+// prepareCmd replaces the leading "oc" with the full binary path when OcBinaryPath is set.
+func (r *release) prepareCmd(cmd string) string {
+	if r.OcBinaryPath != "" {
+		return r.OcBinaryPath + cmd[2:]
+	}
+	return cmd
 }
 
 func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, operators string) error {
@@ -246,7 +258,7 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 
 		tempDir = filepath.Join(r.EnvConfig.TempDir, "oc-mirror")
 		registryPort := conv.Value(r.ApplianceConfig.Config.ImageRegistry.Port)
-		cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)
+		cmd := r.prepareCmd(fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir))
 
 		if !isStable {
 			// For CI/nightly builds, add --ignore-release-signature flag
@@ -452,7 +464,7 @@ func (r *release) GetMappingFile() ([]byte, error) {
 
 	dryRunDir := filepath.Join(r.EnvConfig.TempDir, "oc-mirror-dry-run")
 	registryPort := conv.Value(r.ApplianceConfig.Config.ImageRegistry.Port)
-	dryRunCmd := fmt.Sprintf(ocMirrorDryRun, imageSetFilePath, registryPort, dryRunDir)
+	dryRunCmd := r.prepareCmd(fmt.Sprintf(ocMirrorDryRun, imageSetFilePath, registryPort, dryRunDir))
 
 	// Add --ignore-release-signature for CI/nightly builds to avoid signature verification errors
 	isStable, err := r.IsStableRelease()
@@ -485,7 +497,7 @@ func (r *release) getMetadata() error {
 		return nil
 	}
 
-	cmd := fmt.Sprintf(templateGetMetadata, conv.Value(r.ApplianceConfig.Config.OcpRelease.URL))
+	cmd := r.prepareCmd(fmt.Sprintf(templateGetMetadata, conv.Value(r.ApplianceConfig.Config.OcpRelease.URL)))
 	logrus.Debugf("Fetching architecture and version from OCP release (%s)", cmd)
 
 	output, err := r.execute(cmd)
