@@ -32,8 +32,7 @@ RUN tar xvzf /tmp/openshift-client-linux.tar.gz -C /usr/local/bin && chmod +x /u
 
 # Download oc-mirror from CGW (Content Gateway)
 RUN curl -sL -o /tmp/oc-mirror.tar.gz https://mirror.openshift.com/pub/cgw/oc-mirror/latest/oc-mirror-rhel9-linux-amd64.tar.gz || true
-RUN tar xvzf /tmp/oc-mirror.tar.gz -C /usr/local/bin && chmod +x /usr/local/bin/oc-mirror
-
+RUN tar -xvzf /tmp/oc-mirror.tar.gz --no-same-owner -C /usr/local/bin && chmod +x /usr/local/bin/oc-mirror
 # Copy openshift-appliance binary
 COPY --from=builder /tmp/openshift-appliance /openshift-appliance
 
