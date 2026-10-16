@@ -31,12 +31,14 @@ const (
 
 // Builder orchestrates the ISO build process.
 type Builder struct {
-	workingDir string
+	workingDir       string
+	additionalImages []string
 }
 
 // NewBuilder creates a Builder that writes artifacts to workingDir.
-func NewBuilder(workingDir string) *Builder {
-	return &Builder{workingDir: workingDir}
+// Any additionalImages are appended to the embedded config at build time.
+func NewBuilder(workingDir string, additionalImages []string) *Builder {
+	return &Builder{workingDir: workingDir, additionalImages: additionalImages}
 }
 
 // Build generates the installation ISO using the embedded configuration.
@@ -46,6 +48,11 @@ func (b *Builder) Build(ctx context.Context) error {
 		return fmt.Errorf("no configuration has been found in this binary")
 	}
 	logrus.Infof("Configuration loaded: version=%s arch=%s", embeddedCfg.OpenshiftVersion, embeddedCfg.Architecture)
+
+	if len(b.additionalImages) > 0 {
+		logrus.Infof("Adding %d additional image(s) from CLI flags", len(b.additionalImages))
+		embeddedCfg.AdditionalImages = append(embeddedCfg.AdditionalImages, b.additionalImages...)
+	}
 
 	if err := b.applyLiveISOBuilderAsset(ctx, embeddedCfg); err != nil {
 		return err

@@ -62,7 +62,7 @@ $ openshift-iso-builder show-config
 | Flag                     | Default             | Description                                                                                   |
 |--------------------------|---------------------|-----------------------------------------------------------------------------------------------|
 | `--working-dir`          | current working dir | Set the working directory                                                                     |
-| `--additional-image`     | -                   | Set an additional (application) image to be added in the ISO. Can be specified multiple times |
+| `--image`                | -                   | Set an additional (application) image to be added in the ISO. Can be specified multiple times |
 
 ### 3.2 Global Flags
 
