@@ -239,7 +239,7 @@ require (
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/letsencrypt/boulder v0.0.0-20240620165639-de9c06129bec // indirect
+	github.com/letsencrypt/boulder v0.20261013.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
