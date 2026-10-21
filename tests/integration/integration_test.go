@@ -17,7 +17,6 @@ import (
 	isobuilder "github.com/openshift/appliance/pkg/iso-builder"
 	isoconfigembedder "github.com/openshift/appliance/pkg/iso-config-embedder"
 	installerdata "github.com/openshift/installer/data"
-	"go.podman.io/storage/pkg/reexec"
 )
 
 func isoBuilderMain() {
@@ -28,9 +27,6 @@ func isoBuilderMain() {
 }
 
 func TestMain(m *testing.M) {
-	if reexec.Init() {
-		return
-	}
 	testscript.Main(m, map[string]func(){
 		"openshift-iso-builder":         isoBuilderMain,
 		"openshift-iso-builder-patched": isoBuilderMain,
