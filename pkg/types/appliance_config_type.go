@@ -41,6 +41,8 @@ type ApplianceConfig struct {
 type ApplianceConfigExt struct {
 	// RendezvousIP is the IP address used as rendezvous point for agent-based install.
 	RendezvousIP *string `json:"rendezvousIP,omitempty"`
+	// AdditionalNTPSources is a list of NTP sources to be added to all cluster hosts.
+	AdditionalNTPSources []string `json:"additionalNTPSources,omitempty"`
 }
 
 type ReleaseImage struct {

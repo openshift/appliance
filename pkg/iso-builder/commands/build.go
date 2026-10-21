@@ -77,7 +77,7 @@ func (b *Builder) Build(ctx context.Context) error {
 	return nil
 }
 
-// Not yet converted: Proxy, AdditionalTrustBundle, AdditionalNTPServers,
+// Not yet converted: Proxy, AdditionalTrustBundle,
 // NetworkConfig, ExtraManifests. These fields target the
 // install-config / agent-config pipeline and will be addressed separately.
 func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.ApplianceConfig {
@@ -134,6 +134,10 @@ func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.
 
 	if cfg.RendezvousIP != "" {
 		appCfg.RendezvousIP = conv.Pointer(cfg.RendezvousIP)
+	}
+
+	if len(cfg.AdditionalNTPServers) > 0 {
+		appCfg.AdditionalNTPSources = cfg.AdditionalNTPServers
 	}
 
 	return appCfg

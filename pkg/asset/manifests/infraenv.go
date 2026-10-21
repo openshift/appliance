@@ -78,6 +78,10 @@ func (i *InfraEnv) Generate(_ context.Context, dependencies asset.Parents) error
 		spec.SSHAuthorizedKey = *applianceConfig.Config.SshKey
 	}
 
+	if len(applianceConfig.Config.AdditionalNTPSources) > 0 {
+		spec.AdditionalNTPSources = applianceConfig.Config.AdditionalNTPSources
+	}
+
 	infraEnv := &aiv1beta1.InfraEnv{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      infraEnvName,

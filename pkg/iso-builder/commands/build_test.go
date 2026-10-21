@@ -128,3 +128,55 @@ func TestConvertToApplianceConfigRendezvousIP(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertToApplianceConfigAdditionalNTPSources(t *testing.T) {
+	cases := []struct {
+		name       string
+		ntpServers []string
+		wantNTP    []string
+	}{
+		{
+			name:    "no NTP servers",
+			wantNTP: nil,
+		},
+		{
+			name:       "single NTP server",
+			ntpServers: []string{"0.rhel.pool.ntp.org"},
+			wantNTP:    []string{"0.rhel.pool.ntp.org"},
+		},
+		{
+			name:       "multiple NTP servers",
+			ntpServers: []string{"0.rhel.pool.ntp.org", "1.rhel.pool.ntp.org"},
+			wantNTP:    []string{"0.rhel.pool.ntp.org", "1.rhel.pool.ntp.org"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &isobuilderconfig.Config{
+				OpenshiftVersion:     "4.22",
+				PullSecret:           `{"auths":{}}`,
+				AdditionalNTPServers: tc.ntpServers,
+			}
+
+			b := &Builder{workingDir: "."}
+			appCfg := b.convertToApplianceConfig(cfg)
+
+			if tc.wantNTP == nil {
+				if len(appCfg.AdditionalNTPSources) != 0 {
+					t.Fatalf("expected no NTP sources, got %v", appCfg.AdditionalNTPSources)
+				}
+				return
+			}
+
+			if len(appCfg.AdditionalNTPSources) != len(tc.wantNTP) {
+				t.Fatalf("expected %d NTP sources, got %d", len(tc.wantNTP), len(appCfg.AdditionalNTPSources))
+			}
+			for i, want := range tc.wantNTP {
+				if appCfg.AdditionalNTPSources[i] != want {
+					t.Errorf("NTP[%d]: expected %q, got %q", i, want, appCfg.AdditionalNTPSources[i])
+				}
+			}
+		})
+	}
+}
