@@ -78,7 +78,7 @@ func (b *Builder) Build(ctx context.Context) error {
 }
 
 // Not yet converted: Proxy, AdditionalTrustBundle, AdditionalNTPServers,
-// RendezvousIP, NetworkConfig, ExtraManifests. These fields target the
+// NetworkConfig, ExtraManifests. These fields target the
 // install-config / agent-config pipeline and will be addressed separately.
 func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.ApplianceConfig {
 	channel := graph.ReleaseChannelStable
@@ -130,6 +130,10 @@ func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.
 
 	if len(cfg.OLMOperators) > 0 {
 		appCfg.Operators = convertOperators(cfg.OpenshiftVersion, cfg.OLMOperators)
+	}
+
+	if cfg.RendezvousIP != "" {
+		appCfg.RendezvousIP = conv.Pointer(cfg.RendezvousIP)
 	}
 
 	return appCfg

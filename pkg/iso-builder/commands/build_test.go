@@ -3,6 +3,8 @@ package commands
 import (
 	"testing"
 
+	"github.com/go-openapi/swag/conv"
+
 	isobuilderconfig "github.com/openshift/appliance/pkg/iso-builder/config"
 	"github.com/openshift/appliance/pkg/types"
 )
@@ -72,6 +74,56 @@ func TestConvertToApplianceConfigAdditionalImages(t *testing.T) {
 				if got[i].Name != want.Name {
 					t.Errorf("image[%d]: expected %q, got %q", i, want.Name, got[i].Name)
 				}
+			}
+		})
+	}
+}
+
+func TestConvertToApplianceConfigRendezvousIP(t *testing.T) {
+	cases := []struct {
+		name         string
+		rendezvousIP string
+		wantIP       *string
+	}{
+		{
+			name:   "empty rendezvous IP is not set",
+			wantIP: nil,
+		},
+		{
+			name:         "valid IPv4 address",
+			rendezvousIP: "192.168.1.10",
+			wantIP:       conv.Pointer("192.168.1.10"),
+		},
+		{
+			name:         "valid IPv6 address",
+			rendezvousIP: "fd00::1",
+			wantIP:       conv.Pointer("fd00::1"),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &isobuilderconfig.Config{
+				OpenshiftVersion: "4.22",
+				PullSecret:       `{"auths":{}}`,
+				RendezvousIP:     tc.rendezvousIP,
+			}
+
+			b := &Builder{workingDir: "."}
+			appCfg := b.convertToApplianceConfig(cfg)
+
+			if tc.wantIP == nil {
+				if appCfg.RendezvousIP != nil {
+					t.Fatalf("expected nil RendezvousIP, got %q", *appCfg.RendezvousIP)
+				}
+				return
+			}
+
+			if appCfg.RendezvousIP == nil {
+				t.Fatal("expected non-nil RendezvousIP, got nil")
+			}
+			if *appCfg.RendezvousIP != *tc.wantIP {
+				t.Errorf("expected RendezvousIP %q, got %q", *tc.wantIP, *appCfg.RendezvousIP)
 			}
 		})
 	}

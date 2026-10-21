@@ -30,6 +30,17 @@ type ApplianceConfig struct {
 	AdditionalImages                   *[]Image       `json:"additionalImages,omitempty"`
 	BlockedImages                      *[]Image       `json:"blockedImages,omitempty"`
 	Operators                          *[]Operator    `json:"operators,omitempty"`
+
+	// Fields added for the iso-builder flow; not used by the legacy appliance code.
+	ApplianceConfigExt `json:",inline"`
+}
+
+// ApplianceConfigExt holds fields added for the iso-builder flow.
+// Embedded inline so the JSON layout stays flat. When the legacy
+// asset infrastructure is removed, this struct marks what to carry over.
+type ApplianceConfigExt struct {
+	// RendezvousIP is the IP address used as rendezvous point for agent-based install.
+	RendezvousIP *string `json:"rendezvousIP,omitempty"`
 }
 
 type ReleaseImage struct {
