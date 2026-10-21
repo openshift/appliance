@@ -67,17 +67,23 @@ func (i *InfraEnv) Generate(_ context.Context, dependencies asset.Parents) error
 	applianceConfig := &config.ApplianceConfig{}
 	dependencies.Get(applianceConfig)
 
+	spec := aiv1beta1.InfraEnvSpec{
+		PullSecretRef: &corev1.LocalObjectReference{
+			Name: PullSecretName,
+		},
+		CpuArchitecture: applianceConfig.GetCpuArchitecture(),
+	}
+
+	if applianceConfig.Config.SshKey != nil {
+		spec.SSHAuthorizedKey = *applianceConfig.Config.SshKey
+	}
+
 	infraEnv := &aiv1beta1.InfraEnv{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      infraEnvName,
 			Namespace: "",
 		},
-		Spec: aiv1beta1.InfraEnvSpec{
-			PullSecretRef: &corev1.LocalObjectReference{
-				Name: PullSecretName,
-			},
-			CpuArchitecture: applianceConfig.GetCpuArchitecture(),
-		},
+		Spec: spec,
 	}
 
 	i.Config = infraEnv
