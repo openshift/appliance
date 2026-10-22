@@ -33,6 +33,7 @@ func (m *UnconfiguredManifests) Dependencies() []asset.Asset {
 		&InfraEnv{},
 		&AgentPullSecret{},
 		&AgentConfig{},
+		&NMStateConfig{},
 		&registry.RegistriesConf{},
 	}
 }
@@ -43,6 +44,7 @@ func (m *UnconfiguredManifests) Generate(_ context.Context, dependencies asset.P
 		&InfraEnv{},
 		&AgentPullSecret{},
 		&AgentConfig{},
+		&NMStateConfig{},
 		&registry.RegistriesConf{},
 	} {
 		dependencies.Get(a)

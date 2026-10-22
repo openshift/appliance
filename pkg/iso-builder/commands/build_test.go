@@ -180,3 +180,83 @@ func TestConvertToApplianceConfigAdditionalNTPSources(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertToApplianceConfigNetworkConfig(t *testing.T) {
+	cases := []struct {
+		name                 string
+		networkConfig        []isobuilderconfig.NetworkConfigEntry
+		wantNetworkConfigLen int
+	}{
+		{
+			name:                 "no network config",
+			wantNetworkConfigLen: 0,
+		},
+		{
+			name: "single network config entry",
+			networkConfig: []isobuilderconfig.NetworkConfigEntry{
+				{
+					Interfaces: []isobuilderconfig.Interface{
+						{Name: "eth0", MacAddress: "00:11:22:33:44:55"},
+					},
+					Config: []byte(`interfaces: [{name: eth0}]`),
+				},
+			},
+			wantNetworkConfigLen: 1,
+		},
+		{
+			name: "multiple network config entries",
+			networkConfig: []isobuilderconfig.NetworkConfigEntry{
+				{
+					Interfaces: []isobuilderconfig.Interface{
+						{Name: "eth0", MacAddress: "00:11:22:33:44:55"},
+					},
+					Config: []byte(`interfaces: [{name: eth0}]`),
+				},
+				{
+					Interfaces: []isobuilderconfig.Interface{
+						{Name: "eth1", MacAddress: "00:11:22:33:44:66"},
+						{Name: "eth2", MacAddress: "00:11:22:33:44:77"},
+					},
+					Config: []byte(`interfaces: [{name: eth1}, {name: eth2}]`),
+				},
+			},
+			wantNetworkConfigLen: 2,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &isobuilderconfig.Config{
+				OpenshiftVersion: "4.22",
+				PullSecret:       `{"auths":{}}`,
+				NetworkConfig:    tc.networkConfig,
+			}
+
+			b := &Builder{workingDir: "."}
+			appCfg := b.convertToApplianceConfig(cfg)
+
+			if len(appCfg.NetworkConfig) != tc.wantNetworkConfigLen {
+				t.Fatalf("expected %d network config entries, got %d", tc.wantNetworkConfigLen, len(appCfg.NetworkConfig))
+			}
+
+			for i, entry := range tc.networkConfig {
+				if len(appCfg.NetworkConfig[i].Interfaces) != len(entry.Interfaces) {
+					t.Errorf("entry[%d]: expected %d interfaces, got %d", i, len(entry.Interfaces), len(appCfg.NetworkConfig[i].Interfaces))
+				}
+
+				for j, iface := range entry.Interfaces {
+					if appCfg.NetworkConfig[i].Interfaces[j].Name != iface.Name {
+						t.Errorf("entry[%d] interface[%d]: expected name %q, got %q", i, j, iface.Name, appCfg.NetworkConfig[i].Interfaces[j].Name)
+					}
+					if appCfg.NetworkConfig[i].Interfaces[j].MacAddress != iface.MacAddress {
+						t.Errorf("entry[%d] interface[%d]: expected MAC %q, got %q", i, j, iface.MacAddress, appCfg.NetworkConfig[i].Interfaces[j].MacAddress)
+					}
+				}
+
+				if string(appCfg.NetworkConfig[i].Config) != string(entry.Config) {
+					t.Errorf("entry[%d]: config mismatch", i)
+				}
+			}
+		})
+	}
+}

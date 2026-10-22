@@ -28,7 +28,7 @@ type Config struct {
 	// IP address used as rendezvous point.
 	RendezvousIP string `json:"rendezvousIP,omitempty"`
 	// NMState configs for static networking.
-	NetworkConfig []json.RawMessage `json:"networkConfig,omitempty"`
+	NetworkConfig []NetworkConfigEntry `json:"networkConfig,omitempty"`
 	// Additional image pullspecs to be mirrored.
 	AdditionalImages []string `json:"additionalImages,omitempty"`
 	// Custom manifests to be added in the cluster.
@@ -61,4 +61,20 @@ type ExtraManifest struct {
 	Name string `json:"name"`
 	// Raw manifest content.
 	Content string `json:"content"`
+}
+
+// NetworkConfigEntry defines static network configuration for a host.
+type NetworkConfigEntry struct {
+	// Interfaces is a list of interfaces with name and MAC address.
+	Interfaces []Interface `json:"interfaces"`
+	// Config contains the nmstate YAML configuration.
+	Config json.RawMessage `json:"config"`
+}
+
+// Interface defines a network interface.
+type Interface struct {
+	// Name is the interface name.
+	Name string `json:"name"`
+	// MacAddress is the MAC address for the interface.
+	MacAddress string `json:"macAddress"`
 }

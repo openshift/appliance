@@ -77,9 +77,9 @@ func (b *Builder) Build(ctx context.Context) error {
 	return nil
 }
 
-// Not yet converted: Proxy, AdditionalTrustBundle,
-// NetworkConfig, ExtraManifests. These fields target the
-// install-config / agent-config pipeline and will be addressed separately.
+// Not yet converted: Proxy, AdditionalTrustBundle, ExtraManifests.
+// These fields target the install-config / agent-config pipeline and
+// will be addressed separately.
 func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.ApplianceConfig {
 	channel := graph.ReleaseChannelStable
 
@@ -138,6 +138,24 @@ func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.
 
 	if len(cfg.AdditionalNTPServers) > 0 {
 		appCfg.AdditionalNTPSources = cfg.AdditionalNTPServers
+	}
+
+	if len(cfg.NetworkConfig) > 0 {
+		networkConfig := make([]types.NetworkConfigEntry, len(cfg.NetworkConfig))
+		for i, entry := range cfg.NetworkConfig {
+			interfaces := make([]types.NetworkInterface, len(entry.Interfaces))
+			for j, iface := range entry.Interfaces {
+				interfaces[j] = types.NetworkInterface{
+					Name:       iface.Name,
+					MacAddress: iface.MacAddress,
+				}
+			}
+			networkConfig[i] = types.NetworkConfigEntry{
+				Interfaces: interfaces,
+				Config:     entry.Config,
+			}
+		}
+		appCfg.NetworkConfig = networkConfig
 	}
 
 	return appCfg

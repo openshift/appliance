@@ -53,8 +53,12 @@ additionalImages:
 networkConfig:
   - interfaces:
       - name: eth0
-        type: ethernet
-        state: up
+        macAddress: "00:11:22:33:44:55"
+    config:
+      interfaces:
+        - name: eth0
+          type: ethernet
+          state: up
 extraManifests:
   - name: custom-config.yaml
     content: |

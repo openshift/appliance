@@ -35,8 +35,13 @@ func TestFormatConfig(t *testing.T) {
 					{Name: "mtv-operator", Version: "2.12", Channel: "release-v2.12"},
 				},
 				RendezvousIP: "192.168.1.10",
-				NetworkConfig: []json.RawMessage{
-					json.RawMessage(`{"interfaces":[{"name":"eth0"}]}`),
+				NetworkConfig: []isobuilderconfig.NetworkConfigEntry{
+					{
+						Interfaces: []isobuilderconfig.Interface{
+							{Name: "eth0", MacAddress: "00:11:22:33:44:55"},
+						},
+						Config: json.RawMessage(`{"interfaces":[{"name":"eth0"}]}`),
+					},
 				},
 				AdditionalImages: []string{"registry.redhat.io/rhel9/support-tools:latest"},
 				ExtraManifests: []isobuilderconfig.ExtraManifest{
@@ -205,9 +210,19 @@ func TestFormatConfigOutput(t *testing.T) {
 			{Name: "mtv-operator", Version: "2.12", Channel: "release-v2.12"},
 		},
 		RendezvousIP: "192.168.1.10",
-		NetworkConfig: []json.RawMessage{
-			json.RawMessage(`{"interfaces":[{"name":"eth0","type":"ethernet","state":"up"}]}`),
-			json.RawMessage(`{"interfaces":[{"name":"eth1","type":"ethernet","state":"up"}]}`),
+		NetworkConfig: []isobuilderconfig.NetworkConfigEntry{
+			{
+				Interfaces: []isobuilderconfig.Interface{
+					{Name: "eth0", MacAddress: "00:11:22:33:44:55"},
+				},
+				Config: json.RawMessage(`{"interfaces":[{"name":"eth0","type":"ethernet","state":"up"}]}`),
+			},
+			{
+				Interfaces: []isobuilderconfig.Interface{
+					{Name: "eth1", MacAddress: "00:11:22:33:44:66"},
+				},
+				Config: json.RawMessage(`{"interfaces":[{"name":"eth1","type":"ethernet","state":"up"}]}`),
+			},
 		},
 		AdditionalImages: []string{
 			"registry.redhat.io/rhel9/support-tools:latest",

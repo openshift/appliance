@@ -96,7 +96,7 @@ The config file must contain the following fields:
 | `fips`                  | `boolean`     | Configures https://www.nist.gov/itl/fips-general-information               |
 | `olmOperators`          | `object list` | OLM operators to be mirrored (name/version/channel)                        |   
 | `rendezvousIP`          | `string`      | Defines the rendezvous IP                                                  |
-| `networkConfig`         | `object list` | Nodes NMState config to define static networking                           |
+| `networkConfig`         | `object list` | Static network configurations for hosts (interfaces + nmstate YAML config) |
 | `additionalImages`      | `string list` | Additional images pullspec to be mirrored                                  |
 | `extraManifests`        | `object list` | Additional custom manifests to be added in the cluster                     |
 
