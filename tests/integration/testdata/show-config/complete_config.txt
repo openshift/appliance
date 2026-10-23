@@ -10,10 +10,6 @@ stdout 'Pull Secret:\s+\*\*\*'
 stdout 'SSH Keys:\s+1 key'
 stdout 'FIPS:\s+Enabled'
 stdout 'Rendezvous IP:\s+192\.168\.1\.100'
-stdout 'Proxy:'
-stdout 'HTTP Proxy:\s+http://proxy\.example\.com:8080'
-stdout 'HTTPS Proxy:\s+https://proxy\.example\.com:8443'
-stdout 'No Proxy:\s+\.example\.com,10\.0\.0\.0/8'
 stdout 'Additional Trust Bundle:\s+present'
 stdout 'NTP Servers:\s+ntp1\.example\.com, ntp2\.example\.com'
 stdout 'OLM Operators:'
@@ -33,10 +29,6 @@ sshKey:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC1example test@example
 fips: true
 rendezvousIP: "192.168.1.100"
-proxy:
-  httpProxy: http://proxy.example.com:8080
-  httpsProxy: https://proxy.example.com:8443
-  noProxy: ".example.com,10.0.0.0/8"
 additionalTrustBundle: |
   -----BEGIN CERTIFICATE-----
   MIIDExample

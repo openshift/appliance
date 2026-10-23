@@ -77,7 +77,7 @@ func (b *Builder) Build(ctx context.Context) error {
 	return nil
 }
 
-// Not yet converted: Proxy, AdditionalTrustBundle, ExtraManifests.
+// Not yet converted: AdditionalTrustBundle, ExtraManifests.
 // These fields target the install-config / agent-config pipeline and
 // will be addressed separately.
 func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.ApplianceConfig {

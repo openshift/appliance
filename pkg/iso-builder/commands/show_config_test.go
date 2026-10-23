@@ -26,7 +26,6 @@ func TestFormatConfig(t *testing.T) {
 				PullSecret:            secretValue,
 				SSHKey:                []string{"ssh-rsa AAAA...", "ssh-ed25519 AAAA..."},
 				Architecture:          "x86_64",
-				Proxy:                 &isobuilderconfig.Proxy{HTTPProxy: "http://proxy:8080", HTTPSProxy: "https://proxy:8443", NoProxy: "localhost,.example.com"},
 				AdditionalTrustBundle: "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----",
 				AdditionalNTPServers:  []string{"ntp1.example.com", "ntp2.example.com"},
 				FIPS:                  true,
@@ -63,13 +62,6 @@ func TestFormatConfig(t *testing.T) {
 				"Enabled",
 				"Rendezvous IP:",
 				"192.168.1.10",
-				"Proxy:",
-				"HTTP Proxy:",
-				"http://proxy:8080",
-				"HTTPS Proxy:",
-				"https://proxy:8443",
-				"No Proxy:",
-				"localhost,.example.com",
 				"Additional Trust Bundle:",
 				"present",
 				"NTP Servers:",
@@ -108,7 +100,6 @@ func TestFormatConfig(t *testing.T) {
 				"SSH Keys:",
 				"FIPS:",
 				"Rendezvous IP:",
-				"Proxy:",
 				"NTP Servers:",
 				"OLM Operators:",
 				"Additional Images:",
@@ -132,26 +123,6 @@ func TestFormatConfig(t *testing.T) {
 				FIPS:       false,
 			},
 			absent: []string{"FIPS:"},
-		},
-		{
-			name: "proxy fields",
-			config: &isobuilderconfig.Config{
-				PullSecret: secretValue,
-				Proxy: &isobuilderconfig.Proxy{
-					HTTPProxy:  "http://proxy:3128",
-					HTTPSProxy: "https://proxy:3129",
-					NoProxy:    "10.0.0.0/8",
-				},
-			},
-			contains: []string{
-				"Proxy:",
-				"HTTP Proxy:",
-				"http://proxy:3128",
-				"HTTPS Proxy:",
-				"https://proxy:3129",
-				"No Proxy:",
-				"10.0.0.0/8",
-			},
 		},
 		{
 			name: "trust bundle summary",
@@ -201,7 +172,6 @@ func TestFormatConfigOutput(t *testing.T) {
 		PullSecret:            `{"auths":{"cloud.openshift.com":{"auth":"dXNlcjpwYXNz"}}}`,
 		SSHKey:                []string{"ssh-rsa AAAA...", "ssh-ed25519 AAAA..."},
 		Architecture:          "x86_64",
-		Proxy:                 &isobuilderconfig.Proxy{HTTPProxy: "http://proxy:8080", HTTPSProxy: "https://proxy:8443", NoProxy: "localhost,.example.com"},
 		AdditionalTrustBundle: "-----BEGIN CERTIFICATE-----\nMIIDxTCCAq2gAwIBAgIJA...\n-----END CERTIFICATE-----",
 		AdditionalNTPServers:  []string{"ntp1.example.com", "ntp2.example.com"},
 		FIPS:                  true,
@@ -241,11 +211,6 @@ Pull Secret:              ***
 SSH Keys:                 2 key(s)
 FIPS:                     Enabled
 Rendezvous IP:            192.168.1.10
-
-Proxy:
-  HTTP Proxy:             http://proxy:8080
-  HTTPS Proxy:            https://proxy:8443
-  No Proxy:               localhost,.example.com
 Additional Trust Bundle:  present (78 bytes)
 NTP Servers:              ntp1.example.com, ntp2.example.com
 

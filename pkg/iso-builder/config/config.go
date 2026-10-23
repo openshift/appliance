@@ -15,8 +15,6 @@ type Config struct {
 	SSHKey []string `json:"sshKey,omitempty"`
 	// Cluster CPU architecture.
 	Architecture string `json:"architecture,omitempty"`
-	// Cluster proxy settings (http/https/noProxy).
-	Proxy *Proxy `json:"proxy,omitempty"`
 	// PEM-encoded X.509 certificate bundle for the nodes trusted certificate store.
 	AdditionalTrustBundle string `json:"additionalTrustBundle,omitempty"`
 	// Additional NTP servers to use for provisioning.
@@ -33,16 +31,6 @@ type Config struct {
 	AdditionalImages []string `json:"additionalImages,omitempty"`
 	// Custom manifests to be added in the cluster.
 	ExtraManifests []ExtraManifest `json:"extraManifests,omitempty"`
-}
-
-// Proxy holds cluster-wide proxy settings.
-type Proxy struct {
-	// HTTP proxy URL.
-	HTTPProxy string `json:"httpProxy,omitempty"`
-	// HTTPS proxy URL.
-	HTTPSProxy string `json:"httpsProxy,omitempty"`
-	// Comma-separated list of destinations that should bypass the proxy.
-	NoProxy string `json:"noProxy,omitempty"`
 }
 
 // OLMOperator identifies an OLM operator to be mirrored into the ISO.

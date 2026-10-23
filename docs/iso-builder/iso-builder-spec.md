@@ -90,7 +90,6 @@ The config file must contain the following fields:
 | `pullSecret`            | `string`      | Secret to use when pulling images                                          |
 | `sshKey`                | `string list` | Public Secure Shell (SSH) key to provide access to instances               |
 | `architecture`          | `string`      | Cluster CPU architecture                                                   |
-| `proxy`                 | `object`      | Settings for the cluster proxy (http/https/noProxy)                        |
 | `additionalTrustBundle` | `string`      | PEM-encoded X.509 certificate bundle for nodes trusted certificate store   |
 | `additionalNTPServers`  | `string list` | List of additional NTP servers to use for provisioning                     |
 | `fips`                  | `boolean`     | Configures https://www.nist.gov/itl/fips-general-information               |

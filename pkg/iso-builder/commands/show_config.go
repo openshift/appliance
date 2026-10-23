@@ -43,13 +43,6 @@ func formatConfig(w io.Writer, cfg *isobuilderconfig.Config) error {
 
 	p.field("Rendezvous IP", cfg.RendezvousIP)
 
-	if cfg.Proxy != nil {
-		p.printf("\nProxy:\n")
-		p.field("  HTTP Proxy", cfg.Proxy.HTTPProxy)
-		p.field("  HTTPS Proxy", cfg.Proxy.HTTPSProxy)
-		p.field("  No Proxy", cfg.Proxy.NoProxy)
-	}
-
 	if cfg.AdditionalTrustBundle != "" {
 		p.printf("%-25s present (%d bytes)\n", "Additional Trust Bundle:", len(cfg.AdditionalTrustBundle))
 	}
