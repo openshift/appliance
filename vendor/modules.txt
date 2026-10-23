@@ -1252,7 +1252,7 @@ github.com/microsoft/kiota-abstractions-go/store
 # github.com/microsoft/kiota-authentication-azure-go v1.3.0
 ## explicit; go 1.23.0
 github.com/microsoft/kiota-authentication-azure-go
-# github.com/miekg/pkcs11 v1.1.1
+# github.com/miekg/pkcs11 v1.1.2
 ## explicit; go 1.12
 github.com/miekg/pkcs11
 # github.com/mitchellh/go-wordwrap v1.0.1
