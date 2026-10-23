@@ -1,4 +1,4 @@
-package fat32
+package fat12
 
 import (
 	"os"

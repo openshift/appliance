@@ -1,8 +1,9 @@
-package fat32
+package fat12
 
 import (
 	"encoding/binary"
 	"fmt"
+	iofs "io/fs"
 	"regexp"
 	"strings"
 	"time"
@@ -45,6 +46,53 @@ type directoryEntry struct {
 	filesystem         *FileSystem
 	longFilenameSlots  int
 	isNew              bool
+}
+
+func (de *directoryEntry) Info() (iofs.FileInfo, error) {
+	return FileInfo{
+		modTime:   de.modifyTime,
+		name:      de.filenameLong,
+		shortName: de.fullShortName(),
+		size:      int64(de.fileSize),
+		isDir:     de.isSubdirectory,
+	}, nil
+}
+
+func (de *directoryEntry) nameMatches(name string) bool {
+	return strings.EqualFold(de.filenameLong, name) || strings.EqualFold(de.fullShortName(), name)
+}
+
+func (de *directoryEntry) fullShortName() string {
+	name := de.filenameShort
+	if de.lowercaseShortname {
+		name = strings.ToLower(name)
+	}
+	ext := de.fileExtension
+	if de.lowercaseExtension {
+		ext = strings.ToLower(ext)
+	}
+	if ext != "" {
+		return name + "." + ext
+	}
+	return name
+}
+
+func (de *directoryEntry) IsDir() bool {
+	return de.isSubdirectory
+}
+
+func (de *directoryEntry) Type() iofs.FileMode {
+	if de.isSubdirectory {
+		return iofs.ModeDir
+	}
+	return 0
+}
+
+func (de *directoryEntry) Name() string {
+	if de.filenameLong != "" {
+		return de.filenameLong
+	}
+	return de.fullShortName()
 }
 
 func (de *directoryEntry) toBytes() ([]byte, error) {
@@ -348,7 +396,7 @@ func lfnChecksum(name, extension string) (byte, error) {
 	for i := 3; i > length; i-- {
 		extensionBytes = append(extensionBytes, 0x20)
 	}
-	b := make([]byte, len(nameBytes))
+	b := make([]byte, len(nameBytes), len(nameBytes)+len(extensionBytes))
 	copy(b, nameBytes)
 	b = append(b, extensionBytes...)
 

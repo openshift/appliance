@@ -28,12 +28,16 @@ const (
 type FinalizeOptions struct {
 	// RockRidge enable Rock Ridge extensions
 	RockRidge bool
+	// Joliet enable Joliet extensions (UCS-2 long filenames via Supplementary Volume Descriptor)
+	Joliet bool
 	// DeepDirectories allow directories deeper than 8
 	DeepDirectories bool
 	// ElTorito slice of el torito entry configs
 	ElTorito *ElTorito
 	// VolumeIdentifier custom volume name, defaults to "ISOIMAGE"
 	VolumeIdentifier string
+	// PublisherIdentifier custom publisher identifier written to the PVD
+	PublisherIdentifier string
 }
 
 // finalizeFileInfo is a file info useful for finalization
@@ -335,6 +339,87 @@ func (fi *finalizeFileInfo) calculateDirectorySize(fsm *FileSystem) (dirEntrySiz
 	return dirEntrySize, continuationBlocksSize, nil
 }
 
+// jolietFilename returns the Joliet filename for a finalizeFileInfo entry.
+// Joliet entries omit the ";1" version suffix (matching xorriso behavior).
+func jolietFilename(fi *finalizeFileInfo) string {
+	return fi.name
+}
+
+// toJolietDirectoryEntry creates a Joliet directory entry from a finalizeFileInfo.
+// The entry uses the original (non-truncated) filename encoded as UCS-2.
+// File data locations are shared with the PVD tree.
+func (fi *finalizeFileInfo) toJolietDirectoryEntry(fsm *FileSystem, isSelf, isParent bool) *directoryEntry {
+	de := &directoryEntry{
+		extAttrSize:              0,
+		location:                 fi.location,
+		size:                     uint32(fi.Size()),
+		creation:                 fi.ModTime(),
+		isHidden:                 false,
+		isSubdirectory:           fi.IsDir(),
+		isAssociated:             false,
+		hasExtendedAttrs:         false,
+		hasOwnerGroupPermissions: false,
+		hasMoreEntries:           false,
+		isSelf:                   isSelf,
+		isParent:                 isParent,
+		joliet:                   true,
+		volumeSequence:           1,
+		filesystem:               fsm,
+		filename:                 jolietFilename(fi),
+	}
+	return de
+}
+
+// toJolietDirectory creates a Joliet Directory from a finalizeFileInfo directory.
+// jolietLocation is the block location for this Joliet directory extent.
+// parentJolietLocation is the block location of the parent's Joliet directory extent.
+func (fi *finalizeFileInfo) toJolietDirectory(fsm *FileSystem, jolietLocation, parentJolietLocation uint32) (*Directory, error) {
+	if !fi.IsDir() {
+		return nil, fmt.Errorf("cannot convert a file entry to a directory")
+	}
+	self := fi.toJolietDirectoryEntry(fsm, true, false)
+	self.location = jolietLocation
+	self.size = 0 // filled in after calculating directory size
+
+	parentEntry := fi.parent
+	if fi.isRoot {
+		parentEntry = fi
+	}
+	parent := parentEntry.toJolietDirectoryEntry(fsm, false, true)
+	parent.location = parentJolietLocation
+
+	entries := []*directoryEntry{self, parent}
+	for _, child := range fi.children {
+		de := child.toJolietDirectoryEntry(fsm, false, false)
+		entries = append(entries, de)
+	}
+	d := &Directory{
+		directoryEntry: *self,
+		entries:        entries,
+	}
+	return d, nil
+}
+
+// calculateJolietDirectorySize calculates the byte size of a Joliet directory extent.
+func calculateJolietDirectorySize(d *Directory, blocksize int) int {
+	size := 0
+	for _, de := range d.entries {
+		recSize := de.countBaseBytes()
+		// ensure even
+		if recSize%2 != 0 {
+			recSize++
+		}
+		// cannot cross block boundary
+		newSize := size + recSize
+		left := blocksize - size%blocksize
+		if left != 0 && newSize/blocksize > size/blocksize {
+			size += left
+		}
+		size += recSize
+	}
+	return size
+}
+
 // add depth to all children
 func (fi *finalizeFileInfo) addProperties(depth int) {
 	fi.depth = depth
@@ -352,7 +437,8 @@ func (fi *finalizeFileInfo) collapseAndSortChildren() (dirs, files []*finalizeFi
 	for _, e := range fi.children {
 		if e.IsDir() {
 			tmpDirs = append(tmpDirs, e)
-		} else {
+		} else if e.mode&os.ModeSymlink == 0 {
+			// symlinks have no data extent — skip them
 			tmpFiles = append(tmpFiles, e)
 		}
 	}
@@ -536,9 +622,13 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 	dirs = append(dirs, subdirs...)
 
 	// calculate the sizes and locations of the directories from the flat list and assign blocks
+	// sector layout starting at 16: PVD, terminator, [boot VD], [Joliet SVD], root dir...
+	// each optional volume descriptor takes one sector, pushing root forward
 	rootLocation := uint32(dataStartSector + 2)
-	// if el torito was enabled, use one sector for boot volume entry
 	if options.ElTorito != nil {
+		rootLocation++
+	}
+	if options.Joliet {
 		rootLocation++
 	}
 	location := rootLocation
@@ -549,7 +639,10 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 	)
 
 	if options.ElTorito != nil {
-		bootcat = options.ElTorito.generateCatalog()
+		bootcat, err = options.ElTorito.generateCatalog()
+		if err != nil {
+			return fmt.Errorf("error generating El Torito boot catalog: %v", err)
+		}
 		// figure out where to save it on disk
 		catname := options.ElTorito.BootCatalog
 		switch {
@@ -648,6 +741,7 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 	if options.VolumeIdentifier != "" {
 		volIdentifier = options.VolumeIdentifier
 	}
+	publisherIdentifier := options.PublisherIdentifier
 
 	for _, e := range files {
 		e.location = location
@@ -659,8 +753,82 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 
 	// now that we have all of the files with their locations, we can rebuild the boot catalog using the correct data
 	if catEntry != nil {
-		bootcat = options.ElTorito.generateCatalog()
+		bootcat, err = options.ElTorito.generateCatalog()
+		if err != nil {
+			return fmt.Errorf("error generating El Torito boot catalog: %v", err)
+		}
 		catEntry.content = bootcat
+	}
+
+	// build Joliet directory tree if enabled
+	// these vars are declared here because they're used across multiple Joliet blocks below
+	// (directory writing, path table writing, and SVD construction)
+	var (
+		jolietDirs            []*Directory
+		jolietPathTableLBytes []byte
+		jolietPathTableMBytes []byte
+		jolietPathTableSize   int
+		jolietPathTableLLoc   uint32
+		jolietPathTableMLoc   uint32
+		jolietRootLocation    uint32
+	)
+	if options.Joliet {
+		jolietRootLocation = location
+		// build Joliet directories for each PVD directory, sharing file locations
+		jolietLocations := make([]uint32, len(dirs))
+		jolietDirs = make([]*Directory, len(dirs))
+
+		// first pass: assign locations and build directory objects
+		for i, dir := range dirs {
+			parentJolietLoc := jolietRootLocation
+			if !dir.isRoot {
+				// find parent's Joliet location
+				for j, d := range dirs {
+					if d == dir.parent {
+						parentJolietLoc = jolietLocations[j]
+						break
+					}
+				}
+			}
+			jolietLocations[i] = location
+			jd, err := dir.toJolietDirectory(fsm, location, parentJolietLoc)
+			if err != nil {
+				return fmt.Errorf("unable to build Joliet directory for %s: %v", dir.path, err)
+			}
+			dirSize := calculateJolietDirectorySize(jd, blocksize)
+			blocks := calculateBlocks(int64(dirSize), int64(blocksize))
+			jd.size = uint32(dirSize)
+			jd.entries[0].size = uint32(dirSize) // self entry
+			jolietDirs[i] = jd
+			location += blocks
+		}
+
+		// second pass: update parent entry sizes (parent entry points to parent dir)
+		for i, jd := range jolietDirs {
+			if i == 0 {
+				// root's parent is itself
+				jd.entries[1].size = jd.entries[0].size
+			} else {
+				// find parent directory and set its size on the parent entry
+				for j, d := range dirs {
+					if d == dirs[i].parent {
+						jd.entries[1].size = jolietDirs[j].entries[0].size
+						break
+					}
+				}
+			}
+		}
+
+		// create Joliet path table
+		jolietPT := createJolietPathTable(dirs, jolietLocations)
+		jolietPathTableLBytes = jolietPT.toJolietLBytes()
+		jolietPathTableMBytes = jolietPT.toJolietMBytes()
+		jolietPathTableSize = len(jolietPathTableLBytes)
+		jolietPTBlocks := calculateBlocks(int64(jolietPathTableSize), int64(blocksize))
+		jolietPathTableLLoc = location
+		location += jolietPTBlocks
+		jolietPathTableMLoc = location
+		location += jolietPTBlocks
 	}
 
 	// now we can write each one out - dirs first then files
@@ -690,11 +858,35 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 		}
 	}
 
+	// write Joliet directories
+	if options.Joliet {
+		for _, jd := range jolietDirs {
+			// Joliet entries have no SUSP, so no CE blocks
+			p, err := jd.entriesToBytes(nil)
+			if err != nil {
+				return fmt.Errorf("could not convert Joliet directory to bytes: %v", err)
+			}
+			jolietWriteAt := int64(jd.location) * int64(blocksize)
+			for _, e := range p {
+				_, _ = f.WriteAt(e, jolietWriteAt)
+				jolietWriteAt += int64(len(e))
+			}
+		}
+	}
+
 	// now write out the path tables, L & M
 	writeAt := int64(pathTableLLocation) * int64(blocksize)
 	_, _ = f.WriteAt(pathTableLBytes, writeAt)
 	writeAt = int64(pathTableMLocation) * int64(blocksize)
 	_, _ = f.WriteAt(pathTableMBytes, writeAt)
+
+	// write Joliet path tables
+	if options.Joliet {
+		writeAt = int64(jolietPathTableLLoc) * int64(blocksize)
+		_, _ = f.WriteAt(jolietPathTableLBytes, writeAt)
+		writeAt = int64(jolietPathTableMLoc) * int64(blocksize)
+		_, _ = f.WriteAt(jolietPathTableMBytes, writeAt)
+	}
 
 	var closeFiles []*os.File
 	defer func() {
@@ -793,7 +985,7 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 		pathTableMLocation:         pathTableMLocation,
 		pathTableMOptionalLocation: 0,
 		volumeSetIdentifier:        "",
-		publisherIdentifier:        "",
+		publisherIdentifier:        publisherIdentifier,
 		preparerIdentifier:         version.AppName,
 		applicationIdentifier:      "",
 		copyrightFile:              "", // 37 bytes
@@ -808,6 +1000,47 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 	b = pvd.toBytes()
 	_, _ = f.WriteAt(b, int64(location)*int64(blocksize))
 	location++
+
+	// write Joliet supplementary volume descriptor
+	if options.Joliet {
+		jolietRootDE := root.toJolietDirectoryEntry(fsm, true, false)
+		jolietRootDE.location = jolietRootLocation
+		jolietRootDE.size = jolietDirs[0].entries[0].size
+
+		escapeSequences := make([]byte, 32)
+		copy(escapeSequences, []byte{0x25, 0x2F, 0x45}) // UCS-2 Level 3
+
+		svd := &supplementaryVolumeDescriptor{
+			volumeFlags:                0,
+			systemIdentifier:           "",
+			volumeIdentifier:           volIdentifier,
+			volumeSize:                 uint64(totalSize) * uint64(fsm.blocksize),
+			escapeSequences:            escapeSequences,
+			setSize:                    1,
+			sequenceNumber:             1,
+			blocksize:                  uint16(fsm.blocksize),
+			pathTableSize:              uint32(jolietPathTableSize),
+			pathTableLLocation:         jolietPathTableLLoc,
+			pathTableLOptionalLocation: 0,
+			pathTableMLocation:         jolietPathTableMLoc,
+			pathTableMOptionalLocation: 0,
+			volumeSetIdentifier:        "",
+			publisherIdentifier:        publisherIdentifier,
+			preparerIdentifier:         version.AppName,
+			applicationIdentifier:      "",
+			copyrightFile:              "",
+			abstractFile:               "",
+			bibliographicFile:          "",
+			creation:                   now,
+			modification:               now,
+			expiration:                 now,
+			effective:                  now,
+			rootDirectoryEntry:         jolietRootDE,
+		}
+		b = svd.toBytes()
+		_, _ = f.WriteAt(b, int64(location)*int64(blocksize))
+		location++
+	}
 
 	// do we have a boot sector?
 	if options.ElTorito != nil {
@@ -920,6 +1153,61 @@ func createPathTable(fi []*finalizeFileInfo) *pathTable {
 	}
 }
 
+// createJolietPathTable creates a Joliet path table using original (non-truncated) directory names
+// and Joliet-specific block locations.
+func createJolietPathTable(dirs []*finalizeFileInfo, jolietLocations []uint32) *pathTable {
+	// copy and sort like the PVD path table
+	fis := make([]*finalizeFileInfo, len(dirs))
+	copy(fis, dirs)
+
+	// build a mapping from original dirs to their Joliet locations
+	locMap := make(map[*finalizeFileInfo]uint32)
+	for i, d := range dirs {
+		locMap[d] = jolietLocations[i]
+	}
+
+	sort.Slice(fis, func(i, j int) bool {
+		return sortFinalizeFileInfoPathTable(fis[i], fis[j])
+	})
+	indexMap := make(map[*finalizeFileInfo]int)
+	entries := make([]*pathTableEntry, 0, len(fis))
+	for i, e := range fis {
+		// Per ECMA-119 (6th ed.) Annex C.4.6 a) the root directory identifier
+		// in the path table is a single (00) byte even for the Joliet SVD.
+		// Other entries keep their original (UCS-2-encoded-on-disk) name so
+		// that lookups like readDirectoryJoliet("SubDir") can match.
+		var name string
+		if e.isRoot {
+			name = "\x00"
+		} else {
+			name = e.name
+		}
+		nameSize := len(name)
+		size := 8 + uint16(nameSize)
+		if nameSize%2 != 0 {
+			size++
+		}
+		ownIndex := i + 1
+		indexMap[e] = ownIndex
+		parentIndex := ownIndex
+		if ip, ok := indexMap[e.parent]; ok {
+			parentIndex = ip
+		}
+		pte := &pathTableEntry{
+			nameSize:      uint8(nameSize),
+			size:          size,
+			extAttrLength: 0,
+			location:      locMap[e],
+			parentIndex:   uint16(parentIndex),
+			dirname:       name,
+		}
+		entries = append(entries, pte)
+	}
+	return &pathTable{
+		records: entries,
+	}
+}
+
 func walkTree(workspace string) ([]*finalizeFileInfo, map[string]*finalizeFileInfo, error) {
 	var (
 		dirList         = make(map[string]*finalizeFileInfo)
@@ -963,12 +1251,14 @@ func walkTree(workspace string) ([]*finalizeFileInfo, map[string]*finalizeFileIn
 				dirList[parentDir] = parentDirInfo
 			}
 		} else {
-			// calculate blocks
-			entry.size = fi.Size()
 			entry.extension = extension
 			parentDirInfo.children = append(parentDirInfo.children, entry)
 			dirList[parentDir] = parentDirInfo
-			fileList = append(fileList, entry)
+			// symlinks have no data extent — target is in Rock Ridge SL entries
+			if fi.Mode()&os.ModeSymlink == 0 {
+				entry.size = fi.Size()
+				fileList = append(fileList, entry)
+			}
 		}
 
 		// Add to collision groups (for both files and directories)
