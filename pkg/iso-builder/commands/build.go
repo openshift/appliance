@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/appliance/pkg/graph"
 	isobuilderconfig "github.com/openshift/appliance/pkg/iso-builder/config"
 	"github.com/openshift/appliance/pkg/iso-builder/embeddedconfig"
+	"github.com/openshift/appliance/pkg/oc"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
@@ -52,6 +53,10 @@ func (b *Builder) Build(ctx context.Context) error {
 	if len(b.additionalImages) > 0 {
 		logrus.Infof("Adding %d additional image(s) from CLI flags", len(b.additionalImages))
 		embeddedCfg.AdditionalImages = append(embeddedCfg.AdditionalImages, b.additionalImages...)
+	}
+
+	if err := b.acquireTools(ctx, embeddedCfg); err != nil {
+		return err
 	}
 
 	if err := b.applyLiveISOBuilderAsset(ctx, embeddedCfg); err != nil {
@@ -144,6 +149,50 @@ func convertOperators(openshiftVersion string, olmOps []isobuilderconfig.OLMOper
 		Catalog:       catalog,
 		IncludeConfig: types.IncludeConfig{Packages: packages},
 	}}
+}
+
+// acquireTools downloads the external tools required by the build
+// into a "tools" folder under the per-release cache and prepends it to
+// PATH, so the legacy builder can resolve them from the environment.
+func (b *Builder) acquireTools(ctx context.Context, isoBuilderConfig *isobuilderconfig.Config) error {
+	store, err := assetstore.NewStore(b.workingDir)
+	if err != nil {
+		return errors.Wrap(err, "failed to create asset store")
+	}
+
+	appCfgProvider := &config.ApplianceConfigProvider{
+		Config: b.convertToApplianceConfig(isoBuilderConfig),
+	}
+	envCfg := &config.EnvConfig{
+		AssetsDir: b.workingDir,
+		IsLiveISO: true,
+	}
+	appCfg := &config.ApplianceConfig{}
+	for _, a := range []asset.Asset{appCfgProvider, envCfg, appCfg} {
+		if err := store.Fetch(ctx, a); err != nil {
+			return errors.Wrapf(err, "failed to fetch %s", a.Name())
+		}
+	}
+
+	toolsDir := filepath.Join(envCfg.CacheDir, "tools")
+	ocClient := oc.NewClient(oc.ClientConfig{
+		ReleaseVersion: appCfg.Config.OcpRelease.Version,
+		CacheDir:       toolsDir,
+	})
+	if _, err := ocClient.Acquire(); err != nil {
+		return errors.Wrap(err, "failed to acquire oc client")
+	}
+
+	return prependToPath(toolsDir)
+}
+
+// prependToPath puts dir at the front of the PATH environment variable.
+func prependToPath(dir string) error {
+	path := os.Getenv("PATH")
+	if path != "" {
+		dir = dir + string(os.PathListSeparator) + path
+	}
+	return os.Setenv("PATH", dir)
 }
 
 // This method is used to clearly mark the adoption of the legacy code.

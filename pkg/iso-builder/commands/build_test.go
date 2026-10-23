@@ -1,11 +1,42 @@
 package commands
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	isobuilderconfig "github.com/openshift/appliance/pkg/iso-builder/config"
 	"github.com/openshift/appliance/pkg/types"
 )
+
+func TestPrependToPath(t *testing.T) {
+	cases := []struct {
+		name    string
+		initial string
+		dir     string
+	}{
+		{name: "empty path", initial: "", dir: "/cache/tools"},
+		{name: "existing path", initial: "/usr/bin:/bin", dir: "/cache/tools"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("PATH", tc.initial)
+
+			if err := prependToPath(tc.dir); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got := os.Getenv("PATH")
+			if !strings.HasPrefix(got, tc.dir) {
+				t.Errorf("expected PATH to start with %q, got %q", tc.dir, got)
+			}
+			if tc.initial != "" && !strings.HasSuffix(got, tc.initial) {
+				t.Errorf("expected PATH to retain %q, got %q", tc.initial, got)
+			}
+		})
+	}
+}
 
 func TestConvertToApplianceConfigAdditionalImages(t *testing.T) {
 	cases := []struct {
