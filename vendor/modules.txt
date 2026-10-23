@@ -1287,7 +1287,7 @@ github.com/munnerz/goautoneg
 ## explicit; go 1.25.0
 github.com/nutanix-cloud-native/cluster-api-provider-nutanix/api/v1beta1
 github.com/nutanix-cloud-native/cluster-api-provider-nutanix/pkg/feature
-# github.com/nutanix-cloud-native/prism-go-client v0.8.0
+# github.com/nutanix-cloud-native/prism-go-client v0.8.2
 ## explicit; go 1.24.0
 github.com/nutanix-cloud-native/prism-go-client
 github.com/nutanix-cloud-native/prism-go-client/environment/credentials

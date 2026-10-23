@@ -131,6 +131,9 @@ type Service interface {
 	PerformRecoveryPlanJobAction(ctx context.Context, uuid string, action string, request *RecoveryPlanJobActionRequest) (*RecoveryPlanJobResponse, error)
 	GroupsGetEntities(ctx context.Context, request *GroupsGetEntitiesRequest) (*GroupsGetEntitiesResponse, error)
 	GetAvailabilityZone(ctx context.Context, uuid string) (*AvailabilityZoneIntentResponse, error)
+	ListAvailabilityZones(ctx context.Context, getEntitiesRequest *DSMetadata) (*AvailabilityZoneListResponse, error)
+	ListAllAvailabilityZones(ctx context.Context, filter string) (*AvailabilityZoneListResponse, error)
+	GetSyncReplicationCapableClusters(ctx context.Context, request *ClusterSyncReplicationCapableInput) (*ClusterSyncReplicationCapableResponse, error)
 	GetPrismCentral(ctx context.Context) (*models.PrismCentral, error)
 	CreateIdempotenceIdentifiers(ctx context.Context, request *models.IdempotenceIdentifiersInput) (*models.IdempotenceIdentifiersResponse, error)
 	GetIdempotenceIdentifiers(ctx context.Context, clientIdentifier string) (*models.IdempotenceIdentifiersResponse, error)
@@ -2406,6 +2409,80 @@ func (op Operations) GetAvailabilityZone(ctx context.Context, uuid string) (*Ava
 	response := new(AvailabilityZoneIntentResponse)
 
 	req, err := op.client.NewRequest(http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, op.client.Do(ctx, req, response)
+}
+
+// ListAvailabilityZones gets a list of availability zones (AZs).
+func (op Operations) ListAvailabilityZones(ctx context.Context, getEntitiesRequest *DSMetadata) (*AvailabilityZoneListResponse, error) {
+	path := "/availability_zones/list"
+
+	list := new(AvailabilityZoneListResponse)
+
+	req, err := op.client.NewRequest(http.MethodPost, path, getEntitiesRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	return list, op.client.Do(ctx, req, list)
+}
+
+// ListAllAvailabilityZones gets all availability zones (AZs) matching the given
+// filter, handling pagination internally.
+func (op Operations) ListAllAvailabilityZones(ctx context.Context, filter string) (*AvailabilityZoneListResponse, error) {
+	entities := make([]*AvailabilityZoneIntentResponse, 0)
+
+	resp, err := op.ListAvailabilityZones(ctx, &DSMetadata{
+		Filter: &filter,
+		Kind:   ptr.To("availability_zone"),
+		Length: ptr.To(itemsPerPage),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Metadata == nil {
+		return resp, nil
+	}
+
+	totalEntities := ptr.Deref(resp.Metadata.TotalMatches, 0)
+	remaining := totalEntities
+	offset := ptr.Deref(resp.Metadata.Offset, 0)
+
+	if totalEntities > itemsPerPage {
+		for hasNext(&remaining) {
+			resp, err = op.ListAvailabilityZones(ctx, &DSMetadata{
+				Filter: &filter,
+				Kind:   ptr.To("availability_zone"),
+				Length: ptr.To(itemsPerPage),
+				Offset: ptr.To(offset),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			entities = append(entities, resp.Entities...)
+
+			offset += itemsPerPage
+		}
+
+		resp.Entities = entities
+	}
+
+	return resp, nil
+}
+
+// GetSyncReplicationCapableClusters checks if a remote cluster is capable of
+// synchronous replication.
+func (op Operations) GetSyncReplicationCapableClusters(ctx context.Context, request *ClusterSyncReplicationCapableInput) (*ClusterSyncReplicationCapableResponse, error) {
+	path := "/clusters/synchronous_replication_capable"
+
+	response := new(ClusterSyncReplicationCapableResponse)
+
+	req, err := op.client.NewRequest(http.MethodPost, path, request)
 	if err != nil {
 		return nil, err
 	}
