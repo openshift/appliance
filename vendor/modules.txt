@@ -1441,7 +1441,7 @@ github.com/openshift/cloud-credential-operator/pkg/version
 ## explicit; go 1.17
 github.com/openshift/cluster-api-provider-baremetal/pkg/apis
 github.com/openshift/cluster-api-provider-baremetal/pkg/apis/baremetal/v1alpha1
-# github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20240104064818-a336f0b5f7ee
+# github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20260327203357-63c1b6342e27
 ## explicit; go 1.17
 github.com/openshift/cluster-api-provider-libvirt/pkg/apis
 github.com/openshift/cluster-api-provider-libvirt/pkg/apis/libvirtproviderconfig/v1beta1
