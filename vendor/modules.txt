@@ -670,7 +670,7 @@ github.com/coreos/vcontext/path
 github.com/coreos/vcontext/report
 github.com/coreos/vcontext/tree
 github.com/coreos/vcontext/validate
-# github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467
+# github.com/cyberphone/json-canonicalization v0.0.0-20261011152517-32a48195b9b2
 ## explicit
 github.com/cyberphone/json-canonicalization/go/src/webpki.org/jsoncanonicalizer
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
