@@ -363,9 +363,11 @@ type BareMetalHostSpec struct {
 	// BIOS configuration for bare metal server
 	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
-	// What is the name of the hardware profile for this host? It
-	// should only be necessary to set this when inspection cannot
-	// automatically determine the profile.
+	// What is the name of the hardware profile for this host?
+	// Hardware profiles are deprecated and should not be used.
+	// Use the separate fields Architecture and RootDeviceHints instead.
+	// Set to "empty" to prepare for the future version of the API
+	// without hardware profiles.
 	HardwareProfile string `json:"hardwareProfile,omitempty"`
 
 	// Provide guidance about how to choose the device for the image
@@ -448,7 +450,7 @@ const (
 )
 
 // ChecksumType holds the algorithm name for the checksum
-// +kubebuilder:validation:Enum=md5;sha256;sha512
+// +kubebuilder:validation:Enum=md5;sha256;sha512;auto
 type ChecksumType string
 
 const (
@@ -460,6 +462,9 @@ const (
 
 	// SHA512 checksum type
 	SHA512 ChecksumType = "sha512"
+
+	// Automatically detect
+	AutoChecksum ChecksumType = "auto"
 )
 
 // Image holds the details of an image either to provisioned or that
@@ -471,8 +476,9 @@ type Image struct {
 	// Checksum is the checksum for the image.
 	Checksum string `json:"checksum,omitempty"`
 
-	// ChecksumType is the checksum algorithm for the image.
-	// e.g md5, sha256, sha512
+	// ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
+	// The special value "auto" can be used to detect the algorithm from the checksum.
+	// If missing, MD5 is used. If in doubt, use "auto".
 	ChecksumType ChecksumType `json:"checksumType,omitempty"`
 
 	// DiskFormat contains the format of the image (raw, qcow2, ...).
@@ -546,9 +552,15 @@ type CPU struct {
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
-	// The Linux device name of the disk, e.g. "/dev/sda". Note that this
-	// may not be stable across reboots.
+	// A Linux device name of the disk, e.g.
+	// "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". This will be a name
+	// that is stable across reboots if one is available.
 	Name string `json:"name,omitempty"`
+
+	// A list of alternate Linux device names of the disk, e.g. "/dev/sda".
+	// Note that this list is not exhaustive, and names may not be stable
+	// across reboots.
+	AlternateNames []string `json:"alternateNames,omitempty"`
 
 	// Whether this disk represents rotational storage.
 	// This field is not recommended for usage, please
@@ -1088,6 +1100,8 @@ func (image *Image) GetChecksum() (checksum, checksumType string, ok bool) {
 		checksumType = string(MD5)
 	case MD5, SHA256, SHA512:
 		checksumType = string(image.ChecksumType)
+	case AutoChecksum:
+		// No type, let Ironic detect
 	default:
 		return
 	}
