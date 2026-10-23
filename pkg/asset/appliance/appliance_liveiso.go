@@ -215,9 +215,12 @@ func (a *ApplianceLiveISO) buildLiveISO(
 		return err
 	}
 
-	hybrid := syslinux.NewIsoHybrid(nil)
-	if err = hybrid.Convert(liveIsoFileName); err != nil {
-		logrus.Errorf("Error creating isohybrid: %s", err)
+	// Apply isohybrid unless skipped (OVE applies by default)
+	if !envConfig.SkipIsohybrid {
+		hybrid := syslinux.NewIsoHybrid(nil)
+		if err = hybrid.Convert(liveIsoFileName); err != nil {
+			logrus.Errorf("Error creating isohybrid: %s", err)
+		}
 	}
 
 	return log.StopSpinner(spinner, nil)
