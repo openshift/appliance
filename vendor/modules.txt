@@ -1249,7 +1249,7 @@ github.com/microsoft/kiota-abstractions-go
 github.com/microsoft/kiota-abstractions-go/authentication
 github.com/microsoft/kiota-abstractions-go/serialization
 github.com/microsoft/kiota-abstractions-go/store
-# github.com/microsoft/kiota-authentication-azure-go v1.3.0
+# github.com/microsoft/kiota-authentication-azure-go v1.3.1
 ## explicit; go 1.23.0
 github.com/microsoft/kiota-authentication-azure-go
 # github.com/miekg/pkcs11 v1.1.1
