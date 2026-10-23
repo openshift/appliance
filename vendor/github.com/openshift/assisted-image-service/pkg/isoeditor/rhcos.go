@@ -220,7 +220,8 @@ func fixGrubConfig(rootFSURL, extractDir string, includeNmstateRamDisk bool, kar
 	}
 
 	// Write the modified content back to the file
-	return os.WriteFile(foundGrubPath, []byte(contentStr), 0600)
+	// foundGrubPath is safe: built from extractDir (os.MkdirTemp output) and a hardcoded path list.
+	return os.WriteFile(foundGrubPath, []byte(contentStr), 0600) //nolint:gosec // G703 false positive, path is application-controlled
 }
 
 // fixIsolinuxConfig modifies isolinux.cfg and updates kargs config in place
@@ -261,7 +262,8 @@ func fixIsolinuxConfig(rootFSURL, extractDir string, includeNmstateRamDisk bool,
 	}
 
 	// Write the modified content back to the file
-	return os.WriteFile(isolinuxPath, []byte(contentStr), 0600)
+	// isolinuxPath is safe: built from extractDir (os.MkdirTemp output) and a hardcoded constant.
+	return os.WriteFile(isolinuxPath, []byte(contentStr), 0600) //nolint:gosec // G703 false positive, path is application-controlled
 }
 
 // editString applies a regex replacement to a string and returns the modified string

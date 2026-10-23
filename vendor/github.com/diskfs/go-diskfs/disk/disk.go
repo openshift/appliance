@@ -12,12 +12,23 @@ import (
 	"github.com/diskfs/go-diskfs/backend"
 	"github.com/diskfs/go-diskfs/filesystem"
 	"github.com/diskfs/go-diskfs/filesystem/ext4"
+	"github.com/diskfs/go-diskfs/filesystem/fat12"
+	"github.com/diskfs/go-diskfs/filesystem/fat16"
 	"github.com/diskfs/go-diskfs/filesystem/fat32"
 	"github.com/diskfs/go-diskfs/filesystem/iso9660"
 	"github.com/diskfs/go-diskfs/filesystem/squashfs"
 	"github.com/diskfs/go-diskfs/partition"
+	"github.com/diskfs/go-diskfs/partition/part"
 	log "github.com/sirupsen/logrus"
 )
+
+// ErrReReadDeferred is returned (wrapped) by ReReadPartitionTable when the
+// on-disk partition table was written successfully but the kernel could not be
+// made to re-read it because the disk is busy (a partition is mounted/held — the
+// common case when repartitioning the disk you are booted from). The new table
+// is committed on disk; a reboot makes the kernel pick it up. Callers can detect
+// this with errors.Is and reboot-to-apply instead of treating it as a failure.
+var ErrReReadDeferred = errors.New("partition table written to disk but kernel re-read deferred (device busy); reboot to apply")
 
 // Disk is a reference to a single disk block device or image that has been Create() or Open()
 type Disk struct {
@@ -81,24 +92,16 @@ func (d *Disk) Partition(table partition.Table) error {
 //
 // returns an error if there was an error writing to the disk, reading from the reader, the table
 // is invalid, or the partition is invalid
-func (d *Disk) WritePartitionContents(part int, reader io.Reader) (int64, error) {
+func (d *Disk) WritePartitionContents(partIndex int, reader io.Reader) (int64, error) {
 	backingRwFile, err := d.Backend.Writable()
-
 	if err != nil {
 		return -1, err
 	}
-	if d.Table == nil {
-		return -1, fmt.Errorf("cannot write contents of a partition on a disk without a partition table")
+	foundPart, err := d.GetPartition(partIndex)
+	if err != nil {
+		return -1, err
 	}
-	if part < 0 {
-		return -1, fmt.Errorf("cannot write contents of a partition without specifying a partition")
-	}
-	partitions := d.Table.GetPartitions()
-	// API indexes from 1, but slice from 0
-	if part > len(partitions) {
-		return -1, fmt.Errorf("cannot write contents of partition %d which is greater than max partition %d", part, len(partitions))
-	}
-	written, err := partitions[part-1].WriteContents(backingRwFile, reader)
+	written, err := foundPart.WriteContents(backingRwFile, reader)
 	return int64(written), err
 }
 
@@ -108,19 +111,12 @@ func (d *Disk) WritePartitionContents(part int, reader io.Reader) (int64, error)
 //
 // returns an error if there was an error reading from the disk, writing to the writer, the table
 // is invalid, or the partition is invalid
-func (d *Disk) ReadPartitionContents(part int, writer io.Writer) (int64, error) {
-	if d.Table == nil {
-		return -1, fmt.Errorf("cannot read contents of a partition on a disk without a partition table")
+func (d *Disk) ReadPartitionContents(partIndex int, writer io.Writer) (int64, error) {
+	foundPart, err := d.GetPartition(partIndex)
+	if err != nil {
+		return -1, err
 	}
-	if part < 0 {
-		return -1, fmt.Errorf("cannot read contents of a partition without specifying a partition")
-	}
-	partitions := d.Table.GetPartitions()
-	// API indexes from 1, but slice from 0
-	if part > len(partitions) {
-		return -1, fmt.Errorf("cannot read contents of partition %d which is greater than max partition %d", part, len(partitions))
-	}
-	return partitions[part-1].ReadContents(d.Backend, writer)
+	return foundPart.ReadContents(d.Backend, writer)
 }
 
 // FilesystemSpec represents the specification of a filesystem to be created
@@ -129,6 +125,8 @@ type FilesystemSpec struct {
 	FSType      filesystem.Type
 	VolumeLabel string
 	WorkDir     string
+	// The filesystem will be created in a reproducible manner following SOURCE_DATE_EPOCH guidelines.
+	Reproducible bool
 }
 
 // CreateFilesystem creates a filesystem on a disk image, the equivalent of mkfs.
@@ -159,19 +157,21 @@ func (d *Disk) CreateFilesystem(spec FilesystemSpec) (filesystem.FileSystem, err
 	case d.Table == nil:
 		return nil, fmt.Errorf("cannot create filesystem on a partition without a partition table")
 	default:
-		partitions := d.Table.GetPartitions()
-		// API indexes from 1, but slice from 0
-		part := spec.Partition - 1
-		if spec.Partition > len(partitions) {
-			return nil, fmt.Errorf("cannot create filesystem on partition %d greater than maximum partition %d", spec.Partition, len(partitions))
+		foundPart, err := d.GetPartition(spec.Partition)
+		if err != nil {
+			return nil, err
 		}
-		size = partitions[part].GetSize()
-		start = partitions[part].GetStart()
+		size = foundPart.GetSize()
+		start = foundPart.GetStart()
 	}
 
 	switch spec.FSType {
+	case filesystem.TypeFat12:
+		return fat12.Create(d.Backend, size, start, d.LogicalBlocksize, spec.VolumeLabel, spec.Reproducible)
+	case filesystem.TypeFat16:
+		return fat16.Create(d.Backend, size, start, d.LogicalBlocksize, spec.VolumeLabel, spec.Reproducible)
 	case filesystem.TypeFat32:
-		return fat32.Create(d.Backend, size, start, d.LogicalBlocksize, spec.VolumeLabel)
+		return fat32.Create(d.Backend, size, start, d.LogicalBlocksize, spec.VolumeLabel, spec.Reproducible)
 	case filesystem.TypeISO9660:
 		return iso9660.Create(d.Backend, size, start, d.LogicalBlocksize, spec.WorkDir)
 	case filesystem.TypeExt4:
@@ -191,7 +191,7 @@ func (d *Disk) CreateFilesystem(spec FilesystemSpec) (filesystem.FileSystem, err
 //
 // returns error if there was an error reading the filesystem, or the partition table is invalid and did not
 // request the entire disk.
-func (d *Disk) GetFilesystem(part int) (filesystem.FileSystem, error) {
+func (d *Disk) GetFilesystem(partIndex int) (filesystem.FileSystem, error) {
 	// find out where the partition starts and ends, or if it is the entire disk
 	var (
 		size, start int64
@@ -199,28 +199,39 @@ func (d *Disk) GetFilesystem(part int) (filesystem.FileSystem, error) {
 	)
 
 	switch {
-	case part == 0:
+	case partIndex == 0:
 		size = d.Size
 		start = 0
 	case d.Table == nil:
-		return nil, fmt.Errorf("cannot read filesystem on a partition without a partition table")
+		return nil, &NoPartitionTableError{}
 	default:
-		partitions := d.Table.GetPartitions()
-		// API indexes from 1, but slice from 0
-		if part > len(partitions) {
-			return nil, fmt.Errorf("cannot get filesystem on partition %d greater than maximum partition %d", part, len(partitions))
+		foundPart, err := d.GetPartition(partIndex)
+		if err != nil {
+			return nil, err
 		}
-		size = partitions[part-1].GetSize()
-		start = partitions[part-1].GetStart()
+		size = foundPart.GetSize()
+		start = foundPart.GetStart()
 	}
 
-	// just try each type
+	// Try FAT variants first (most specific to least specific).
 	log.Debug("trying fat32")
 	fat32FS, err := fat32.Read(d.Backend, size, start, d.LogicalBlocksize)
 	if err == nil {
 		return fat32FS, nil
 	}
 	log.Debugf("fat32 failed: %v", err)
+	log.Debug("trying fat16")
+	fat16FS, err := fat16.Read(d.Backend, size, start, d.LogicalBlocksize)
+	if err == nil {
+		return fat16FS, nil
+	}
+	log.Debugf("fat16 failed: %v", err)
+	log.Debug("trying fat12")
+	fat12FS, err := fat12.Read(d.Backend, size, start, d.LogicalBlocksize)
+	if err == nil {
+		return fat12FS, nil
+	}
+	log.Debugf("fat12 failed: %v", err)
 	pbs := d.PhysicalBlocksize
 	if d.DefaultBlocks {
 		pbs = 0
@@ -241,7 +252,7 @@ func (d *Disk) GetFilesystem(part int) (filesystem.FileSystem, error) {
 		return ext4FS, nil
 	}
 	log.Debugf("ext4 failed: %v", err)
-	return nil, fmt.Errorf("unknown filesystem on partition %d", part)
+	return nil, NewUnknownFilesystemError(partIndex)
 }
 
 // Close the disk. Once successfully closed, it can no longer be used.
@@ -251,4 +262,23 @@ func (d *Disk) Close() error {
 	}
 	*d = Disk{}
 	return nil
+}
+
+func (d *Disk) GetPartition(partIndex int) (part.Partition, error) {
+	if d.Table == nil {
+		return nil, &NoPartitionTableError{}
+	}
+	partitions := d.Table.GetPartitions()
+	// find the specific partition
+	var foundPart part.Partition
+	for _, p := range partitions {
+		if p.GetIndex() == partIndex {
+			foundPart = p
+			break
+		}
+	}
+	if foundPart == nil {
+		return nil, NewInvalidPartitionError(partIndex)
+	}
+	return foundPart, nil
 }
