@@ -126,8 +126,8 @@ github.com/Azure/go-autorest/autorest/mocks v0.4.3 h1:GXOGHjM7L2PF7tOuB0BawXMK5g
 github.com/Azure/go-autorest/autorest/mocks v0.4.3/go.mod h1:Z5HZUetq7pVWST7gWM79R9uGOyxEqyw76Oua5q9PhfQ=
 github.com/Azure/go-autorest/autorest/to v0.4.0 h1:oXVqrxakqqV1UZdSazDOPOLvOIz+XA683u8EctwboHk=
 github.com/Azure/go-autorest/autorest/to v0.4.0/go.mod h1:fE8iZBn7LQR7zH/9XU2NcPR4o9jEImooCeWJcYV/zLE=
-github.com/Azure/go-autorest/autorest/validation v0.3.1 h1:AgyqjAd94fwNAoTjl/WQXg4VvFeRFpO+UhNyRXqF1ac=
-github.com/Azure/go-autorest/autorest/validation v0.3.1/go.mod h1:yhLgjC0Wda5DYXl6JAsWyUe4KVNffhoDhG0zVzUMo3E=
+github.com/Azure/go-autorest/autorest/validation v0.3.2 h1:myD3tcvs+Fk1bkJ1Xx7xidop4z4FWvWADiMGMXeVd2E=
+github.com/Azure/go-autorest/autorest/validation v0.3.2/go.mod h1:4z7eU88lSINAB5XL8mhfPumiUdoAQo/c7qXwbsM8Zhc=
 github.com/Azure/go-autorest/logger v0.1.0/go.mod h1:oExouG+K6PryycPJfVSxi/koC6LSNgds39diKLz7Vrc=
 github.com/Azure/go-autorest/logger v0.2.1/go.mod h1:T9E3cAhj2VqvPOtCYAvby9aBXkZmbF5NWuPV8+WeEW8=
 github.com/Azure/go-autorest/logger v0.2.2 h1:hYqBsEBywrrOSW24kkOCXRcKfKhK76OzLTfF+MYDE2o=
