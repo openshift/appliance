@@ -77,8 +77,8 @@ func (b *Builder) Build(ctx context.Context) error {
 	return nil
 }
 
-// Not yet converted: AdditionalTrustBundle, ExtraManifests.
-// These fields target the install-config / agent-config pipeline and
+// Not yet converted: ExtraManifests.
+// This field targets the install-config / agent-config pipeline and
 // will be addressed separately.
 func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.ApplianceConfig {
 	channel := graph.ReleaseChannelStable
@@ -138,6 +138,10 @@ func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.
 
 	if len(cfg.AdditionalNTPServers) > 0 {
 		appCfg.AdditionalNTPSources = cfg.AdditionalNTPServers
+	}
+
+	if cfg.AdditionalTrustBundle != "" {
+		appCfg.AdditionalTrustBundle = cfg.AdditionalTrustBundle
 	}
 
 	if len(cfg.NetworkConfig) > 0 {

@@ -47,6 +47,8 @@ type ApplianceConfigExt struct {
 	AdditionalNTPSources []string `json:"additionalNTPSources,omitempty"`
 	// NetworkConfig defines static network configurations for hosts.
 	NetworkConfig []NetworkConfigEntry `json:"networkConfig,omitempty"`
+	// AdditionalTrustBundle is a PEM-encoded X.509 certificate bundle added to the nodes' trusted store.
+	AdditionalTrustBundle string `json:"additionalTrustBundle,omitempty"`
 }
 
 type ReleaseImage struct {

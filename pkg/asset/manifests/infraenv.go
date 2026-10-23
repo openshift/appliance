@@ -82,6 +82,10 @@ func (i *InfraEnv) Generate(_ context.Context, dependencies asset.Parents) error
 		spec.AdditionalNTPSources = applianceConfig.Config.AdditionalNTPSources
 	}
 
+	if applianceConfig.Config.AdditionalTrustBundle != "" {
+		spec.AdditionalTrustBundle = applianceConfig.Config.AdditionalTrustBundle
+	}
+
 	infraEnv := &aiv1beta1.InfraEnv{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      infraEnvName,

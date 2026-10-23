@@ -65,6 +65,60 @@ func TestInfraEnvGenerateSSHKey(t *testing.T) {
 	}
 }
 
+func TestInfraEnvGenerateAdditionalTrustBundle(t *testing.T) {
+	cases := []struct {
+		name            string
+		trustBundle     string
+		wantTrustBundle string
+	}{
+		{
+			name:            "no trust bundle",
+			wantTrustBundle: "",
+		},
+		{
+			name:            "trust bundle is set in infraenv",
+			trustBundle:     "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----",
+			wantTrustBundle: "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			appCfg := &config.ApplianceConfig{
+				Config: &types.ApplianceConfig{
+					OcpRelease: types.ReleaseImage{
+						CpuArchitecture: conv.Pointer("x86_64"),
+					},
+					ApplianceConfigExt: types.ApplianceConfigExt{
+						AdditionalTrustBundle: tc.trustBundle,
+					},
+				},
+			}
+
+			parents := asset.Parents{}
+			parents.Add(appCfg)
+
+			ie := &InfraEnv{}
+			if err := ie.Generate(context.Background(), parents); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			files := ie.Files()
+			if len(files) != 1 {
+				t.Fatalf("expected 1 file, got %d", len(files))
+			}
+
+			var got aiv1beta1.InfraEnv
+			if err := yaml.Unmarshal(files[0].Data, &got); err != nil {
+				t.Fatalf("failed to unmarshal infraenv: %v", err)
+			}
+			if got.Spec.AdditionalTrustBundle != tc.wantTrustBundle {
+				t.Errorf("expected AdditionalTrustBundle %q, got %q", tc.wantTrustBundle, got.Spec.AdditionalTrustBundle)
+			}
+		})
+	}
+}
+
 func TestInfraEnvGenerateAdditionalNTPSources(t *testing.T) {
 	cases := []struct {
 		name       string

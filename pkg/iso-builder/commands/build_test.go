@@ -260,3 +260,38 @@ func TestConvertToApplianceConfigNetworkConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertToApplianceConfigAdditionalTrustBundle(t *testing.T) {
+	cases := []struct {
+		name            string
+		trustBundle     string
+		wantTrustBundle string
+	}{
+		{
+			name:            "no trust bundle",
+			wantTrustBundle: "",
+		},
+		{
+			name:            "trust bundle is passed through",
+			trustBundle:     "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----",
+			wantTrustBundle: "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &isobuilderconfig.Config{
+				OpenshiftVersion:      "4.22",
+				PullSecret:            `{"auths":{}}`,
+				AdditionalTrustBundle: tc.trustBundle,
+			}
+
+			b := &Builder{workingDir: "."}
+			appCfg := b.convertToApplianceConfig(cfg)
+
+			if appCfg.AdditionalTrustBundle != tc.wantTrustBundle {
+				t.Errorf("expected AdditionalTrustBundle %q, got %q", tc.wantTrustBundle, appCfg.AdditionalTrustBundle)
+			}
+		})
+	}
+}
