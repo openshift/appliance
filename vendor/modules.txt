@@ -368,7 +368,7 @@ github.com/acarl005/stripansi
 # github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 ## explicit; go 1.15
 github.com/alecthomas/units
-# github.com/anchore/go-lzo v0.1.0
+# github.com/anchore/go-lzo v0.1.1
 ## explicit; go 1.24.0
 github.com/anchore/go-lzo
 # github.com/apparentlymart/go-cidr v1.1.0
