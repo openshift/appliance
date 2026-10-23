@@ -1772,7 +1772,7 @@ github.com/spiffe/go-spiffe/v2/internal/jwtutil
 github.com/spiffe/go-spiffe/v2/internal/pemutil
 github.com/spiffe/go-spiffe/v2/internal/x509util
 github.com/spiffe/go-spiffe/v2/spiffeid
-# github.com/std-uritemplate/std-uritemplate/go/v2 v2.0.5
+# github.com/std-uritemplate/std-uritemplate/go/v2 v2.0.12
 ## explicit; go 1.20
 github.com/std-uritemplate/std-uritemplate/go/v2
 # github.com/stefanberger/go-pkcs11uri v0.0.0-20230803200340-78284954bff6
