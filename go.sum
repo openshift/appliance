@@ -1139,8 +1139,8 @@ github.com/mattn/go-sqlite3 v1.14.32/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxU
 github.com/mattn/goveralls v0.0.2/go.mod h1:8d1ZMHsd7fW6IRPKQh46F2WRpyib5/X4FOpevwGNQEw=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
-github.com/metal3-io/baremetal-operator/apis v0.4.0 h1:1g5S3SKu9FqeD7OIf5jGKS6234HjNQpIRmfepZnSmiQ=
-github.com/metal3-io/baremetal-operator/apis v0.4.0/go.mod h1:1GDBiA3XqdP63dLZHJ1JH5fRJrfjn7pshoPEd9jwY7Q=
+github.com/metal3-io/baremetal-operator/apis v0.5.1 h1:l6VCuM2nSYMsdir3mocXvF80F7HnTXVZ7NNIoMEYbio=
+github.com/metal3-io/baremetal-operator/apis v0.5.1/go.mod h1:Q3MHes59mRabjHM6ARoHfgd2uXUjJIytl3/uflzhyew=
 github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.4.0 h1:AnA8XLLp3RKYjjlB4KI0fyPSDN/d5gb3ZtM2cVyxwOc=
 github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.4.0/go.mod h1:399nvdaqoU9rTI25UdFw2EWcVjmJPpeZPIhfDAIx/XU=
 github.com/mfridman/tparse v0.18.0 h1:wh6dzOKaIwkUGyKgOntDW4liXSo37qg5AXbIhkMV3vE=
@@ -1288,8 +1288,8 @@ github.com/openshift/cloud-credential-operator v0.0.0-20250925191450-a3e50aeacc5
 github.com/openshift/cloud-credential-operator v0.0.0-20250925191450-a3e50aeacc55/go.mod h1:vRzx2kLy4/GPEwJb/PDUyS3C1/eLkhQD5Hezp+wQQCw=
 github.com/openshift/cluster-api-actuator-pkg/testutils v0.0.0-20250910145856-21d03d30056d h1:+sqUThLi/lmgT5/scmmjnS6+RZFtbdxRAscNfCPyLPI=
 github.com/openshift/cluster-api-actuator-pkg/testutils v0.0.0-20250910145856-21d03d30056d/go.mod h1:9+FWWWLkVrnBo1eYhA/0Ehlq5JMgIAHtcB0IF+qV1AA=
-github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e h1:FWzYb0sH16yVOyySUwY5yXtZFW/U2bPoK38SEGjC5D8=
-github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e/go.mod h1:Q5WzHV1JZw/XNRnXCo8JfyOSegL13a+lhV4sc44lpSI=
+github.com/openshift/cluster-api-provider-baremetal v0.0.0-20260924185218-26162bf34fac h1:NsvmlHebTpA4IN6LudYSJrVd7kfOhz5YH0vxRUi+rbo=
+github.com/openshift/cluster-api-provider-baremetal v0.0.0-20260924185218-26162bf34fac/go.mod h1:FofExBqYTHXesTDmnOWR+IIMOWk4XcVxSnOnRZ4mcnE=
 github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20240104064818-a336f0b5f7ee h1:gLn3dNSE7k3SJMSrG0ebD73+ItIl61m0T9+dLINeGs0=
 github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20240104064818-a336f0b5f7ee/go.mod h1:jCWQvdjpxizEfnLAP7NyR3Itt0mMhRHxUScJZdaB2aM=
 github.com/openshift/cluster-api-provider-ovirt v0.1.1-0.20220323121149-e3f2850dd519 h1:foU7/s6DQczTFdZ/8H++pUC2Pzygqdz5ZgqUakksR5w=
@@ -1306,8 +1306,8 @@ github.com/openshift/library-go v0.0.0-20191003152030-97c62d8a2901/go.mod h1:NBt
 github.com/openshift/library-go v0.0.0-20200831114015-2ab0c61c15de/go.mod h1:6vwp+YhYOIlj8MpkQKkebTTSn2TuYyvgiAFQ206jIEQ=
 github.com/openshift/library-go v0.0.0-20260505113324-de46cb8e2ddc h1:M4YEEQ5lLkEGVjenmFZ6gcLXyfuuC+mIYxiRPLMu9ts=
 github.com/openshift/library-go v0.0.0-20260505113324-de46cb8e2ddc/go.mod h1:k1tefCr+PAZ7kY8TJjpE6rW6t6Yu4iOmBwO+1+3qD2s=
-github.com/openshift/machine-api-operator v0.2.1-0.20251110092458-e0af0f3f44b8 h1:ziyYqleO3/DjZsDyo7boSAwAbYXV/VRWB8zyhuHER2Q=
-github.com/openshift/machine-api-operator v0.2.1-0.20251110092458-e0af0f3f44b8/go.mod h1:+XKHy9Qi5P5kQ+oSknV5JdWtLnUxqWiNInRYYA3uqkI=
+github.com/openshift/machine-api-operator v0.2.1-0.20260116124544-4610a83ed692 h1:ljYMFQh6f/Tljkd6HB9hYqGA7M275K+cxdwJy6XXtFU=
+github.com/openshift/machine-api-operator v0.2.1-0.20260116124544-4610a83ed692/go.mod h1:k7aocP/2E0282jRyhlQaQqoYniK0IsNMUOsEzJZIKVA=
 github.com/openshift/machine-api-provider-gcp v0.0.1-0.20260113091719-80740861bb2a h1:O5GKvDmDrWv0MQVF6fW5NMAjK60PYTG9JGDww/YyGhQ=
 github.com/openshift/machine-api-provider-gcp v0.0.1-0.20260113091719-80740861bb2a/go.mod h1:vy/jIb1+EQemQi3/wAPm5sW7X+01cUzUfr9qjn8ez/M=
 github.com/openshift/machine-api-provider-ibmcloud v0.0.0-20231207164151-6b0b8ea7b16d h1:ELypg5zkw9jXCbp2jZ6iwYWTCtSqZVrxcKBQqwIgd2Y=
