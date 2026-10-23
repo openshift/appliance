@@ -679,8 +679,8 @@ github.com/davecgh/go-spew/spew
 # github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
 ## explicit
 github.com/dgryski/go-rendezvous
-# github.com/digitalocean/go-libvirt v0.0.0-20250616175656-5843751af96c
-## explicit; go 1.23.0
+# github.com/digitalocean/go-libvirt v0.0.0-20261013170128-efbbdf578ac8
+## explicit; go 1.24.0
 github.com/digitalocean/go-libvirt
 github.com/digitalocean/go-libvirt/internal/constants
 github.com/digitalocean/go-libvirt/internal/event
