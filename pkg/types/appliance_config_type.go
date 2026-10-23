@@ -49,6 +49,8 @@ type ApplianceConfigExt struct {
 	NetworkConfig []NetworkConfigEntry `json:"networkConfig,omitempty"`
 	// AdditionalTrustBundle is a PEM-encoded X.509 certificate bundle added to the nodes' trusted store.
 	AdditionalTrustBundle string `json:"additionalTrustBundle,omitempty"`
+	// AgentPullSecret overrides the dummy pull secret in the agent manifest when set.
+	AgentPullSecret string `json:"agentPullSecret,omitempty"`
 }
 
 type ReleaseImage struct {

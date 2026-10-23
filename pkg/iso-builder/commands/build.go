@@ -140,6 +140,8 @@ func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.
 		appCfg.AdditionalNTPSources = cfg.AdditionalNTPServers
 	}
 
+	appCfg.AgentPullSecret = cfg.PullSecret
+
 	if cfg.AdditionalTrustBundle != "" {
 		appCfg.AdditionalTrustBundle = cfg.AdditionalTrustBundle
 	}

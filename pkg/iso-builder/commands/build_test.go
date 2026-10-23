@@ -295,3 +295,17 @@ func TestConvertToApplianceConfigAdditionalTrustBundle(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertToApplianceConfigAgentPullSecret(t *testing.T) {
+	cfg := &isobuilderconfig.Config{
+		OpenshiftVersion: "4.22",
+		PullSecret:       `{"auths":{"registry.example.com":{"auth":"dGVzdDp0ZXN0"}}}`,
+	}
+
+	b := &Builder{workingDir: "."}
+	appCfg := b.convertToApplianceConfig(cfg)
+
+	if appCfg.AgentPullSecret != cfg.PullSecret {
+		t.Errorf("expected AgentPullSecret %q, got %q", cfg.PullSecret, appCfg.AgentPullSecret)
+	}
+}

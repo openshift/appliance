@@ -41,12 +41,20 @@ func (*AgentPullSecret) Name() string {
 // the asset.
 func (*AgentPullSecret) Dependencies() []asset.Asset {
 	return []asset.Asset{
-		&config.EnvConfig{},
+		&config.ApplianceConfig{},
 	}
 }
 
 // Generate generates the AgentPullSecret manifest.
-func (a *AgentPullSecret) Generate(_ context.Context, _ asset.Parents) error {
+func (a *AgentPullSecret) Generate(_ context.Context, dependencies asset.Parents) error {
+	applianceConfig := &config.ApplianceConfig{}
+	dependencies.Get(applianceConfig)
+
+	pullSecret := dummyPullSecret
+	if applianceConfig.Config != nil && applianceConfig.Config.AgentPullSecret != "" {
+		pullSecret = applianceConfig.Config.AgentPullSecret
+	}
+
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -57,7 +65,7 @@ func (a *AgentPullSecret) Generate(_ context.Context, _ asset.Parents) error {
 			Namespace: "",
 		},
 		StringData: map[string]string{
-			pullSecretKey: dummyPullSecret,
+			pullSecretKey: pullSecret,
 		},
 	}
 	a.Config = secret
