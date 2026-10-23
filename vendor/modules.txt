@@ -371,7 +371,7 @@ github.com/alecthomas/units
 # github.com/anchore/go-lzo v0.1.0
 ## explicit; go 1.24.0
 github.com/anchore/go-lzo
-# github.com/apparentlymart/go-cidr v1.1.0
+# github.com/apparentlymart/go-cidr v1.1.1
 ## explicit
 github.com/apparentlymart/go-cidr/cidr
 # github.com/aws/aws-sdk-go-v2 v1.41.5
