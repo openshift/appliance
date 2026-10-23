@@ -1733,8 +1733,8 @@ github.com/secure-systems-lab/go-securesystemslib/encrypted
 # github.com/shurcooL/httpfs v0.0.0-20230704072500-f1e31cf0ba5c
 ## explicit; go 1.19
 github.com/shurcooL/httpfs/vfsutil
-# github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
-## explicit
+# github.com/shurcooL/vfsgen v0.0.0-20230704071429-0000e147ea92
+## explicit; go 1.19
 github.com/shurcooL/vfsgen
 # github.com/sigstore/fulcio v1.7.1
 ## explicit; go 1.24.0
