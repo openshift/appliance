@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -37,11 +38,11 @@ func Extract(isoPath string, workDir string) error {
 		return err
 	}
 
-	files, err := fs.ReadDir("/")
+	files, err := fs.ReadDir(".")
 	if err != nil {
 		return err
 	}
-	err = copyAll(fs, "/", files, workDir)
+	err = copyAll(fs, ".", files, workDir)
 	if err != nil {
 		return err
 	}
@@ -50,25 +51,35 @@ func Extract(isoPath string, workDir string) error {
 }
 
 // recursive function for unpacking all files and directores from the given iso filesystem starting at fsDir
-func copyAll(fs filesystem.FileSystem, fsDir string, infos []os.FileInfo, targetDir string) error {
+func copyAll(fileSystem filesystem.FileSystem, fsDir string, infos []fs.DirEntry, targetDir string) error {
 	for _, info := range infos {
 		osName := filepath.Join(targetDir, info.Name())
 		fsName := filepath.Join(fsDir, info.Name())
 
-		if info.IsDir() {
-			if err := os.Mkdir(osName, info.Mode().Perm()); err != nil {
+		fi, err := info.Info()
+		if err != nil {
+			return err
+		}
+
+		// A Rock Ridge directory deeper than eight levels is relocated elsewhere on
+		// the ISO and left behind as a "child link" placeholder in its parent.
+		// Depending on how the ISO was authored the placeholder's directory flag may
+		// be unset, so fall back to the POSIX mode to recognize it as a directory
+		// whose contents still need to be recursed into.
+		if info.IsDir() || fi.Mode().IsDir() {
+			if err = os.Mkdir(osName, fi.Mode().Perm()|0o300); err != nil {
 				return err
 			}
 
-			files, err := fs.ReadDir(fsName)
+			files, err := fileSystem.ReadDir(fsName)
 			if err != nil {
 				return err
 			}
-			if err := copyAll(fs, fsName, files[:], osName); err != nil {
+			if err := copyAll(fileSystem, fsName, files, osName); err != nil {
 				return err
 			}
 		} else {
-			fsFile, err := fs.OpenFile(fsName, os.O_RDONLY)
+			fsFile, err := fileSystem.OpenFile(fsName, os.O_RDONLY)
 			if err != nil {
 				return err
 			}
@@ -138,23 +149,22 @@ func Create(outPath string, workDir string, volumeLabel string) error {
 		if err != nil {
 			return err
 		}
+		biosEntry := &iso9660.ElToritoEntry{
+			Platform:  iso9660.BIOS,
+			Emulation: iso9660.NoEmulation,
+			BootFile:  "isolinux/isolinux.bin",
+			BootTable: true,
+		}
+		biosEntry.SetLoadSize(4)
+		efiEntry := &iso9660.ElToritoEntry{
+			Platform:  iso9660.EFI,
+			Emulation: iso9660.NoEmulation,
+			BootFile:  "images/efiboot.img",
+		}
+		efiEntry.SetLoadSize(efiSectors)
 		options.ElTorito = &iso9660.ElTorito{
 			BootCatalog: "isolinux/boot.cat",
-			Entries: []*iso9660.ElToritoEntry{
-				{
-					Platform:  iso9660.BIOS,
-					Emulation: iso9660.NoEmulation,
-					BootFile:  "isolinux/isolinux.bin",
-					BootTable: true,
-					LoadSize:  4,
-				},
-				{
-					Platform:  iso9660.EFI,
-					Emulation: iso9660.NoEmulation,
-					BootFile:  "images/efiboot.img",
-					LoadSize:  efiSectors,
-				},
-			},
+			Entries:     []*iso9660.ElToritoEntry{biosEntry, efiEntry},
 		}
 	} else if exists, _ := fileExists(filepath.Join(workDir, "images/efiboot.img")); exists {
 		// Creating an ISO with EFI boot only
@@ -165,17 +175,16 @@ func Create(outPath string, workDir string, volumeLabel string) error {
 		if exists, _ := fileExists(filepath.Join(workDir, "boot.catalog")); !exists {
 			return fmt.Errorf("missing boot.catalog file")
 		}
+		efiEntry := &iso9660.ElToritoEntry{
+			Platform:  iso9660.EFI,
+			Emulation: iso9660.NoEmulation,
+			BootFile:  "images/efiboot.img",
+		}
+		efiEntry.SetLoadSize(efiSectors)
 		options.ElTorito = &iso9660.ElTorito{
 			BootCatalog:     "boot.catalog",
 			HideBootCatalog: true,
-			Entries: []*iso9660.ElToritoEntry{
-				{
-					Platform:  iso9660.EFI,
-					Emulation: iso9660.NoEmulation,
-					BootFile:  "images/efiboot.img",
-					LoadSize:  efiSectors,
-				},
-			},
+			Entries:         []*iso9660.ElToritoEntry{efiEntry},
 		}
 	} else if exists, _ := fileExists(filepath.Join(workDir, "images/cdboot.img")); exists {
 		// Creating an ISO for S390 boot:
@@ -186,17 +195,16 @@ func Create(outPath string, workDir string, volumeLabel string) error {
 		if exists, _ := fileExists(filepath.Join(workDir, "boot.catalog")); !exists {
 			return fmt.Errorf("missing boot.catalog file")
 		}
+		biosEntry := &iso9660.ElToritoEntry{
+			Platform:  iso9660.BIOS,
+			Emulation: iso9660.NoEmulation,
+			BootFile:  "images/cdboot.img",
+		}
+		biosEntry.SetLoadSize(cdbootSectors)
 		options.ElTorito = &iso9660.ElTorito{
 			BootCatalog:     "boot.catalog",
 			HideBootCatalog: true,
-			Entries: []*iso9660.ElToritoEntry{
-				{
-					Platform:  iso9660.BIOS,
-					Emulation: iso9660.NoEmulation,
-					BootFile:  "images/cdboot.img",
-					LoadSize:  cdbootSectors,
-				},
-			},
+			Entries:         []*iso9660.ElToritoEntry{biosEntry},
 		}
 	}
 

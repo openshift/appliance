@@ -39,7 +39,10 @@ func NewRHCOSStreamReader(isoPath string, ignitionContent *IgnitionContent, ramd
 		}
 	}
 
-	if kargs != nil {
+	if len(kargs) > 0 {
+		if kargs[len(kargs)-1] != '\n' {
+			kargs = append(kargs, '\n')
+		}
 		files, err := KargsFiles(isoPath)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to read files to patch for kernel arguments")
