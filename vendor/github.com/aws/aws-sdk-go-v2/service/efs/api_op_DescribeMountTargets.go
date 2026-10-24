@@ -5,10 +5,10 @@ package efs
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/efs/schemas"
 	"github.com/aws/aws-sdk-go-v2/service/efs/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Returns the descriptions of all the current mount targets, or a specific mount
@@ -65,6 +65,30 @@ type DescribeMountTargetsInput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *DescribeMountTargetsInput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.DescribeMountTargetsRequest)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *DescribeMountTargetsInput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.AccessPointId != nil {
+		s.WriteString(schemas.DescribeMountTargetsRequest_AccessPointId, *v.AccessPointId)
+	}
+	if v.FileSystemId != nil {
+		s.WriteString(schemas.DescribeMountTargetsRequest_FileSystemId, *v.FileSystemId)
+	}
+	if v.Marker != nil {
+		s.WriteString(schemas.DescribeMountTargetsRequest_Marker, *v.Marker)
+	}
+	if v.MaxItems != nil {
+		s.WriteInt32(schemas.DescribeMountTargetsRequest_MaxItems, *v.MaxItems)
+	}
+	if v.MountTargetId != nil {
+		s.WriteString(schemas.DescribeMountTargetsRequest_MountTargetId, *v.MountTargetId)
+	}
+}
+
 type DescribeMountTargetsOutput struct {
 
 	// If the request included the Marker , the response returns that value in this
@@ -86,77 +110,54 @@ type DescribeMountTargetsOutput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *DescribeMountTargetsOutput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.DescribeMountTargetsResponse)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *DescribeMountTargetsOutput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.Marker != nil {
+		s.WriteString(schemas.DescribeMountTargetsResponse_Marker, *v.Marker)
+	}
+	serializeMountTargetDescriptions(s, schemas.DescribeMountTargetsResponse_MountTargets, v.MountTargets)
+	if v.NextMarker != nil {
+		s.WriteString(schemas.DescribeMountTargetsResponse_NextMarker, *v.NextMarker)
+	}
+}
+func (v *DescribeMountTargetsOutput) Deserialize(d smithy.ShapeDeserializer) error {
+	return smithy.ReadStruct(d, schemas.DescribeMountTargetsResponse, func(s *smithy.Schema) error {
+		switch s {
+		case schemas.DescribeMountTargetsResponse_Marker:
+			v.Marker = new(string)
+			return d.ReadString(schemas.DescribeMountTargetsResponse_Marker, v.Marker)
+		case schemas.DescribeMountTargetsResponse_MountTargets:
+			return deserializeMountTargetDescriptions(d, schemas.DescribeMountTargetsResponse_MountTargets, &v.MountTargets)
+		case schemas.DescribeMountTargetsResponse_NextMarker:
+			v.NextMarker = new(string)
+			return d.ReadString(schemas.DescribeMountTargetsResponse_NextMarker, v.NextMarker)
+		}
+		return nil
+	})
+}
 func (c *Client) addOperationDescribeMountTargetsMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+	if err := stack.Serialize.Add(&serializeRequestMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.DescribeMountTargets, schemas.DescribeMountTargetsRequest, schemas.DescribeMountTargetsResponse)}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsRestjson1_serializeOpDescribeMountTargets{}, middleware.After)
-	if err != nil {
+	if err := stack.Deserialize.Add(&deserializeResponseMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.DescribeMountTargets, schemas.DescribeMountTargetsRequest, schemas.DescribeMountTargetsResponse), output: &DescribeMountTargetsOutput{}}, middleware.After); err != nil {
 		return err
-	}
-	err = stack.Deserialize.Add(&awsRestjson1_deserializeOpDescribeMountTargets{}, middleware.After)
-	if err != nil {
-		return err
-	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeMountTargets"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
-		return err
-	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeMountTargets(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -169,12 +170,6 @@ func (c *Client) addOperationDescribeMountTargetsMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
 	if err = addInterceptors(stack, options); err != nil {
@@ -279,11 +274,3 @@ type DescribeMountTargetsAPIClient interface {
 }
 
 var _ DescribeMountTargetsAPIClient = (*Client)(nil)
-
-func newServiceMetadataMiddleware_opDescribeMountTargets(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "DescribeMountTargets",
-	}
-}

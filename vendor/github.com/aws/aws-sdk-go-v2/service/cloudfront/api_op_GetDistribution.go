@@ -5,13 +5,10 @@ package cloudfront
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront/types"
 	"github.com/aws/smithy-go/middleware"
 	smithytime "github.com/aws/smithy-go/time"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
-	jmespath "github.com/jmespath/go-jmespath"
 	"time"
 )
 
@@ -60,9 +57,6 @@ type GetDistributionOutput struct {
 }
 
 func (c *Client) addOperationGetDistributionMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetDistribution{}, middleware.After)
 	if err != nil {
 		return err
@@ -71,65 +65,20 @@ func (c *Client) addOperationGetDistributionMiddlewares(stack *middleware.Stack,
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "GetDistribution"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpGetDistributionValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetDistribution(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -144,16 +93,7 @@ func (c *Client) addOperationGetDistributionMiddlewares(stack *middleware.Stack,
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -183,7 +123,7 @@ type DistributionDeployedWaiterOptions struct {
 	MinDelay time.Duration
 
 	// MaxDelay is the maximum amount of time to delay between retries. If unset or
-	// set to zero, DistributionDeployedWaiter will use default max delay of 120
+	// set to zero, DistributionDeployedWaiter will use default max delay of 2100
 	// seconds. Note that MaxDelay must resolve to value greater than or equal to the
 	// MinDelay.
 	MaxDelay time.Duration
@@ -214,7 +154,7 @@ type DistributionDeployedWaiter struct {
 func NewDistributionDeployedWaiter(client GetDistributionAPIClient, optFns ...func(*DistributionDeployedWaiterOptions)) *DistributionDeployedWaiter {
 	options := DistributionDeployedWaiterOptions{}
 	options.MinDelay = 60 * time.Second
-	options.MaxDelay = 120 * time.Second
+	options.MaxDelay = 2100 * time.Second
 	options.Retryable = distributionDeployedStateRetryable
 
 	for _, fn := range optFns {
@@ -249,7 +189,7 @@ func (w *DistributionDeployedWaiter) WaitForOutput(ctx context.Context, params *
 	}
 
 	if options.MaxDelay <= 0 {
-		options.MaxDelay = 120 * time.Second
+		options.MaxDelay = 2100 * time.Second
 	}
 
 	if options.MinDelay > options.MaxDelay {
@@ -321,22 +261,25 @@ func (w *DistributionDeployedWaiter) WaitForOutput(ctx context.Context, params *
 func distributionDeployedStateRetryable(ctx context.Context, input *GetDistributionInput, output *GetDistributionOutput, err error) (bool, error) {
 
 	if err == nil {
-		pathValue, err := jmespath.Search("Distribution.Status", output)
-		if err != nil {
-			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		v1 := output.Distribution
+		var v2 *string
+		if v1 != nil {
+			v3 := v1.Status
+			v2 = v3
 		}
-
 		expectedValue := "Deployed"
-		value, ok := pathValue.(*string)
-		if !ok {
-			return false, fmt.Errorf("waiter comparator expected *string value, got %T", pathValue)
+		var pathValue string
+		if v2 != nil {
+			pathValue = string(*v2)
 		}
-
-		if string(*value) == expectedValue {
+		if pathValue == expectedValue {
 			return false, nil
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -347,11 +290,3 @@ type GetDistributionAPIClient interface {
 }
 
 var _ GetDistributionAPIClient = (*Client)(nil)
-
-func newServiceMetadataMiddleware_opGetDistribution(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "GetDistribution",
-	}
-}

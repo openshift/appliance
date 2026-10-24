@@ -108,6 +108,45 @@ func (CertificateSource) Values() []CertificateSource {
 	}
 }
 
+type CertificateTransparencyLoggingPreference string
+
+// Enum values for CertificateTransparencyLoggingPreference
+const (
+	CertificateTransparencyLoggingPreferenceEnabled  CertificateTransparencyLoggingPreference = "enabled"
+	CertificateTransparencyLoggingPreferenceDisabled CertificateTransparencyLoggingPreference = "disabled"
+)
+
+// Values returns all known values for CertificateTransparencyLoggingPreference.
+// Note that this can be expanded in the future, and so it is only as up to date as
+// the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CertificateTransparencyLoggingPreference) Values() []CertificateTransparencyLoggingPreference {
+	return []CertificateTransparencyLoggingPreference{
+		"enabled",
+		"disabled",
+	}
+}
+
+type ConnectionMode string
+
+// Enum values for ConnectionMode
+const (
+	ConnectionModeDirect     ConnectionMode = "direct"
+	ConnectionModeTenantOnly ConnectionMode = "tenant-only"
+)
+
+// Values returns all known values for ConnectionMode. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ConnectionMode) Values() []ConnectionMode {
+	return []ConnectionMode{
+		"direct",
+		"tenant-only",
+	}
+}
+
 type ContinuousDeploymentPolicyType string
 
 // Enum values for ContinuousDeploymentPolicyType
@@ -125,6 +164,84 @@ func (ContinuousDeploymentPolicyType) Values() []ContinuousDeploymentPolicyType 
 	return []ContinuousDeploymentPolicyType{
 		"SingleWeight",
 		"SingleHeader",
+	}
+}
+
+type CustomizationActionType string
+
+// Enum values for CustomizationActionType
+const (
+	CustomizationActionTypeOverride CustomizationActionType = "override"
+	CustomizationActionTypeDisable  CustomizationActionType = "disable"
+)
+
+// Values returns all known values for CustomizationActionType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CustomizationActionType) Values() []CustomizationActionType {
+	return []CustomizationActionType{
+		"override",
+		"disable",
+	}
+}
+
+type DistributionResourceType string
+
+// Enum values for DistributionResourceType
+const (
+	DistributionResourceTypeDistribution       DistributionResourceType = "distribution"
+	DistributionResourceTypeDistributionTenant DistributionResourceType = "distribution-tenant"
+)
+
+// Values returns all known values for DistributionResourceType. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (DistributionResourceType) Values() []DistributionResourceType {
+	return []DistributionResourceType{
+		"distribution",
+		"distribution-tenant",
+	}
+}
+
+type DnsConfigurationStatus string
+
+// Enum values for DnsConfigurationStatus
+const (
+	DnsConfigurationStatusValid   DnsConfigurationStatus = "valid-configuration"
+	DnsConfigurationStatusInvalid DnsConfigurationStatus = "invalid-configuration"
+	DnsConfigurationStatusUnknown DnsConfigurationStatus = "unknown-configuration"
+)
+
+// Values returns all known values for DnsConfigurationStatus. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (DnsConfigurationStatus) Values() []DnsConfigurationStatus {
+	return []DnsConfigurationStatus{
+		"valid-configuration",
+		"invalid-configuration",
+		"unknown-configuration",
+	}
+}
+
+type DomainStatus string
+
+// Enum values for DomainStatus
+const (
+	DomainStatusActive   DomainStatus = "active"
+	DomainStatusInactive DomainStatus = "inactive"
+)
+
+// Values returns all known values for DomainStatus. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (DomainStatus) Values() []DomainStatus {
+	return []DomainStatus{
+		"active",
+		"inactive",
 	}
 }
 
@@ -307,6 +424,66 @@ func (ImportSourceType) Values() []ImportSourceType {
 	}
 }
 
+type IpAddressType string
+
+// Enum values for IpAddressType
+const (
+	IpAddressTypeIpv4      IpAddressType = "ipv4"
+	IpAddressTypeIpv6      IpAddressType = "ipv6"
+	IpAddressTypeDualStack IpAddressType = "dualstack"
+)
+
+// Values returns all known values for IpAddressType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpAddressType) Values() []IpAddressType {
+	return []IpAddressType{
+		"ipv4",
+		"ipv6",
+		"dualstack",
+	}
+}
+
+type IpamCidrStatus string
+
+// Enum values for IpamCidrStatus
+const (
+	IpamCidrStatusProvisioned       IpamCidrStatus = "provisioned"
+	IpamCidrStatusFailedProvision   IpamCidrStatus = "failed-provision"
+	IpamCidrStatusProvisioning      IpamCidrStatus = "provisioning"
+	IpamCidrStatusDeprovisioned     IpamCidrStatus = "deprovisioned"
+	IpamCidrStatusFailedDeprovision IpamCidrStatus = "failed-deprovision"
+	IpamCidrStatusDeprovisioning    IpamCidrStatus = "deprovisioning"
+	IpamCidrStatusAdvertised        IpamCidrStatus = "advertised"
+	IpamCidrStatusFailedAdvertise   IpamCidrStatus = "failed-advertise"
+	IpamCidrStatusAdvertising       IpamCidrStatus = "advertising"
+	IpamCidrStatusWithdrawn         IpamCidrStatus = "withdrawn"
+	IpamCidrStatusFailedWithdraw    IpamCidrStatus = "failed-withdraw"
+	IpamCidrStatusWithdrawing       IpamCidrStatus = "withdrawing"
+)
+
+// Values returns all known values for IpamCidrStatus. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamCidrStatus) Values() []IpamCidrStatus {
+	return []IpamCidrStatus{
+		"provisioned",
+		"failed-provision",
+		"provisioning",
+		"deprovisioned",
+		"failed-deprovision",
+		"deprovisioning",
+		"advertised",
+		"failed-advertise",
+		"advertising",
+		"withdrawn",
+		"failed-withdraw",
+		"withdrawing",
+	}
+}
+
 type ItemSelection string
 
 // Enum values for ItemSelection
@@ -325,6 +502,35 @@ func (ItemSelection) Values() []ItemSelection {
 		"none",
 		"whitelist",
 		"all",
+	}
+}
+
+type ManagedCertificateStatus string
+
+// Enum values for ManagedCertificateStatus
+const (
+	ManagedCertificateStatusPendingValidation  ManagedCertificateStatus = "pending-validation"
+	ManagedCertificateStatusIssued             ManagedCertificateStatus = "issued"
+	ManagedCertificateStatusInactive           ManagedCertificateStatus = "inactive"
+	ManagedCertificateStatusExpired            ManagedCertificateStatus = "expired"
+	ManagedCertificateStatusValidationTimedOut ManagedCertificateStatus = "validation-timed-out"
+	ManagedCertificateStatusRevoked            ManagedCertificateStatus = "revoked"
+	ManagedCertificateStatusFailed             ManagedCertificateStatus = "failed"
+)
+
+// Values returns all known values for ManagedCertificateStatus. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ManagedCertificateStatus) Values() []ManagedCertificateStatus {
+	return []ManagedCertificateStatus{
+		"pending-validation",
+		"issued",
+		"inactive",
+		"expired",
+		"validation-timed-out",
+		"revoked",
+		"failed",
 	}
 }
 
@@ -368,6 +574,8 @@ const (
 	MinimumProtocolVersionTLSv122018 MinimumProtocolVersion = "TLSv1.2_2018"
 	MinimumProtocolVersionTLSv122019 MinimumProtocolVersion = "TLSv1.2_2019"
 	MinimumProtocolVersionTLSv122021 MinimumProtocolVersion = "TLSv1.2_2021"
+	MinimumProtocolVersionTLSv132025 MinimumProtocolVersion = "TLSv1.3_2025"
+	MinimumProtocolVersionTLSv122025 MinimumProtocolVersion = "TLSv1.2_2025"
 )
 
 // Values returns all known values for MinimumProtocolVersion. Note that this can
@@ -383,6 +591,8 @@ func (MinimumProtocolVersion) Values() []MinimumProtocolVersion {
 		"TLSv1.2_2018",
 		"TLSv1.2_2019",
 		"TLSv1.2_2021",
+		"TLSv1.3_2025",
+		"TLSv1.2_2025",
 	}
 }
 
@@ -414,9 +624,10 @@ type OriginAccessControlSigningBehaviors string
 
 // Enum values for OriginAccessControlSigningBehaviors
 const (
-	OriginAccessControlSigningBehaviorsNever      OriginAccessControlSigningBehaviors = "never"
-	OriginAccessControlSigningBehaviorsAlways     OriginAccessControlSigningBehaviors = "always"
-	OriginAccessControlSigningBehaviorsNoOverride OriginAccessControlSigningBehaviors = "no-override"
+	OriginAccessControlSigningBehaviorsNever         OriginAccessControlSigningBehaviors = "never"
+	OriginAccessControlSigningBehaviorsAlways        OriginAccessControlSigningBehaviors = "always"
+	OriginAccessControlSigningBehaviorsNoOverride    OriginAccessControlSigningBehaviors = "no-override"
+	OriginAccessControlSigningBehaviorsAlwaysAmzAuth OriginAccessControlSigningBehaviors = "always-amz-auth"
 )
 
 // Values returns all known values for OriginAccessControlSigningBehaviors. Note
@@ -429,6 +640,7 @@ func (OriginAccessControlSigningBehaviors) Values() []OriginAccessControlSigning
 		"never",
 		"always",
 		"no-override",
+		"always-amz-auth",
 	}
 }
 
@@ -436,7 +648,8 @@ type OriginAccessControlSigningProtocols string
 
 // Enum values for OriginAccessControlSigningProtocols
 const (
-	OriginAccessControlSigningProtocolsSigv4 OriginAccessControlSigningProtocols = "sigv4"
+	OriginAccessControlSigningProtocolsSigv4  OriginAccessControlSigningProtocols = "sigv4"
+	OriginAccessControlSigningProtocolsSigv4a OriginAccessControlSigningProtocols = "sigv4a"
 )
 
 // Values returns all known values for OriginAccessControlSigningProtocols. Note
@@ -447,6 +660,27 @@ const (
 func (OriginAccessControlSigningProtocols) Values() []OriginAccessControlSigningProtocols {
 	return []OriginAccessControlSigningProtocols{
 		"sigv4",
+		"sigv4a",
+	}
+}
+
+type OriginGroupSelectionCriteria string
+
+// Enum values for OriginGroupSelectionCriteria
+const (
+	OriginGroupSelectionCriteriaDefault           OriginGroupSelectionCriteria = "default"
+	OriginGroupSelectionCriteriaMediaQualityBased OriginGroupSelectionCriteria = "media-quality-based"
+)
+
+// Values returns all known values for OriginGroupSelectionCriteria. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (OriginGroupSelectionCriteria) Values() []OriginGroupSelectionCriteria {
+	return []OriginGroupSelectionCriteria{
+		"default",
+		"media-quality-based",
 	}
 }
 
@@ -571,6 +805,7 @@ const (
 	PriceClassPriceClass100 PriceClass = "PriceClass_100"
 	PriceClassPriceClass200 PriceClass = "PriceClass_200"
 	PriceClassPriceClassAll PriceClass = "PriceClass_All"
+	PriceClassNone          PriceClass = "None"
 )
 
 // Values returns all known values for PriceClass. Note that this can be expanded
@@ -582,6 +817,7 @@ func (PriceClass) Values() []PriceClass {
 		"PriceClass_100",
 		"PriceClass_200",
 		"PriceClass_All",
+		"None",
 	}
 }
 
@@ -731,6 +967,67 @@ func (SSLSupportMethod) Values() []SSLSupportMethod {
 	}
 }
 
+type TrustStoreStatus string
+
+// Enum values for TrustStoreStatus
+const (
+	TrustStoreStatusPending TrustStoreStatus = "pending"
+	TrustStoreStatusActive  TrustStoreStatus = "active"
+	TrustStoreStatusFailed  TrustStoreStatus = "failed"
+)
+
+// Values returns all known values for TrustStoreStatus. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TrustStoreStatus) Values() []TrustStoreStatus {
+	return []TrustStoreStatus{
+		"pending",
+		"active",
+		"failed",
+	}
+}
+
+type ValidationTokenHost string
+
+// Enum values for ValidationTokenHost
+const (
+	ValidationTokenHostCloudFront ValidationTokenHost = "cloudfront"
+	ValidationTokenHostSelfHosted ValidationTokenHost = "self-hosted"
+)
+
+// Values returns all known values for ValidationTokenHost. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ValidationTokenHost) Values() []ValidationTokenHost {
+	return []ValidationTokenHost{
+		"cloudfront",
+		"self-hosted",
+	}
+}
+
+type ViewerMtlsMode string
+
+// Enum values for ViewerMtlsMode
+const (
+	ViewerMtlsModeRequired    ViewerMtlsMode = "required"
+	ViewerMtlsModeOptional    ViewerMtlsMode = "optional"
+	ViewerMtlsModePassthrough ViewerMtlsMode = "passthrough"
+)
+
+// Values returns all known values for ViewerMtlsMode. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ViewerMtlsMode) Values() []ViewerMtlsMode {
+	return []ViewerMtlsMode{
+		"required",
+		"optional",
+		"passthrough",
+	}
+}
+
 type ViewerProtocolPolicy string
 
 // Enum values for ViewerProtocolPolicy
@@ -749,5 +1046,24 @@ func (ViewerProtocolPolicy) Values() []ViewerProtocolPolicy {
 		"allow-all",
 		"https-only",
 		"redirect-to-https",
+	}
+}
+
+type VpcIpAddressType string
+
+// Enum values for VpcIpAddressType
+const (
+	VpcIpAddressTypeIpv4      VpcIpAddressType = "ipv4"
+	VpcIpAddressTypeDualStack VpcIpAddressType = "dualstack"
+)
+
+// Values returns all known values for VpcIpAddressType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (VpcIpAddressType) Values() []VpcIpAddressType {
+	return []VpcIpAddressType{
+		"ipv4",
+		"dualstack",
 	}
 }
