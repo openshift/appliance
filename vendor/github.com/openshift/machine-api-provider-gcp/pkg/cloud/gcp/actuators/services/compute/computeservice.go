@@ -2,6 +2,8 @@ package computeservice
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 
@@ -19,7 +21,7 @@ type GCPComputeService interface {
 	InstancesInsert(project string, zone string, instance *compute.Instance) (*compute.Operation, error)
 	InstancesGet(project string, zone string, instance string) (*compute.Instance, error)
 	ZonesGet(project string, zone string) (*compute.Zone, error)
-	ZoneOperationsGet(project string, zone string, operation string) (*compute.Operation, error)
+	ZoneOperationsList(project string, zone string, filter string) (*compute.OperationList, error)
 	BasePath() string
 	TargetPoolsGet(project string, region string, name string) (*compute.TargetPool, error)
 	TargetPoolsAddInstance(project string, region string, name string, instance string) (*compute.Operation, error)
@@ -50,12 +52,26 @@ type BuilderFuncType func(serviceAccountJSON string) (GCPComputeService, error)
 func NewComputeService(serviceAccountJSON string) (GCPComputeService, error) {
 	ctx := context.TODO()
 
-	creds, err := google.CredentialsFromJSON(ctx, []byte(serviceAccountJSON), compute.CloudPlatformScope)
+	// Parse the credential type to allow restricting which credential types are
+	// accepted from external sources. In this case, there are no restrictions
+	// so we simply pass the type through.
+	var f struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal([]byte(serviceAccountJSON), &f); err != nil {
+		return nil, fmt.Errorf("failed to parse credentials JSON: %w", err)
+	}
+
+	creds, err := google.CredentialsFromJSONWithType(ctx, []byte(serviceAccountJSON), google.CredentialsType(f.Type), compute.CloudPlatformScope)
 	if err != nil {
 		return nil, err
 	}
 
-	service, err := compute.NewService(ctx, option.WithCredentials(creds))
+	ud, err := creds.GetUniverseDomain()
+	if err != nil {
+		return nil, err
+	}
+	service, err := compute.NewService(ctx, option.WithAuthCredentialsJSON(option.CredentialsType(f.Type), []byte(serviceAccountJSON)), option.WithUniverseDomain(ud))
 	if err != nil {
 		return nil, err
 	}
@@ -71,9 +87,9 @@ func (c *computeService) InstancesInsert(project string, zone string, instance *
 	return c.service.Instances.Insert(project, zone, instance).Do()
 }
 
-// ZoneOperationsGet is a pass through wrapper for compute.Service.ZoneOperations.Get(...)
-func (c *computeService) ZoneOperationsGet(project string, zone string, operation string) (*compute.Operation, error) {
-	return c.service.ZoneOperations.Get(project, zone, operation).Do()
+// ZoneOperationsList is a pass through wrapper for compute.Service.ZoneOperations.List(...)
+func (c *computeService) ZoneOperationsList(project string, zone string, filter string) (*compute.OperationList, error) {
+	return c.service.ZoneOperations.List(project, zone).Filter(filter).Do()
 }
 
 func (c *computeService) InstancesGet(project string, zone string, instance string) (*compute.Instance, error) {
