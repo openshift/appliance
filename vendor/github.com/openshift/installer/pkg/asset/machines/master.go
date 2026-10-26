@@ -625,10 +625,18 @@ func (m *Master) Generate(ctx context.Context, dependencies asset.Parents) error
 	if installConfig.Config.Enabled(features.FeatureGateMultiDiskSetup) {
 		for i, diskSetup := range installConfig.Config.ControlPlane.DiskSetup {
 			var dataDisk any
+			var diskName string
 
-			diskName, err := DiskName(diskSetup)
-			if err != nil {
-				return err
+			switch diskSetup.Type {
+			case types.Etcd:
+				diskName = diskSetup.Etcd.PlatformDiskID
+			case types.Swap:
+				diskName = diskSetup.Etcd.PlatformDiskID
+			case types.UserDefined:
+				diskName = diskSetup.UserDefined.PlatformDiskID
+			default:
+				// We shouldn't get here, but just in case
+				return errors.Errorf("disk setup type %s is not supported", diskSetup.Type)
 			}
 
 			switch ic.Platform.Name() {
