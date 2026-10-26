@@ -97,7 +97,6 @@ The config file must contain the following fields:
 | `rendezvousIP`          | `string`      | Defines the rendezvous IP                                                  |
 | `networkConfig`         | `object list` | Static network configurations for hosts (interfaces + nmstate YAML config) |
 | `additionalImages`      | `string list` | Additional images pullspec to be mirrored                                  |
-| `extraManifests`        | `object list` | Additional custom manifests to be added in the cluster                     |
 
 Follow the openshift installer naming convention for the fields (see https://github.com/openshift/installer/blob/main/data/data/install.openshift.io_installconfigs.yaml)
 

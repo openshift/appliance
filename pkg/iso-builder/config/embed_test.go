@@ -33,7 +33,6 @@ func TestEncodeDecode(t *testing.T) {
 					},
 				},
 				AdditionalImages:      []string{"registry.example.com/app:v1"},
-				ExtraManifests:        []ExtraManifest{{Name: "custom.yaml", Content: "apiVersion: v1\nkind: ConfigMap"}},
 			},
 		},
 		{

@@ -43,9 +43,6 @@ func TestFormatConfig(t *testing.T) {
 					},
 				},
 				AdditionalImages: []string{"registry.redhat.io/rhel9/support-tools:latest"},
-				ExtraManifests: []isobuilderconfig.ExtraManifest{
-					{Name: "custom-mco.yaml", Content: "apiVersion: v1"},
-				},
 			},
 			contains: []string{
 				"OpenShift Version:",
@@ -74,13 +71,10 @@ func TestFormatConfig(t *testing.T) {
 				"registry.redhat.io/rhel9/support-tools:latest",
 				"Network Configs:",
 				"1 config(s)",
-				"Extra Manifests:",
-				"custom-mco.yaml",
 			},
 			absent: []string{
 				secretValue,
 				"BEGIN CERTIFICATE",
-				"apiVersion: v1",
 			},
 		},
 		{
@@ -104,7 +98,6 @@ func TestFormatConfig(t *testing.T) {
 				"OLM Operators:",
 				"Additional Images:",
 				"Network Configs:",
-				"Extra Manifests:",
 				"Additional Trust Bundle:",
 			},
 		},
@@ -198,10 +191,6 @@ func TestFormatConfigOutput(t *testing.T) {
 			"registry.redhat.io/rhel9/support-tools:latest",
 			"registry.redhat.io/ubi9/ubi:latest",
 		},
-		ExtraManifests: []isobuilderconfig.ExtraManifest{
-			{Name: "custom-mco.yaml", Content: "apiVersion: machineconfiguration.openshift.io/v1\nkind: MachineConfig"},
-			{Name: "extra-configmap.yaml", Content: "apiVersion: v1\nkind: ConfigMap"},
-		},
 	}
 
 	expected := `OpenShift Version:        4.22
@@ -222,10 +211,6 @@ Additional Images:
   - registry.redhat.io/rhel9/support-tools:latest
   - registry.redhat.io/ubi9/ubi:latest
 Network Configs:          2 config(s)
-
-Extra Manifests:
-  - custom-mco.yaml
-  - extra-configmap.yaml
 `
 
 	var buf bytes.Buffer

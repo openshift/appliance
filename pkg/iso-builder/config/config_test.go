@@ -34,9 +34,6 @@ func TestConfigJSONRoundTrip(t *testing.T) {
 					},
 				},
 				AdditionalImages: []string{"registry.redhat.io/rhel9/support-tools:latest"},
-				ExtraManifests: []ExtraManifest{
-					{Name: "custom-mco.yaml", Content: "apiVersion: machineconfiguration.openshift.io/v1\nkind: MachineConfig"},
-				},
 			},
 		},
 		{
@@ -102,7 +99,6 @@ func TestConfigOmitempty(t *testing.T) {
 		"openshiftVersion", "releaseImageURL", "sshKey", "architecture",
 		"additionalTrustBundle", "additionalNTPServers", "fips",
 		"olmOperators", "rendezvousIP", "networkConfig", "additionalImages",
-		"extraManifests",
 	}
 	for _, field := range omittedFields {
 		if _, ok := raw[field]; ok {

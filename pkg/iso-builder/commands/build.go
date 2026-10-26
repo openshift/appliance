@@ -77,9 +77,6 @@ func (b *Builder) Build(ctx context.Context) error {
 	return nil
 }
 
-// Not yet converted: ExtraManifests.
-// This field targets the install-config / agent-config pipeline and
-// will be addressed separately.
 func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.ApplianceConfig {
 	channel := graph.ReleaseChannelStable
 

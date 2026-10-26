@@ -17,9 +17,6 @@ stdout 'local-storage-operator v4\.18 \(channel: stable\)'
 stdout 'Additional Images:'
 stdout 'quay\.io/example/image:latest'
 stdout 'Network Configs:\s+1 config'
-stdout 'Extra Manifests:'
-stdout 'custom-config\.yaml'
-
 -- config.yaml --
 openshiftVersion: "4.18"
 releaseImageURL: "quay.io/openshift-release-dev/ocp-release:4.18.0-x86_64"
@@ -51,10 +48,3 @@ networkConfig:
         - name: eth0
           type: ethernet
           state: up
-extraManifests:
-  - name: custom-config.yaml
-    content: |
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: custom-config

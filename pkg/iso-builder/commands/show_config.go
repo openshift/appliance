@@ -69,13 +69,6 @@ func formatConfig(w io.Writer, cfg *isobuilderconfig.Config) error {
 		p.printf("%-25s %d config(s)\n", "Network Configs:", len(cfg.NetworkConfig))
 	}
 
-	if len(cfg.ExtraManifests) > 0 {
-		p.printf("\nExtra Manifests:\n")
-		for _, m := range cfg.ExtraManifests {
-			p.printf("  - %s\n", m.Name)
-		}
-	}
-
 	return p.err
 }
 

@@ -29,8 +29,6 @@ type Config struct {
 	NetworkConfig []NetworkConfigEntry `json:"networkConfig,omitempty"`
 	// Additional image pullspecs to be mirrored.
 	AdditionalImages []string `json:"additionalImages,omitempty"`
-	// Custom manifests to be added in the cluster.
-	ExtraManifests []ExtraManifest `json:"extraManifests,omitempty"`
 }
 
 // OLMOperator identifies an OLM operator to be mirrored into the ISO.
@@ -41,14 +39,6 @@ type OLMOperator struct {
 	Version string `json:"version,omitempty"`
 	// OLM channel to track.
 	Channel string `json:"channel,omitempty"`
-}
-
-// ExtraManifest is a custom Kubernetes manifest to include in the cluster.
-type ExtraManifest struct {
-	// Manifest file name.
-	Name string `json:"name"`
-	// Raw manifest content.
-	Content string `json:"content"`
 }
 
 // NetworkConfigEntry defines static network configuration for a host.
