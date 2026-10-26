@@ -79,6 +79,7 @@ type bootkubeTemplateData struct {
 	EtcdSignerClientCert       string
 	EtcdSignerClientKey        string
 	EtcdSignerKey              string
+	IsSCOS                     bool
 	IsOKD                      bool
 	McsTLSCert                 string
 	McsTLSKey                  string

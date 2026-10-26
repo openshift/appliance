@@ -125,8 +125,8 @@ func ValidateSupportedPlatforms(platform types.Platform, controlPlaneArch string
 	if platform.Name() != none.Name && controlPlaneArch == types.ArchitecturePPC64LE {
 		allErrs = append(allErrs, field.Invalid(fieldPath, platform.Name(), fmt.Sprintf("CPU architecture \"%s\" only supports platform \"%s\".", types.ArchitecturePPC64LE, none.Name)))
 	}
-	if platform.Name() != none.Name && platform.Name() != external.Name && controlPlaneArch == types.ArchitectureS390X {
-		allErrs = append(allErrs, field.Invalid(fieldPath, platform.Name(), fmt.Sprintf("CPU architecture \"%s\" only supports platform \"%s\" or \"%s\".", types.ArchitectureS390X, none.Name, external.Name)))
+	if platform.Name() != none.Name && controlPlaneArch == types.ArchitectureS390X {
+		allErrs = append(allErrs, field.Invalid(fieldPath, platform.Name(), fmt.Sprintf("CPU architecture \"%s\" only supports platform \"%s\".", types.ArchitectureS390X, none.Name)))
 	}
 	return allErrs
 }
@@ -135,7 +135,6 @@ func (a *OptionalInstallConfig) validatePlatformsByName(installConfig *types.Ins
 	var allErrs field.ErrorList
 
 	if installConfig.Platform.Name() == external.Name {
-		// Validate OCI platform requirements
 		if installConfig.Platform.External.PlatformName == ExternalPlatformNameOci &&
 			installConfig.Platform.External.CloudControllerManager != external.CloudControllerManagerTypeExternal {
 			fieldPath := field.NewPath("platform", "external", "cloudControllerManager")
@@ -462,11 +461,6 @@ func warnUnusedConfig(installConfig *types.InstallConfig) {
 			fieldPath := computePath.Child("platform")
 			logrus.Warnf("%s is ignored", fieldPath)
 		}
-
-		if len(compute.DiskSetup) > 0 {
-			fieldPath := computePath.Child("diskSetup")
-			logrus.Warnf("%s is ignored", fieldPath)
-		}
 	}
 
 	if installConfig.ControlPlane.Hyperthreading != "Enabled" {
@@ -476,11 +470,6 @@ func warnUnusedConfig(installConfig *types.InstallConfig) {
 
 	if installConfig.ControlPlane.Platform != (types.MachinePoolPlatform{}) {
 		fieldPath := field.NewPath("controlPlane", "platform")
-		logrus.Warnf("%s is ignored", fieldPath)
-	}
-
-	if len(installConfig.ControlPlane.DiskSetup) > 0 {
-		fieldPath := field.NewPath("controlPlane", "diskSetup")
 		logrus.Warnf("%s is ignored", fieldPath)
 	}
 
@@ -549,6 +538,11 @@ func warnUnusedConfig(installConfig *types.InstallConfig) {
 			logrus.Warnf("%s: %s is ignored", fieldPath, vspherePlatform.DiskType)
 		}
 
+		if vspherePlatform.LoadBalancer != nil && !reflect.DeepEqual(*vspherePlatform.LoadBalancer, configv1.VSpherePlatformLoadBalancer{}) {
+			fieldPath := vsPath.Child("loadBalancer")
+			logrus.Warnf("%s: %v is ignored", fieldPath, vspherePlatform.LoadBalancer)
+		}
+
 		if len(vspherePlatform.Hosts) > 1 {
 			fieldPath := vsPath.Child("hosts")
 			logrus.Warnf("%s: %v is ignored", fieldPath, vspherePlatform.Hosts)
@@ -575,14 +569,6 @@ func warnUnusedConfig(installConfig *types.InstallConfig) {
 		if ntxPlatform.FailureDomains != nil {
 			logrus.Warnf("%s: %v is ignored", fieldPath.Child("FailureDomains").String(), ntxPlatform.FailureDomains)
 		}
-	}
-
-	if installConfig.Networking != nil &&
-		installConfig.Networking.OVNKubernetesConfig != nil &&
-		installConfig.Networking.OVNKubernetesConfig.IPv4 != nil &&
-		installConfig.Networking.OVNKubernetesConfig.IPv4.InternalJoinSubnet != nil {
-		fieldPath := field.NewPath("networking", "ovnKubernetesConfig", "ipv4", "internalJoinSubnet")
-		logrus.Warnf("%s: %s is ignored", fieldPath, installConfig.Networking.OVNKubernetesConfig.IPv4.InternalJoinSubnet)
 	}
 
 	// "External" is the default set from generic install config code
