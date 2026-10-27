@@ -47,7 +47,12 @@ func (b *Builder) Build(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("no configuration has been found in this binary")
 	}
-	logrus.Infof("Configuration loaded: version=%s arch=%s", embeddedCfg.OpenshiftVersion, embeddedCfg.Architecture)
+
+	arch := embeddedCfg.Architecture
+	if arch == "" {
+		arch = outputArch
+	}
+	logrus.Infof("Configuration loaded: version=%s arch=%s", embeddedCfg.OpenshiftVersion, arch)
 
 	if len(b.additionalImages) > 0 {
 		logrus.Infof("Adding %d additional image(s) from CLI flags", len(b.additionalImages))
