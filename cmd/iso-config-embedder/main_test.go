@@ -68,10 +68,6 @@ pullSecret: '{"auths":{}}'
 sshKey:
   - ssh-rsa AAAA...
 architecture: x86_64
-proxy:
-  httpProxy: http://proxy:8080
-  httpsProxy: https://proxy:8443
-  noProxy: localhost
 additionalTrustBundle: |
   -----BEGIN CERTIFICATE-----
   MIID...
@@ -86,13 +82,10 @@ olmOperators:
 rendezvousIP: 192.168.1.10
 additionalImages:
   - registry.example.com/app:v1
-extraManifests:
-  - name: custom.yaml
-    content: "apiVersion: v1\nkind: ConfigMap"
 `,
 			wantKeys: []string{
 				"openshiftVersion", "releaseImageURL", "pullSecret",
-				"sshKey", "architecture", "proxy", "fips",
+				"sshKey", "architecture", "fips",
 				"olmOperators", "rendezvousIP", "additionalImages",
 			},
 		},

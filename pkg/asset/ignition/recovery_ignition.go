@@ -50,7 +50,7 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 	unconfiguredManifests := &manifests.UnconfiguredManifests{}
 	dependencies.Get(envConfig, applianceConfig, bootstrapIgnition, unconfiguredManifests)
 
-	// Persists cluster-manifests required for unconfigured ignition
+	// Persists manifests required for unconfigured ignition
 	if err := asset.PersistToFile(unconfiguredManifests, envConfig.TempDir); err != nil {
 		return err
 	}

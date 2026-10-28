@@ -495,6 +495,13 @@ func (a *ApplianceConfig) validateConfig(f asset.FileFetcher) field.ErrorList {
 		}
 	}
 
+	// Validate rendezvousIP
+	if a.Config.RendezvousIP != nil {
+		if err := validate.IP(*a.Config.RendezvousIP); err != nil {
+			allErrs = append(allErrs, field.Invalid(field.NewPath("rendezvousIP"), *a.Config.RendezvousIP, err.Error()))
+		}
+	}
+
 	// Validate mirrorPath
 	if err := a.validateMirrorPath(); err != nil {
 		allErrs = append(allErrs, err...)

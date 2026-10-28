@@ -90,15 +90,13 @@ The config file must contain the following fields:
 | `pullSecret`            | `string`      | Secret to use when pulling images                                          |
 | `sshKey`                | `string list` | Public Secure Shell (SSH) key to provide access to instances               |
 | `architecture`          | `string`      | Cluster CPU architecture                                                   |
-| `proxy`                 | `object`      | Settings for the cluster proxy (http/https/noProxy)                        |
 | `additionalTrustBundle` | `string`      | PEM-encoded X.509 certificate bundle for nodes trusted certificate store   |
 | `additionalNTPServers`  | `string list` | List of additional NTP servers to use for provisioning                     |
 | `fips`                  | `boolean`     | Configures https://www.nist.gov/itl/fips-general-information               |
 | `olmOperators`          | `object list` | OLM operators to be mirrored (name/version/channel)                        |   
 | `rendezvousIP`          | `string`      | Defines the rendezvous IP                                                  |
-| `networkConfig`         | `object list` | Nodes NMState config to define static networking                           |
+| `networkConfig`         | `object list` | Static network configurations for hosts (interfaces + nmstate YAML config) |
 | `additionalImages`      | `string list` | Additional images pullspec to be mirrored                                  |
-| `extraManifests`        | `object list` | Additional custom manifests to be added in the cluster                     |
 
 Follow the openshift installer naming convention for the fields (see https://github.com/openshift/installer/blob/main/data/data/install.openshift.io_installconfigs.yaml)
 

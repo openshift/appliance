@@ -19,7 +19,6 @@ func TestConfigJSONRoundTrip(t *testing.T) {
 				PullSecret:            `{"auths":{"cloud.openshift.com":{"auth":"dXNlcjpwYXNz"}}}`,
 				SSHKey:                []string{"ssh-rsa AAAA...", "ssh-ed25519 AAAA..."},
 				Architecture:          "x86_64",
-				Proxy:                 &Proxy{HTTPProxy: "http://proxy:8080", HTTPSProxy: "https://proxy:8443", NoProxy: "localhost,.example.com"},
 				AdditionalTrustBundle: "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----",
 				AdditionalNTPServers:  []string{"ntp1.example.com", "ntp2.example.com"},
 				FIPS:                  true,
@@ -28,13 +27,13 @@ func TestConfigJSONRoundTrip(t *testing.T) {
 					{Name: "mtv-operator", Version: "2.12", Channel: "release-v2.12"},
 				},
 				RendezvousIP: "192.168.1.10",
-				NetworkConfig: []json.RawMessage{
-					json.RawMessage(`{"interfaces":[{"name":"eth0","type":"ethernet","state":"up"}]}`),
+				NetworkConfig: []NetworkConfigEntry{
+					{
+						Interfaces: []Interface{{Name: "eth0", MacAddress: "00:11:22:33:44:55"}},
+						Config:     json.RawMessage(`{"interfaces":[{"name":"eth0","type":"ethernet","state":"up"}]}`),
+					},
 				},
 				AdditionalImages: []string{"registry.redhat.io/rhel9/support-tools:latest"},
-				ExtraManifests: []ExtraManifest{
-					{Name: "custom-mco.yaml", Content: "apiVersion: machineconfiguration.openshift.io/v1\nkind: MachineConfig"},
-				},
 			},
 		},
 		{
@@ -98,9 +97,8 @@ func TestConfigOmitempty(t *testing.T) {
 
 	omittedFields := []string{
 		"openshiftVersion", "releaseImageURL", "sshKey", "architecture",
-		"proxy", "additionalTrustBundle", "additionalNTPServers", "fips",
+		"additionalTrustBundle", "additionalNTPServers", "fips",
 		"olmOperators", "rendezvousIP", "networkConfig", "additionalImages",
-		"extraManifests",
 	}
 	for _, field := range omittedFields {
 		if _, ok := raw[field]; ok {
@@ -113,8 +111,13 @@ func TestConfigNetworkConfigPreservation(t *testing.T) {
 	nmstate := `{"interfaces":[{"name":"ens3","type":"ethernet","state":"up","ipv4":{"enabled":true,"dhcp":true}}],"dns-resolver":{"config":{"server":["8.8.8.8"]}}}`
 
 	cfg := Config{
-		PullSecret:    `{"auths":{}}`,
-		NetworkConfig: []json.RawMessage{json.RawMessage(nmstate)},
+		PullSecret: `{"auths":{}}`,
+		NetworkConfig: []NetworkConfigEntry{
+			{
+				Interfaces: []Interface{{Name: "ens3", MacAddress: "00:11:22:33:44:55"}},
+				Config:     json.RawMessage(nmstate),
+			},
+		},
 	}
 
 	data, err := json.Marshal(cfg)
@@ -131,8 +134,8 @@ func TestConfigNetworkConfigPreservation(t *testing.T) {
 		t.Fatalf("expected 1 network config entry, got %d", len(got.NetworkConfig))
 	}
 
-	if string(got.NetworkConfig[0]) != nmstate {
-		t.Errorf("network config not preserved:\nwant: %s\ngot:  %s", nmstate, string(got.NetworkConfig[0]))
+	if string(got.NetworkConfig[0].Config) != nmstate {
+		t.Errorf("network config not preserved:\nwant: %s\ngot:  %s", nmstate, string(got.NetworkConfig[0].Config))
 	}
 }
 

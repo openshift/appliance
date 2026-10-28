@@ -77,9 +77,6 @@ func (b *Builder) Build(ctx context.Context) error {
 	return nil
 }
 
-// Not yet converted: Proxy, AdditionalTrustBundle, AdditionalNTPServers,
-// RendezvousIP, NetworkConfig, ExtraManifests. These fields target the
-// install-config / agent-config pipeline and will be addressed separately.
 func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.ApplianceConfig {
 	channel := graph.ReleaseChannelStable
 
@@ -130,6 +127,38 @@ func (b *Builder) convertToApplianceConfig(cfg *isobuilderconfig.Config) *types.
 
 	if len(cfg.OLMOperators) > 0 {
 		appCfg.Operators = convertOperators(cfg.OpenshiftVersion, cfg.OLMOperators)
+	}
+
+	if cfg.RendezvousIP != "" {
+		appCfg.RendezvousIP = conv.Pointer(cfg.RendezvousIP)
+	}
+
+	if len(cfg.AdditionalNTPServers) > 0 {
+		appCfg.AdditionalNTPSources = cfg.AdditionalNTPServers
+	}
+
+	appCfg.AgentPullSecret = cfg.PullSecret
+
+	if cfg.AdditionalTrustBundle != "" {
+		appCfg.AdditionalTrustBundle = cfg.AdditionalTrustBundle
+	}
+
+	if len(cfg.NetworkConfig) > 0 {
+		networkConfig := make([]types.NetworkConfigEntry, len(cfg.NetworkConfig))
+		for i, entry := range cfg.NetworkConfig {
+			interfaces := make([]types.NetworkInterface, len(entry.Interfaces))
+			for j, iface := range entry.Interfaces {
+				interfaces[j] = types.NetworkInterface{
+					Name:       iface.Name,
+					MacAddress: iface.MacAddress,
+				}
+			}
+			networkConfig[i] = types.NetworkConfigEntry{
+				Interfaces: interfaces,
+				Config:     entry.Config,
+			}
+		}
+		appCfg.NetworkConfig = networkConfig
 	}
 
 	return appCfg

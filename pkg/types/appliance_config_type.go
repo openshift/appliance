@@ -1,6 +1,8 @@
 package types
 
 import (
+	"encoding/json"
+
 	"github.com/openshift/appliance/pkg/graph"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -30,6 +32,25 @@ type ApplianceConfig struct {
 	AdditionalImages                   *[]Image       `json:"additionalImages,omitempty"`
 	BlockedImages                      *[]Image       `json:"blockedImages,omitempty"`
 	Operators                          *[]Operator    `json:"operators,omitempty"`
+
+	// Fields added for the iso-builder flow; not used by the legacy appliance code.
+	ApplianceConfigExt `json:",inline"`
+}
+
+// ApplianceConfigExt holds fields added for the iso-builder flow.
+// Embedded inline so the JSON layout stays flat. When the legacy
+// asset infrastructure is removed, this struct marks what to carry over.
+type ApplianceConfigExt struct {
+	// RendezvousIP is the IP address used as rendezvous point for agent-based install.
+	RendezvousIP *string `json:"rendezvousIP,omitempty"`
+	// AdditionalNTPSources is a list of NTP sources to be added to all cluster hosts.
+	AdditionalNTPSources []string `json:"additionalNTPSources,omitempty"`
+	// NetworkConfig defines static network configurations for hosts.
+	NetworkConfig []NetworkConfigEntry `json:"networkConfig,omitempty"`
+	// AdditionalTrustBundle is a PEM-encoded X.509 certificate bundle added to the nodes' trusted store.
+	AdditionalTrustBundle string `json:"additionalTrustBundle,omitempty"`
+	// AgentPullSecret overrides the dummy pull secret in the agent manifest when set.
+	AgentPullSecret string `json:"agentPullSecret,omitempty"`
 }
 
 type ReleaseImage struct {
@@ -108,4 +129,20 @@ type IncludeBundle struct {
 	// MinBundle to include, plus all bundles in the upgrade graph to the channel head.
 	// Set this field only if the named bundle has no semantic version metadata.
 	MinBundle string `json:"minBundle,omitempty" yaml:"minBundle,omitempty"`
+}
+
+// NetworkConfigEntry defines static network configuration for a host.
+type NetworkConfigEntry struct {
+	// Interfaces is a list of interfaces with name and MAC address.
+	Interfaces []NetworkInterface `json:"interfaces"`
+	// Config contains the nmstate YAML configuration.
+	Config json.RawMessage `json:"config"`
+}
+
+// NetworkInterface defines a network interface.
+type NetworkInterface struct {
+	// Name is the interface name.
+	Name string `json:"name"`
+	// MacAddress is the MAC address for the interface.
+	MacAddress string `json:"macAddress"`
 }
