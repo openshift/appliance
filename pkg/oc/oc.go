@@ -1,37 +1,23 @@
 package oc
 
 import (
-	"archive/tar"
-	"compress/gzip"
-	"fmt"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strings"
 
 	"github.com/cavaliergopher/grab/v3"
-	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-)
 
-var (
-	goOS     = runtime.GOOS
-	goArch   = runtime.GOARCH
-	lookPath = exec.LookPath
+	"github.com/openshift/appliance/pkg/tools"
 )
 
 const (
-	ocBinaryName        = "oc"
-	templateDownloadURL = "https://mirror.openshift.com/pub/openshift-v%s/%s/clients/%s/%s/%s"
+	ocBinaryName = "oc"
 )
 
 // ClientConfig holds the parameters needed to acquire the oc binary.
 type ClientConfig struct {
-	ReleaseVersion string // resolved OCP version, e.g. "4.22.19"
-	ToolsDir       string // directory for storing the binary
+	tools.ToolConfig
 }
 
 // Client handles download, extraction, and storage of the oc binary.
@@ -54,7 +40,7 @@ type AcquireResult struct {
 // in the tools dir, then tries to download from mirror.openshift.com, and finally
 // falls back to a system-installed oc on PATH.
 func (c *Client) Acquire() (*AcquireResult, error) {
-	existing := findExistingBinary(c.config.ToolsDir)
+	existing := tools.FindExistingBinary(c.config.ToolsDir, ocBinaryName)
 	if existing != "" {
 		logrus.Infof("Reusing existing oc binary")
 		return &AcquireResult{Path: existing}, nil
@@ -66,7 +52,7 @@ func (c *Client) Acquire() (*AcquireResult, error) {
 	}
 
 	logrus.Warnf("Failed to download oc client: %v", downloadErr)
-	systemPath, lookErr := lookPath(ocBinaryName)
+	systemPath, lookErr := tools.LookupSystemBinary(ocBinaryName)
 	if lookErr != nil {
 		return nil, errors.Wrap(downloadErr, "failed to download oc client and no system oc found on PATH")
 	}
@@ -76,13 +62,9 @@ func (c *Client) Acquire() (*AcquireResult, error) {
 }
 
 func (c *Client) download() (*AcquireResult, error) {
-	url, err := c.downloadURL()
+	url, err := tools.GetDownloadURL(ocBinaryName, c.config.ReleaseVersion, c.config.SupportedArch)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build oc download URL")
-	}
-
-	if err := os.MkdirAll(c.config.ToolsDir, 0755); err != nil {
-		return nil, errors.Wrap(err, "failed to create tools dir")
 	}
 
 	logrus.Infof("Downloading oc client from %s", url)
@@ -93,7 +75,7 @@ func (c *Client) download() (*AcquireResult, error) {
 	}
 	defer func() { _ = os.Remove(archivePath) }()
 
-	ocPath, err := extractOcFromArchive(archivePath, c.config.ToolsDir)
+	ocPath, err := tools.ExtractBinaryFromArchive(archivePath, c.config.ToolsDir, ocBinaryName)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to extract oc from archive")
 	}
@@ -104,91 +86,4 @@ func (c *Client) download() (*AcquireResult, error) {
 
 	logrus.Infof("oc client ready at %s", ocPath)
 	return &AcquireResult{Path: ocPath}, nil
-}
-
-func (c *Client) downloadURL() (string, error) {
-	archSegment, filename, err := platformArchive()
-	if err != nil {
-		return "", err
-	}
-
-	v, err := version.NewVersion(c.config.ReleaseVersion)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to parse release version")
-	}
-	majorVersion := fmt.Sprint(v.Segments()[0])
-
-	ocpClient := "ocp"
-	if strings.Contains(c.config.ReleaseVersion, "-ec") {
-		ocpClient = "ocp-dev-preview"
-	}
-
-	return fmt.Sprintf(templateDownloadURL, majorVersion, archSegment, ocpClient, c.config.ReleaseVersion, filename), nil
-}
-
-// platformArchive returns the mirror.openshift.com arch path segment and the oc
-// client archive filename for the host platform. Both mac clients (amd64 and
-// arm64) are published under the x86_64 path on the mirror, so the arch segment
-// and filename are resolved together rather than mapping GOARCH independently.
-func platformArchive() (archSegment, filename string, err error) {
-	switch {
-	case goOS == "linux" && goArch == "amd64":
-		return "x86_64", "openshift-client-linux.tar.gz", nil
-	case goOS == "darwin" && goArch == "amd64":
-		return "x86_64", "openshift-client-mac.tar.gz", nil
-	case goOS == "darwin" && goArch == "arm64":
-		return "x86_64", "openshift-client-mac-arm64.tar.gz", nil
-	default:
-		return "", "", fmt.Errorf("unsupported platform: %s/%s", goOS, goArch)
-	}
-}
-
-func findExistingBinary(toolsDir string) string {
-	path := filepath.Join(toolsDir, ocBinaryName)
-	info, err := os.Stat(path)
-	if err != nil || info.Size() == 0 {
-		return ""
-	}
-	return path
-}
-
-func extractOcFromArchive(archivePath, destDir string) (string, error) {
-	f, err := os.Open(archivePath)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = f.Close() }()
-
-	gr, err := gzip.NewReader(f)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = gr.Close() }()
-
-	tr := tar.NewReader(gr)
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return "", err
-		}
-		if filepath.Base(hdr.Name) == ocBinaryName && hdr.Typeflag == tar.TypeReg {
-			destPath := filepath.Join(destDir, ocBinaryName)
-			out, err := os.Create(destPath)
-			if err != nil {
-				return "", err
-			}
-			if _, err := io.Copy(out, tr); err != nil { // #nosec G110
-				_ = out.Close()
-				return "", err
-			}
-			if err := out.Close(); err != nil {
-				return "", err
-			}
-			return destPath, nil
-		}
-	}
-	return "", errors.New("oc binary not found in archive")
 }

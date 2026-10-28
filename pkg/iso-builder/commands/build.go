@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/go-openapi/swag/conv"
@@ -19,6 +20,8 @@ import (
 	isobuilderconfig "github.com/openshift/appliance/pkg/iso-builder/config"
 	"github.com/openshift/appliance/pkg/iso-builder/embeddedconfig"
 	"github.com/openshift/appliance/pkg/oc"
+	"github.com/openshift/appliance/pkg/ocmirror"
+	"github.com/openshift/appliance/pkg/tools"
 	"github.com/openshift/appliance/pkg/types"
 	"github.com/openshift/installer/pkg/asset"
 	assetstore "github.com/openshift/installer/pkg/asset/store"
@@ -27,7 +30,8 @@ import (
 const (
 	// OutputISOPattern is the naming pattern for the generated ISO file.
 	OutputISOPattern = "agent.%s.iso"
-	outputArch       = "x86_64"
+	// OutputArch is the only architecture supported for ISO output.
+	OutputArch = "x86_64"
 )
 
 // Builder orchestrates the ISO build process.
@@ -51,7 +55,7 @@ func (b *Builder) Build(ctx context.Context) error {
 
 	arch := embeddedCfg.Architecture
 	if arch == "" {
-		arch = outputArch
+		arch = OutputArch
 	}
 	logrus.Infof("Configuration loaded: version=%s arch=%s", embeddedCfg.OpenshiftVersion, arch)
 
@@ -68,7 +72,7 @@ func (b *Builder) Build(ctx context.Context) error {
 		return err
 	}
 
-	outputISO := fmt.Sprintf(OutputISOPattern, outputArch)
+	outputISO := fmt.Sprintf(OutputISOPattern, OutputArch)
 	if err := b.renameOutput(outputISO); err != nil {
 		return err
 	}
@@ -194,13 +198,28 @@ func (b *Builder) acquireTools(isoBuilderConfig *isobuilderconfig.Config) error 
 		return errors.Wrap(err, "failed to resolve OCP release version")
 	}
 
+	supportedArch, err := validateArch()
+	if err != nil {
+		return err
+	}
+
 	toolsDir := filepath.Join(b.workingDir, "tools")
-	ocClient := oc.NewClient(oc.ClientConfig{
+	if err := tools.CreateToolsDir(toolsDir); err != nil {
+		return err
+	}
+
+	toolConfig := tools.ToolConfig{
 		ReleaseVersion: releaseVersion,
 		ToolsDir:       toolsDir,
-	})
-	if _, err := ocClient.Acquire(); err != nil {
+		SupportedArch:  supportedArch,
+	}
+
+	if _, err := oc.NewClient(oc.ClientConfig{ToolConfig: toolConfig}).Acquire(); err != nil {
 		return errors.Wrap(err, "failed to acquire oc client")
+	}
+
+	if _, err := ocmirror.NewMirror(ocmirror.MirrorConfig{ToolConfig: toolConfig}).Acquire(); err != nil {
+		return errors.Wrap(err, "failed to acquire oc-mirror")
 	}
 
 	return prependToPath(toolsDir)
@@ -267,4 +286,16 @@ func (b *Builder) renameOutput(outputISO string) error {
 		return errors.Wrapf(err, "failed to rename %s to %s", src, dst)
 	}
 	return nil
+}
+
+// validateArch returns the mirror.openshift.com arch path segment for
+// tool acquisition (oc and oc-mirror). Both mac platforms (amd64 and arm64) are
+// published under the x86_64 path on the mirror.
+func validateArch() (string, error) {
+	supported := (runtime.GOOS == "linux" && runtime.GOARCH == "amd64") ||
+		(runtime.GOOS == "darwin" && (runtime.GOARCH == "amd64" || runtime.GOARCH == "arm64"))
+	if supported {
+		return OutputArch, nil
+	}
+	return "", fmt.Errorf("unsupported platform/arch: %s/%s", runtime.GOOS, runtime.GOARCH)
 }
