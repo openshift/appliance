@@ -90,7 +90,7 @@ func tableFromBytes(b []byte) (*Table, error) {
 		// write the primary partition entry
 		start := partitionEntriesStart + i*partitionEntrySize
 		end := start + partitionEntrySize
-		p, err := partitionFromBytes(b[start:end], logicalSectorSize, physicalSectorSize)
+		p, err := partitionFromBytes(i+1, b[start:end], logicalSectorSize, physicalSectorSize)
 		if err != nil {
 			return nil, fmt.Errorf("error reading partition entry %d: %v", i, err)
 		}
@@ -110,7 +110,7 @@ func tableFromBytes(b []byte) (*Table, error) {
 
 func readPartitionTableUUID(b []byte) string {
 	ptUUID := b[partitionTableUUIDStart:partitionTableUUIDEnd]
-	return fmt.Sprintf("%x", binary.LittleEndian.Uint32(ptUUID))
+	return fmt.Sprintf("%08x", binary.LittleEndian.Uint32(ptUUID))
 }
 
 // UUID returns the partition table UUID used to identify disks

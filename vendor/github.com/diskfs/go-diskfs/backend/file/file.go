@@ -12,10 +12,11 @@ import (
 
 type rawBackend struct {
 	storage  fs.File
+	path     string
 	readOnly bool
 }
 
-// Create a backend.Storage from provided fs.File
+// Create a backend.Storage from provided fs.File. Will not store any path.
 func New(f fs.File, readOnly bool) backend.Storage {
 	return rawBackend{
 		storage:  f,
@@ -27,6 +28,17 @@ func New(f fs.File, readOnly bool) backend.Storage {
 // Should pass a path to a block device e.g. /dev/sda or a path to a file /tmp/foo.img
 // The provided device/file must exist at the time you call OpenFromPath()
 func OpenFromPath(pathName string, readOnly bool) (backend.Storage, error) {
+	return OpenFromPathWithExclusive(pathName, readOnly, true)
+}
+
+// OpenFromPathWithExclusive is like OpenFromPath but lets the caller choose
+// whether a writable open uses O_EXCL. The exclusive flag is ignored for a
+// read-only open. Callers that shell out to filesystem utilities
+// (e.g. e2fsck/resize2fs) on the child partitions of a whole disk must open the
+// disk non-exclusively: holding the parent disk O_EXCL makes the kernel reject
+// O_EXCL opens of its partitions ("device is in use"). The returned backend
+// records the path, unlike New.
+func OpenFromPathWithExclusive(pathName string, readOnly, exclusive bool) (backend.Storage, error) {
 	if pathName == "" {
 		return nil, errors.New("must pass device of file name")
 	}
@@ -38,7 +50,10 @@ func OpenFromPath(pathName string, readOnly bool) (backend.Storage, error) {
 	openMode := os.O_RDONLY
 
 	if !readOnly {
-		openMode |= os.O_RDWR | os.O_EXCL
+		openMode |= os.O_RDWR
+		if exclusive {
+			openMode |= os.O_EXCL
+		}
 	}
 
 	f, err := os.OpenFile(pathName, openMode, 0o600)
@@ -49,6 +64,7 @@ func OpenFromPath(pathName string, readOnly bool) (backend.Storage, error) {
 	return rawBackend{
 		storage:  f,
 		readOnly: readOnly,
+		path:     pathName,
 	}, nil
 }
 
@@ -74,6 +90,7 @@ func CreateFromPath(pathName string, size int64) (backend.Storage, error) {
 	return rawBackend{
 		storage:  f,
 		readOnly: false,
+		path:     pathName,
 	}, nil
 }
 
@@ -124,4 +141,8 @@ func (f rawBackend) Seek(offset int64, whence int) (int64, error) {
 		return seeker.Seek(offset, whence)
 	}
 	return -1, backend.ErrNotSuitable
+}
+
+func (f rawBackend) Path() string {
+	return f.path
 }
