@@ -126,6 +126,16 @@ func TestNMStateConfigGenerate(t *testing.T) {
 					t.Errorf("NMStateConfig %d: expected Name %q, got %q", i, expectedName, got.Name)
 				}
 
+				// Validate labels are set
+				expectedLabel := "infraenvs.agent-install.openshift.io"
+				if got.Labels == nil {
+					t.Errorf("NMStateConfig %d: expected labels to be set, got nil", i)
+				} else if val, ok := got.Labels[expectedLabel]; !ok {
+					t.Errorf("NMStateConfig %d: expected label %q to be set", i, expectedLabel)
+				} else if val != infraEnvName {
+					t.Errorf("NMStateConfig %d: expected label %q value %q, got %q", i, expectedLabel, infraEnvName, val)
+				}
+
 				if len(got.Spec.Interfaces) != len(tc.networkConfig[i].Interfaces) {
 					t.Errorf("NMStateConfig %d: expected %d interfaces, got %d", i, len(tc.networkConfig[i].Interfaces), len(got.Spec.Interfaces))
 				}

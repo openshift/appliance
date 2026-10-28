@@ -72,6 +72,11 @@ func (i *InfraEnv) Generate(_ context.Context, dependencies asset.Parents) error
 			Name: PullSecretName,
 		},
 		CpuArchitecture: applianceConfig.GetCpuArchitecture(),
+		NMStateConfigLabelSelector: metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"infraenvs.agent-install.openshift.io": infraEnvName,
+			},
+		},
 	}
 
 	if applianceConfig.Config.SshKey != nil {

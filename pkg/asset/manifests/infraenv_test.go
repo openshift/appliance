@@ -185,3 +185,41 @@ func TestInfraEnvGenerateAdditionalNTPSources(t *testing.T) {
 		})
 	}
 }
+
+func TestInfraEnvGenerateNMStateConfigLabelSelector(t *testing.T) {
+	appCfg := &config.ApplianceConfig{
+		Config: &types.ApplianceConfig{
+			OcpRelease: types.ReleaseImage{
+				CpuArchitecture: conv.Pointer("x86_64"),
+			},
+		},
+	}
+
+	parents := asset.Parents{}
+	parents.Add(appCfg)
+
+	ie := &InfraEnv{}
+	if err := ie.Generate(context.Background(), parents); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	files := ie.Files()
+	if len(files) != 1 {
+		t.Fatalf("expected 1 file, got %d", len(files))
+	}
+
+	var got aiv1beta1.InfraEnv
+	if err := yaml.Unmarshal(files[0].Data, &got); err != nil {
+		t.Fatalf("failed to unmarshal infraenv: %v", err)
+	}
+
+	// Validate NMStateConfigLabelSelector is set
+	expectedLabel := "infraenvs.agent-install.openshift.io"
+	if got.Spec.NMStateConfigLabelSelector.MatchLabels == nil {
+		t.Errorf("expected NMStateConfigLabelSelector.MatchLabels to be set, got nil")
+	} else if val, ok := got.Spec.NMStateConfigLabelSelector.MatchLabels[expectedLabel]; !ok {
+		t.Errorf("expected label %q in NMStateConfigLabelSelector.MatchLabels", expectedLabel)
+	} else if val != infraEnvName {
+		t.Errorf("expected label %q value %q, got %q", expectedLabel, infraEnvName, val)
+	}
+}

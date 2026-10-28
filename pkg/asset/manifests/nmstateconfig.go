@@ -68,7 +68,11 @@ func (n *NMStateConfig) Generate(_ context.Context, dependencies asset.Parents) 
 				APIVersion: nmStateConfigAPIVersion,
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("nmstate-%d", i),
+				Name:      fmt.Sprintf("nmstate-%d", i),
+				Namespace: "",
+				Labels: map[string]string{
+					"infraenvs.agent-install.openshift.io": infraEnvName,
+				},
 			},
 			Spec: aiv1beta1.NMStateConfigSpec{
 				Interfaces: interfaces,
