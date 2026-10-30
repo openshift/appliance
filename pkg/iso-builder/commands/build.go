@@ -64,6 +64,10 @@ func (b *Builder) Build(ctx context.Context) error {
 		embeddedCfg.AdditionalImages = append(embeddedCfg.AdditionalImages, b.additionalImages...)
 	}
 
+	if err := initializeRegistryAuth(b.workingDir, embeddedCfg.PullSecret); err != nil {
+		return err
+	}
+
 	if err := b.acquireTools(embeddedCfg); err != nil {
 		return err
 	}
@@ -298,4 +302,40 @@ func validateArch() (string, error) {
 		return OutputArch, nil
 	}
 	return "", fmt.Errorf("unsupported platform/arch: %s/%s", runtime.GOOS, runtime.GOARCH)
+}
+
+// initializeRegistryAuth sets up credentials for oc and oc-mirror to find automatically.
+// It creates XDG_RUNTIME_DIR in the working directory and writes the pull secret to
+// ${XDG_RUNTIME_DIR}/containers/auth.json, isolating auth credentials to the build's working directory.
+func initializeRegistryAuth(workingDir, pullSecret string) error {
+	if pullSecret == "" {
+		return nil
+	}
+
+	// Create a temporary XDG_RUNTIME_DIR in the working directory to isolate auth
+	xdgRuntime, err := filepath.Abs(filepath.Join(workingDir, "xdg-runtime-dir"))
+	if err != nil {
+		return errors.Wrap(err, "failed to get absolute path for XDG_RUNTIME_DIR")
+	}
+
+	if err := os.MkdirAll(xdgRuntime, 0o700); err != nil {
+		return errors.Wrap(err, "failed to create XDG_RUNTIME_DIR")
+	}
+
+	if err := os.Setenv("XDG_RUNTIME_DIR", xdgRuntime); err != nil {
+		return errors.Wrap(err, "failed to set XDG_RUNTIME_DIR")
+	}
+	logrus.Debugf("Set XDG_RUNTIME_DIR=%s", xdgRuntime)
+
+	authDir := filepath.Join(xdgRuntime, "containers")
+	authFile := filepath.Join(authDir, "auth.json")
+
+	if err := os.MkdirAll(authDir, 0o700); err != nil {
+		return errors.Wrap(err, "failed to create auth directory")
+	}
+	if err := os.WriteFile(authFile, []byte(pullSecret), 0o600); err != nil {
+		return errors.Wrap(err, "failed to write auth.json")
+	}
+	logrus.Debugf("Wrote pull secret to %s", authFile)
+	return nil
 }
