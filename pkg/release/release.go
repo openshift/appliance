@@ -43,9 +43,9 @@ const (
 	templateExtractCmd   = "oc adm release extract --command=%s --to=%s %s"
 	templateImageExtract = "oc image extract --path %s:%s --confirm %s"
 	templateGetMetadata  = "oc adm release info %s -o json"
-	ocMirror             = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=4 --parallel-layers=4 --retry-times=5"
-	// ocMirrorDryRun is the command template for running oc mirror in dry-run mode to generate mapping.txt
-	ocMirrorDryRun = "oc mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --dry-run"
+	ocMirror             = "oc-mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --parallel-images=4 --parallel-layers=4 --retry-times=5"
+	// ocMirrorDryRun is the command template for running oc-mirror in dry-run mode to generate mapping.txt
+	ocMirrorDryRun = "oc-mirror --v2 --config=%s docker://127.0.0.1:%d --workspace=file://%s --src-tls-verify=false --dest-tls-verify=false --dry-run"
 )
 
 var (
@@ -568,10 +568,16 @@ func (r *release) getPath() string {
 	return ""
 }
 
-// prependToolsPath prepends the tools directory path to the oc command if configured.
+// prependToolsPath prepends the tools directory path to the oc/oc-mirror command if configured.
 func (r *release) prependToolsPath(cmd string) string {
 	if toolsPath := r.getPath(); toolsPath != "" {
-		cmd = strings.Replace(cmd, "oc ", filepath.Join(toolsPath, "oc")+" ", 1)
+		// Handle oc-mirror commands separately (must check before oc)
+		if strings.HasPrefix(cmd, "oc-mirror ") {
+			cmd = strings.Replace(cmd, "oc-mirror ", filepath.Join(toolsPath, "oc-mirror")+" ", 1)
+		} else {
+			// Handle oc commands
+			cmd = strings.Replace(cmd, "oc ", filepath.Join(toolsPath, "oc")+" ", 1)
+		}
 	}
 	return cmd
 }
