@@ -84,6 +84,6 @@ func (c *Client) download() (*AcquireResult, error) {
 		return nil, errors.Wrap(err, "failed to make oc executable")
 	}
 
-	logrus.Infof("oc client ready at %s", ocPath)
+	logrus.Infof("oc is available at %s", ocPath)
 	return &AcquireResult{Path: ocPath}, nil
 }
