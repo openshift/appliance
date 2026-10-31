@@ -23,7 +23,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/openshift/api v0.0.0-20260825094607-13a84dedc5a3
 	github.com/openshift/appliance/pkg/iso-builder/config v0.0.0-00010101000000-000000000000
-	github.com/openshift/assisted-image-service v0.0.0-20261023174245-ee8d45b337bd
+	github.com/openshift/assisted-image-service v0.0.0-20261027084150-db281cccdaeb
 	github.com/openshift/assisted-service/api v0.0.0
 	github.com/openshift/hive/apis v0.0.0-20260415205034-aa1db747a6ba
 	github.com/openshift/installer v0.0.0-20260928153737-6d44cca7d82f
