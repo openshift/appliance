@@ -5,10 +5,10 @@ package efs
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/efs/schemas"
 	"github.com/aws/aws-sdk-go-v2/service/efs/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Returns the description of a specific Amazon EFS access point if the
@@ -55,6 +55,27 @@ type DescribeAccessPointsInput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *DescribeAccessPointsInput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.DescribeAccessPointsRequest)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *DescribeAccessPointsInput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.AccessPointId != nil {
+		s.WriteString(schemas.DescribeAccessPointsRequest_AccessPointId, *v.AccessPointId)
+	}
+	if v.FileSystemId != nil {
+		s.WriteString(schemas.DescribeAccessPointsRequest_FileSystemId, *v.FileSystemId)
+	}
+	if v.MaxResults != nil {
+		s.WriteInt32(schemas.DescribeAccessPointsRequest_MaxResults, *v.MaxResults)
+	}
+	if v.NextToken != nil {
+		s.WriteString(schemas.DescribeAccessPointsRequest_NextToken, *v.NextToken)
+	}
+}
+
 type DescribeAccessPointsOutput struct {
 
 	// An array of access point descriptions.
@@ -71,77 +92,48 @@ type DescribeAccessPointsOutput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *DescribeAccessPointsOutput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.DescribeAccessPointsResponse)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *DescribeAccessPointsOutput) SerializeMembers(s smithy.ShapeSerializer) {
+	serializeAccessPointDescriptions(s, schemas.DescribeAccessPointsResponse_AccessPoints, v.AccessPoints)
+	if v.NextToken != nil {
+		s.WriteString(schemas.DescribeAccessPointsResponse_NextToken, *v.NextToken)
+	}
+}
+func (v *DescribeAccessPointsOutput) Deserialize(d smithy.ShapeDeserializer) error {
+	return smithy.ReadStruct(d, schemas.DescribeAccessPointsResponse, func(s *smithy.Schema) error {
+		switch s {
+		case schemas.DescribeAccessPointsResponse_AccessPoints:
+			return deserializeAccessPointDescriptions(d, schemas.DescribeAccessPointsResponse_AccessPoints, &v.AccessPoints)
+		case schemas.DescribeAccessPointsResponse_NextToken:
+			v.NextToken = new(string)
+			return d.ReadString(schemas.DescribeAccessPointsResponse_NextToken, v.NextToken)
+		}
+		return nil
+	})
+}
 func (c *Client) addOperationDescribeAccessPointsMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+	if err := stack.Serialize.Add(&serializeRequestMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.DescribeAccessPoints, schemas.DescribeAccessPointsRequest, schemas.DescribeAccessPointsResponse)}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsRestjson1_serializeOpDescribeAccessPoints{}, middleware.After)
-	if err != nil {
+	if err := stack.Deserialize.Add(&deserializeResponseMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.DescribeAccessPoints, schemas.DescribeAccessPointsRequest, schemas.DescribeAccessPointsResponse), output: &DescribeAccessPointsOutput{}}, middleware.After); err != nil {
 		return err
-	}
-	err = stack.Deserialize.Add(&awsRestjson1_deserializeOpDescribeAccessPoints{}, middleware.After)
-	if err != nil {
-		return err
-	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeAccessPoints"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
-		return err
-	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeAccessPoints(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -154,12 +146,6 @@ func (c *Client) addOperationDescribeAccessPointsMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
 	if err = addInterceptors(stack, options); err != nil {
@@ -263,11 +249,3 @@ type DescribeAccessPointsAPIClient interface {
 }
 
 var _ DescribeAccessPointsAPIClient = (*Client)(nil)
-
-func newServiceMetadataMiddleware_opDescribeAccessPoints(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "DescribeAccessPoints",
-	}
-}

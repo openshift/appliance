@@ -4,11 +4,10 @@ package efs
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/efs/schemas"
 	"github.com/aws/aws-sdk-go-v2/service/efs/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"time"
 )
 
@@ -70,6 +69,19 @@ type CreateReplicationConfigurationInput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *CreateReplicationConfigurationInput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.CreateReplicationConfigurationRequest)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *CreateReplicationConfigurationInput) SerializeMembers(s smithy.ShapeSerializer) {
+	serializeDestinationsToCreate(s, schemas.CreateReplicationConfigurationRequest_Destinations, v.Destinations)
+	if v.SourceFileSystemId != nil {
+		s.WriteString(schemas.CreateReplicationConfigurationRequest_SourceFileSystemId, *v.SourceFileSystemId)
+	}
+}
+
 // Describes the replication configuration for a specific file system.
 type CreateReplicationConfigurationOutput struct {
 
@@ -114,80 +126,81 @@ type CreateReplicationConfigurationOutput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *CreateReplicationConfigurationOutput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.ReplicationConfigurationDescription)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *CreateReplicationConfigurationOutput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.CreationTime != nil {
+		s.WriteTime(schemas.ReplicationConfigurationDescription_CreationTime, *v.CreationTime)
+	}
+	serializeDestinations(s, schemas.ReplicationConfigurationDescription_Destinations, v.Destinations)
+	if v.OriginalSourceFileSystemArn != nil {
+		s.WriteString(schemas.ReplicationConfigurationDescription_OriginalSourceFileSystemArn, *v.OriginalSourceFileSystemArn)
+	}
+	if v.SourceFileSystemArn != nil {
+		s.WriteString(schemas.ReplicationConfigurationDescription_SourceFileSystemArn, *v.SourceFileSystemArn)
+	}
+	if v.SourceFileSystemId != nil {
+		s.WriteString(schemas.ReplicationConfigurationDescription_SourceFileSystemId, *v.SourceFileSystemId)
+	}
+	if v.SourceFileSystemOwnerId != nil {
+		s.WriteString(schemas.ReplicationConfigurationDescription_SourceFileSystemOwnerId, *v.SourceFileSystemOwnerId)
+	}
+	if v.SourceFileSystemRegion != nil {
+		s.WriteString(schemas.ReplicationConfigurationDescription_SourceFileSystemRegion, *v.SourceFileSystemRegion)
+	}
+}
+func (v *CreateReplicationConfigurationOutput) Deserialize(d smithy.ShapeDeserializer) error {
+	return smithy.ReadStruct(d, schemas.ReplicationConfigurationDescription, func(s *smithy.Schema) error {
+		switch s {
+		case schemas.ReplicationConfigurationDescription_CreationTime:
+			v.CreationTime = new(time.Time)
+			return d.ReadTime(schemas.ReplicationConfigurationDescription_CreationTime, v.CreationTime)
+		case schemas.ReplicationConfigurationDescription_Destinations:
+			return deserializeDestinations(d, schemas.ReplicationConfigurationDescription_Destinations, &v.Destinations)
+		case schemas.ReplicationConfigurationDescription_OriginalSourceFileSystemArn:
+			v.OriginalSourceFileSystemArn = new(string)
+			return d.ReadString(schemas.ReplicationConfigurationDescription_OriginalSourceFileSystemArn, v.OriginalSourceFileSystemArn)
+		case schemas.ReplicationConfigurationDescription_SourceFileSystemArn:
+			v.SourceFileSystemArn = new(string)
+			return d.ReadString(schemas.ReplicationConfigurationDescription_SourceFileSystemArn, v.SourceFileSystemArn)
+		case schemas.ReplicationConfigurationDescription_SourceFileSystemId:
+			v.SourceFileSystemId = new(string)
+			return d.ReadString(schemas.ReplicationConfigurationDescription_SourceFileSystemId, v.SourceFileSystemId)
+		case schemas.ReplicationConfigurationDescription_SourceFileSystemOwnerId:
+			v.SourceFileSystemOwnerId = new(string)
+			return d.ReadString(schemas.ReplicationConfigurationDescription_SourceFileSystemOwnerId, v.SourceFileSystemOwnerId)
+		case schemas.ReplicationConfigurationDescription_SourceFileSystemRegion:
+			v.SourceFileSystemRegion = new(string)
+			return d.ReadString(schemas.ReplicationConfigurationDescription_SourceFileSystemRegion, v.SourceFileSystemRegion)
+		}
+		return nil
+	})
+}
 func (c *Client) addOperationCreateReplicationConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+	if err := stack.Serialize.Add(&serializeRequestMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.CreateReplicationConfiguration, schemas.CreateReplicationConfigurationRequest, schemas.ReplicationConfigurationDescription)}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsRestjson1_serializeOpCreateReplicationConfiguration{}, middleware.After)
-	if err != nil {
+	if err := stack.Deserialize.Add(&deserializeResponseMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.CreateReplicationConfiguration, schemas.CreateReplicationConfigurationRequest, schemas.ReplicationConfigurationDescription), output: &CreateReplicationConfigurationOutput{}}, middleware.After); err != nil {
 		return err
-	}
-	err = stack.Deserialize.Add(&awsRestjson1_deserializeOpCreateReplicationConfiguration{}, middleware.After)
-	if err != nil {
-		return err
-	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateReplicationConfiguration"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
-		return err
-	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateReplicationConfigurationValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateReplicationConfiguration(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -202,22 +215,8 @@ func (c *Client) addOperationCreateReplicationConfigurationMiddlewares(stack *mi
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAttempt(stack, options); err != nil {
-		return err
-	}
 	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opCreateReplicationConfiguration(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "CreateReplicationConfiguration",
-	}
 }

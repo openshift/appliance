@@ -5,10 +5,10 @@ package efs
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/efs/schemas"
 	"github.com/aws/aws-sdk-go-v2/service/efs/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Returns the description of a specific Amazon EFS file system if either the file
@@ -74,6 +74,27 @@ type DescribeFileSystemsInput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *DescribeFileSystemsInput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.DescribeFileSystemsRequest)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *DescribeFileSystemsInput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.CreationToken != nil {
+		s.WriteString(schemas.DescribeFileSystemsRequest_CreationToken, *v.CreationToken)
+	}
+	if v.FileSystemId != nil {
+		s.WriteString(schemas.DescribeFileSystemsRequest_FileSystemId, *v.FileSystemId)
+	}
+	if v.Marker != nil {
+		s.WriteString(schemas.DescribeFileSystemsRequest_Marker, *v.Marker)
+	}
+	if v.MaxItems != nil {
+		s.WriteInt32(schemas.DescribeFileSystemsRequest_MaxItems, *v.MaxItems)
+	}
+}
+
 type DescribeFileSystemsOutput struct {
 
 	// An array of file system descriptions.
@@ -92,77 +113,54 @@ type DescribeFileSystemsOutput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *DescribeFileSystemsOutput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.DescribeFileSystemsResponse)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *DescribeFileSystemsOutput) SerializeMembers(s smithy.ShapeSerializer) {
+	serializeFileSystemDescriptions(s, schemas.DescribeFileSystemsResponse_FileSystems, v.FileSystems)
+	if v.Marker != nil {
+		s.WriteString(schemas.DescribeFileSystemsResponse_Marker, *v.Marker)
+	}
+	if v.NextMarker != nil {
+		s.WriteString(schemas.DescribeFileSystemsResponse_NextMarker, *v.NextMarker)
+	}
+}
+func (v *DescribeFileSystemsOutput) Deserialize(d smithy.ShapeDeserializer) error {
+	return smithy.ReadStruct(d, schemas.DescribeFileSystemsResponse, func(s *smithy.Schema) error {
+		switch s {
+		case schemas.DescribeFileSystemsResponse_FileSystems:
+			return deserializeFileSystemDescriptions(d, schemas.DescribeFileSystemsResponse_FileSystems, &v.FileSystems)
+		case schemas.DescribeFileSystemsResponse_Marker:
+			v.Marker = new(string)
+			return d.ReadString(schemas.DescribeFileSystemsResponse_Marker, v.Marker)
+		case schemas.DescribeFileSystemsResponse_NextMarker:
+			v.NextMarker = new(string)
+			return d.ReadString(schemas.DescribeFileSystemsResponse_NextMarker, v.NextMarker)
+		}
+		return nil
+	})
+}
 func (c *Client) addOperationDescribeFileSystemsMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+	if err := stack.Serialize.Add(&serializeRequestMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.DescribeFileSystems, schemas.DescribeFileSystemsRequest, schemas.DescribeFileSystemsResponse)}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsRestjson1_serializeOpDescribeFileSystems{}, middleware.After)
-	if err != nil {
+	if err := stack.Deserialize.Add(&deserializeResponseMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.DescribeFileSystems, schemas.DescribeFileSystemsRequest, schemas.DescribeFileSystemsResponse), output: &DescribeFileSystemsOutput{}}, middleware.After); err != nil {
 		return err
-	}
-	err = stack.Deserialize.Add(&awsRestjson1_deserializeOpDescribeFileSystems{}, middleware.After)
-	if err != nil {
-		return err
-	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeFileSystems"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
-		return err
-	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeFileSystems(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -175,12 +173,6 @@ func (c *Client) addOperationDescribeFileSystemsMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
 	if err = addInterceptors(stack, options); err != nil {
@@ -284,11 +276,3 @@ type DescribeFileSystemsAPIClient interface {
 }
 
 var _ DescribeFileSystemsAPIClient = (*Client)(nil)
-
-func newServiceMetadataMiddleware_opDescribeFileSystems(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "DescribeFileSystems",
-	}
-}

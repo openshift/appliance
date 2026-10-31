@@ -5,10 +5,10 @@ package efs
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/efs/schemas"
 	"github.com/aws/aws-sdk-go-v2/service/efs/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Creates an EFS access point. An access point is an application-specific view
@@ -93,6 +93,32 @@ type CreateAccessPointInput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *CreateAccessPointInput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.CreateAccessPointRequest)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *CreateAccessPointInput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.ClientToken != nil {
+		s.WriteString(schemas.CreateAccessPointRequest_ClientToken, *v.ClientToken)
+	}
+	if v.FileSystemId != nil {
+		s.WriteString(schemas.CreateAccessPointRequest_FileSystemId, *v.FileSystemId)
+	}
+	if v.PosixUser != nil {
+		s.WriteStruct(schemas.CreateAccessPointRequest_PosixUser)
+		v.PosixUser.SerializeMembers(s)
+		s.CloseStruct()
+	}
+	if v.RootDirectory != nil {
+		s.WriteStruct(schemas.CreateAccessPointRequest_RootDirectory)
+		v.RootDirectory.SerializeMembers(s)
+		s.CloseStruct()
+	}
+	serializeTags(s, schemas.CreateAccessPointRequest_Tags, v.Tags)
+}
+
 // Provides a description of an EFS file system access point.
 type CreateAccessPointOutput struct {
 
@@ -135,68 +161,101 @@ type CreateAccessPointOutput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *CreateAccessPointOutput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.AccessPointDescription)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *CreateAccessPointOutput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.AccessPointArn != nil {
+		s.WriteString(schemas.AccessPointDescription_AccessPointArn, *v.AccessPointArn)
+	}
+	if v.AccessPointId != nil {
+		s.WriteString(schemas.AccessPointDescription_AccessPointId, *v.AccessPointId)
+	}
+	if v.ClientToken != nil {
+		s.WriteString(schemas.AccessPointDescription_ClientToken, *v.ClientToken)
+	}
+	if v.FileSystemId != nil {
+		s.WriteString(schemas.AccessPointDescription_FileSystemId, *v.FileSystemId)
+	}
+	if v.LifeCycleState != "" {
+		s.WriteString(schemas.AccessPointDescription_LifeCycleState, string(v.LifeCycleState))
+	}
+	if v.Name != nil {
+		s.WriteString(schemas.AccessPointDescription_Name, *v.Name)
+	}
+	if v.OwnerId != nil {
+		s.WriteString(schemas.AccessPointDescription_OwnerId, *v.OwnerId)
+	}
+	if v.PosixUser != nil {
+		s.WriteStruct(schemas.AccessPointDescription_PosixUser)
+		v.PosixUser.SerializeMembers(s)
+		s.CloseStruct()
+	}
+	if v.RootDirectory != nil {
+		s.WriteStruct(schemas.AccessPointDescription_RootDirectory)
+		v.RootDirectory.SerializeMembers(s)
+		s.CloseStruct()
+	}
+	serializeTags(s, schemas.AccessPointDescription_Tags, v.Tags)
+}
+func (v *CreateAccessPointOutput) Deserialize(d smithy.ShapeDeserializer) error {
+	return smithy.ReadStruct(d, schemas.AccessPointDescription, func(s *smithy.Schema) error {
+		switch s {
+		case schemas.AccessPointDescription_AccessPointArn:
+			v.AccessPointArn = new(string)
+			return d.ReadString(schemas.AccessPointDescription_AccessPointArn, v.AccessPointArn)
+		case schemas.AccessPointDescription_AccessPointId:
+			v.AccessPointId = new(string)
+			return d.ReadString(schemas.AccessPointDescription_AccessPointId, v.AccessPointId)
+		case schemas.AccessPointDescription_ClientToken:
+			v.ClientToken = new(string)
+			return d.ReadString(schemas.AccessPointDescription_ClientToken, v.ClientToken)
+		case schemas.AccessPointDescription_FileSystemId:
+			v.FileSystemId = new(string)
+			return d.ReadString(schemas.AccessPointDescription_FileSystemId, v.FileSystemId)
+		case schemas.AccessPointDescription_LifeCycleState:
+			var ev string
+			if err := d.ReadString(schemas.AccessPointDescription_LifeCycleState, &ev); err != nil {
+				return err
+			}
+			v.LifeCycleState = types.LifeCycleState(ev)
+			return nil
+		case schemas.AccessPointDescription_Name:
+			v.Name = new(string)
+			return d.ReadString(schemas.AccessPointDescription_Name, v.Name)
+		case schemas.AccessPointDescription_OwnerId:
+			v.OwnerId = new(string)
+			return d.ReadString(schemas.AccessPointDescription_OwnerId, v.OwnerId)
+		case schemas.AccessPointDescription_PosixUser:
+			v.PosixUser = &types.PosixUser{}
+			return v.PosixUser.Deserialize(d)
+		case schemas.AccessPointDescription_RootDirectory:
+			v.RootDirectory = &types.RootDirectory{}
+			return v.RootDirectory.Deserialize(d)
+		case schemas.AccessPointDescription_Tags:
+			return deserializeTags(d, schemas.AccessPointDescription_Tags, &v.Tags)
+		}
+		return nil
+	})
+}
 func (c *Client) addOperationCreateAccessPointMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+	if err := stack.Serialize.Add(&serializeRequestMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.CreateAccessPoint, schemas.CreateAccessPointRequest, schemas.AccessPointDescription)}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsRestjson1_serializeOpCreateAccessPoint{}, middleware.After)
-	if err != nil {
+	if err := stack.Deserialize.Add(&deserializeResponseMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.CreateAccessPoint, schemas.CreateAccessPointRequest, schemas.AccessPointDescription), output: &CreateAccessPointOutput{}}, middleware.After); err != nil {
 		return err
-	}
-	err = stack.Deserialize.Add(&awsRestjson1_deserializeOpCreateAccessPoint{}, middleware.After)
-	if err != nil {
-		return err
-	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateAccessPoint"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
-		return err
-	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
@@ -206,12 +265,6 @@ func (c *Client) addOperationCreateAccessPointMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addOpCreateAccessPointValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateAccessPoint(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -224,12 +277,6 @@ func (c *Client) addOperationCreateAccessPointMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
 	if err = addInterceptors(stack, options); err != nil {
@@ -269,12 +316,4 @@ func (m *idempotencyToken_initializeOpCreateAccessPoint) HandleInitialize(ctx co
 }
 func addIdempotencyToken_opCreateAccessPointMiddleware(stack *middleware.Stack, cfg Options) error {
 	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateAccessPoint{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
-}
-
-func newServiceMetadataMiddleware_opCreateAccessPoint(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "CreateAccessPoint",
-	}
 }
