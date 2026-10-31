@@ -373,20 +373,27 @@ func RunT(t T, p Params) {
 
 // A TestScript holds execution state for a single test script.
 type TestScript struct {
-	params        Params
-	t             T
-	testTempDir   string
-	workdir       string            // temporary work dir ($WORK)
-	log           bytes.Buffer      // test execution log (printed at end of test)
-	mark          int               // offset of next log truncation
-	cd            string            // current directory during test execution; initially $WORK/gopath/src
-	name          string            // short name of test ("foo")
-	file          string            // full file name ("testdata/script/foo.txt")
-	lineno        int               // line number currently executing
-	line          string            // line currently executing
-	env           []string          // environment list (for os/exec)
-	envMap        map[string]string // environment mapping (matches env; on Windows keys are lowercase)
-	values        map[any]any       // values for custom commands
+	params      Params
+	t           T
+	testTempDir string
+	workdir     string            // temporary work dir ($WORK)
+	log         bytes.Buffer      // test execution log (printed at end of test)
+	mark        int               // offset of next log truncation
+	cd          string            // current directory during test execution; initially $WORK/gopath/src
+	name        string            // short name of test ("foo")
+	file        string            // full file name ("testdata/script/foo.txt")
+	lineno      int               // line number currently executing
+	line        string            // line currently executing
+	env         []string          // environment list (for os/exec)
+	envMap      map[string]string // environment mapping (matches env; on Windows keys are lowercase)
+	values      map[any]any       // values for custom commands
+
+	// localCmds holds commands registered for the current test only,
+	// via SetCmd. It takes precedence over Params.Cmds but not over the
+	// builtin commands. It is only ever accessed from the test's own
+	// goroutine, so needs no locking.
+	localCmds map[string]func(*TestScript, bool, []string)
+
 	stdin         string            // standard input to next 'go' command; set by 'stdin' command.
 	stdout        string            // standard output from last 'go' command; for 'stdout' command
 	stderr        string            // standard error from last 'go' command; for 'stderr' command
@@ -442,6 +449,24 @@ func writeFile(name string, data []byte, perm fs.FileMode, excl bool) error {
 // Name returns the short name or basename of the test script.
 func (ts *TestScript) Name() string { return ts.name }
 
+// SetCmd registers cmd as the implementation of the named command for the
+// remainder of the current test only. It is intended for commands (such as
+// those provided by plugins) that become available partway through a script.
+// A nil cmd removes any previously registered command of that name.
+//
+// A command registered with SetCmd takes precedence over a command of the
+// same name in [Params.Cmds] but cannot override a builtin command.
+func (ts *TestScript) SetCmd(name string, cmd func(ts *TestScript, neg bool, args []string)) {
+	if cmd == nil {
+		delete(ts.localCmds, name)
+		return
+	}
+	if ts.localCmds == nil {
+		ts.localCmds = make(map[string]func(*TestScript, bool, []string))
+	}
+	ts.localCmds[name] = cmd
+}
+
 // setup sets up the test execution temporary directory and environment.
 // It returns the comment section of the txtar archive.
 func (ts *TestScript) setup() string {
@@ -494,16 +519,10 @@ func (ts *TestScript) setup() string {
 			env.Vars = append(env.Vars, name+"="+val)
 		}
 	}
-	// Must preserve SYSTEMROOT on Windows: https://github.com/golang/go/issues/25513 et al
 	if runtime.GOOS == "windows" {
-		env.Vars = append(env.Vars,
-			"SYSTEMROOT="+os.Getenv("SYSTEMROOT"),
-			"exe=.exe",
-		)
+		env.Vars = append(env.Vars, "exe=.exe")
 	} else {
-		env.Vars = append(env.Vars,
-			"exe=",
-		)
+		env.Vars = append(env.Vars, "exe=")
 	}
 	ts.cd = env.Cd
 	// Unpack archive.
@@ -531,8 +550,8 @@ func (ts *TestScript) setup() string {
 
 	ts.envMap = make(map[string]string)
 	for _, kv := range ts.env {
-		if i := strings.Index(kv, "="); i >= 0 {
-			ts.envMap[envvarname(kv[:i])] = kv[i+1:]
+		if before, after, ok := strings.Cut(kv, "="); ok {
+			ts.envMap[envvarname(before)] = after
 		}
 	}
 	return string(a.Comment)
@@ -561,6 +580,12 @@ func (ts *TestScript) run() {
 	}
 
 	failed := false
+
+	// lastBlockFailed tracks the failure state of the last block.
+	// This allows us to rewind the last block if it didn't fail,
+	// but an earlier block _did_ fail, in the case of ContinueOnError.
+	lastBlockFailed := false
+
 	defer func() {
 		// On a normal exit from the test loop, background processes are cleaned up
 		// before we print PASS. If we return early (e.g., due to a test failure),
@@ -603,8 +628,8 @@ func (ts *TestScript) run() {
 		// Extract next line.
 		ts.lineno++
 		var line string
-		if i := strings.Index(script, "\n"); i >= 0 {
-			line, script = script[:i], script[i+1:]
+		if before, after, ok := strings.Cut(script, "\n"); ok {
+			line, script = before, after
 		} else {
 			line, script = script, ""
 		}
@@ -622,6 +647,15 @@ func (ts *TestScript) run() {
 				rewind()
 				markTime()
 			}
+
+			// "Reset" verbose in the case that we are using ContinueOnError
+			// so that the next block only shows verbose output in case it
+			// is also in error. This ensures that later blocks that are not
+			// in error, do not needlessly show verbose output because of an
+			// earlier block that was in error.
+			verbose = ts.t.Verbose()
+			lastBlockFailed = false
+
 			// Print phase heading and mark start of phase output.
 			fmt.Fprintf(&ts.log, "%s\n", line)
 			ts.mark = ts.log.Len()
@@ -632,6 +666,7 @@ func (ts *TestScript) run() {
 		ok := ts.runLine(line)
 		if !ok {
 			failed = true
+			lastBlockFailed = true
 			if ts.params.ContinueOnError {
 				verbose = true
 			} else {
@@ -656,6 +691,10 @@ func (ts *TestScript) run() {
 	// Once we've reached the end of the script, ignore the status of background commands.
 	ts.waitBackground(false)
 
+	if !lastBlockFailed {
+		rewind()
+	}
+
 	// If we reached here but we've failed (probably because ContinueOnError
 	// was set), don't wipe the log and print "PASS".
 	if failed {
@@ -663,7 +702,6 @@ func (ts *TestScript) run() {
 	}
 
 	// Final phase ended.
-	rewind()
 	markTime()
 	if !ts.stopped {
 		fmt.Fprintf(&ts.log, "PASS\n")
@@ -719,8 +757,12 @@ func (ts *TestScript) runLine(line string) (runOK bool) {
 		}
 	}
 
-	// Run command.
+	// Run command. Builtins take precedence, then commands registered
+	// for this test via SetCmd, then the static Params.Cmds.
 	cmd := scriptCmds[args[0]]
+	if cmd == nil {
+		cmd = ts.localCmds[args[0]]
+	}
 	if cmd == nil {
 		cmd = ts.params.Cmds[args[0]]
 	}
@@ -765,12 +807,20 @@ func (ts *TestScript) cmdSuggestions(name string) []string {
 		if _, ok := scriptCmds[name[1:]]; ok {
 			return []string{"! " + name[1:]}
 		}
+		if _, ok := ts.localCmds[name[1:]]; ok {
+			return []string{"! " + name[1:]}
+		}
 		if _, ok := ts.params.Cmds[name[1:]]; ok {
 			return []string{"! " + name[1:]}
 		}
 	}
 	var candidates []string
 	for c := range scriptCmds {
+		if misspell.AlmostEqual(name, c) {
+			candidates = append(candidates, c)
+		}
+	}
+	for c := range ts.localCmds {
 		if misspell.AlmostEqual(name, c) {
 			candidates = append(candidates, c)
 		}
