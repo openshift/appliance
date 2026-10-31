@@ -21,7 +21,7 @@ require (
 	github.com/onsi/gomega v1.42.1
 	github.com/openconfig/goyang v1.6.3
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/openshift/api v0.0.0-20260825094607-13a84dedc5a3
+	github.com/openshift/api 4ee683d000e5
 	github.com/openshift/appliance/pkg/iso-builder/config v0.0.0-00010101000000-000000000000
 	github.com/openshift/assisted-image-service v0.0.0-20261023174245-ee8d45b337bd
 	github.com/openshift/assisted-service/api v0.0.0
