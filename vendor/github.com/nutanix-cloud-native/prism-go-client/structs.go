@@ -3,18 +3,21 @@ package prismgoclient
 // Credentials can include either username and password for basic authentication
 // or an API key for API key-based authentication
 type Credentials struct {
-	URL                string
-	APIKey             string
-	Username           string
-	Password           string
-	Endpoint           string
-	Port               string
-	Insecure           bool
-	SessionAuth        bool
-	ProxyURL           string
-	FoundationEndpoint string              // Required field for connecting to foundation VM APIs
-	FoundationPort     string              // Port for connecting to foundation VM APIs
-	RequiredFields     map[string][]string // RequiredFields is client to its required fields mapping for validations and usage in every client
+	URL         string
+	APIKey      string
+	Username    string
+	Password    string
+	Endpoint    string
+	Port        string
+	Insecure    bool
+	SessionAuth bool
+	// AdditionalTrustBundle is a PEM-encoded certificate bundle added to the
+	// system trust store when verifying the Prism endpoint's certificate.
+	AdditionalTrustBundle string
+	ProxyURL              string
+	FoundationEndpoint    string              // Required field for connecting to foundation VM APIs
+	FoundationPort        string              // Port for connecting to foundation VM APIs
+	RequiredFields        map[string][]string // RequiredFields is client to its required fields mapping for validations and usage in every client
 }
 
 // AdditionalFilter specification for client side filters

@@ -1,6 +1,7 @@
 package v3
 
 import (
+	"encoding/json"
 	"time"
 
 	prismgoclient "github.com/nutanix-cloud-native/prism-go-client"
@@ -2361,6 +2362,37 @@ type AvailabilityZoneStatus struct {
 	MessageList []MessageResource          `json:"message_list,omitempty"`
 	State       *string                    `json:"state,omitempty"` // The state of the entity
 }
+
+// AvailabilityZoneListResponse is the response object for the
+// availability_zones/list API.
+type AvailabilityZoneListResponse struct {
+	APIVersion *string                           `json:"api_version,omitempty"`
+	Metadata   *ListMetadataOutput               `json:"metadata,omitempty"`
+	Entities   []*AvailabilityZoneIntentResponse `json:"entities,omitempty"`
+}
+
+// ClusterSyncReplicationCapableInput is the input for the
+// clusters/synchronous_replication_capable API.
+type ClusterSyncReplicationCapableInput struct {
+	SourceClusterReferenceList      []*Reference `json:"source_cluster_reference_list,omitempty"`
+	RemoteAvailabilityZoneReference *Reference   `json:"remote_availability_zone_reference"`
+	RemoteClusterReference          *Reference   `json:"remote_cluster_reference"`
+}
+
+// ClusterSyncReplicationCapableEntry represents the source cluster to a given
+// remote cluster latency.
+//
+// Note: the swagger spec documents rtt_msecs as a string, but Prism Central
+// returns it as a JSON number. json.Number is used so both representations
+// unmarshal successfully.
+type ClusterSyncReplicationCapableEntry struct {
+	RttMsecs         *json.Number `json:"rtt_msecs,omitempty"`          // Round trip time in milliseconds.
+	ClusterReference *Reference   `json:"cluster_reference,omitempty"`
+}
+
+// ClusterSyncReplicationCapableResponse is the response for the
+// clusters/synchronous_replication_capable API.
+type ClusterSyncReplicationCapableResponse []*ClusterSyncReplicationCapableEntry
 
 // VMVtpmConfig VM vTPM configuration.
 //
