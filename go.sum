@@ -1290,8 +1290,8 @@ github.com/openshift/cluster-api-actuator-pkg/testutils v0.0.0-20250910145856-21
 github.com/openshift/cluster-api-actuator-pkg/testutils v0.0.0-20250910145856-21d03d30056d/go.mod h1:9+FWWWLkVrnBo1eYhA/0Ehlq5JMgIAHtcB0IF+qV1AA=
 github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e h1:FWzYb0sH16yVOyySUwY5yXtZFW/U2bPoK38SEGjC5D8=
 github.com/openshift/cluster-api-provider-baremetal v0.0.0-20220408122422-7a548effc26e/go.mod h1:Q5WzHV1JZw/XNRnXCo8JfyOSegL13a+lhV4sc44lpSI=
-github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20240104064818-a336f0b5f7ee h1:gLn3dNSE7k3SJMSrG0ebD73+ItIl61m0T9+dLINeGs0=
-github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20240104064818-a336f0b5f7ee/go.mod h1:jCWQvdjpxizEfnLAP7NyR3Itt0mMhRHxUScJZdaB2aM=
+github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20260327203357-63c1b6342e27 h1:RAweMytGqsODN2zDTZGa2AzrC03QmDf2JSDE3vNHiW4=
+github.com/openshift/cluster-api-provider-libvirt v0.2.1-0.20260327203357-63c1b6342e27/go.mod h1:jCWQvdjpxizEfnLAP7NyR3Itt0mMhRHxUScJZdaB2aM=
 github.com/openshift/cluster-api-provider-ovirt v0.1.1-0.20220323121149-e3f2850dd519 h1:foU7/s6DQczTFdZ/8H++pUC2Pzygqdz5ZgqUakksR5w=
 github.com/openshift/cluster-api-provider-ovirt v0.1.1-0.20220323121149-e3f2850dd519/go.mod h1:C7unCUThP8eqT4xQfbvg3oIDn2S9TYtb0wbBoH/SR2U=
 github.com/openshift/cluster-control-plane-machine-set-operator v0.0.0-20251029084908-344babe6a957 h1:eVnkMTFnirnoUOlAUT3Hy8WriIi1JoSrilWym3Dl8Q4=
