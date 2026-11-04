@@ -71,6 +71,22 @@ type InfrastructureSpec struct {
 	// +kubebuilder:validation:Enum=HighlyAvailable;SingleReplica
 	// +optional
 	ControlPlaneTopology TopologyMode `json:"controlPlaneTopology,omitempty"`
+
+	// infrastructureTopology expresses the desired topology for infrastructure
+	// services that do not run on control plane nodes, indicating how
+	// infrastructure workloads are distributed across nodes.
+	//
+	// When omitted, no topology transition override has been expressed.
+	// Once populated, the field represents the desired topology state.
+	//
+	// When the value differs from status.infrastructureTopology, the cluster
+	// evaluates whether the requested transition can proceed. Not all
+	// transitions may be permitted.
+	//
+	// +openshift:enable:FeatureGate=MutableTopology
+	// +kubebuilder:validation:Enum=HighlyAvailable;SingleReplica
+	// +optional
+	InfrastructureTopology TopologyMode `json:"infrastructureTopology,omitempty"`
 }
 
 // InfrastructureStatus describes the infrastructure the cluster is leveraging.
@@ -137,6 +153,16 @@ type InfrastructureStatus struct {
 	// +kubebuilder:validation:Enum=HighlyAvailable;SingleReplica
 	// +optional
 	InfrastructureTopology TopologyMode `json:"infrastructureTopology,omitempty"`
+
+	// topologyTransitionStatus reports evaluations of supported topology transitions
+	// and the status of a requested transition, if any.
+	// It is optional and is omitted until the topology controller reports transition status.
+	// A transition is requested through spec.controlPlaneTopology. The controller
+	// reports completion only after both topologies reach that transition's target
+	// and post-transition checks pass; reaching the target topology alone is not completion.
+	// +openshift:enable:FeatureGate=MutableTopology
+	// +optional
+	TopologyTransitionStatus TopologyTransitionStatus `json:"topologyTransitionStatus,omitzero"`
 
 	// cpuPartitioning expresses if CPU partitioning is a currently enabled feature in the cluster.
 	// CPU Partitioning means that this cluster can support partitioning workloads to specific CPU Sets.
@@ -1724,12 +1750,10 @@ type VSpherePlatformNodeNetworking struct {
 type VSpherePlatformSpec struct {
 	// vcenters holds the connection details for services to communicate with vCenter.
 	// Up to 3 vCenters are supported.
-	// Once the cluster has been installed, you are unable to change the current number of defined
-	// vCenters except when 1.) the cluster has been upgraded from a version of OpenShift
-	// where the vsphere platform spec was not present or 2.) in TechPreview you are able to add and
-	// remove vCenters but may not remove all vCenters.  You may make modifications to the existing
-	// vCenters that are defined in the vcenters list in order to match with any added or modified
-	// failure domains.
+	// After installation, you can add or change vCenters, or remove some of them, but you must keep
+	// at least one and may not add and remove vCenters during the same update.  You may make modifications
+	// to the existing vCenters that are defined in the vcenters list in order to match with any added or
+	// modified failure domains.
 	// ---
 	// + If VCenters is not defined use the existing cloud-config configmap defined
 	// + in openshift-config.
