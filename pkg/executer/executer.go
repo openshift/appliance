@@ -31,7 +31,9 @@ func (e *executer) Execute(command string) (string, error) {
 	cmd := exec.Command(formattedCmd, args...)
 	combinedOutput, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to execute cmd (%s): %s", cmd, string(combinedOutput)))
+		errMsg := fmt.Sprintf("Failed to execute cmd (%s): %s - %v", formattedCmd, string(combinedOutput), err)
+    	logrus.Errorf("%s", errMsg)
+    	return "", errors.New(errMsg)
 	}
 	return strings.TrimSuffix(string(combinedOutput), "\n"), nil
 }
