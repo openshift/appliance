@@ -27,6 +27,7 @@ type EnvConfig struct {
 
 	DebugBootstrap    bool
 	DebugBaseIgnition bool
+	ToolsPath         string
 }
 
 var _ asset.Asset = (*EnvConfig)(nil)
