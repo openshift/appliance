@@ -565,8 +565,8 @@ github.com/blang/semver/v4
 # github.com/briandowns/spinner v1.23.2
 ## explicit; go 1.17
 github.com/briandowns/spinner
-# github.com/bshuster-repo/logrus-logstash-hook v1.0.0
-## explicit
+# github.com/bshuster-repo/logrus-logstash-hook v1.1.0
+## explicit; go 1.16
 github.com/bshuster-repo/logrus-logstash-hook
 # github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e
 ## explicit
