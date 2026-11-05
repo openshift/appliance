@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math"
 	"math/big"
+	"strings"
 )
 
 // Compare l and r, and returns jq-flavored comparison value.
@@ -15,7 +16,7 @@ func Compare(l, r any) int {
 		cmp.Compare,
 		func(l, r float64) int {
 			switch {
-			case l < r || math.IsNaN(l):
+			case lt(l, r):
 				return -1
 			case l == r:
 				return 0
@@ -24,7 +25,7 @@ func Compare(l, r any) int {
 			}
 		},
 		(*big.Int).Cmp,
-		cmp.Compare,
+		strings.Compare,
 		func(l, r []any) int {
 			for i := range min(len(l), len(r)) {
 				if cmp := Compare(l[i], r[i]); cmp != 0 {
@@ -49,6 +50,10 @@ func Compare(l, r any) int {
 			return cmp.Compare(typeIndex(l), typeIndex(r))
 		},
 	)
+}
+
+func lt(l, r float64) bool {
+	return l < r || math.IsNaN(l)
 }
 
 func typeIndex(v any) int {
