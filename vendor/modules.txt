@@ -788,7 +788,7 @@ github.com/dustin/go-humanize
 # github.com/elliotwutingfeng/asciiset v0.0.0-20260129054604-cfde2086bc57
 ## explicit; go 1.11
 github.com/elliotwutingfeng/asciiset
-# github.com/emicklei/go-restful/v3 v3.13.0
+# github.com/emicklei/go-restful/v3 v3.14.0
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
