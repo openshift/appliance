@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -70,7 +71,12 @@ func getOutstandingUploads(ctx context.Context, driver storageDriver.StorageDriv
 	err = driver.Walk(ctx, root, func(fileInfo storageDriver.FileInfo) error {
 		filePath := fileInfo.Path()
 		_, file := path.Split(filePath)
-		if file[0] == '_' {
+		// path.Split returns file == "" for paths that end in "/" (a
+		// bare directory such as the bucket root when S3 reports an
+		// empty Key / common prefix). Indexing file[0] then panics
+		// with 'index out of range [0] with length 0' and takes the
+		// whole PurgeUploads goroutine down (#4713).
+		if len(file) > 0 && file[0] == '_' {
 			// Reserved directory
 			inUploadDir = (file == "_uploads")
 
@@ -115,8 +121,8 @@ func getOutstandingUploads(ctx context.Context, driver storageDriver.StorageDriv
 // directory for all upload files
 func uuidFromPath(path string) (string, bool) {
 	components := strings.Split(path, "/")
-	for i := len(components) - 1; i >= 0; i-- {
-		if u, err := uuid.Parse(components[i]); err == nil {
+	for i, v := range slices.Backward(components) {
+		if u, err := uuid.Parse(v); err == nil {
 			return u.String(), i == len(components)-1
 		}
 	}
