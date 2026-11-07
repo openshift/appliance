@@ -4,11 +4,10 @@ package efs
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/efs/schemas"
 	"github.com/aws/aws-sdk-go-v2/service/efs/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Updates protection on the file system.
@@ -58,6 +57,21 @@ type UpdateFileSystemProtectionInput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *UpdateFileSystemProtectionInput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.UpdateFileSystemProtectionRequest)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *UpdateFileSystemProtectionInput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.FileSystemId != nil {
+		s.WriteString(schemas.UpdateFileSystemProtectionRequest_FileSystemId, *v.FileSystemId)
+	}
+	if v.ReplicationOverwriteProtection != "" {
+		s.WriteString(schemas.UpdateFileSystemProtectionRequest_ReplicationOverwriteProtection, string(v.ReplicationOverwriteProtection))
+	}
+}
+
 // Describes the protection on a file system.
 type UpdateFileSystemProtectionOutput struct {
 
@@ -85,80 +99,52 @@ type UpdateFileSystemProtectionOutput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *UpdateFileSystemProtectionOutput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.FileSystemProtectionDescription)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *UpdateFileSystemProtectionOutput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.ReplicationOverwriteProtection != "" {
+		s.WriteString(schemas.FileSystemProtectionDescription_ReplicationOverwriteProtection, string(v.ReplicationOverwriteProtection))
+	}
+}
+func (v *UpdateFileSystemProtectionOutput) Deserialize(d smithy.ShapeDeserializer) error {
+	return smithy.ReadStruct(d, schemas.FileSystemProtectionDescription, func(s *smithy.Schema) error {
+		switch s {
+		case schemas.FileSystemProtectionDescription_ReplicationOverwriteProtection:
+			var ev string
+			if err := d.ReadString(schemas.FileSystemProtectionDescription_ReplicationOverwriteProtection, &ev); err != nil {
+				return err
+			}
+			v.ReplicationOverwriteProtection = types.ReplicationOverwriteProtection(ev)
+			return nil
+		}
+		return nil
+	})
+}
 func (c *Client) addOperationUpdateFileSystemProtectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+	if err := stack.Serialize.Add(&serializeRequestMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.UpdateFileSystemProtection, schemas.UpdateFileSystemProtectionRequest, schemas.FileSystemProtectionDescription)}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsRestjson1_serializeOpUpdateFileSystemProtection{}, middleware.After)
-	if err != nil {
+	if err := stack.Deserialize.Add(&deserializeResponseMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.UpdateFileSystemProtection, schemas.UpdateFileSystemProtectionRequest, schemas.FileSystemProtectionDescription), output: &UpdateFileSystemProtectionOutput{}}, middleware.After); err != nil {
 		return err
-	}
-	err = stack.Deserialize.Add(&awsRestjson1_deserializeOpUpdateFileSystemProtection{}, middleware.After)
-	if err != nil {
-		return err
-	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "UpdateFileSystemProtection"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
-		return err
-	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpUpdateFileSystemProtectionValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opUpdateFileSystemProtection(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -173,22 +159,8 @@ func (c *Client) addOperationUpdateFileSystemProtectionMiddlewares(stack *middle
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAttempt(stack, options); err != nil {
-		return err
-	}
 	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opUpdateFileSystemProtection(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "UpdateFileSystemProtection",
-	}
 }

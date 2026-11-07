@@ -4,11 +4,10 @@ package efs
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/efs/schemas"
 	"github.com/aws/aws-sdk-go-v2/service/efs/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Use this operation to set the account preference in the current Amazon Web
@@ -55,6 +54,18 @@ type PutAccountPreferencesInput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *PutAccountPreferencesInput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.PutAccountPreferencesRequest)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *PutAccountPreferencesInput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.ResourceIdType != "" {
+		s.WriteString(schemas.PutAccountPreferencesRequest_ResourceIdType, string(v.ResourceIdType))
+	}
+}
+
 type PutAccountPreferencesOutput struct {
 
 	// Describes the resource type and its ID preference for the user's Amazon Web
@@ -67,80 +78,50 @@ type PutAccountPreferencesOutput struct {
 	noSmithyDocumentSerde
 }
 
+func (v *PutAccountPreferencesOutput) Serialize(s smithy.ShapeSerializer) {
+	s.WriteStruct(schemas.PutAccountPreferencesResponse)
+	v.SerializeMembers(s)
+	s.CloseStruct()
+}
+
+func (v *PutAccountPreferencesOutput) SerializeMembers(s smithy.ShapeSerializer) {
+	if v.ResourceIdPreference != nil {
+		s.WriteStruct(schemas.PutAccountPreferencesResponse_ResourceIdPreference)
+		v.ResourceIdPreference.SerializeMembers(s)
+		s.CloseStruct()
+	}
+}
+func (v *PutAccountPreferencesOutput) Deserialize(d smithy.ShapeDeserializer) error {
+	return smithy.ReadStruct(d, schemas.PutAccountPreferencesResponse, func(s *smithy.Schema) error {
+		switch s {
+		case schemas.PutAccountPreferencesResponse_ResourceIdPreference:
+			v.ResourceIdPreference = &types.ResourceIdPreference{}
+			return v.ResourceIdPreference.Deserialize(d)
+		}
+		return nil
+	})
+}
 func (c *Client) addOperationPutAccountPreferencesMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+	if err := stack.Serialize.Add(&serializeRequestMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.PutAccountPreferences, schemas.PutAccountPreferencesRequest, schemas.PutAccountPreferencesResponse)}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsRestjson1_serializeOpPutAccountPreferences{}, middleware.After)
-	if err != nil {
+	if err := stack.Deserialize.Add(&deserializeResponseMiddleware{options: &options, operationSchema: smithy.NewOperationSchema(schemas.PutAccountPreferences, schemas.PutAccountPreferencesRequest, schemas.PutAccountPreferencesResponse), output: &PutAccountPreferencesOutput{}}, middleware.After); err != nil {
 		return err
-	}
-	err = stack.Deserialize.Add(&awsRestjson1_deserializeOpPutAccountPreferences{}, middleware.After)
-	if err != nil {
-		return err
-	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "PutAccountPreferences"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
-		return err
-	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpPutAccountPreferencesValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opPutAccountPreferences(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -155,22 +136,8 @@ func (c *Client) addOperationPutAccountPreferencesMiddlewares(stack *middleware.
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAttempt(stack, options); err != nil {
-		return err
-	}
 	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opPutAccountPreferences(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "PutAccountPreferences",
-	}
 }

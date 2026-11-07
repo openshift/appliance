@@ -5,20 +5,22 @@ package cloudfront
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Gets the list of CloudFront origin access controls in this Amazon Web Services
-// account.
+// Gets the list of CloudFront origin access controls (OACs) in this Amazon Web
+// Services account.
 //
 // You can optionally specify the maximum number of items to receive in the
 // response. If the total number of items in the list exceeds the maximum that you
 // specify, or the default maximum, the response is paginated. To get the next page
 // of items, send another request that specifies the NextMarker value from the
 // current response as the Marker value in the next request.
+//
+// If you're not using origin access controls for your Amazon Web Services
+// account, the ListOriginAccessControls operation doesn't return the Items
+// element in the response.
 func (c *Client) ListOriginAccessControls(ctx context.Context, params *ListOriginAccessControlsInput, optFns ...func(*Options)) (*ListOriginAccessControlsOutput, error) {
 	if params == nil {
 		params = &ListOriginAccessControlsInput{}
@@ -60,9 +62,6 @@ type ListOriginAccessControlsOutput struct {
 }
 
 func (c *Client) addOperationListOriginAccessControlsMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsRestxml_serializeOpListOriginAccessControls{}, middleware.After)
 	if err != nil {
 		return err
@@ -71,62 +70,17 @@ func (c *Client) addOperationListOriginAccessControlsMiddlewares(stack *middlewa
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "ListOriginAccessControls"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opListOriginAccessControls(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -141,25 +95,106 @@ func (c *Client) addOperationListOriginAccessControlsMiddlewares(stack *middlewa
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
 }
 
-func newServiceMetadataMiddleware_opListOriginAccessControls(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "ListOriginAccessControls",
+// ListOriginAccessControlsPaginatorOptions is the paginator options for
+// ListOriginAccessControls
+type ListOriginAccessControlsPaginatorOptions struct {
+	// The maximum number of origin access controls that you want in the response.
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// ListOriginAccessControlsPaginator is a paginator for ListOriginAccessControls
+type ListOriginAccessControlsPaginator struct {
+	options   ListOriginAccessControlsPaginatorOptions
+	client    ListOriginAccessControlsAPIClient
+	params    *ListOriginAccessControlsInput
+	nextToken *string
+	firstPage bool
+}
+
+// NewListOriginAccessControlsPaginator returns a new
+// ListOriginAccessControlsPaginator
+func NewListOriginAccessControlsPaginator(client ListOriginAccessControlsAPIClient, params *ListOriginAccessControlsInput, optFns ...func(*ListOriginAccessControlsPaginatorOptions)) *ListOriginAccessControlsPaginator {
+	if params == nil {
+		params = &ListOriginAccessControlsInput{}
+	}
+
+	options := ListOriginAccessControlsPaginatorOptions{}
+	if params.MaxItems != nil {
+		options.Limit = *params.MaxItems
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	return &ListOriginAccessControlsPaginator{
+		options:   options,
+		client:    client,
+		params:    params,
+		firstPage: true,
+		nextToken: params.Marker,
 	}
 }
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *ListOriginAccessControlsPaginator) HasMorePages() bool {
+	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
+}
+
+// NextPage retrieves the next ListOriginAccessControls page.
+func (p *ListOriginAccessControlsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*ListOriginAccessControlsOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.Marker = p.nextToken
+
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxItems = limit
+
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
+	result, err := p.client.ListOriginAccessControls(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextToken
+	p.nextToken = nil
+	if result.OriginAccessControlList != nil {
+		p.nextToken = result.OriginAccessControlList.NextMarker
+	}
+
+	if p.options.StopOnDuplicateToken &&
+		prevToken != nil &&
+		p.nextToken != nil &&
+		*prevToken == *p.nextToken {
+		p.nextToken = nil
+	}
+
+	return result, nil
+}
+
+// ListOriginAccessControlsAPIClient is a client that implements the
+// ListOriginAccessControls operation.
+type ListOriginAccessControlsAPIClient interface {
+	ListOriginAccessControls(context.Context, *ListOriginAccessControlsInput, ...func(*Options)) (*ListOriginAccessControlsOutput, error)
+}
+
+var _ ListOriginAccessControlsAPIClient = (*Client)(nil)
