@@ -83,6 +83,7 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 
 		releaseConfig := release.ReleaseConfig{
 			ApplianceConfig: applianceConfig,
+			EnvConfig:       envConfig,
 		}
 		rel := release.NewRelease(releaseConfig)
 

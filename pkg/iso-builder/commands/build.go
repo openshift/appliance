@@ -64,11 +64,12 @@ func (b *Builder) Build(ctx context.Context) error {
 		embeddedCfg.AdditionalImages = append(embeddedCfg.AdditionalImages, b.additionalImages...)
 	}
 
-	if err := b.acquireTools(embeddedCfg); err != nil {
+	toolsPath, err := b.acquireTools(embeddedCfg)
+	if err != nil {
 		return err
 	}
 
-	if err := b.applyLiveISOBuilderAsset(ctx, embeddedCfg); err != nil {
+	if err := b.applyLiveISOBuilderAsset(ctx, embeddedCfg, toolsPath); err != nil {
 		return err
 	}
 
@@ -189,23 +190,22 @@ func convertOperators(openshiftVersion string, olmOps []isobuilderconfig.OLMOper
 	}}
 }
 
-// acquireTools downloads the external tools into a "tools" folder under the working
-// directory and prepends it to PATH, so the legacy builder can resolve them from
-// the environment.
-func (b *Builder) acquireTools(isoBuilderConfig *isobuilderconfig.Config) error {
+// acquireTools downloads the external tools (oc and oc-mirror) into a "tools" folder under the working
+// directory and returns tools directory's absolute paths.
+func (b *Builder) acquireTools(isoBuilderConfig *isobuilderconfig.Config) (string, error) {
 	releaseVersion, err := resolveReleaseVersion(isoBuilderConfig)
 	if err != nil {
-		return errors.Wrap(err, "failed to resolve OCP release version")
+		return "", errors.Wrap(err, "failed to resolve OCP release version")
 	}
 
 	supportedArch, err := validateArch()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	toolsDir := filepath.Join(b.workingDir, "tools")
 	if err := tools.CreateToolsDir(toolsDir); err != nil {
-		return err
+		return "", err
 	}
 
 	toolConfig := tools.ToolConfig{
@@ -214,15 +214,17 @@ func (b *Builder) acquireTools(isoBuilderConfig *isobuilderconfig.Config) error 
 		SupportedArch:  supportedArch,
 	}
 
-	if _, err := oc.NewClient(oc.ClientConfig{ToolConfig: toolConfig}).Acquire(); err != nil {
-		return errors.Wrap(err, "failed to acquire oc client")
+	_, err = oc.NewClient(oc.ClientConfig{ToolConfig: toolConfig}).Acquire()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to acquire oc client")
 	}
 
-	if _, err := ocmirror.NewMirror(ocmirror.MirrorConfig{ToolConfig: toolConfig}).Acquire(); err != nil {
-		return errors.Wrap(err, "failed to acquire oc-mirror")
+	_, err = ocmirror.NewMirror(ocmirror.MirrorConfig{ToolConfig: toolConfig}).Acquire()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to acquire oc-mirror")
 	}
 
-	return prependToPath(toolsDir)
+	return toolsDir, nil
 }
 
 // resolveReleaseVersion returns the full OCP version used to pick the matching oc
@@ -244,17 +246,8 @@ func resolveReleaseVersion(cfg *isobuilderconfig.Config) (string, error) {
 	return version, nil
 }
 
-// prependToPath puts dir at the front of the PATH environment variable.
-func prependToPath(dir string) error {
-	path := os.Getenv("PATH")
-	if path != "" {
-		dir = dir + string(os.PathListSeparator) + path
-	}
-	return os.Setenv("PATH", dir)
-}
-
 // This method is used to clearly mark the adoption of the legacy code.
-func (b *Builder) applyLiveISOBuilderAsset(ctx context.Context, isoBuilderConfig *isobuilderconfig.Config) error {
+func (b *Builder) applyLiveISOBuilderAsset(ctx context.Context, isoBuilderConfig *isobuilderconfig.Config, toolsPath string) error {
 	store, err := assetstore.NewStore(b.workingDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to create asset store")
@@ -265,8 +258,9 @@ func (b *Builder) applyLiveISOBuilderAsset(ctx context.Context, isoBuilderConfig
 			Config: b.convertToApplianceConfig(isoBuilderConfig),
 		},
 		&config.EnvConfig{
-			AssetsDir: b.workingDir,
-			IsLiveISO: true,
+			AssetsDir:    b.workingDir,
+			IsLiveISO:    true,
+			ToolsPath:    toolsPath,
 		},
 		&appliance.ApplianceLiveISO{},
 	}

@@ -84,6 +84,6 @@ func (m *Mirror) download() (*AcquireResult, error) {
 		return nil, errors.Wrap(err, "failed to make oc-mirror executable")
 	}
 
-	logrus.Infof("oc-mirror ready at %s", ocMirrorPath)
+	logrus.Infof("oc-mirror is available at %s", ocMirrorPath)
 	return &AcquireResult{Path: ocMirrorPath}, nil
 }
