@@ -24,6 +24,7 @@ var (
 		debugBootstrap    bool
 		debugBaseIgnition bool
 		isLiveISO         bool
+		preserveTempDirs  bool
 	}
 
 	envConfig    config.EnvConfig
@@ -42,6 +43,7 @@ func NewBuildCmd() *cobra.Command {
 	cmd.AddCommand(getBuildLiveISOCmd())
 	cmd.PersistentFlags().BoolVar(&buildOpts.debugBootstrap, "debug-bootstrap", false, "")
 	cmd.PersistentFlags().BoolVar(&buildOpts.debugBaseIgnition, "debug-base-ignition", false, "")
+	cmd.PersistentFlags().BoolVar(&buildOpts.preserveTempDirs, "preserve-temp-dirs", false, "Preserve temporary directories for debugging")
 	if err := cmd.PersistentFlags().MarkHidden("debug-bootstrap"); err != nil {
 		logrus.Fatal(err)
 	}
@@ -233,6 +235,7 @@ func preRunBuild(cmd *cobra.Command, args []string) {
 		DebugBootstrap:    buildOpts.debugBootstrap,
 		DebugBaseIgnition: buildOpts.debugBaseIgnition,
 		IsLiveISO:         buildOpts.isLiveISO,
+		PreserveTempDirs:  buildOpts.preserveTempDirs,
 	}
 
 	// Generate EnvConfig asset
