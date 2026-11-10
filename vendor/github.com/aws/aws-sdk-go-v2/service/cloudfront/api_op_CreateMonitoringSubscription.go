@@ -11,8 +11,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Enables additional CloudWatch metrics for the specified CloudFront
-// distribution. The additional metrics incur an additional cost.
+// Enables or disables additional Amazon CloudWatch metrics for the specified
+// CloudFront distribution. The additional metrics incur an additional cost.
 //
 // For more information, see [Viewing additional CloudFront distribution metrics] in the Amazon CloudFront Developer Guide.
 //
@@ -124,6 +124,9 @@ func (c *Client) addOperationCreateMonitoringSubscriptionMiddlewares(stack *midd
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateMonitoringSubscriptionValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -145,16 +148,13 @@ func (c *Client) addOperationCreateMonitoringSubscriptionMiddlewares(stack *midd
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

@@ -58,7 +58,7 @@ type UpdateDistributionWithStagingConfigInput struct {
 	// The current versions ( ETag values) of both primary and staging distributions.
 	// Provide these in the following format:
 	//
-	//     ,
+	//     <primary ETag>, <staging ETag>
 	IfMatch *string
 
 	// The identifier of the staging distribution whose configuration you are copying
@@ -147,6 +147,9 @@ func (c *Client) addOperationUpdateDistributionWithStagingConfigMiddlewares(stac
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpUpdateDistributionWithStagingConfigValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -168,16 +171,13 @@ func (c *Client) addOperationUpdateDistributionWithStagingConfigMiddlewares(stac
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

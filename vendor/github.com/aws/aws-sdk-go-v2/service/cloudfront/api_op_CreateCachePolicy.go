@@ -24,6 +24,12 @@ import (
 //   - The default, minimum, and maximum time to live (TTL) values that you want
 //     objects to stay in the CloudFront cache.
 //
+// If your minimum TTL is greater than 0, CloudFront will cache content for at
+//
+//	least the duration specified in the cache policy's minimum TTL, even if the
+//	Cache-Control: no-cache , no-store , or private directives are present in the
+//	origin headers.
+//
 // The headers, cookies, and query strings that are included in the cache key are
 // also included in requests that CloudFront sends to the origin. CloudFront sends
 // a request when it can't find an object in its cache that matches the request's
@@ -140,6 +146,9 @@ func (c *Client) addOperationCreateCachePolicyMiddlewares(stack *middleware.Stac
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateCachePolicyValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -161,16 +170,13 @@ func (c *Client) addOperationCreateCachePolicyMiddlewares(stack *middleware.Stac
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
