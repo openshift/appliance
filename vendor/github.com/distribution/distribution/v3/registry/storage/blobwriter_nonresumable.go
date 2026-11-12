@@ -1,5 +1,4 @@
 //go:build noresumabledigest
-// +build noresumabledigest
 
 package storage
 
@@ -7,7 +6,7 @@ import (
 	"context"
 )
 
-// resumeHashAt is a noop when resumable digest support is disabled.
+// resumeDigest is a noop when resumable digest support is disabled.
 func (bw *blobWriter) resumeDigest(ctx context.Context) error {
 	return errResumableDigestNotAvailable
 }

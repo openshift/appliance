@@ -565,9 +565,6 @@ github.com/blang/semver/v4
 # github.com/briandowns/spinner v1.23.2
 ## explicit; go 1.17
 github.com/briandowns/spinner
-# github.com/bshuster-repo/logrus-logstash-hook v1.0.0
-## explicit
-github.com/bshuster-repo/logrus-logstash-hook
 # github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e
 ## explicit
 github.com/cavaliercoder/go-cpio
@@ -710,8 +707,8 @@ github.com/diskfs/go-diskfs/util/bitmap
 github.com/diskfs/go-diskfs/util/slices
 github.com/diskfs/go-diskfs/util/timestamp
 github.com/diskfs/go-diskfs/version
-# github.com/distribution/distribution/v3 v3.0.0
-## explicit; go 1.23.7
+# github.com/distribution/distribution/v3 v3.1.2
+## explicit; go 1.26.0
 github.com/distribution/distribution/v3
 github.com/distribution/distribution/v3/configuration
 github.com/distribution/distribution/v3/health
@@ -722,6 +719,7 @@ github.com/distribution/distribution/v3/internal/client/auth/challenge
 github.com/distribution/distribution/v3/internal/client/transport
 github.com/distribution/distribution/v3/internal/dcontext
 github.com/distribution/distribution/v3/internal/requestutil
+github.com/distribution/distribution/v3/internal/uuid
 github.com/distribution/distribution/v3/manifest
 github.com/distribution/distribution/v3/manifest/manifestlist
 github.com/distribution/distribution/v3/manifest/ocischema
@@ -766,7 +764,7 @@ github.com/docker/distribution/registry/api/v2
 # github.com/docker/docker v28.5.2+incompatible
 ## explicit
 github.com/docker/docker/api/types/versions
-# github.com/docker/docker-credential-helpers v0.9.4
+# github.com/docker/docker-credential-helpers v0.9.5
 ## explicit; go 1.21
 github.com/docker/docker-credential-helpers/client
 github.com/docker/docker-credential-helpers/credentials
@@ -776,8 +774,8 @@ github.com/docker/go-connections/tlsconfig
 # github.com/docker/go-events v0.0.0-20250808211157-605354379745
 ## explicit
 github.com/docker/go-events
-# github.com/docker/go-metrics v0.0.1
-## explicit; go 1.11
+# github.com/docker/go-metrics v0.1.0
+## explicit; go 1.21
 github.com/docker/go-metrics
 # github.com/docker/go-units v0.5.0
 ## explicit
@@ -1751,8 +1749,8 @@ github.com/sigstore/sigstore/pkg/cryptoutils
 github.com/sigstore/sigstore/pkg/signature
 github.com/sigstore/sigstore/pkg/signature/options
 github.com/sigstore/sigstore/pkg/signature/payload
-# github.com/sirupsen/logrus v1.9.4
-## explicit; go 1.17
+# github.com/sirupsen/logrus v1.10.2
+## explicit; go 1.23
 github.com/sirupsen/logrus
 # github.com/smallstep/pkcs7 v0.1.1
 ## explicit; go 1.14
@@ -2180,12 +2178,12 @@ golang.org/x/net/html/atom
 golang.org/x/net/html/charset
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
-golang.org/x/net/http2/h2c
 golang.org/x/net/http2/hpack
 golang.org/x/net/idna
 golang.org/x/net/internal/httpcommon
 golang.org/x/net/internal/httpsfv
 golang.org/x/net/internal/timeseries
+golang.org/x/net/publicsuffix
 golang.org/x/net/trace
 # golang.org/x/oauth2 v0.37.0
 ## explicit; go 1.26.0

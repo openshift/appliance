@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -18,7 +19,7 @@ import (
 )
 
 var (
-	contentRangeRegexp = regexp.MustCompile(`bytes ([0-9]+)-([0-9]+)/([0-9]+|\\*)`)
+	contentRangeRegexp = regexp.MustCompile(`^bytes ([0-9]+)-([0-9]+)/([0-9]+|\*)$`)
 
 	// ErrWrongCodeForByteRange is returned if the client sends a request
 	// with a Range header but the server returns a 2xx or 3xx code other
@@ -256,8 +257,8 @@ func (hrs *HTTPReadSeeker) reader() (_ io.Reader, retErr error) {
 		encoding := strings.FieldsFunc(resp.Header.Get("Content-Encoding"), func(r rune) bool {
 			return unicode.IsSpace(r) || r == ','
 		})
-		for i := len(encoding) - 1; i >= 0; i-- {
-			algorithm := strings.ToLower(encoding[i])
+		for _, v := range slices.Backward(encoding) {
+			algorithm := strings.ToLower(v)
 			switch algorithm {
 			case "zstd":
 				r, err := zstd.NewReader(body)
