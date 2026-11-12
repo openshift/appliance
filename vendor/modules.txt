@@ -1236,11 +1236,11 @@ github.com/mattn/go-runewidth
 # github.com/mattn/go-sqlite3 v1.14.32
 ## explicit; go 1.19
 github.com/mattn/go-sqlite3
-# github.com/metal3-io/baremetal-operator/apis v0.4.0
-## explicit; go 1.20
+# github.com/metal3-io/baremetal-operator/apis v0.8.1
+## explicit; go 1.23.0
 github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1
 github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile
-# github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.4.0
+# github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
 ## explicit; go 1.20
 github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc
 # github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -2167,9 +2167,6 @@ golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/knownhosts
-# golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
-## explicit; go 1.26.0
-golang.org/x/exp/slices
 # golang.org/x/mod v0.41.0
 ## explicit; go 1.26.0
 golang.org/x/mod/semver

@@ -16,39 +16,35 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
-
-	"github.com/pkg/errors"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// bmclog is for logging in this package.
-var bmclog = logf.Log.WithName("bmceventsubscription-validation")
-
-// validateSubscription validates BMCEventSubscription resource for creation
+// validateSubscription validates BMCEventSubscription resource for creation.
 func (s *BMCEventSubscription) validateSubscription() []error {
-	bmclog.Info("validate create", "name", s.Name)
 	var errs []error
 
 	if s.Spec.HostName == "" {
-		errs = append(errs, fmt.Errorf("HostName cannot be empty"))
+		errs = append(errs, errors.New("hostName cannot be empty"))
 	}
 
-	if s.Spec.Destination == "" {
-		errs = append(errs, fmt.Errorf("Destination cannot be empty"))
-	} else {
-		destinationUrl, err := url.ParseRequestURI(s.Spec.Destination)
-
-		if err != nil {
-			errs = append(errs, errors.Wrap(err, "Destination is an invalid URL"))
-		} else {
-			if destinationUrl.Path == "" {
-				errs = append(errs, fmt.Errorf("Hostname-only destination must have a trailing slash"))
-			}
+	if s.Spec.HTTPHeadersRef != nil {
+		if s.Spec.HTTPHeadersRef.Namespace != s.Namespace {
+			errs = append(errs, errors.New("httpHeadersRef secret must be in the same namespace as the BMCEventSubscription"))
 		}
 	}
 
+	if s.Spec.Destination == "" {
+		errs = append(errs, errors.New("destination cannot be empty"))
+	} else {
+		destinationURL, err := url.ParseRequestURI(s.Spec.Destination)
+
+		if err != nil {
+			errs = append(errs, fmt.Errorf("destination is invalid: %w", err))
+		} else if destinationURL.Path == "" {
+			errs = append(errs, errors.New("hostname-only destination must have a trailing slash"))
+		}
+	}
 	return errs
 }
