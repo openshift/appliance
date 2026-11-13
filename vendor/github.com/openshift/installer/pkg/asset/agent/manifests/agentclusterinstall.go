@@ -316,11 +316,6 @@ func (a *AgentClusterInstall) Generate(_ context.Context, dependencies asset.Par
 			agentClusterInstall.Spec.IngressVIPs = installConfig.Config.Platform.BareMetal.IngressVIPs
 			agentClusterInstall.Spec.APIVIP = installConfig.Config.Platform.BareMetal.APIVIPs[0]
 			agentClusterInstall.Spec.IngressVIP = installConfig.Config.Platform.BareMetal.IngressVIPs[0]
-			if installConfig.Config.Platform.BareMetal.LoadBalancer != nil {
-				agentClusterInstall.Spec.LoadBalancer = &hiveext.LoadBalancer{
-					Type: loadBalancerType(installConfig.Config.Platform.BareMetal.LoadBalancer.Type),
-				}
-			}
 		} else if installConfig.Config.Platform.VSphere != nil {
 			vspherePlatform := vsphere.Platform{}
 			if len(installConfig.Config.Platform.VSphere.APIVIPs) > 1 {
@@ -349,11 +344,6 @@ func (a *AgentClusterInstall) Generate(_ context.Context, dependencies asset.Par
 			}
 			agentClusterInstall.Spec.APIVIPs = installConfig.Config.Platform.VSphere.APIVIPs
 			agentClusterInstall.Spec.IngressVIPs = installConfig.Config.Platform.VSphere.IngressVIPs
-			if installConfig.Config.Platform.VSphere.LoadBalancer != nil {
-				agentClusterInstall.Spec.LoadBalancer = &hiveext.LoadBalancer{
-					Type: loadBalancerType(installConfig.Config.Platform.VSphere.LoadBalancer.Type),
-				}
-			}
 		} else if installConfig.Config.Platform.Nutanix != nil {
 			icNutanixPlatformBytes, err := json.Marshal(*installConfig.Config.Platform.Nutanix)
 			if err != nil {
@@ -393,6 +383,21 @@ func (a *AgentClusterInstall) Generate(_ context.Context, dependencies asset.Par
 		if networkOverridden {
 			icOverridden = true
 			icOverrides.Networking = installConfig.Config.Networking
+		} else if installConfig.Config.Networking != nil &&
+			installConfig.Config.Networking.OVNKubernetesConfig != nil &&
+			installConfig.Config.Networking.OVNKubernetesConfig.IPv4 != nil &&
+			installConfig.Config.Networking.OVNKubernetesConfig.IPv4.InternalJoinSubnet != nil {
+			// The ovn-kubernetes config is not part of the AgentClusterInstall spec, so it
+			// must be passed to Assisted Service as an install config override. Send only
+			// the ovnKubernetesConfig stanza rather than the whole networking section:
+			// Assisted Service merges the override onto an already-populated install
+			// config, and it rejects unknown fields, so sending siblings it does not
+			// define (clusterNetworkMTU, networkObservability, the deprecated CIDR
+			// aliases) would fail the merge.
+			icOverridden = true
+			icOverrides.Networking = &types.Networking{
+				OVNKubernetesConfig: installConfig.Config.Networking.OVNKubernetesConfig,
+			}
 		}
 
 		if installConfig.Config.Capabilities != nil {
@@ -657,13 +662,6 @@ func (a *AgentClusterInstall) GetExternalPlatformName() string {
 		return a.Config.Spec.ExternalPlatformSpec.PlatformName
 	}
 	return ""
-}
-
-func loadBalancerType(lbType configv1.PlatformLoadBalancerType) hiveext.LoadBalancerType {
-	if lbType == configv1.LoadBalancerTypeUserManaged {
-		return hiveext.LoadBalancerTypeUserManaged
-	}
-	return hiveext.LoadBalancerTypeClusterManaged
 }
 
 func (a *AgentClusterInstall) validateDiskEncryption() field.ErrorList {
