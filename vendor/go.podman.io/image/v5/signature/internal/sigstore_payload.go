@@ -35,21 +35,19 @@ type UntrustedSigstorePayload struct {
 // NewUntrustedSigstorePayload returns an UntrustedSigstorePayload object with
 // the specified primary contents and appropriate metadata.
 func NewUntrustedSigstorePayload(dockerManifestDigest digest.Digest, dockerReference string) UntrustedSigstorePayload {
-	// Use intermediate variables for these values so that we can take their addresses.
-	// Golang guarantees that they will have a new address on every execution.
-	creatorID := "containers/image " + version.Version
-	timestamp := time.Now().Unix()
 	return UntrustedSigstorePayload{
 		untrustedDockerManifestDigest: dockerManifestDigest,
 		untrustedDockerReference:      dockerReference,
-		untrustedCreatorID:            &creatorID,
-		untrustedTimestamp:            &timestamp,
+		untrustedCreatorID:            new("containers/image " + version.Version),
+		untrustedTimestamp:            new(time.Now().Unix()),
 	}
 }
 
 // A compile-time check that UntrustedSigstorePayload and *UntrustedSigstorePayload implements json.Marshaler
-var _ json.Marshaler = UntrustedSigstorePayload{}
-var _ json.Marshaler = (*UntrustedSigstorePayload)(nil)
+var (
+	_ json.Marshaler = UntrustedSigstorePayload{}
+	_ json.Marshaler = (*UntrustedSigstorePayload)(nil)
+)
 
 // MarshalJSON implements the json.Marshaler interface.
 func (s UntrustedSigstorePayload) MarshalJSON() ([]byte, error) {
@@ -96,7 +94,7 @@ func (s *UntrustedSigstorePayload) strictUnmarshalJSON(data []byte) error {
 
 	var creatorID string
 	var timestamp float64
-	var gotCreatorID, gotTimestamp = false, false
+	gotCreatorID, gotTimestamp := false, false
 	// /usr/bin/cosign generates "optional": null if there are no user-specified annotations.
 	if !bytes.Equal(optional, []byte("null")) {
 		if err := ParanoidUnmarshalJSONObject(optional, func(key string) any {

@@ -5,92 +5,65 @@ import (
 	"time"
 )
 
+type writeCloser struct {
+	io.Writer
+}
+
+func (w writeCloser) Close() error {
+	if closer, ok := w.Writer.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
+}
+
 type proxyWriter struct {
-	io.WriteCloser
+	writeCloser
 	bar *Bar
 }
 
 func (x proxyWriter) Write(p []byte) (int, error) {
-	n, err := x.WriteCloser.Write(p)
+	n, err := x.writeCloser.Write(p)
 	x.bar.IncrBy(n)
 	return n, err
 }
 
-type proxyReaderFrom struct {
+type proxyWriteReaderFrom struct {
 	proxyWriter
+	dst io.ReaderFrom
 }
 
-func (x proxyReaderFrom) ReadFrom(r io.Reader) (int64, error) {
-	n, err := x.WriteCloser.(io.ReaderFrom).ReadFrom(r)
-	x.bar.IncrInt64(n)
-	return n, err
+func (x proxyWriteReaderFrom) ReadFrom(r io.Reader) (int64, error) {
+	return x.dst.ReadFrom(proxyReader{readCloser{r}, x.bar})
 }
 
-type ewmaProxyWriter struct {
-	io.WriteCloser
+// ewmaProxyWriteReaderFrom implements its own io.ReaderFrom which will shadow any
+// io.ReaderFrom implementation of the underlying writeCloser's io.Writer. This is
+// necessary to correctly track ewma counters.
+type ewmaProxyWriteReaderFrom struct {
+	writeCloser
 	bar *Bar
 }
 
-func (x ewmaProxyWriter) Write(p []byte) (int, error) {
+// If io.Copy(ewmaProxyWriteReaderFrom, src) is used then this Write method will
+// not be used at all. Just keeping it for manual Write cases.
+func (x ewmaProxyWriteReaderFrom) Write(p []byte) (int, error) {
 	start := time.Now()
-	n, err := x.WriteCloser.Write(p)
+	n, err := x.writeCloser.Write(p)
 	x.bar.EwmaIncrBy(n, time.Since(start))
 	return n, err
 }
 
-type ewmaProxyReaderFrom struct {
-	ewmaProxyWriter
+func (x ewmaProxyWriteReaderFrom) ReadFrom(r io.Reader) (int64, error) {
+	return copyBuffer(x.bar, x.writeCloser, r, nil)
 }
 
-func (x ewmaProxyReaderFrom) ReadFrom(r io.Reader) (int64, error) {
-	start := time.Now()
-	n, err := x.WriteCloser.(io.ReaderFrom).ReadFrom(r)
-	x.bar.EwmaIncrInt64(n, time.Since(start))
-	return n, err
-}
-
-func newProxyWriter(w io.Writer, b *Bar, hasEwma bool) io.WriteCloser {
-	wc := toWriteCloser(w)
-	if hasEwma {
-		epw := ewmaProxyWriter{wc, b}
-		if _, ok := w.(io.ReaderFrom); ok {
-			return ewmaProxyReaderFrom{epw}
-		}
-		return epw
+func newProxyWriter(b *Bar, w io.Writer) io.WriteCloser {
+	if len(b.ewmaDecorators) != 0 {
+		return ewmaProxyWriteReaderFrom{writeCloser{w}, b}
 	}
-	pw := proxyWriter{wc, b}
-	if _, ok := w.(io.ReaderFrom); ok {
-		return proxyReaderFrom{pw}
+	pw := proxyWriter{writeCloser{w}, b}
+	if dst, ok := w.(io.ReaderFrom); ok {
+		return proxyWriteReaderFrom{pw, dst}
 	}
 	return pw
-}
-
-func toWriteCloser(w io.Writer) io.WriteCloser {
-	if wc, ok := w.(io.WriteCloser); ok {
-		return wc
-	}
-	return toNopWriteCloser(w)
-}
-
-func toNopWriteCloser(w io.Writer) io.WriteCloser {
-	if _, ok := w.(io.ReaderFrom); ok {
-		return nopWriteCloserReaderFrom{w}
-	}
-	return nopWriteCloser{w}
-}
-
-type nopWriteCloser struct {
-	io.Writer
-}
-
-func (nopWriteCloser) Close() error { return nil }
-
-type nopWriteCloserReaderFrom struct {
-	io.Writer
-}
-
-func (nopWriteCloserReaderFrom) Close() error { return nil }
-
-func (c nopWriteCloserReaderFrom) ReadFrom(r io.Reader) (int64, error) {
-	return c.Writer.(io.ReaderFrom).ReadFrom(r)
 }

@@ -5,69 +5,66 @@ import (
 	"time"
 )
 
+type readCloser struct {
+	io.Reader
+}
+
+func (r readCloser) Close() error {
+	if closer, ok := r.Reader.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
+}
+
 type proxyReader struct {
-	io.ReadCloser
+	readCloser
 	bar *Bar
 }
 
 func (x proxyReader) Read(p []byte) (int, error) {
-	n, err := x.ReadCloser.Read(p)
+	n, err := x.readCloser.Read(p)
 	x.bar.IncrBy(n)
 	return n, err
 }
 
-type proxyWriterTo struct {
+type proxyReadWriterTo struct {
 	proxyReader
+	src io.WriterTo
 }
 
-func (x proxyWriterTo) WriteTo(w io.Writer) (int64, error) {
-	n, err := x.ReadCloser.(io.WriterTo).WriteTo(w)
-	x.bar.IncrInt64(n)
-	return n, err
+func (x proxyReadWriterTo) WriteTo(w io.Writer) (int64, error) {
+	return x.src.WriteTo(proxyWriter{writeCloser{w}, x.bar})
 }
 
-type ewmaProxyReader struct {
-	io.ReadCloser
+// ewmaProxyReadWriterTo implements its own io.WriterTo which will shadow any
+// io.WriterTo implementation of the underlying readCloser's io.Reader. This is
+// necessary to correctly track ewma counters.
+type ewmaProxyReadWriterTo struct {
+	readCloser
 	bar *Bar
 }
 
-func (x ewmaProxyReader) Read(p []byte) (int, error) {
+// If io.Copy(dst, ewmaProxyReadWriterTo) is used then this Read method will
+// not be used at all. Just keeping it for manual Read cases.
+func (x ewmaProxyReadWriterTo) Read(p []byte) (int, error) {
 	start := time.Now()
-	n, err := x.ReadCloser.Read(p)
+	n, err := x.readCloser.Read(p)
 	x.bar.EwmaIncrBy(n, time.Since(start))
 	return n, err
 }
 
-type ewmaProxyWriterTo struct {
-	ewmaProxyReader
+//nolint:staticcheck // QF1008
+func (x ewmaProxyReadWriterTo) WriteTo(w io.Writer) (int64, error) {
+	return copyBuffer(x.bar, w, x.readCloser.Reader, nil)
 }
 
-func (x ewmaProxyWriterTo) WriteTo(w io.Writer) (int64, error) {
-	start := time.Now()
-	n, err := x.ReadCloser.(io.WriterTo).WriteTo(w)
-	x.bar.EwmaIncrInt64(n, time.Since(start))
-	return n, err
-}
-
-func newProxyReader(r io.Reader, b *Bar, hasEwma bool) io.ReadCloser {
-	rc := toReadCloser(r)
-	if hasEwma {
-		epr := ewmaProxyReader{rc, b}
-		if _, ok := r.(io.WriterTo); ok {
-			return ewmaProxyWriterTo{epr}
-		}
-		return epr
+func newProxyReader(b *Bar, r io.Reader) io.ReadCloser {
+	if len(b.ewmaDecorators) != 0 {
+		return ewmaProxyReadWriterTo{readCloser{r}, b}
 	}
-	pr := proxyReader{rc, b}
-	if _, ok := r.(io.WriterTo); ok {
-		return proxyWriterTo{pr}
+	pr := proxyReader{readCloser{r}, b}
+	if src, ok := r.(io.WriterTo); ok {
+		return proxyReadWriterTo{pr, src}
 	}
 	return pr
-}
-
-func toReadCloser(r io.Reader) io.ReadCloser {
-	if rc, ok := r.(io.ReadCloser); ok {
-		return rc
-	}
-	return io.NopCloser(r)
 }
