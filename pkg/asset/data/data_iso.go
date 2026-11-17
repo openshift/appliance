@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/appliance/pkg/registry"
 	"github.com/openshift/appliance/pkg/release"
 	"github.com/openshift/appliance/pkg/releasebundle"
+	"github.com/openshift/appliance/pkg/templates"
 	"github.com/openshift/assisted-image-service/pkg/isoeditor"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/sirupsen/logrus"
@@ -148,6 +149,8 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 	bundle := releasebundle.NewBundle(releasebundle.BundleConfig{
 		Port:           conv.Value(applianceConfig.Config.ImageRegistry.Port),
 		ReleaseVersion: bundleVersion,
+		TempDir:        envConfig.TempDir,
+		Manifests:      bundleManifests(r, envConfig, conv.Value(applianceConfig.Config.MirrorPath)),
 	})
 	if err = bundle.Push(); err != nil {
 		return log.StopSpinner(spinner, err)
@@ -171,6 +174,36 @@ func (a *DataISO) Generate(_ context.Context, dependencies asset.Parents) error 
 		return log.StopSpinner(spinner, err)
 	}
 	return log.StopSpinner(spinner, a.updateAsset(envConfig))
+}
+
+// bundleManifests returns the oc-mirror input/output manifests to store in the release bundle image.
+// The ImageSetConfiguration and image mapping are only included when oc-mirror was run by the appliance.
+func bundleManifests(r release.Release, envConfig *config.EnvConfig, mirrorPath string) []string {
+	manifests := []string{filepath.Join(envConfig.CacheDir, consts.OcMirrorResourcesDir)}
+	if mirrorPath != "" {
+		return manifests
+	}
+	manifests = append(manifests, templates.GetFilePathByTemplate(consts.ImageSetTemplateFile, envConfig.TempDir))
+	if mappingFile := writeMappingFile(r, envConfig.TempDir); mappingFile != "" {
+		manifests = append(manifests, mappingFile)
+	}
+	return manifests
+}
+
+// writeMappingFile writes the oc-mirror dry-run mapping into dir and returns its path.
+// The mapping is optional, so failures are logged and an empty path is returned.
+func writeMappingFile(r release.Release, dir string) string {
+	mapping, err := r.GetMappingFile()
+	if err != nil {
+		logrus.Warnf("Release bundle will not include %s: %v", consts.OcMirrorMappingFileName, err)
+		return ""
+	}
+	mappingFile := filepath.Join(dir, consts.OcMirrorMappingFileName)
+	if err = os.WriteFile(mappingFile, mapping, 0o644); err != nil {
+		logrus.Warnf("Release bundle will not include %s: %v", consts.OcMirrorMappingFileName, err)
+		return ""
+	}
+	return mappingFile
 }
 
 // copyMirrorRegistryData copies the Docker registry data from a mirror-path
