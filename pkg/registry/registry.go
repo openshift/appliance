@@ -358,7 +358,8 @@ func (r *registry) Prepare(envConfig *config.EnvConfig, applianceConfig *config.
 			if err := imagecopy.CopyToFile(
 				sourceRegistryUri,
 				consts.RegistryImage,
-				fileInCachePath); err != nil {
+				fileInCachePath,
+				envConfig.RegistryAuthFile); err != nil {
 				return err
 			}
 		}
@@ -422,7 +423,8 @@ func CopyRegistryImageIfNeeded(envConfig *config.EnvConfig, applianceConfig *con
 			if err := imagecopy.CopyToFile(
 				sourceRegistryUri,
 				consts.RegistryImage,
-				fileInCachePath); err != nil {
+				fileInCachePath,
+				envConfig.RegistryAuthFile); err != nil {
 				return "", err
 			}
 		}

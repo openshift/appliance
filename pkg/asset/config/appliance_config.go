@@ -59,9 +59,11 @@ var (
 
 // ApplianceConfig reads the appliance-config.yaml file.
 type ApplianceConfig struct {
-	File     *asset.File
-	Config   *types.ApplianceConfig
-	Template string
+	File      *asset.File
+	Config    *types.ApplianceConfig
+	Template  string
+	AssetsDir string // Working directory (from provider, iso-builder only)
+	ToolsPath string // Path to oc/oc-mirror (from provider, iso-builder only)
 }
 
 var _ asset.WritableAsset = (*ApplianceConfig)(nil)
@@ -95,6 +97,8 @@ func (a *ApplianceConfig) Generate(_ context.Context, dependencies asset.Parents
 	// we use it directly and finalize (validate, resolve release, etc.).
 	if base.Config != nil {
 		a.Config = base.Config
+		a.AssetsDir = base.AssetsDir
+		a.ToolsPath = base.ToolsPath
 		data, err := yaml.Marshal(a.Config)
 		if err != nil {
 			return errors.Wrap(err, "failed to marshal injected config")
@@ -411,8 +415,23 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 	} else {
 		releaseImage = conv.Value(a.Config.OcpRelease.URL)
 
+		// Build oc command with ToolsPath if available (iso-builder flow)
+		ocCmd := "oc"
+		if a.ToolsPath != "" {
+			ocCmd = filepath.Join(a.ToolsPath, "oc")
+		}
+
+		// Get registry auth file path if available
+		registryAuthFile := a.getRegistryAuthFile()
+
 		// Get version
 		cmd := fmt.Sprintf(templateGetVersion, releaseImage)
+		// Prepend oc command path
+		cmd = strings.Replace(cmd, "oc ", ocCmd+" ", 1)
+		// Add auth flag if available
+		if registryAuthFile != "" {
+			cmd = fmt.Sprintf("%s --registry-config=%s", cmd, registryAuthFile)
+		}
 		releaseVersion, err = executer.NewExecuter().Execute(cmd)
 		if err != nil {
 			logrus.Debugf("Error executing command: %s, error: %v", cmd, err)
@@ -425,6 +444,12 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 		if !strings.Contains(releaseImage, "@") {
 			var releaseDigest string
 			cmd := fmt.Sprintf(templateGetDigest, releaseImage)
+			// Prepend oc command path
+			cmd = strings.Replace(cmd, "oc ", ocCmd+" ", 1)
+			// Add auth flag if available
+			if registryAuthFile != "" {
+				cmd = fmt.Sprintf("%s --registry-config=%s", cmd, registryAuthFile)
+			}
 			releaseDigest, err = executer.NewExecuter().Execute(cmd)
 			if err != nil {
 				return "", "", nil
@@ -666,22 +691,63 @@ func (a *ApplianceConfig) validateMirrorPath() field.ErrorList {
 }
 
 func (a *ApplianceConfig) storePullSecret() error {
-	// Get home dir (~)
+	// iso-builder flow: store in working directory
+	if a.ToolsPath != "" {
+		return a.storePullSecretInWorkingDir()
+	}
+	// Legacy flow: store in home directory
+	return a.storePullSecretInHomeDir()
+}
+
+// storePullSecretInWorkingDir stores the pull secret in {AssetsDir}/auth/pull-secret.json
+// for the iso-builder flow. This keeps credentials isolated to the working directory.
+func (a *ApplianceConfig) storePullSecretInWorkingDir() error {
+	if a.AssetsDir == "" {
+		return errors.New("AssetsDir not set for iso-builder flow")
+	}
+
+	authDir := filepath.Join(a.AssetsDir, "auth")
+	if err := os.MkdirAll(authDir, 0700); err != nil {
+		return errors.Wrap(err, "failed to create auth directory")
+	}
+
+	pullSecretPath := filepath.Join(authDir, "pull-secret.json")
+	if err := os.WriteFile(pullSecretPath, []byte(a.Config.PullSecret), 0600); err != nil {
+		return errors.Wrap(err, "failed to write pull secret file")
+	}
+
+	logrus.Debugf("Stored pull secret in: %s", pullSecretPath)
+	return nil
+}
+
+// storePullSecretInHomeDir stores the pull secret in ~/.docker/config.json
+// for the legacy appliance flow. This maintains backward compatibility.
+func (a *ApplianceConfig) storePullSecretInHomeDir() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return errors.Wrapf(err, "failed to get home directory")
+		return errors.Wrap(err, "failed to get home directory")
 	}
 
-	// Create sub dirs
-	configPath := filepath.Join(homeDir, ".docker", "config.json")
-	if err = os.MkdirAll(filepath.Dir(configPath), os.ModePerm); err != nil {
-		return err
+	dockerDir := filepath.Join(homeDir, ".docker")
+	if err = os.MkdirAll(dockerDir, 0700); err != nil {
+		return errors.Wrap(err, "failed to create .docker directory")
 	}
 
-	// Write pull secret
-	if err = os.WriteFile(configPath, []byte(a.Config.PullSecret), os.ModePerm); err != nil {
-		return errors.Wrap(err, "failed to write file")
+	configPath := filepath.Join(dockerDir, "config.json")
+	if err = os.WriteFile(configPath, []byte(a.Config.PullSecret), 0600); err != nil {
+		return errors.Wrap(err, "failed to write pull secret file")
 	}
 
+	logrus.Debugf("Stored pull secret in: %s", configPath)
 	return nil
+}
+
+// getRegistryAuthFile returns the path to the pull secret file.
+// For iso-builder flow, returns the working directory path.
+// For legacy flow, returns empty string (tools use default ~/.docker/config.json).
+func (a *ApplianceConfig) getRegistryAuthFile() string {
+	if a.ToolsPath != "" && a.AssetsDir != "" {
+		return filepath.Join(a.AssetsDir, "auth", "pull-secret.json")
+	}
+	return ""
 }

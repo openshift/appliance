@@ -28,6 +28,7 @@ type EnvConfig struct {
 	DebugBootstrap    bool
 	DebugBaseIgnition bool
 	ToolsPath         string
+	RegistryAuthFile  string // Path to pull secret for registry authentication
 }
 
 var _ asset.Asset = (*EnvConfig)(nil)
@@ -66,6 +67,11 @@ func (e *EnvConfig) Generate(_ context.Context, dependencies asset.Parents) erro
 
 	if err := os.MkdirAll(e.TempDir, os.ModePerm); err != nil {
 		logrus.Errorf("Failed to create dir: %s", e.TempDir)
+	}
+
+	// Set RegistryAuthFile for iso-builder flow (when ToolsPath is set)
+	if e.ToolsPath != "" {
+		e.RegistryAuthFile = filepath.Join(e.AssetsDir, "auth", "pull-secret.json")
 	}
 
 	return nil
@@ -140,7 +146,7 @@ func (e *EnvConfig) FindInAssets(filePattern string) string {
 }
 
 // FindFilesInCache returns the files from cache whose name match the given regexp.
-func (e *EnvConfig) FindFilesInCache(pattern string) (files []*asset.File, err error) {	
+func (e *EnvConfig) FindFilesInCache(pattern string) (files []*asset.File, err error) {
 	matches, err := filepath.Glob(filepath.Join(e.CacheDir, pattern))
 	if err != nil {
 		return nil, err

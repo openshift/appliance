@@ -13,7 +13,9 @@ import (
 // producing a sample template. When Config is nil (default),
 // the normal disk-based flow is unaffected.
 type ApplianceConfigProvider struct {
-	Config *types.ApplianceConfig
+	Config    *types.ApplianceConfig
+	AssetsDir string // Working directory for iso-builder flow
+	ToolsPath string // Path to oc/oc-mirror binaries for iso-builder flow
 }
 
 var _ asset.WritableAsset = (*ApplianceConfigProvider)(nil)

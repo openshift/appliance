@@ -9,7 +9,7 @@ import (
 
 var _ = Describe("Test imagecopy", func() {
 	It("CopyToFile fails with invalid image URL", func() {
-		err := CopyToFile(":::invalid", "test", "/tmp/test-imagecopy-dest")
+		err := CopyToFile(":::invalid", "test", "/tmp/test-imagecopy-dest", "")
 		Expect(err).To(HaveOccurred())
 	})
 

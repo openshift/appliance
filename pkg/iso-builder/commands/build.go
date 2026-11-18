@@ -50,7 +50,7 @@ func NewBuilder(workingDir string, additionalImages []string) *Builder {
 func (b *Builder) Build(ctx context.Context) error {
 	embeddedCfg, err := embeddedconfig.LoadConfig()
 	if err != nil {
-		return fmt.Errorf("no configuration has been found in this binary")
+		return err
 	}
 
 	arch := embeddedCfg.Architecture
@@ -203,7 +203,10 @@ func (b *Builder) acquireTools(isoBuilderConfig *isobuilderconfig.Config) (strin
 		return "", err
 	}
 
-	toolsDir := filepath.Join(b.workingDir, "tools")
+	toolsDir, err := filepath.Abs(filepath.Join(b.workingDir, "tools"))
+	if err != nil {
+		return "", errors.Wrap(err, "failed to resolve tools directory")
+	}
 	if err := tools.CreateToolsDir(toolsDir); err != nil {
 		return "", err
 	}
@@ -255,12 +258,14 @@ func (b *Builder) applyLiveISOBuilderAsset(ctx context.Context, isoBuilderConfig
 
 	isoBuilderAssets := []asset.Asset{
 		&config.ApplianceConfigProvider{
-			Config: b.convertToApplianceConfig(isoBuilderConfig),
+			Config:    b.convertToApplianceConfig(isoBuilderConfig),
+			AssetsDir: b.workingDir,
+			ToolsPath: toolsPath,
 		},
 		&config.EnvConfig{
-			AssetsDir:    b.workingDir,
-			IsLiveISO:    true,
-			ToolsPath:    toolsPath,
+			AssetsDir: b.workingDir,
+			IsLiveISO: true,
+			ToolsPath: toolsPath,
 		},
 		&appliance.ApplianceLiveISO{},
 	}
