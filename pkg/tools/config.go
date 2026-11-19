@@ -15,7 +15,18 @@ import (
 	"github.com/pkg/errors"
 )
 
-const templateDownloadURL = "https://mirror.openshift.com/pub/openshift-v%s/%s/clients/%s/%s/%s"
+const (
+	templateDownloadURL = "https://mirror.openshift.com/pub/openshift-v%s/%s/clients/%s/%s/%s"
+	// ocMirrorDownloadURL is the location of the latest oc-mirror release.
+	ocMirrorDownloadURL = "https://mirror.openshift.com/pub/cgw/oc-mirror/latest/%s"
+)
+
+// Identifiers of the host platforms supported for tool acquisition.
+const (
+	platformLinuxAmd64  = "linux-amd64"
+	platformDarwinAmd64 = "darwin-amd64"
+	platformDarwinArm64 = "darwin-arm64"
+)
 
 // ToolConfig holds the common parameters needed to acquire external tools.
 type ToolConfig struct {
@@ -24,17 +35,17 @@ type ToolConfig struct {
 	SupportedArch  string // mirror.openshift.com arch path segment, e.g. "x86_64"
 }
 
+// ocMirrorFiles maps the platforms supported by oc-mirror to its archive filenames.
+var ocMirrorFiles = map[string]string{
+	platformLinuxAmd64: "oc-mirror-rhel9-" + platformLinuxAmd64 + ".tar.gz",
+}
+
 // tools maps tool names to their archive filenames by platform.
 var tools = map[string]map[string]string{
 	"oc": {
-		"linux-amd64":   "openshift-client-linux.tar.gz",
-		"darwin-amd64":  "openshift-client-mac.tar.gz",
-		"darwin-arm64":  "openshift-client-mac-arm64.tar.gz",
-	},
-	"oc-mirror": {
-		"linux-amd64":   "oc-mirror.tar.gz",
-		"darwin-amd64":  "oc-mirror-mac.tar.gz",
-		"darwin-arm64":  "oc-mirror-mac-arm64.tar.gz",
+		platformLinuxAmd64:  "openshift-client-linux.tar.gz",
+		platformDarwinAmd64: "openshift-client-mac.tar.gz",
+		platformDarwinArm64: "openshift-client-mac-arm64.tar.gz",
 	},
 }
 
@@ -43,23 +54,18 @@ var tools = map[string]map[string]string{
 func getSupportedPlatform() (string, error) {
 	switch {
 	case runtime.GOOS == "linux" && runtime.GOARCH == "amd64":
-		return "linux-amd64", nil
+		return platformLinuxAmd64, nil
 	case runtime.GOOS == "darwin" && runtime.GOARCH == "amd64":
-		return "darwin-amd64", nil
+		return platformDarwinAmd64, nil
 	case runtime.GOOS == "darwin" && runtime.GOARCH == "arm64":
-		return "darwin-arm64", nil
+		return platformDarwinArm64, nil
 	default:
 		return "", fmt.Errorf("unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 }
 
-// getToolName returns the archive filename for the specified tool on the host platform.
-func getToolName(toolName string) (string, error) {
-	platformArch, err := getSupportedPlatform()
-	if err != nil {
-		return "", err
-	}
-
+// getToolName returns the archive filename for the specified tool on the given platform.
+func getToolName(toolName, platformArch string) (string, error) {
 	tools, ok := tools[toolName]
 	if !ok {
 		return "", fmt.Errorf("unknown tool: %s", toolName)
@@ -73,9 +79,27 @@ func getToolName(toolName string) (string, error) {
 	return tool, nil
 }
 
-// GetDownloadURL returns the download URL for the specified tool.
+// GetDownloadURL returns the download URL for the specified tool on the host platform.
+// oc-mirror is backward compatible with older OpenShift versions, so its latest release
+// is always used.
 func GetDownloadURL(toolName string, releaseVersion string, supportedArch string) (string, error) {
-	filename, err := getToolName(toolName)
+	platform, err := getSupportedPlatform()
+	if err != nil {
+		return "", err
+	}
+	return getDownloadURL(toolName, releaseVersion, supportedArch, platform)
+}
+
+func getDownloadURL(toolName, releaseVersion, supportedArch, platform string) (string, error) {
+	if toolName == "oc-mirror" {
+		file, ok := ocMirrorFiles[platform]
+		if !ok {
+			return "", errors.Errorf("oc-mirror is not published for %s, provide it on PATH (it can be built from https://github.com/openshift/oc-mirror)", platform)
+		}
+		return fmt.Sprintf(ocMirrorDownloadURL, file), nil
+	}
+
+	filename, err := getToolName(toolName, platform)
 	if err != nil {
 		return "", err
 	}
