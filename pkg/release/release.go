@@ -123,6 +123,7 @@ func (r *release) ExtractFile(image string, filename string) (string, error) {
 func (r *release) GetImageFromRelease(imageName string) (string, error) {
 	cmd := fmt.Sprintf(templateGetImage, imageName, true, conv.Value(r.ApplianceConfig.Config.OcpRelease.URL))
 	cmd = r.prependToolsPath(cmd)
+	cmd = r.appendAuthFlag(cmd, "oc")
 
 	logrus.Debugf("Fetching image from OCP release (%s)", cmd)
 	image, err := r.execute(cmd)
@@ -181,6 +182,7 @@ func (r *release) fixImageReference(imageRef, releaseURL string) (string, error)
 func (r *release) extractFileFromImage(image, file, outputDir string) (string, error) {
 	cmd := fmt.Sprintf(templateImageExtract, file, outputDir, image)
 	cmd = r.prependToolsPath(cmd)
+	cmd = r.appendAuthFlag(cmd, "oc")
 	logrus.Debugf("extracting %s to %s, %s", file, outputDir, cmd)
 	_, err := retry.Do(OcDefaultTries, OcDefaultRetryDelay, r.execute, cmd)
 	if err != nil {
@@ -199,6 +201,7 @@ func (r *release) extractFileFromImage(image, file, outputDir string) (string, e
 func (r *release) ExtractCommand(command string, dest string) (string, error) {
 	cmd := fmt.Sprintf(templateExtractCmd, command, dest, *r.ApplianceConfig.Config.OcpRelease.URL)
 	cmd = r.prependToolsPath(cmd)
+	cmd = r.appendAuthFlag(cmd, "oc")
 	logrus.Debugf("extracting %s to %s, %s", command, dest, cmd)
 	stdout, err := r.execute(cmd)
 	if err != nil {
@@ -251,6 +254,7 @@ func (r *release) mirrorImages(imageSetFile, blockedImages, additionalImages, op
 		registryPort := conv.Value(r.ApplianceConfig.Config.ImageRegistry.Port)
 		cmd := fmt.Sprintf(ocMirror, imageSetFilePath, registryPort, tempDir)
 		cmd = r.prependToolsPath(cmd)
+		cmd = r.appendAuthFlag(cmd, "oc-mirror")
 
 		if !isStable {
 			// For CI/nightly builds, add --ignore-release-signature flag
@@ -458,6 +462,7 @@ func (r *release) GetMappingFile() ([]byte, error) {
 	registryPort := conv.Value(r.ApplianceConfig.Config.ImageRegistry.Port)
 	dryRunCmd := fmt.Sprintf(ocMirrorDryRun, imageSetFilePath, registryPort, dryRunDir)
 	dryRunCmd = r.prependToolsPath(dryRunCmd)
+	dryRunCmd = r.appendAuthFlag(dryRunCmd, "oc-mirror")
 
 	// Add --ignore-release-signature for CI/nightly builds to avoid signature verification errors
 	isStable, err := r.IsStableRelease()
@@ -492,6 +497,7 @@ func (r *release) getMetadata() error {
 
 	cmd := fmt.Sprintf(templateGetMetadata, conv.Value(r.ApplianceConfig.Config.OcpRelease.URL))
 	cmd = r.prependToolsPath(cmd)
+	cmd = r.appendAuthFlag(cmd, "oc")
 	logrus.Debugf("Fetching architecture and version from OCP release (%s)", cmd)
 
 	output, err := r.execute(cmd)
@@ -559,25 +565,29 @@ func (r *release) BundleVersion(releaseVersion string) (string, error) {
 	return fmt.Sprintf("%s-%s", releaseVersion, arch), nil
 }
 
-// getPath returns the absolute path to the directory
-// containing oc and oc-mirror binary, or "" if no path is configured.
-func (r *release) getPath() string {
-	if r.EnvConfig.ToolsPath != "" {
-		return r.EnvConfig.ToolsPath
-	}
-	return ""
-}
-
 // prependToolsPath prepends the tools directory path to the oc/oc-mirror command if configured.
 func (r *release) prependToolsPath(cmd string) string {
-	if toolsPath := r.getPath(); toolsPath != "" {
-		// Handle oc-mirror commands separately (must check before oc)
-		if strings.HasPrefix(cmd, "oc-mirror ") {
-			cmd = strings.Replace(cmd, "oc-mirror ", filepath.Join(toolsPath, "oc-mirror")+" ", 1)
-		} else {
-			// Handle oc commands
-			cmd = strings.Replace(cmd, "oc ", filepath.Join(toolsPath, "oc")+" ", 1)
-		}
+	toolsPath := r.EnvConfig.ToolsPath
+	if toolsPath == "" {
+		return cmd
 	}
-	return cmd
+	newCmd := fmt.Sprintf("%s/%s", toolsPath, cmd)
+	return newCmd
+}
+
+// appendAuthFlag appends the appropriate authentication flag to a command based on the tool.
+// For oc commands, appends --registry-config. For oc-mirror commands, appends --authfile.
+func (r *release) appendAuthFlag(cmd, tool string) string {
+	if r.EnvConfig.RegistryAuthFile == "" {
+		return cmd
+	}
+
+	switch tool {
+	case "oc":
+		return fmt.Sprintf("%s --registry-config=%s", cmd, r.EnvConfig.RegistryAuthFile)
+	case "oc-mirror":
+		return fmt.Sprintf("%s --authfile=%s", cmd, r.EnvConfig.RegistryAuthFile)
+	default:
+		return cmd
+	}
 }

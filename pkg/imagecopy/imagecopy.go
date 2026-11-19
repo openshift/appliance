@@ -17,7 +17,8 @@ import (
 
 // CopyToFile copies a container image from a Docker registry to a local
 // directory in dir format, preserving all architectures and digests.
-func CopyToFile(imageUrl, imageName, filePath string) error {
+// authFilePath is an optional path to a registry authentication file.
+func CopyToFile(imageUrl, imageName, filePath, authFilePath string) error {
 	if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
 		return err
 	}
@@ -44,12 +45,21 @@ func CopyToFile(imageUrl, imageName, filePath string) error {
 		}
 	}()
 
+	// Setup authentication
+	srcCtx := &types.SystemContext{}
+	destCtx := &types.SystemContext{}
+	if authFilePath != "" {
+		srcCtx.AuthFilePath = authFilePath
+		destCtx.AuthFilePath = authFilePath
+		logrus.Debugf("Using auth file: %s", authFilePath)
+	}
+
 	logrus.Debugf("Copying image %s to %s", imageUrl, filePath)
 	_, err = copy.Image(ctx, policyCtx, destRef, srcRef, &copy.Options{
 		ImageListSelection: copy.CopyAllImages,
 		PreserveDigests:    true,
-		SourceCtx:          &types.SystemContext{},
-		DestinationCtx:     &types.SystemContext{},
+		SourceCtx:          srcCtx,
+		DestinationCtx:     destCtx,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to copy image %s: %w", imageUrl, err)
@@ -58,7 +68,6 @@ func CopyToFile(imageUrl, imageName, filePath string) error {
 	logrus.Debugf("Successfully copied image %s to %s", imageUrl, filePath)
 	return nil
 }
-
 
 // getPolicyContext creates a signature policy context with an accept-all
 // policy. The tool copies known OCP images from trusted sources, so
