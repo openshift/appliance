@@ -279,10 +279,17 @@ func funcOpPlus(v any) any {
 	}
 }
 
+func negate(v int) any {
+	if v == math.MinInt {
+		return new(big.Int).Neg(big.NewInt(int64(v)))
+	}
+	return -v
+}
+
 func funcOpNegate(v any) any {
 	switch v := v.(type) {
 	case int:
-		return -v
+		return negate(v)
 	case float64:
 		return -v
 	case *big.Int:
@@ -378,6 +385,9 @@ func funcOpSub(_, l, r any) any {
 func funcOpMul(_, l, r any) any {
 	return binopTypeSwitch(l, r,
 		func(l, r int) any {
+			if r == -1 {
+				return negate(l)
+			}
 			if v := l * r; r == 0 || v/r == l {
 				return v
 			}
@@ -391,12 +401,12 @@ func funcOpMul(_, l, r any) any {
 		deepMergeObjects,
 		func(l, r any) any {
 			if l, ok := l.(string); ok {
-				if r, ok := toFloat(r); ok {
+				if r, ok := ToFloat64(r); ok {
 					return repeatString(l, r)
 				}
 			}
 			if r, ok := r.(string); ok {
-				if l, ok := toFloat(l); ok {
+				if l, ok := ToFloat64(l); ok {
 					return repeatString(r, l)
 				}
 			}
@@ -422,28 +432,30 @@ func deepMergeObjects(l, r map[string]any) any {
 }
 
 func repeatString(s string, n float64) any {
-	if n < 0.0 || math.IsNaN(n) {
+	if lt(n, 0) {
 		return nil
 	}
-	if s == "" {
-		return ""
-	}
-	if n >= float64(math.MaxInt32/len(s)) {
+	c := int(min(n, math.MaxInt32))
+	if uint64(len(s))*uint64(c) >= math.MaxInt32 {
 		return &repeatStringTooLargeError{s, n}
 	}
-	return strings.Repeat(s, int(n))
+	return strings.Repeat(s, c)
 }
 
 func funcOpDiv(_, l, r any) any {
 	return binopTypeSwitch(l, r,
 		func(l, r int) any {
-			if r == 0 {
+			switch r {
+			case 0:
 				return &zeroDivisionError{l, r}
+			case -1:
+				return negate(l)
+			default:
+				if l%r == 0 {
+					return l / r
+				}
+				return float64(l) / float64(r)
 			}
-			if l%r == 0 {
-				return l / r
-			}
-			return float64(l) / float64(r)
 		},
 		func(l, r float64) any {
 			if r == 0.0 {
@@ -461,17 +473,7 @@ func funcOpDiv(_, l, r any) any {
 			}
 			return bigToFloat(l) / bigToFloat(r)
 		},
-		func(l, r string) any {
-			if l == "" {
-				return []any{}
-			}
-			xs := strings.Split(l, r)
-			vs := make([]any, len(xs))
-			for i, x := range xs {
-				vs[i] = x
-			}
-			return vs
-		},
+		func(l, r string) any { return splitString(l, r) },
 		func(l, r []any) any { return &binopTypeError{"divide", l, r} },
 		func(l, r map[string]any) any { return &binopTypeError{"divide", l, r} },
 		func(l, r any) any { return &binopTypeError{"divide", l, r} },
@@ -481,18 +483,22 @@ func funcOpDiv(_, l, r any) any {
 func funcOpMod(_, l, r any) any {
 	return binopTypeSwitch(l, r,
 		func(l, r int) any {
-			if r == 0 {
+			switch r {
+			case 0:
 				return &zeroModuloError{l, r}
+			case -1:
+				return 0
+			default:
+				return l % r
 			}
-			return l % r
 		},
 		func(l, r float64) any {
+			if math.IsNaN(l) || math.IsNaN(r) {
+				return math.NaN()
+			}
 			ri := floatToInt(r)
 			if ri == 0 {
 				return &zeroModuloError{l, r}
-			}
-			if math.IsNaN(l) || math.IsNaN(r) {
-				return math.NaN()
 			}
 			return floatToInt(l) % ri
 		},
