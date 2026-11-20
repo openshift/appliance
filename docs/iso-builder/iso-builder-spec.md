@@ -12,12 +12,18 @@ This approach was specifically designed to simplify air-gapped cluster deploymen
 require the presence of an external registry, and it offers a local installation UI. For more
 technical details about this method see [Simplified registry-less cluster operations for disconnected environments](https://github.com/openshift/enhancements/blob/master/enhancements/agent-installer/simplified-registry-less-cluster-operations.md).
 
-To preserve ease of use, the iso-builder exposes a minimal interface built around a 
+To preserve ease of use, the iso-builder exposes a minimal interface built around a
 fixed-configuration model, and is distributed as a single executable file.
+
+### 1.2 Directory conventions
+
+The iso-builder follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir/0.8/)
+for organizing cached artifacts and user-specific files on disk.
+See [Section 6](#6-artifact-organization) for the full directory layout.
 
 ## 2. User workflow
 
-The first step consists of downloading the iso-builder tool from the 
+The first step consists of downloading the iso-builder tool from the
 [Assisted Installer web console](https://console.redhat.com/openshift/assisted-installer/clusters/~new)
 page for disconnected installations, where the user can select a specific OCP version and a
 custom set of OLM operators to install. In addition, a limited set of common install configuration
@@ -26,7 +32,7 @@ can be optionally provided (this part of the workflow is not in scope for the cu
 Note that the retrieved binary will embed the selected configuration chosen in the web console, and
 it cannot be further modified once downloaded. This means that each specific downloaded instance
 of the iso-builder is immutable, and it will produce the same ISO when invoked (with a notable
-exception for custom operators, see later). 
+exception for custom operators, see later).
 If the user wants to generate a different ISO, a new iso-builder instance with a different
 basic configuration (ie, a different OCP version, or a different set of OLM operators) must be
 retrieved from the Assisted Installer web console.
@@ -75,7 +81,7 @@ $ openshift-iso-builder show-config
 
 A key factor in the iso-builder architecture is its immutability model. This is achieved
 by embedding a JSON config file into the executable. So it is required
-to create an embedding area of at least 1MiB with proper markers within the executable to store 
+to create an embedding area of at least 1MiB with proper markers within the executable to store
 the config file. It should be possible to use a similar technique already adopted by oc to overlay
 data into the openshift-installer.
 
@@ -93,14 +99,14 @@ The config file must contain the following fields:
 | `additionalTrustBundle` | `string`      | PEM-encoded X.509 certificate bundle for nodes trusted certificate store   |
 | `additionalNTPServers`  | `string list` | List of additional NTP servers to use for provisioning                     |
 | `fips`                  | `boolean`     | Configures https://www.nist.gov/itl/fips-general-information               |
-| `olmOperators`          | `object list` | OLM operators to be mirrored (name/version/channel)                        |   
+| `olmOperators`          | `object list` | OLM operators to be mirrored (name/version/channel)                        |
 | `rendezvousIP`          | `string`      | Defines the rendezvous IP                                                  |
 | `networkConfig`         | `object list` | Static network configurations for hosts (interfaces + nmstate YAML config) |
 | `additionalImages`      | `string list` | Additional images pullspec to be mirrored                                  |
 
 Follow the openshift installer naming convention for the fields (see https://github.com/openshift/installer/blob/main/data/data/install.openshift.io_installconfigs.yaml)
 
-#### 4.1.1 config file format export 
+#### 4.1.1 config file format export
 
 The config file must be defined in its own go module, to facilitate importing into other go projects
 such as assisted-service without requiring excessive dependency resolution.
@@ -162,10 +168,164 @@ Until we'll keep the old appliance code in place, let's share the same Makefile 
 specific iso-builder targets.
 * Add a target to build the binary (mostly used for local development/testing)
 * Add a target to build the testing binary (mostly used for local development/testing)
-* Add a target to build the binary in a Dockerfile, using an ubi-micro image: it's just for 
+* Add a target to build the binary in a Dockerfile, using an ubi-micro image: it's just for
   eventual distribution, as we do not expect to run the tool from within the container
 
-## 5. Constraints
+## 5. Iso-builder steps
+
+When the user runs `openshift-iso-builder build`, the `Builder` in
+`pkg/iso-builder/commands/` executes the following steps in order:
+
+1. Extract the embedded configuration from the binary.
+2. Set up the user cache. All artifacts that are invariant across multiple runs for the
+same OCP release are stored in a per-release cache under
+`$XDG_CACHE_HOME/iso-builder/release-<version>/` (default: `$HOME/.cache/iso-builder/release-<version>/`).
+Per the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir/0.8/),
+if `$XDG_CACHE_HOME` is not set or empty the default `$HOME/.cache` is used;
+if it is set to a relative path the value is ignored and the default is used.
+The cache is created on first use and reused on subsequent builds.
+3. Download tools such as `oc` and `oc-mirror` into the cache. Each download is idempotent.
+4. Check release availability. Verify that the release image is reachable, either from
+   quay.io for connected environemnt or from the user provided local registry for disconnected environment.
+5. Extract openshift installer binary from the release image (FIPS variant when enabled). This download is also idempotent.
+6. Finally, generate the live ISO by delegating to the existing appliance builder.
+
+## 6. Artifact Organization
+
+### 6.1 User-level cache (shared across builds)
+
+All artifacts that are **invariant** across multiple iso-builder runs for the same OCP
+release version are stored under `$XDG_CACHE_HOME/iso-builder/`
+(default: `$HOME/.cache/iso-builder/`).
+
+Per the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir/0.8/),
+if `$XDG_CACHE_HOME` is not set or empty, `$HOME/.cache` is used.
+If `$XDG_CACHE_HOME` is set to a relative path, the value is ignored and the
+default is used.
+
+```
+$XDG_CACHE_HOME/iso-builder/
+└── release-<version>/                 # e.g. release-4.22.18
+    ├── tools/
+    │   ├── oc
+    │   ├── oc-mirror
+    │   └── openshift-install
+    ├── images/
+    │   └── <mirrored container images managed by oc-mirror>
+    ├── registry/
+    │   └── <registry data produced by the legacy builder>
+    └── iso/
+        └── <base CoreOS ISO and other release-level ISO artifacts>
+```
+
+| Directory | Contents | Shared? |
+|-----------|----------|---------|
+| `tools/`  | `oc`, `oc-mirror`, `openshift-install` binaries | Yes — same binaries for every build of this release |
+| `images/` | Container images mirrored by `oc-mirror` | Yes — same release images regardless of cluster topology |
+| `registry/` | Registry data produced during the build | Yes — same registry content for a given release |
+| `iso/`    | CoreOS base ISO and similar release-level artifacts | Yes — same base ISO for every build of this release |
+
+**Key**: `<version>` is the full OCP version string (e.g. `4.22.18`, `4.23.0`, `5.0.0`).
+Multiple releases coexist side by side. For example, running builds for both `4.22.18`
+and `4.22.17` produces:
+
+```
+$XDG_CACHE_HOME/iso-builder/
+├── release-4.22.17/
+│   ├── tools/
+│   ├── images/
+│   ├── registry/
+│   └── iso/
+└── release-4.22.18/
+    ├── tools/
+    ├── images/
+    ├── registry/
+    └── iso/
+```
+
+### 6.2 Working directory (per-build, transient)
+
+All artifacts specific to a particular build session are written to the working
+directory. The working directory is set by `--working-dir` (default: current directory).
+
+```
+<working-dir>/
+├── agent.x86_64.iso                   # final output ISO
+└── .iso-builder/                      # transient build artifacts
+    └── <appliance build state>
+```
+
+| Path | Contents |
+|------|----------|
+| `agent.<arch>.iso` | The final output live ISO |
+| `.iso-builder/` | Internal build state generated by the appliance code. Includes intermediate ignition files, temp registry data, and other transient artifacts. This directory can be safely deleted after a successful build |
+
+### 6.3 Multi-build coexistence examples
+
+Given these user invocations:
+
+```bash
+iso-builder-4.22.18-sno        build --working-dir ~/builds/sno
+iso-builder-4.22.18-sno        build --working-dir ~/builds/sno-custom \
+                                     --additional-image my-super-op \
+                                     --additional-image another-op
+iso-builder-4.22.18-ha5        build --working-dir ~/builds/ha5
+iso-builder-4.22.17-compact    build --working-dir ~/builds/compact-17
+iso-builder-5.0-compact        build --working-dir ~/builds/compact-50
+iso-builder-4.23-ha-fips       build --working-dir ~/builds/ha-fips
+```
+
+The resulting disk layout is:
+
+```
+$XDG_CACHE_HOME/iso-builder/
+├── release-4.22.17/
+│   ├── tools/   {oc, oc-mirror, openshift-install}
+│   ├── images/
+│   ├── registry/
+│   └── iso/
+├── release-4.22.18/               ← shared by sno, sno-custom, ha5
+│   ├── tools/   {oc, oc-mirror, openshift-install}
+│   ├── images/
+│   ├── registry/
+│   └── iso/
+├── release-4.23.0/
+│   ├── tools/   {oc, oc-mirror, openshift-install-fips}
+│   ├── images/
+│   ├── registry/
+│   └── iso/
+└── release-5.0.0/
+    ├── tools/   {oc, oc-mirror, openshift-install}
+    ├── images/
+    ├── registry/
+    └── iso/
+
+~/builds/
+├── sno/
+│   ├── agent.x86_64.iso
+│   └── .iso-builder/
+├── sno-custom/
+│   ├── agent.x86_64.iso
+│   └── .iso-builder/
+├── ha5/
+│   ├── agent.x86_64.iso
+│   └── .iso-builder/
+├── compact-17/
+│   ├── agent.x86_64.iso
+│   └── .iso-builder/
+├── compact-50/
+│   ├── agent.x86_64.iso
+│   └── .iso-builder/
+└── ha-fips/
+    ├── agent.x86_64.iso
+    └── .iso-builder/
+```
+
+The three `4.22.18` builds (sno, sno-custom, ha5) share a single set of cached tools,
+images, and registry data. Each build produces its own output ISO and transient state
+in its respective working directory.
+
+## 7. Constraints
 
 * CLI output must be human-readable, not machine-parseable
 * CLI output/logs must not contain in any case sensitive information like the pull-secret
@@ -173,11 +333,23 @@ specific iso-builder targets.
 * The overall size of the compiled executable must remain small, less than 150MiB
 * The CLI UX (given by the exposed set of commands/flags) must remain as much as possible
   minimalistic
+* The cache location follows the XDG Base Directory Specification
+  (`$XDG_CACHE_HOME/iso-builder/`, default `$HOME/.cache/iso-builder/`).
+  No additional `--cache-dir` flag is provided in the initial implementation.
+  A `--cache-dir` override may be added later.
+* Only the connected (quay.io) use case is supported for `checkReleaseAvailability`
+  in this iteration. Disconnected (local registry) support is a future enhancement.
+* The legacy `applyLiveISOBuilderAsset` is not modified. The new pipeline only
+  prepares the environment and delegates to it.
 
-## 6. Non-Goals
+## 8. Non-Goals
 
 * Will not address the SaaS UI development
+* Modifying the legacy appliance asset pipeline
+* Implementing the disconnected (local registry) path for release availability
+* Adding a `--cache-dir` CLI flag
+* Garbage collection or eviction of old cache entries
 
-## 7. JIRA references
+## 9. JIRA references
 
-* https://redhat.atlassian.net/browse/AGENT-1592 
+* https://redhat.atlassian.net/browse/AGENT-1592
