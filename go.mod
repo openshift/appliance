@@ -12,7 +12,7 @@ require (
 	github.com/coreos/stream-metadata-go v0.4.10
 	github.com/diskfs/go-diskfs v1.9.4
 	github.com/distribution/distribution/v3 v3.0.0
-	github.com/dustin/go-humanize v1.0.1
+	github.com/dustin/go-humanize v1.1.0
 	github.com/go-openapi/swag/conv v0.29.2
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/hashicorp/go-version v1.9.0
