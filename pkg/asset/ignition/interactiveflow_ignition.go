@@ -2,6 +2,7 @@ package ignition
 
 import (
 	"fmt"
+	"path/filepath"
 
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/openshift/appliance/pkg/releasebundle"
@@ -50,7 +51,8 @@ spec:
   - name: %s
 `, ocpBundleStr)
 
-	// Keep the filepath in sync with openshift/installer#10176 until the installer min storage will be more robust.
-	iriFile := ignition.FileFromString("/etc/assisted/extra-manifests/internalreleaseimage.yaml", "root", 0644, iriContent)
+	// The installer raises the min storage when it finds this file in system-manifests
+	// (openshift/installer#11124).
+	iriFile := ignition.FileFromString(filepath.Join(systemManifestsPath, "internalreleaseimage.yaml"), "root", 0644, iriContent)
 	ign.Storage.Files = append(ign.Storage.Files, iriFile)
 }
