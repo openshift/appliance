@@ -57,7 +57,7 @@ type V2ClusterUpdateParams struct {
 	HTTPProxy *string `json:"http_proxy,omitempty"`
 
 	// A proxy URL to use for creating HTTPS connections outside the cluster.
-	// http://\<username\>:\<pswd\>@\<ip\>:\<port\>
+	// http://\<username\>:\<pswd\>@\<ip\>:\<port\> or https://\<username\>:\<pswd\>@\<ip\>:\<port\>
 	//
 	HTTPSProxy *string `json:"https_proxy,omitempty"`
 
@@ -115,6 +115,9 @@ type V2ClusterUpdateParams struct {
 	// resolves all dependencies, and tracks bundle membership via source_bundles on monitored operators.
 	//
 	OperatorBundles []*BundleCreateParams `json:"operator_bundles"`
+
+	// The OS stream to use for this cluster (e.g. rhel-9, rhel-10). If unset, the default OS stream for the OpenShift version is used.
+	OsStream *string `json:"os_stream,omitempty"`
 
 	// platform
 	Platform *Platform `json:"platform,omitempty" gorm:"embedded;embeddedPrefix:platform_"`

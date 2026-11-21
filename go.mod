@@ -392,5 +392,5 @@ require (
 replace (
 	github.com/openshift/appliance/pkg/iso-builder/config => ./pkg/iso-builder/config
 	github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20260722223301-f50c5b20c7e1
-	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20260722223301-f50c5b20c7e1
+	github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20261114224556-26b03107d14a
 )
