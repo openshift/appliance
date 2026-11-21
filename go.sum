@@ -462,8 +462,8 @@ github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cu
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/digitalocean/go-libvirt v0.0.0-20250616175656-5843751af96c h1:VTYS0X+Vfs/W5ABzT5SerR4bTc5n27oOVgGqM2Tbg90=
 github.com/digitalocean/go-libvirt v0.0.0-20250616175656-5843751af96c/go.mod h1:GwQQeZzqvtOneY034nAMNxnXA/6aXd/9z7uDm7Hb8sk=
-github.com/diskfs/go-diskfs v1.9.4 h1:0j2d7eG4IjyxL6+ChWbDPocdBCF6HQ4HBWU2WDYWVnc=
-github.com/diskfs/go-diskfs v1.9.4/go.mod h1:TePJORO83Adh5pb2SqsxAwaP0fofFxKLkxctiS/9OQc=
+github.com/diskfs/go-diskfs v1.9.5-0.20261103130516-f6fbf0b9b4f2 h1:O9tRrzZXsH/iF6ZK5Pc1/BnpaMjtdICClpNc0iyex3M=
+github.com/diskfs/go-diskfs v1.9.5-0.20261103130516-f6fbf0b9b4f2/go.mod h1:TePJORO83Adh5pb2SqsxAwaP0fofFxKLkxctiS/9OQc=
 github.com/distribution/distribution/v3 v3.0.0 h1:q4R8wemdRQDClzoNNStftB2ZAfqOiN6UX90KJc4HjyM=
 github.com/distribution/distribution/v3 v3.0.0/go.mod h1:tRNuFoZsUdyRVegq8xGNeds4KLjwLCRin/tTo6i1DhU=
 github.com/distribution/reference v0.6.0 h1:0IXCQ5g4/QMHHkarYzh5l+u8T3t73zM5QvfrDyIgxBk=
@@ -1273,8 +1273,8 @@ github.com/openshift/api v0.0.0-20200827090112-c05698d102cf/go.mod h1:M3xexPhgM8
 github.com/openshift/api v0.0.0-20200829102639-8a3a835f1acf/go.mod h1:M3xexPhgM8DISzzRpuFUy+jfPjQPIcs9yqEYj17mXV8=
 github.com/openshift/api v0.0.0-20260825094607-13a84dedc5a3 h1:JRsHyxZTqcs5MK0LYTsyzs9VMdO02cSYMBvyize1fhI=
 github.com/openshift/api v0.0.0-20260825094607-13a84dedc5a3/go.mod h1:k6qH5QOVa5GDln2VVm8Jz4NV3Z7R2SATHFLwGS6Wh3M=
-github.com/openshift/assisted-image-service v0.0.0-20261023174245-ee8d45b337bd h1:84f3hxIOoj58KhqCuRKxcAmOzgQehlVqm3FAJyY04r0=
-github.com/openshift/assisted-image-service v0.0.0-20261023174245-ee8d45b337bd/go.mod h1:UISm+/gQYW3cQ0VOgsgFtvtcj1juqyC3cNWvJS1xRkQ=
+github.com/openshift/assisted-image-service v0.0.0-20261114040828-0ac60ebed27d h1:F0UnKLninfXd5fUdicdfWW6b85pshHf/DIXZM0rAwYI=
+github.com/openshift/assisted-image-service v0.0.0-20261114040828-0ac60ebed27d/go.mod h1:/SbZ4g1fuW4sUQWyNG7DgmSP0qWuG1eFQTvrcpFnZe4=
 github.com/openshift/assisted-service/api v0.0.0-20260722223301-f50c5b20c7e1 h1:CQULurVWElnk8kTQflgNZcu82xcw4DQzwvv2PPC33i4=
 github.com/openshift/assisted-service/api v0.0.0-20260722223301-f50c5b20c7e1/go.mod h1:0VuKr9kC3L0PYceqyPqXPwLtEUcjo4v6/tblX2tMwHM=
 github.com/openshift/assisted-service/models v0.0.0-20260722223301-f50c5b20c7e1 h1:2diIOvtkzsngOtY0I/jr0AKzEe+WodCIU+L6/+0ng9c=

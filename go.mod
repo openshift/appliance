@@ -10,7 +10,7 @@ require (
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coreos/ignition/v2 v2.25.0
 	github.com/coreos/stream-metadata-go v0.4.10
-	github.com/diskfs/go-diskfs v1.9.4
+	github.com/diskfs/go-diskfs v1.9.5-0.20261103130516-f6fbf0b9b4f2
 	github.com/distribution/distribution/v3 v3.0.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-openapi/swag/conv v0.29.2
@@ -23,7 +23,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/openshift/api v0.0.0-20260825094607-13a84dedc5a3
 	github.com/openshift/appliance/pkg/iso-builder/config v0.0.0-00010101000000-000000000000
-	github.com/openshift/assisted-image-service v0.0.0-20261023174245-ee8d45b337bd
+	github.com/openshift/assisted-image-service v0.0.0-20261114040828-0ac60ebed27d
 	github.com/openshift/assisted-service/api v0.0.0
 	github.com/openshift/hive/apis v0.0.0-20260415205034-aa1db747a6ba
 	github.com/openshift/installer v0.0.0-20260928153737-6d44cca7d82f
