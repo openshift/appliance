@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/diskfs/go-diskfs/backend"
+	"github.com/diskfs/go-diskfs/util/timestamp"
 	"github.com/diskfs/go-diskfs/version"
 	"github.com/djherbis/times"
 )
@@ -38,6 +39,10 @@ type FinalizeOptions struct {
 	VolumeIdentifier string
 	// PublisherIdentifier custom publisher identifier written to the PVD
 	PublisherIdentifier string
+	// Normalize writes owner 0:0 and modes as xorrisofs -r does: read for
+	// all, no write, execute for all if any execute bit is set, no setuid,
+	// setgid or sticky bit. Directories get nlink 2, files 1.
+	Normalize bool
 }
 
 // finalizeFileInfo is a file info useful for finalization
@@ -218,10 +223,9 @@ func (fi *finalizeFileInfo) toDirectoryEntry(fsm *FileSystem, isSelf, isParent b
 		// add appropriate PX, TF, SL, NM extensions
 		for _, e := range fsm.suspExtensions {
 			var (
-				ext []directoryEntrySystemUseExtension
 				err error
 			)
-			ext, err = e.GetFileExtensions(fi, isSelf, isParent)
+			ext, err := e.GetFileExtensions(fi, isSelf, isParent)
 			if err != nil {
 				return nil, fmt.Errorf("error getting extensions for %s at path %s: %v", e.ID(), fi.path, err)
 			}
@@ -578,6 +582,32 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 	if err != nil {
 		return fmt.Errorf("error walking tree: %v", err)
 	}
+	if os.Getenv("SOURCE_DATE_EPOCH") != "" {
+		t := timestamp.GetTime()
+		for _, e := range fileList {
+			e.modTime, e.accessTime, e.changeTime = t, t, t
+		}
+		for _, e := range dirList {
+			e.modTime, e.accessTime, e.changeTime = t, t, t
+		}
+	}
+	if options.Normalize {
+		all := append([]*finalizeFileInfo{}, fileList...)
+		for _, d := range dirList {
+			all = append(all, d)
+		}
+		for _, e := range all {
+			e.uid, e.gid, e.nlink = 0, 0, 1
+			if e.isDir {
+				e.nlink = 2
+			}
+			perm := os.FileMode(0o444)
+			if e.mode&0o111 != 0 {
+				perm |= 0o111
+			}
+			e.mode = e.mode&^(os.ModePerm|os.ModeSetuid|os.ModeSetgid|os.ModeSticky) | perm
+		}
+	}
 
 	// starting point
 	root := dirList["."]
@@ -654,7 +684,7 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 		shortname, extension := calculateShortnameExtension(path.Base(catname))
 		// break down the catalog basename from the parent dir
 		catSize := int64(len(bootcat))
-		now := time.Now()
+		now := timestamp.GetTime()
 		catEntry = &finalizeFileInfo{
 			content:    bootcat,
 			size:       catSize,
@@ -677,6 +707,9 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 			if err != nil {
 				return fmt.Errorf("error finding parent for boot catalog %s: %v", catname, err)
 			}
+			if parent == nil {
+				return fmt.Errorf("unable to find parent directory for boot catalog %s", catname)
+			}
 			parent.addChild(catEntry)
 		}
 		for _, e := range options.ElTorito.Entries {
@@ -684,6 +717,9 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 			parent, err = root.findEntry(path.Dir(e.BootFile))
 			if err != nil {
 				return fmt.Errorf("error finding parent for boot image file %s: %v", e.BootFile, err)
+			}
+			if parent == nil {
+				return fmt.Errorf("unable to find parent directory for boot image file %s", e.BootFile)
 			}
 			// did we ask to hide any image files?
 			if e.HideBootFile {
@@ -966,7 +1002,7 @@ func (fsm *FileSystem) Finalize(options FinalizeOptions) error {
 	totalSize := location
 	location = dataStartSector
 	// create and write the primary volume descriptor, supplementary and boot, and volume descriptor set terminator
-	now := time.Now()
+	now := timestamp.GetTime()
 	rootDE, err := root.toDirectoryEntry(fsm, true, false)
 	if err != nil {
 		return fmt.Errorf("could not convert root entry for primary volume descriptor to dirEntry: %v", err)
@@ -1123,7 +1159,7 @@ func createPathTable(fi []*finalizeFileInfo) *pathTable {
 	})
 	indexMap := make(map[*finalizeFileInfo]int)
 	// now that it is sorted, create the ordered path table entries
-	entries := make([]*pathTableEntry, 0)
+	entries := make([]*pathTableEntry, 0, len(fis))
 	for i, e := range fis {
 		name := e.Name()
 		nameSize := len(name)

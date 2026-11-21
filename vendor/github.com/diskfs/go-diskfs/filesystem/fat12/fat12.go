@@ -1,6 +1,7 @@
 package fat12
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -224,9 +225,6 @@ func Create(b backend.Storage, size, start, blocksize int64, volumeLabel string,
 	fatID := fatIDBase | uint32(mediaType)
 
 	tbl := newFat12Table(fatID, fatSize)
-	// Mark cluster 2 (root dir cluster in FAT — though FAT12/16 root is fixed,
-	// some tools still expect this cluster chain header to exist).
-	tbl.clusters[2] = tbl.eoc
 
 	fs := NewFileSystem(b, bpb, tbl,
 		dataStart, bytesPerCluster, size, start,
@@ -265,10 +263,46 @@ func Create(b backend.Storage, size, start, blocksize int64, volumeLabel string,
 
 // ── Read ──────────────────────────────────────────────────────────────────────
 
+// ReadOption changes how ReadWithOptions reads a FAT filesystem. Eager reads
+// compare the two FAT copies by default; lazy reads skip that comparison.
+type ReadOption func(*ReadOptions)
+
+// ReadOptions is what the ReadOption values passed to ReadWithOptions ask for.
+type ReadOptions struct {
+	// LazyFAT reads each FAT entry from the backend when it is needed.
+	LazyFAT bool
+}
+
+// WithLazyFAT reads each FAT entry from the backend when it is needed, instead
+// of loading the table into memory. Reading the filesystem then costs a few
+// small reads, and every cluster chain is followed through the FAT as it is on
+// the backend at that moment, so a file another writer added after the
+// filesystem was read is found.
+//
+// On a writable backend, each change to the table is written to both copies of
+// the FAT as it is made. Nothing coordinates two writers, so nothing else may
+// write the filesystem at the same time.
+func WithLazyFAT() ReadOption {
+	return func(o *ReadOptions) {
+		o.LazyFAT = true
+	}
+}
+
 // Read reads a FAT12 filesystem from the backend.
 // Returns an error if the image is not a valid FAT12 filesystem (e.g. it is FAT16/FAT32),
 // so that disk.GetFilesystem() can fall through to the next candidate.
 func Read(b backend.Storage, size, start, blocksize int64) (*FileSystem, error) {
+	return ReadWithOptions(b, size, start, blocksize)
+}
+
+// ReadWithOptions reads a FAT12 filesystem from the backend, with the given
+// options applied.
+func ReadWithOptions(b backend.Storage, size, start, blocksize int64, opts ...ReadOption) (*FileSystem, error) {
+	var o ReadOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	if blocksize != 0 && blocksize != int64(SectorSize512) {
 		return nil, fmt.Errorf("blocksize for FAT12 must be 0 or 512, not %d", blocksize)
 	}
@@ -318,17 +352,31 @@ func Read(b backend.Storage, size, start, blocksize int64) (*FileSystem, error) 
 	fatIDBase := uint32(0x0F00)
 	fatID := fatIDBase | uint32(dos20.MediaType)
 
-	tbl := newFat12Table(fatID, fatSize)
-	fatBytes := make([]byte, fatSize)
-	if _, err := b.ReadAt(fatBytes, int64(fatPrimaryStart)+start); err != nil {
-		return nil, fmt.Errorf("could not read FAT: %w", err)
+	var tbl FATTable
+	if o.LazyFAT {
+		if tbl, err = NewLazyTable(b, int64(fatPrimaryStart)+start, fatSize, format12); err != nil {
+			return nil, err
+		}
+	} else {
+		full := newFat12Table(fatID, fatSize)
+		fatBytes := make([]byte, fatSize)
+		if _, err := b.ReadAt(fatBytes, int64(fatPrimaryStart)+start); err != nil {
+			return nil, fmt.Errorf("could not read FAT: %w", err)
+		}
+		full.FromBytes(fatBytes)
+		tbl = full
 	}
-	tbl.FromBytes(fatBytes)
 
-	return NewFileSystem(b, bpb, tbl,
+	fs := NewFileSystem(b, bpb, tbl,
 		dataStart, bytesPerCluster, size, start,
 		int64(rootDirOff), int(rootDirEntries),
-		uint64(fatPrimaryStart), uint64(fatSecondaryStart)), nil
+		uint64(fatPrimaryStart), uint64(fatSecondaryStart))
+	if !o.LazyFAT {
+		if err := fs.CheckFAT(); err != nil {
+			return nil, err
+		}
+	}
+	return fs, nil
 }
 
 // ── internal write helpers ────────────────────────────────────────────────────
@@ -383,18 +431,72 @@ func (fs *FileSystem) WriteFat() error {
 }
 
 func (fs *FileSystem) defaultWriteFAT() error {
-	fatBytes := fs.table.Bytes()
 	writableFile, err := fs.backend.Writable()
 	if err != nil {
 		return err
 	}
-	if _, err := writableFile.WriteAt(fatBytes, int64(fs.fatPrimaryStart)+fs.start); err != nil {
-		return fmt.Errorf("unable to write primary FAT: %w", err)
+	runs, err := fs.fatRuns()
+	if err != nil {
+		return fmt.Errorf("unable to encode the FAT: %w", err)
 	}
-	if _, err := writableFile.WriteAt(fatBytes, int64(fs.fatSecondaryStart)+fs.start); err != nil {
-		return fmt.Errorf("unable to write secondary FAT: %w", err)
+	for _, run := range runs {
+		if _, err := writableFile.WriteAt(run.Bytes, int64(fs.fatPrimaryStart)+fs.start+run.Offset); err != nil {
+			return fmt.Errorf("unable to write primary FAT: %w", err)
+		}
+		if _, err := writableFile.WriteAt(run.Bytes, int64(fs.fatSecondaryStart)+fs.start+run.Offset); err != nil {
+			return fmt.Errorf("unable to write secondary FAT: %w", err)
+		}
+	}
+	if tracker, ok := fs.table.(ChangeTracker); ok {
+		tracker.ChangesWritten()
 	}
 	return nil
+}
+
+// fatRuns returns what WriteFat writes to each copy of the FAT: the entries set
+// since the table was last written, if it tracks them, otherwise all of it.
+func (fs *FileSystem) fatRuns() ([]FATRun, error) {
+	if tracker, ok := fs.table.(ChangeTracker); ok {
+		return tracker.Changes()
+	}
+	return []FATRun{{Bytes: fs.table.Bytes()}}, nil
+}
+
+// fatCheckChunk is how many bytes of each copy of the FAT CheckFAT compares at a time.
+const fatCheckChunk = 64 * 1024
+
+// CheckFAT compares the two copies of the FAT on the backend, a chunk at a
+// time, and returns an error naming the first byte at which they differ.
+func (fs *FileSystem) CheckFAT() error {
+	size := int64(fs.table.Size())
+	for at := int64(0); at < size; at += fatCheckChunk {
+		primary := make([]byte, min(fatCheckChunk, size-at))
+		secondary := make([]byte, len(primary))
+		if _, err := fs.backend.ReadAt(primary, int64(fs.fatPrimaryStart)+fs.start+at); err != nil {
+			return fmt.Errorf("unable to read primary FAT: %w", err)
+		}
+		if _, err := fs.backend.ReadAt(secondary, int64(fs.fatSecondaryStart)+fs.start+at); err != nil {
+			return fmt.Errorf("unable to read secondary FAT: %w", err)
+		}
+		if i := firstDifference(primary, secondary); i >= 0 {
+			return fmt.Errorf("the two copies of the FAT differ at byte %d", at+int64(i))
+		}
+	}
+	return nil
+}
+
+// firstDifference returns the index of the first byte at which a and b differ,
+// or -1 if they do not.
+func firstDifference(a, b []byte) int {
+	if bytes.Equal(a, b) {
+		return -1
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return i
+		}
+	}
+	return len(a)
 }
 
 // ── filesystem.FileSystem interface ──────────────────────────────────────────
@@ -420,6 +522,7 @@ func (fs *FileSystem) Chmod(_ string, _ os.FileMode) error { return filesystem.E
 func (fs *FileSystem) Chown(_ string, _, _ int) error      { return filesystem.ErrNotSupported }
 
 func (fs *FileSystem) Chtimes(p string, ctime, atime, mtime time.Time) error {
+	p = slashPath(p)
 	dir := path.Dir(p)
 	filename := path.Base(p)
 	if dir == filename {
@@ -447,6 +550,7 @@ func (fs *FileSystem) Chtimes(p string, ctime, atime, mtime time.Time) error {
 
 // GetArchiveBit returns the current state of the FAT archive attribute.
 func (fs *FileSystem) GetArchiveBit(p string) (bool, error) {
+	p = slashPath(p)
 	dir := path.Dir(p)
 	filename := path.Base(p)
 	if dir == filename {
@@ -467,6 +571,7 @@ func (fs *FileSystem) GetArchiveBit(p string) (bool, error) {
 
 // SetArchiveBit sets or clears the FAT archive attribute on the named file or directory.
 func (fs *FileSystem) SetArchiveBit(p string, set bool) error {
+	p = slashPath(p)
 	dir := path.Dir(p)
 	filename := path.Base(p)
 	if dir == filename {
@@ -491,6 +596,7 @@ func (fs *FileSystem) SetArchiveBit(p string, set bool) error {
 }
 
 func (fs *FileSystem) ReadDir(p string) ([]iofs.DirEntry, error) {
+	p = slashPath(p)
 	if err := validatePath(p); err != nil {
 		return nil, err
 	}
@@ -500,7 +606,12 @@ func (fs *FileSystem) ReadDir(p string) ([]iofs.DirEntry, error) {
 	}
 	ret := make([]iofs.DirEntry, 0, len(entries))
 	for _, e := range entries {
-		if e.isVolumeLabel || e.filenameShort == "" || e.filenameShort == ".." || e.filenameShort == "." {
+		// An entry with neither name is padding rather than a file. One that has
+		// only a long name is listed under it: earlier releases wrote a blank 8.3
+		// name for any file whose name began with a dot, and those filesystems
+		// still have to be readable.
+		if e.isVolumeLabel || (e.filenameShort == "" && e.filenameLong == "") ||
+			e.filenameShort == ".." || e.filenameShort == "." {
 			continue
 		}
 		ret = append(ret, e)
@@ -513,6 +624,7 @@ func (fs *FileSystem) Open(p string) (iofs.File, error) {
 }
 
 func (fs *FileSystem) OpenFile(p string, flag int) (filesystem.File, error) {
+	p = slashPath(p)
 	dir := path.Dir(p)
 	filename := path.Base(p)
 	parentDir, entries, err := fs.readDirWithMkdir(dir, false)
@@ -544,12 +656,13 @@ func (fs *FileSystem) OpenFile(p string, flag int) (filesystem.File, error) {
 	}
 	offset := int64(0)
 	if flag&os.O_TRUNC == os.O_TRUNC && targetEntry.fileSize != 0 {
+		if err := fs.freeClusterChain(targetEntry.clusterLocation); err != nil {
+			return nil, fmt.Errorf("unable to release clusters for %s: %w", p, err)
+		}
 		targetEntry.fileSize = 0
+		targetEntry.clusterLocation = 0
 		if err := fs.writeDirectoryEntries(parentDir); err != nil {
 			return nil, fmt.Errorf("error writing directory file %s to disk: %w", p, err)
-		}
-		if _, err := fs.allocateSpace(1, targetEntry.clusterLocation); err != nil {
-			return nil, fmt.Errorf("unable to resize cluster list: %w", err)
 		}
 	}
 	if flag&os.O_APPEND == os.O_APPEND {
@@ -575,6 +688,7 @@ func (fs *FileSystem) ReadFile(name string) ([]byte, error) {
 }
 
 func (fs *FileSystem) Remove(pathname string) error {
+	pathname = slashPath(pathname)
 	dir := path.Dir(pathname)
 	filename := path.Base(pathname)
 	if dir == filename {
@@ -590,7 +704,7 @@ func (fs *FileSystem) Remove(pathname string) error {
 			continue
 		}
 		if e.isSubdirectory {
-			content, err := fs.ReadDir(pathname)
+			content, err := fs.ReadDir(strings.TrimPrefix(path.Clean(pathname), "/"))
 			if err != nil {
 				return fmt.Errorf("error while checking if directory to delete is empty: %w", err)
 			}
@@ -609,10 +723,18 @@ func (fs *FileSystem) Remove(pathname string) error {
 	if _, err = fs.allocateSpace(uint64(parentDir.fileSize), parentDir.clusterLocation); err != nil {
 		return fmt.Errorf("failed to allocate clusters: %v", err)
 	}
-	return fs.writeDirectoryEntries(parentDir)
+	if err := fs.writeDirectoryEntries(parentDir); err != nil {
+		return err
+	}
+	// The clusters are freed only once no directory entry points at them.
+	if err := fs.freeClusterChain(targetEntry.clusterLocation); err != nil {
+		return fmt.Errorf("removed %s but could not free its clusters: %w", pathname, err)
+	}
+	return nil
 }
 
 func (fs *FileSystem) Rename(oldpath, newpath string) error {
+	oldpath, newpath = slashPath(oldpath), slashPath(newpath)
 	dir := path.Dir(oldpath)
 	filename := path.Base(oldpath)
 	newDir := path.Dir(newpath)
@@ -647,6 +769,7 @@ func (fs *FileSystem) Rename(oldpath, newpath string) error {
 }
 
 func (fs *FileSystem) Stat(name string) (iofs.FileInfo, error) {
+	name = slashPath(name)
 	dir := path.Dir(name)
 	basename := path.Base(name)
 	des, err := fs.ReadDir(dir)
@@ -727,6 +850,22 @@ func (fs *FileSystem) SetRootDirLabel(volumeLabel string) error {
 }
 
 // ── internal cluster / directory helpers ──────────────────────────────────────
+
+// freeClusterChain marks every cluster of the chain starting at firstCluster as
+// unused. A start below 2 refers to no clusters at all and is a no-op.
+func (fs *FileSystem) freeClusterChain(firstCluster uint32) error {
+	if firstCluster < 2 {
+		return nil
+	}
+	clusters, err := fs.getClusterList(firstCluster)
+	if err != nil {
+		return err
+	}
+	for _, cluster := range clusters {
+		fs.table.SetCluster(cluster, fs.table.UnusedMarker())
+	}
+	return fs.WriteFat()
+}
 
 func (fs *FileSystem) getClusterList(firstCluster uint32) ([]uint32, error) {
 	if firstCluster > fs.table.MaxCluster() || fs.table.ClusterValue(firstCluster) == 0 {
@@ -852,11 +991,10 @@ func (fs *FileSystem) mkSubdir(parent *Directory, name string) (*directoryEntry,
 }
 
 func (fs *FileSystem) mkFile(parent *Directory, name string) (*directoryEntry, error) {
-	clusters, err := fs.allocateSpace(1, 0)
-	if err != nil {
-		return nil, fmt.Errorf("could not allocate disk space for file %s: %w", name, err)
-	}
-	return parent.createEntry(name, clusters[0], false)
+	// A new file has no content, so it gets no cluster: Write allocates the chain
+	// on demand. Recording a cluster for an empty file is what fsck.vfat reports
+	// as "File size is 0 bytes, cluster chain length is > 0 bytes".
+	return parent.createEntry(name, 0, false)
 }
 
 func (fs *FileSystem) mkLabel(parent *Directory, name string) (*directoryEntry, error) {
@@ -910,7 +1048,12 @@ func (fs *FileSystem) readDirWithMkdir(p string, doMake bool) (*Directory, []*di
 						"/"+strings.Join(paths[0:i+1], "/"), err)
 				}
 				currentDir.modifyTime = subdirEntry.createTime
+				// ".." in a child of the root holds 0, whichever cluster the
+				// root directory starts at.
 				parentCluster := currentDir.clusterLocation
+				if parentCluster == rootCluster {
+					parentCluster = 0
+				}
 				dir := &Directory{
 					directoryEntry: directoryEntry{clusterLocation: subdirEntry.clusterLocation},
 					entries: []*directoryEntry{
@@ -967,10 +1110,10 @@ func (fs *FileSystem) allocateSpace(size uint64, previous uint32) ([]uint32, err
 
 	maxCluster := fs.table.MaxCluster()
 	if extraCount > 0 {
-		for i := uint32(2); i < maxCluster && len(allocated) < extraCount; i++ {
-			if fs.table.ClusterValue(i) == 0 {
-				allocated = append(allocated, i)
-			}
+		var err error
+		allocated, err = fs.freeClusters(extraCount)
+		if err != nil {
+			return nil, fmt.Errorf("unable to find free clusters: %w", err)
 		}
 		if len(allocated) < extraCount {
 			return nil, errors.New("no space left on device")
@@ -1006,6 +1149,20 @@ func (fs *FileSystem) allocateSpace(size uint64, previous uint32) ([]uint32, err
 		return nil, fmt.Errorf("failed to write FAT: %w", err)
 	}
 	return append(clusters, allocated...), nil
+}
+
+// freeClusters returns up to count free clusters, in ascending order from 2.
+func (fs *FileSystem) freeClusters(count int) ([]uint32, error) {
+	if finder, ok := fs.table.(FreeClusterFinder); ok {
+		return finder.FreeClusters(count)
+	}
+	free := make([]uint32, 0, count)
+	for i := uint32(2); i < fs.table.MaxCluster() && len(free) < count; i++ {
+		if fs.table.ClusterValue(i) == 0 {
+			free = append(free, i)
+		}
+	}
+	return free, nil
 }
 
 func validatePath(name string) error {

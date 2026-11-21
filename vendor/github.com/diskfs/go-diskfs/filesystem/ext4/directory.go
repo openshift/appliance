@@ -1,7 +1,6 @@
 package ext4
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 )
@@ -142,9 +141,10 @@ func parseDirectoryTreeRoot(b []byte, largeDir bool) (node *directoryHashRoot, e
 	if dotFileType != dirFileTypeDirectory {
 		return nil, fmt.Errorf("directory hash tree root dot file type is %d and not %v", dotFileType, dirFileTypeDirectory)
 	}
-	dotName := b[0x8:0xc]
-	if !bytes.Equal(dotName, []byte{'.', 0, 0, 0}) {
-		return nil, fmt.Errorf("directory hash tree root dot name is %s and not '.'", dotName)
+	// Only check the meaningful name bytes (name_len=1); padding bytes beyond
+	// that are not guaranteed to be zero by the ext4 spec.
+	if b[0x8] != '.' {
+		return nil, fmt.Errorf("directory hash tree root dot name is %q and not '.'", b[0x8:0x9])
 	}
 
 	// dotdot parameters
@@ -157,9 +157,9 @@ func parseDirectoryTreeRoot(b []byte, largeDir bool) (node *directoryHashRoot, e
 	if dotdotFileType != dirFileTypeDirectory {
 		return nil, fmt.Errorf("directory hash tree root dotdot file type is %d and not %v", dotdotFileType, dirFileTypeDirectory)
 	}
-	dotdotName := b[0x14:0x18]
-	if !bytes.Equal(dotdotName, []byte{'.', '.', 0, 0}) {
-		return nil, fmt.Errorf("directory hash tree root dotdot name is %s and not '..'", dotdotName)
+	// Same: only check name_len=2 bytes; padding is not guaranteed to be zero.
+	if b[0x14] != '.' || b[0x15] != '.' {
+		return nil, fmt.Errorf("directory hash tree root dotdot name is %q and not '..'", b[0x14:0x16])
 	}
 
 	treeInformation := b[0x1d]

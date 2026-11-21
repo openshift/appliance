@@ -402,8 +402,18 @@ func Create(b backend.Storage, size, start, sectorsize int64, p *Params) (*FileS
 
 	raw := (int64(inodeCount) + blockGroups - 1) / blockGroups // round UP
 
-	// ext requires multiple of 8
-	inodesPerGroup := (raw + 7) &^ 7
+	// mkfs.ext4 rounds inodes_per_group to a multiple of inodes_per_block
+	// (blocksize/inode_size) while keeping it a multiple of 8 for the inode
+	// bitmap. Linux 6.1 computes s_itb_per_group with floor division and
+	// ext4lazyinit's used-block count with ceil; when inodes_per_group is not
+	// divisible by inodes_per_block those differ and group-0 init fails.
+	inodeSize := DefaultInodeSize
+	inodesPerBlock := int64(blocksize) / inodeSize
+	align := inodesPerBlock
+	if align < 8 {
+		align = 8
+	}
+	inodesPerGroup := (raw + align - 1) / align * align
 
 	inodeCount = uint32(inodesPerGroup * blockGroups)
 
@@ -1436,7 +1446,10 @@ func (fs *FileSystem) Remove(p string) error {
 				blockBitmaps[bg] = dataBlockBitmap
 			}
 			// the extent lists the absolute block number, but the bitmap is relative to the block group
-			blockInBG := int(i) - int(fs.superblock.blocksPerGroup)*bg
+			// group bg's first block is firstDataBlock + bg*blocksPerGroup (firstDataBlock
+			// is 1 on 1 KiB-block images); ignoring firstDataBlock clears the wrong bit.
+			groupStart := uint64(fs.superblock.firstDataBlock) + uint64(bg)*uint64(fs.superblock.blocksPerGroup)
+			blockInBG := int(i - groupStart)
 			if err := dataBlockBitmap.Clear(blockInBG); err != nil {
 				return fmt.Errorf("could not clear block bitmap for block %d: %v", i, err)
 			}
@@ -1519,7 +1532,8 @@ func (fs *FileSystem) Remove(p string) error {
 
 	// remove the inode from the bitmap and write the inode bitmap back
 	// inode is absolute, but bitmap is relative to block group
-	inodeInBG := int(entry.inode) - int(fs.superblock.inodesPerGroup)*inodeBG
+	// bitmap start at 0, inode numbers start at 1, so need off-by-one
+	inodeInBG := int(entry.inode) - int(fs.superblock.inodesPerGroup)*inodeBG - 1
 	if err := inodeBitmap.Clear(inodeInBG); err != nil {
 		return fmt.Errorf("could not clear inode bitmap for inode %d: %v", entry.inode, err)
 	}
@@ -1528,13 +1542,30 @@ func (fs *FileSystem) Remove(p string) error {
 		return fmt.Errorf("could not write inode bitmap back to disk: %v", err)
 	}
 
+	// wipe the now-free inode table entry so it cannot be mistaken for a live
+	// inode after the bitmap is reused. writeInode recomputes the checksum.
+	removedInode.hardLinks = 0
+	removedInode.deletionTime = uint32(time.Now().Unix())
+	removedInode.size = 0
+	removedInode.blocks = 0
+	if err := fs.writeInode(removedInode); err != nil {
+		return fmt.Errorf("could not mark removed inode %d as deleted: %v", entry.inode, err)
+	}
+
 	// Update the group descriptor: free inode count, free block count, used directory count; and write GD
 	gd := &fs.groupDescriptors.descriptors[inodeBG]
 
 	// update the group descriptor inodes and blocks
 	gd.freeInodes++
-	gd.freeBlocks += uint32(removedInode.blocks)
 	if entry.fileType == dirFileTypeDirectory {
+		// a subdirectory's ".." entry counts as a link to its parent, so removing
+		// an empty directory must decrement the parent's link count.
+		if parentInode.hardLinks > 0 {
+			parentInode.hardLinks--
+			if err := fs.writeInode(parentInode); err != nil {
+				return fmt.Errorf("could not update parent inode %d link count: %v", parentInode.number, err)
+			}
+		}
 		gd.usedDirectories--
 	}
 
@@ -1547,7 +1578,9 @@ func (fs *FileSystem) Remove(p string) error {
 	// but we do not need to do so. Since we are not reusing the inode, we can just leave it there,
 	// the bitmap always is checked before reusing an inode location.
 	fs.superblock.freeInodes++
-	fs.superblock.freeBlocks += removedInode.blocks
+	// totalFreed = actual filesystem blocks freed from extents above,
+	// not removedInode.blocks (which is in 512-byte sectors and may span groups)
+	fs.superblock.freeBlocks += totalFreed
 	return fs.writeSuperblock()
 }
 
@@ -1807,7 +1840,7 @@ func (fs *FileSystem) readDirWithMkdir(p string, doMake bool) (*Directory, error
 	}
 	entries, err := fs.readDirectory(rootInode)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read directory %s: %v", "/", err)
+		return nil, fmt.Errorf("failed to read directory %s: %w", "/", err)
 	}
 	currentDir.entries = entries
 	for i, subp := range paths {
@@ -1835,7 +1868,7 @@ func (fs *FileSystem) readDirWithMkdir(p string, doMake bool) (*Directory, error
 				var subdirEntry *directoryEntry
 				subdirEntry, err = fs.mkSubdir(currentDir, subp)
 				if err != nil {
-					return nil, fmt.Errorf("failed to create subdirectory %s", "/"+strings.Join(paths[0:i+1], "/"))
+					return nil, fmt.Errorf("failed to create subdirectory %s: %w", "/"+strings.Join(paths[0:i+1], "/"), err)
 				}
 				// save where we are to search next
 				currentDir = &Directory{
@@ -1848,7 +1881,7 @@ func (fs *FileSystem) readDirWithMkdir(p string, doMake bool) (*Directory, error
 		// get all of the entries in this directory
 		entries, err = fs.readDirectory(currentDir.inode)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read directory %s", "/"+strings.Join(paths[0:i+1], "/"))
+			return nil, fmt.Errorf("failed to read directory %s: %w", "/"+strings.Join(paths[0:i+1], "/"), err)
 		}
 		currentDir.entries = entries
 	}
@@ -3053,6 +3086,9 @@ func (fs *FileSystem) initGroupDescriptorTables() error {
 		if count != inodeTableSize {
 			return fmt.Errorf("wrote %d bytes of inode table for group %d instead of expected %d", count, i, inodeTableSize)
 		}
+
+		// Tables are fully zeroed above; tell the kernel lazyinit can skip them.
+		gd.flags.inodeTableZeroed = true
 	}
 	return nil
 }
