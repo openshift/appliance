@@ -39,6 +39,13 @@ type OSImage struct {
 	// The CPU architecture of the image (x86_64/arm64/etc).
 	// +optional
 	CPUArchitecture string `json:"cpuArchitecture"`
+	// OSStream is the OS stream of this image (e.g. rhel-9, rhel-10).
+	// +optional
+	OSStream string `json:"osStream,omitempty"`
+	// DefaultOSStream indicates whether this OS image is the default stream
+	// for its OpenShift version and CPU architecture.
+	// +optional
+	DefaultOSStream *bool `json:"defaultOsStream,omitempty"`
 }
 
 type MustGatherImage struct {
@@ -255,6 +262,8 @@ const (
 	ReasonOSImageAdditionalParamsRefFailure string = "ReasonOSImageAdditionalParamsRefFailure"
 	// ReasonImmutableAnnotationFailure when there has been a failure validating immutable annotations.
 	ReasonImmutableAnnotationFailure string = "ImmutableAnnotationFailure"
+	// ReasonNetworkPolicyFailure when there was a failure configuring/deploying a network policy.
+	ReasonNetworkPolicyFailure string = "NetworkPolicyFailure"
 )
 
 // AgentServiceConfigStatus defines the observed state of AgentServiceConfig
