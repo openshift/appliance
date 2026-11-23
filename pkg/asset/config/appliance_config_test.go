@@ -35,3 +35,25 @@ var _ = Describe("appendDigest", func() {
 			To(Equal("registry.example.com:5000/img@sha256:abc123"))
 	})
 })
+
+var _ = Describe("SanitizeOutput", func() {
+	const image = "registry.example.com/img@sha256:abc123"
+	const warning = "warning: multiple versions reported for the kubectl: 1.36.2 (must-gather), 1.35.2 (network-tools), 1.36.5 (deployer, tools, cli, cli-artifacts)"
+
+	It("returns output unchanged when there are no warnings", func() {
+		Expect(SanitizeOutput(image)).To(Equal(image))
+	})
+
+	It("trims surrounding whitespace", func() {
+		Expect(SanitizeOutput(image + "\n")).To(Equal(image))
+	})
+
+	It("removes a warning following the value", func() {
+		Expect(SanitizeOutput(image + "\n" + warning)).To(Equal(image))
+	})
+
+	It("removes multiple warnings", func() {
+		Expect(SanitizeOutput(warning + "\n" + warning + "\n" + image)).
+			To(Equal(image))
+	})
+})
