@@ -1654,6 +1654,14 @@ github.com/pierrec/lz4/v4/internal/xxh32
 # github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 ## explicit; go 1.14
 github.com/pkg/browser
+# github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e
+## explicit; go 1.15
+github.com/pkg/diff
+github.com/pkg/diff/ctxt
+github.com/pkg/diff/edit
+github.com/pkg/diff/intern
+github.com/pkg/diff/myers
+github.com/pkg/diff/write
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
