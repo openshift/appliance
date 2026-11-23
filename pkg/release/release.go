@@ -213,7 +213,7 @@ func (r *release) ExtractCommand(command string, dest string) (string, error) {
 func (r *release) execute(command string) (string, error) {
 	stdout, err := r.Executer.Execute(command)
 	if err == nil {
-		return strings.TrimSpace(stdout), nil
+		return config.SanitizeOutput(stdout), nil
 	}
 	return "", err
 }
