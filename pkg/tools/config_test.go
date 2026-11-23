@@ -7,62 +7,90 @@ import (
 	"testing"
 )
 
-
-
 func TestGetDownloadURL(t *testing.T) {
+	const ocMirrorURL = "https://mirror.openshift.com/pub/cgw/oc-mirror/latest/oc-mirror-rhel9-linux-amd64.tar.gz"
+
 	cases := []struct {
 		name           string
 		toolName       string
 		releaseVersion string
-		supportedArch  string
-		wantErr        bool
+		platform       string
+		wantErr        string
 		checkContains  []string
 	}{
 		{
 			name:           "oc stable release",
 			toolName:       "oc",
 			releaseVersion: "4.22.3",
-			supportedArch:  "x86_64",
+			platform:       platformLinuxAmd64,
 			checkContains:  []string{"mirror.openshift.com", "4.22.3", "ocp", "openshift-client"},
 		},
 		{
 			name:           "oc dev preview",
 			toolName:       "oc",
 			releaseVersion: "4.22.0-ec.5",
-			supportedArch:  "x86_64",
+			platform:       platformLinuxAmd64,
 			checkContains:  []string{"ocp-dev-preview", "4.22.0-ec.5"},
 		},
 		{
-			name:           "oc-mirror stable",
+			name:           "oc-mirror OpenShift 4",
 			toolName:       "oc-mirror",
 			releaseVersion: "4.22.3",
-			supportedArch:  "x86_64",
-			checkContains:  []string{"oc-mirror", "4.22.3"},
+			platform:       platformLinuxAmd64,
+			checkContains:  []string{ocMirrorURL},
 		},
 		{
-			name:          "unknown tool",
-			toolName:      "unknown",
+			name:           "oc OpenShift 5",
+			toolName:       "oc",
+			releaseVersion: "5.1.0",
+			platform:       platformLinuxAmd64,
+			checkContains:  []string{"pub/openshift-v5/x86_64/clients/ocp/5.1.0/openshift-client-linux.tar.gz"},
+		},
+		{
+			name:           "oc-mirror OpenShift 5",
+			toolName:       "oc-mirror",
+			releaseVersion: "5.0.0",
+			platform:       platformLinuxAmd64,
+			checkContains:  []string{ocMirrorURL},
+		},
+		{
+			name:           "oc OpenShift 5 on mac",
+			toolName:       "oc",
+			releaseVersion: "5.0.0",
+			platform:       platformDarwinArm64,
+			checkContains:  []string{"pub/openshift-v5/x86_64/clients/ocp/5.0.0/openshift-client-mac-arm64.tar.gz"},
+		},
+		{
+			name:           "oc-mirror on mac",
+			toolName:       "oc-mirror",
 			releaseVersion: "4.22.3",
-			supportedArch:  "x86_64",
-			wantErr:       true,
+			platform:       platformDarwinArm64,
+			wantErr:        "oc-mirror is not published for darwin-arm64, provide it on PATH",
+		},
+		{
+			name:           "oc on unsupported platform",
+			toolName:       "oc",
+			releaseVersion: "4.22.3",
+			platform:       "linux-s390x",
+			wantErr:        "unsupported platform: linux-s390x",
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := GetDownloadURL(tc.toolName, tc.releaseVersion, tc.supportedArch)
-			if tc.wantErr {
-				if err == nil {
-					t.Error("expected error, got nil")
+			result, err := getDownloadURL(tc.toolName, tc.releaseVersion, "x86_64", tc.platform)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				for _, substr := range tc.checkContains {
-					if !strings.Contains(result, substr) {
-						t.Errorf("expected URL to contain %q, got %s", substr, result)
-					}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			for _, substr := range tc.checkContains {
+				if !strings.Contains(result, substr) {
+					t.Errorf("expected URL to contain %q, got %s", substr, result)
 				}
 			}
 		})
