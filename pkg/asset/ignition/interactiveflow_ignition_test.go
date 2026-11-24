@@ -40,7 +40,7 @@ var _ = Describe("Test InteractiveFlow Ignition", func() {
 		for _, f := range []string{
 			"/etc/assisted/interactive-ui",
 			"/etc/assisted/no-config-image",
-			"/etc/assisted/extra-manifests/internalreleaseimage.yaml",
+			"/etc/assisted/system-manifests/internalreleaseimage.yaml",
 		} {
 			data, err := ignitionGetFileData(ign, f)
 			Expect(err).NotTo(HaveOccurred())
@@ -53,7 +53,7 @@ var _ = Describe("Test InteractiveFlow Ignition", func() {
 			i := *NewInteractiveFlowIgnition(bundleVersion)
 			i.AppendToIgnition(ign)
 
-			data, err := ignitionGetFileData(ign, "/etc/assisted/extra-manifests/internalreleaseimage.yaml")
+			data, err := ignitionGetFileData(ign, "/etc/assisted/system-manifests/internalreleaseimage.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data).NotTo(BeNil())
 
@@ -89,7 +89,7 @@ var _ = Describe("RecoveryIgnition interactive flow placement", func() {
 	interactiveFlowPaths := []string{
 		"/etc/assisted/interactive-ui",
 		"/etc/assisted/no-config-image",
-		"/etc/assisted/extra-manifests/internalreleaseimage.yaml",
+		"/etc/assisted/system-manifests/internalreleaseimage.yaml",
 	}
 
 	It("places interactive flow files in Bootstrap and Merged, not in Unconfigured", func() {

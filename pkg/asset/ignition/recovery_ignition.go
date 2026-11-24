@@ -96,6 +96,10 @@ func (i *RecoveryIgnition) Generate(_ context.Context, dependencies asset.Parent
 
 		ifi := NewInteractiveFlowIgnition(bundleVersion)
 		ifi.AppendToIgnition(&bootstrapIgnition.Config)
+
+		if err := validateSystemManifests(&bootstrapIgnition.Config, systemManifestsPath); err != nil {
+			return err
+		}
 	}
 
 	// Remove registries.conf file from unconfiguredIgnition (already added in bootstrapIgnition)

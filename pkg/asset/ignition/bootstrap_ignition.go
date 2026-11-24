@@ -40,6 +40,8 @@ const (
 	registriesConfFilename   = "registries.conf"
 	corePassOverrideFilePath = "/etc/assisted/appliance-override-password-set" // #nosec G101
 	extraManifestsPath       = "/etc/assisted/extra-manifests"
+	// systemManifestsPath is loaded by assisted-service as system manifests (SYSTEM_MANIFESTS_DIR)
+	systemManifestsPath = "/etc/assisted/system-manifests"
 )
 
 type CatalogSource struct {
@@ -82,6 +84,19 @@ var (
 // BootstrapIgnition generates the bootstrap ignition file for the recovery ISO
 type BootstrapIgnition struct {
 	Config igntypes.Config
+
+	// manifestsPath is where the cluster manifests are written
+	manifestsPath string
+}
+
+// manifestsPathFor returns the directory for the cluster manifests: system-manifests
+// in the interactive flow, so assisted-service loads them as system manifests, and
+// extra-manifests otherwise.
+func manifestsPathFor(enableInteractiveFlow *bool) string {
+	if conv.Value(enableInteractiveFlow) {
+		return systemManifestsPath
+	}
+	return extraManifestsPath
 }
 
 var _ asset.Asset = (*BootstrapIgnition)(nil)
@@ -112,6 +127,7 @@ func (i *BootstrapIgnition) Generate(ctx context.Context, dependencies asset.Par
 	registriesConf := &registry.RegistriesConf{}
 	installIgnition := &InstallIgnition{}
 	dependencies.Get(envConfig, applianceConfig, extraManifests, registriesConf, installIgnition)
+	i.manifestsPath = manifestsPathFor(applianceConfig.Config.EnableInteractiveFlow)
 
 	// Determine if we're using the OCP registry (for the podman run command)
 	useOcpRegistry := reg.ShouldUseOcpRegistry(envConfig, applianceConfig)
@@ -249,7 +265,7 @@ func (i *BootstrapIgnition) Generate(ctx context.Context, dependencies asset.Par
 	if err = addExtraManifests(
 		&i.Config,
 		fileList,
-		extraManifestsPath,
+		i.manifestsPath,
 		applianceConfig.Config.UseDefaultSourceNames); err != nil {
 		return err
 	}
@@ -376,7 +392,7 @@ func (i *BootstrapIgnition) disableDefaultCatalogSources() error {
 	if err != nil {
 		return err
 	}
-	manifestPath := fmt.Sprintf("%s/operatorhub-%s.yaml", extraManifestsPath, operatorHub.Name)
+	manifestPath := fmt.Sprintf("%s/operatorhub-%s.yaml", i.manifestsPath, operatorHub.Name)
 	manifestFile := ignasset.FileFromBytes(manifestPath, "root", 0644, manifestBytes)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, manifestFile)
 
@@ -417,12 +433,12 @@ func (i *BootstrapIgnition) setCoreUserPass(role, pwdHash string) error {
 		},
 	}
 
-	// Add the MachineConfig manifest to extra-manifests dir
+	// Add the MachineConfig manifest to the manifests dir
 	manifestBytes, err := yaml.Marshal(machineConfig)
 	if err != nil {
 		return err
 	}
-	manifestPath := fmt.Sprintf("%s/%s.yaml", extraManifestsPath, machineConfig.Name)
+	manifestPath := fmt.Sprintf("%s/%s.yaml", i.manifestsPath, machineConfig.Name)
 	manifestFile := ignasset.FileFromBytes(manifestPath, "root", 0644, manifestBytes)
 	i.Config.Storage.Files = append(i.Config.Storage.Files, manifestFile)
 
@@ -465,7 +481,7 @@ func (i *BootstrapIgnition) addPinnedImageSetConfigFiles(envConfig *config.EnvCo
 			return err
 		}
 
-		manifestPath := fmt.Sprintf("%s/%s.yaml", extraManifestsPath, fmt.Sprintf(consts.PinnedImageSetPattern, role))
+		manifestPath := fmt.Sprintf("%s/%s.yaml", i.manifestsPath, fmt.Sprintf(consts.PinnedImageSetPattern, role))
 		fileIgnitionConfig := ignasset.FileFromBytes(manifestPath, "root", 0644, fileBytes)
 		i.Config.Storage.Files = append(i.Config.Storage.Files, fileIgnitionConfig)
 	}
