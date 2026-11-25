@@ -381,7 +381,7 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 			logrus.Debugf("Error executing command: %s, error: %v", cmd, err)
 			return "", "", nil
 		}
-		releaseVersion = strings.Trim(releaseVersion, "'")
+		releaseVersion = strings.Trim(SanitizeOutput(releaseVersion), "'")
 		logrus.Debugf("Release version: %s", releaseVersion)
 
 		// Get image
@@ -392,7 +392,7 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 			if err != nil {
 				return "", "", nil
 			}
-			releaseDigest = strings.Trim(releaseDigest, "'")
+			releaseDigest = strings.Trim(SanitizeOutput(releaseDigest), "'")
 			releaseImage = appendDigest(releaseImage, releaseDigest)
 		}
 		logrus.Debugf("Release image: %s", releaseImage)
@@ -403,6 +403,18 @@ func (a *ApplianceConfig) GetRelease() (string, string, error) {
 	}
 
 	return releaseImage, releaseVersion, nil
+}
+
+// SanitizeOutput drops "warning:" lines that oc prints on stderr, which is
+// merged into the command output, and trims surrounding whitespace.
+func SanitizeOutput(output string) string {
+	var res []string
+	for _, line := range strings.Split(output, "\n") {
+		if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "warning:") {
+			res = append(res, line)
+		}
+	}
+	return strings.TrimSpace(strings.Join(res, "\n"))
 }
 
 // appendDigest appends a digest to an image reference, stripping any existing
