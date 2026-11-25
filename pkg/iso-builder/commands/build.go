@@ -78,7 +78,9 @@ func (b *Builder) Build(ctx context.Context) error {
 		return err
 	}
 
-	logrus.Infof("ISO created: %s", filepath.Join(b.workingDir, outputISO))
+	outputPath := filepath.Join(b.workingDir, outputISO)
+	logrus.Infof("ISO created: %s", outputPath)
+	logrus.Infof("The ISO is El Torito bootable. If USB booting is required, run 'isohybrid -u %s' before writing to a USB disk.", outputPath)
 	return nil
 }
 
@@ -263,8 +265,9 @@ func (b *Builder) applyLiveISOBuilderAsset(ctx context.Context, isoBuilderConfig
 			ToolsPath: toolsPath,
 		},
 		&config.EnvConfig{
-			AssetsDir: b.workingDir,
-			IsLiveISO: true,
+			AssetsDir:     b.workingDir,
+			IsLiveISO:     true,
+			SkipIsohybrid: true,
 			ToolsPath: toolsPath,
 		},
 		&appliance.ApplianceLiveISO{},
