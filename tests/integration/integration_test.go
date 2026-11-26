@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	appliancedata "github.com/openshift/appliance/data"
+	"github.com/openshift/appliance/internal/tshelpers"
 	isobuilder "github.com/openshift/appliance/pkg/iso-builder"
 	isoconfigembedder "github.com/openshift/appliance/pkg/iso-config-embedder"
 	installerdata "github.com/openshift/installer/data"
@@ -69,6 +70,12 @@ func TestBuild(t *testing.T) {
 	testscript.Run(t, testscript.Params{
 		Dir:   "testdata/build",
 		Setup: setupISOBuilder,
+		Cmds: map[string]func(*testscript.TestScript, bool, []string){
+			"isocmp":          tshelpers.IsoCmp,
+			"isocmpregex":     tshelpers.IsoCmpRegEx,
+			"setreleaseimage": tshelpers.SetReleaseImage,
+			"isoFileCmpRegEx": tshelpers.IsoFileCmpRegEx,
+		},
 	})
 }
 

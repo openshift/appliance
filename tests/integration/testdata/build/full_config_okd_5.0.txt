@@ -1,0 +1,146 @@
+[short] skip 'Verify a full configuration for the OKD 5.0 payload'
+
+# Embed a config with all the fields (except olmOperators, which requires the
+# authenticated redhat-operator-index catalog) and build the ISO from an OKD payload.
+exec iso-config-embedder embed -c config.yaml -o $WORK/openshift-iso-builder-patched $ISO_BUILDER_BIN_RAW
+stderr 'Configuration embedded into'
+
+exec $WORK/openshift-iso-builder-patched build --log-level=debug
+stderr 'Configuration loaded: version=5.0.0 arch=x86_64'
+exists agent.x86_64.iso
+
+exists auth/pull-secret.json
+grep '^\{"auths":\{"":\{"auth":"dXNlcjpwYXNz"\}\}\}$' auth/pull-secret.json
+
+exists tools/oc
+exists tools/oc-mirror
+
+# The manifests in the ISO reference the release image by digest, while the config only has
+# a tag. Resolve the digest now, so that the expected files do not hardcode it.
+setreleaseimage RELEASE_IMAGE quay.io/okd/scos-release:5.0.0-okd-scos.8
+
+isocmp agent.x86_64.iso /etc/assisted/manifests/infraenv.yaml expected/infraenv.yaml
+isocmp agent.x86_64.iso /etc/assisted/manifests/cluster-image-set.yaml expected/cluster-image-set.yaml
+isocmp agent.x86_64.iso /etc/assisted/manifests/pull-secret.yaml expected/pull-secret.yaml
+isocmp agent.x86_64.iso /etc/assisted/manifests/nmstateconfig.yaml expected/nmstateconfig.yaml
+
+isocmpregex agent.x86_64.iso /etc/assisted/rendezvous-host.env expected/rendezvous-host.env
+
+isoFileCmpRegEx agent.x86_64.iso /EFI/centos/grub.cfg expected/grub.cfg
+
+-- config.yaml --
+openshiftVersion: 5.0.0
+releaseImageURL: quay.io/okd/scos-release:5.0.0-okd-scos.8
+pullSecret: '{"auths":{"":{"auth":"dXNlcjpwYXNz"}}}'
+architecture: x86_64
+sshKey:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDK6UTEydcEKzuNdPaofn8Z2DwgHqdcionLZBiPf/zIRNco++etLsat7Avv7yt04DINQd5zjxIFgG8jblaUB5E5C9ClUcMwb52GO0ay2Y9v1uBv1a4WhI3peKktAzYNk0EBMQlJtXPjRMrC9ylBPh+DsBHMu+KmDnfk7PIwyN4efC8k5kSRuPWoNdme1rz2+umU8FSmaWTHIajrbspf4GQbsntA5kuKEtDbfoNCU97o2KrRnUbeg3a8hwSjfh3u6MhlnGcg5K2Ij+zivEsWGCLKYUtE1ErqwfIzwWmJ6jnV66XCQGHf4Q1iIxqF7s2a1q24cgG2Z/iDXfqXrCIfy4P7b/Ztak3bdT9jfAdVZtdO5/r7I+O5hYhF86ayFlDWzZWP/ByiSb+q4CQbfVgK3BMmiAv2MqLHdhesmD/SmIcoOWUF6rFmRKZVFFpKpt5ATNTgUJ3JRowoXrrDruVXClUGRiCS6Zabd1rZ3VmTchaPJwtzQMdfIWISXj+Ig+C4UK0=
+fips: true
+rendezvousIP: 192.168.122.80
+additionalTrustBundle: |
+  -----BEGIN CERTIFICATE-----
+  MIIDExample
+  -----END CERTIFICATE-----
+additionalNTPServers:
+  - ntp1.example.com
+  - ntp2.example.com
+additionalImages:
+  - quay.io/libpod/alpine:latest
+networkConfig:
+  - interfaces:
+      - name: eth0
+        macAddress: "52:54:00:aa:bb:01"
+    config:
+      interfaces:
+        - name: eth0
+          type: ethernet
+          state: up
+          mac-address: "52:54:00:aa:bb:01"
+          ipv4:
+            enabled: true
+            address:
+              - ip: 192.168.122.80
+                prefix-length: 24
+            dhcp: false
+
+-- expected/infraenv.yaml --
+apiVersion: agent-install.openshift.io/v1beta1
+kind: InfraEnv
+metadata:
+  name: appliance
+spec:
+  additionalNTPSources:
+  - ntp1.example.com
+  - ntp2.example.com
+  additionalTrustBundle: |
+    -----BEGIN CERTIFICATE-----
+    MIIDExample
+    -----END CERTIFICATE-----
+  cpuArchitecture: x86_64
+  ipxeScriptType: ""
+  nmStateConfigLabelSelector:
+    matchLabels:
+      infraenvs.agent-install.openshift.io: appliance
+  pullSecretRef:
+    name: appliance-pull-secret
+  sshAuthorizedKey: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDK6UTEydcEKzuNdPaofn8Z2DwgHqdcionLZBiPf/zIRNco++etLsat7Avv7yt04DINQd5zjxIFgG8jblaUB5E5C9ClUcMwb52GO0ay2Y9v1uBv1a4WhI3peKktAzYNk0EBMQlJtXPjRMrC9ylBPh+DsBHMu+KmDnfk7PIwyN4efC8k5kSRuPWoNdme1rz2+umU8FSmaWTHIajrbspf4GQbsntA5kuKEtDbfoNCU97o2KrRnUbeg3a8hwSjfh3u6MhlnGcg5K2Ij+zivEsWGCLKYUtE1ErqwfIzwWmJ6jnV66XCQGHf4Q1iIxqF7s2a1q24cgG2Z/iDXfqXrCIfy4P7b/Ztak3bdT9jfAdVZtdO5/r7I+O5hYhF86ayFlDWzZWP/ByiSb+q4CQbfVgK3BMmiAv2MqLHdhesmD/SmIcoOWUF6rFmRKZVFFpKpt5ATNTgUJ3JRowoXrrDruVXClUGRiCS6Zabd1rZ3VmTchaPJwtzQMdfIWISXj+Ig+C4UK0=
+status:
+  agentLabelSelector: {}
+  bootArtifacts:
+    discoveryIgnitionURL: ""
+    initrd: ""
+    ipxeScript: ""
+    kernel: ""
+    rootfs: ""
+  debugInfo:
+    eventsURL: ""
+-- expected/cluster-image-set.yaml --
+apiVersion: hive.openshift.io/v1
+kind: ClusterImageSet
+metadata:
+  name: openshift-5.0.0-okd-scos.8
+spec:
+  releaseImage: $RELEASE_IMAGE
+status: {}
+-- expected/pull-secret.yaml --
+apiVersion: v1
+kind: Secret
+metadata:
+  name: appliance-pull-secret
+stringData:
+  .dockerconfigjson: |-
+    {
+      "auths": {
+        "": {
+          "auth": "dXNlcjpwYXNz"
+        }
+      }
+    }
+-- expected/nmstateconfig.yaml --
+apiVersion: agent-install.openshift.io/v1beta1
+kind: NMStateConfig
+metadata:
+  labels:
+    infraenvs.agent-install.openshift.io: appliance
+  name: nmstate-0
+spec:
+  config:
+    interfaces:
+    - ipv4:
+        address:
+        - ip: 192.168.122.80
+          prefix-length: 24
+        dhcp: false
+        enabled: true
+      mac-address: 52:54:00:aa:bb:01
+      name: eth0
+      state: up
+      type: ethernet
+  interfaces:
+  - macAddress: 52:54:00:aa:bb:01
+    name: eth0
+---
+-- expected/rendezvous-host.env --
+(?m)^NODE_ZERO_IP=192\.168\.122\.80$
+-- expected/grub.cfg --
+.*fips=1.*
