@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types/versions"
+	"github.com/moby/moby/client/pkg/versions"
 	"github.com/opencontainers/go-digest"
 	"go.podman.io/image/v5/docker/reference"
 	"go.podman.io/image/v5/internal/manifest"
@@ -49,7 +49,7 @@ type Schema1V1Compatibility struct {
 	Parent          string                                `json:"parent,omitempty"`
 	Comment         string                                `json:"comment,omitempty"`
 	Created         time.Time                             `json:"created"`
-	ContainerConfig schema1V1CompatibilityContainerConfig `json:"container_config,omitempty"`
+	ContainerConfig schema1V1CompatibilityContainerConfig `json:"container_config"`
 	Author          string                                `json:"author,omitempty"`
 	ThrowAway       bool                                  `json:"throwaway,omitempty"`
 }
@@ -58,6 +58,14 @@ type Schema1V1Compatibility struct {
 // (NOTE: The instance is not necessary a literal representation of the original blob,
 // layers with duplicate IDs are eliminated.)
 func Schema1FromManifest(manifestBlob []byte) (*Schema1, error) {
+	// Keep this condition in sync with the condition in manifest.DigestWithAlgorithm.
+	if manifest.GuessMIMEType(manifestBlob) == DockerV2Schema1SignedMediaType {
+		payload, err := manifest.Schema1SignedManifestPayload(manifestBlob)
+		if err != nil {
+			return nil, err
+		}
+		manifestBlob = payload
+	}
 	s1 := Schema1{}
 	if err := json.Unmarshal(manifestBlob, &s1); err != nil {
 		return nil, err
