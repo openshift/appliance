@@ -39,7 +39,7 @@ require (
 	go.podman.io/image/v5 v5.39.3
 	go.podman.io/storage v1.63.0
 	golang.org/x/crypto v0.57.0
-	golang.org/x/term v0.46.0
+	golang.org/x/term v0.48.0
 	k8s.io/api v0.36.2
 	k8s.io/apimachinery v0.36.2
 	sigs.k8s.io/yaml v1.6.0
@@ -345,7 +345,7 @@ require (
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.50.0 // indirect
