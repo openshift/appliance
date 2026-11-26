@@ -140,6 +140,11 @@ type AgentClusterInstallSpec struct {
 	// +optional
 	SSHPublicKey string `json:"sshPublicKey,omitempty"`
 
+	// NTPSources is a list of NTP sources (hostname or IP) to be used as the exclusive NTP
+	// configuration for the cluster hosts. Mutually exclusive with the InfraEnv's AdditionalNTPSources.
+	// +optional
+	NTPSources []string `json:"ntpSources,omitempty"`
+
 	// ProvisionRequirements defines configuration for when the installation is ready to be launched automatically.
 	ProvisionRequirements ProvisionRequirements `json:"provisionRequirements"`
 
@@ -231,6 +236,11 @@ type AgentClusterInstallSpec struct {
 	// LoadBalancer defines the load balancer used by the cluster for ingress traffic.
 	// +optional
 	LoadBalancer *LoadBalancer `json:"loadBalancer,omitempty"`
+
+	// OSStream is the OS stream to use for this cluster (e.g. rhel-9, rhel-10).
+	// If unset, the default OS stream for the OpenShift version is used.
+	// +optional
+	OSStream string `json:"osStream,omitempty"`
 }
 
 // IgnitionEndpoint stores the data to of the custom ignition endpoint.
@@ -364,6 +374,7 @@ type Networking struct {
 // MachineNetworkEntry is a single IP address block for node IP blocks.
 type MachineNetworkEntry struct {
 	// CIDR is the IP block address pool for machines within the cluster.
+	// +kubebuilder:validation:MaxLength=43
 	CIDR string `json:"cidr"`
 }
 
