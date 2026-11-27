@@ -26,7 +26,6 @@ import (
 type baseDomain struct {
 	BaseDomain string
 	Publish    types.PublishingStrategy
-	PowerVSVPC string
 }
 
 var _ asset.Asset = (*baseDomain)(nil)
@@ -94,15 +93,6 @@ func (a *baseDomain) Generate(ctx context.Context, parents asset.Parents) error 
 		}
 		a.BaseDomain = zone.Name
 		a.Publish = zone.Publish
-		if zone.Publish == types.InternalPublishingStrategy {
-			a.PowerVSVPC, err = powervsconfig.GetVPC(
-				platform.PowerVS.PowerVSResourceGroup,
-				platform.PowerVS.Region,
-			)
-			if err != nil {
-				return err
-			}
-		}
 		return nil
 	default:
 		//Do nothing
