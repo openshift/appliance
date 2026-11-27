@@ -1277,8 +1277,8 @@ github.com/openshift/assisted-image-service v0.0.0-20261023174245-ee8d45b337bd h
 github.com/openshift/assisted-image-service v0.0.0-20261023174245-ee8d45b337bd/go.mod h1:UISm+/gQYW3cQ0VOgsgFtvtcj1juqyC3cNWvJS1xRkQ=
 github.com/openshift/assisted-service/api v0.0.0-20260722223301-f50c5b20c7e1 h1:CQULurVWElnk8kTQflgNZcu82xcw4DQzwvv2PPC33i4=
 github.com/openshift/assisted-service/api v0.0.0-20260722223301-f50c5b20c7e1/go.mod h1:0VuKr9kC3L0PYceqyPqXPwLtEUcjo4v6/tblX2tMwHM=
-github.com/openshift/assisted-service/models v0.0.0-20260722223301-f50c5b20c7e1 h1:2diIOvtkzsngOtY0I/jr0AKzEe+WodCIU+L6/+0ng9c=
-github.com/openshift/assisted-service/models v0.0.0-20260722223301-f50c5b20c7e1/go.mod h1:ZSGBRhDh9gtqjOwZikuU7CRWPEzgbM/rqCJhkMpkGqk=
+github.com/openshift/assisted-service/models v0.0.0-20261114224556-26b03107d14a h1:eE/j8ZiaNPawru2m4GqQcXUNr9hBj6zS/bEKx8/+P4U=
+github.com/openshift/assisted-service/models v0.0.0-20261114224556-26b03107d14a/go.mod h1:LnrdHrmmgeMArN+bHjMZo7GNY9vdiC82Dlt7iXOJ9pI=
 github.com/openshift/build-machinery-go v0.0.0-20200211121458-5e3d6e570160/go.mod h1:1CkcsT3aVebzRBzVTSbiKSkJMsC/CASqxesfqEMfJEc=
 github.com/openshift/build-machinery-go v0.0.0-20200819073603-48aa266c95f7/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5/go.mod h1:5rGmrkQ8DJEUXA+AR3rEjfH+HFyg4/apY9iCQFgvPfE=
