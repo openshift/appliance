@@ -2,26 +2,30 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// log is for logging in this package.
-var log = logf.Log.WithName("baremetalhost-validation")
+var (
+	supportedRebootModes           = []string{"hard", "soft", ""}
+	supportedRebootModesString     = "\"hard\", \"soft\" or \"\""
+	inspectAnnotationAllowed       = []string{"disabled", ""}
+	inspectAnnotationAllowedString = "\"disabled\" or \"\""
+)
 
-// validateHost validates BareMetalHost resource for creation
+// validateHost validates BareMetalHost resource for creation.
 func (host *BareMetalHost) validateHost() []error {
-	log.Info("validate create", "name", host.Name)
 	var errs []error
 	var bmcAccess bmc.AccessDetails
 
@@ -33,8 +37,10 @@ func (host *BareMetalHost) validateHost() []error {
 		}
 	}
 
-	if raid_errors := validateRAID(host.Spec.RAID); raid_errors != nil {
-		errs = append(errs, raid_errors...)
+	errs = append(errs, host.validateCrossNamespaceSecretReferences()...)
+
+	if raidErrors := validateRAID(host.Spec.RAID); raidErrors != nil {
+		errs = append(errs, raidErrors...)
 	}
 
 	errs = append(errs, validateBMCAccess(host.Spec, bmcAccess)...)
@@ -65,21 +71,23 @@ func (host *BareMetalHost) validateHost() []error {
 }
 
 // validateChanges validates BareMetalHost resource on changes
-// but also covers the validations of creation
+// but also covers the validations of creation.
 func (host *BareMetalHost) validateChanges(old *BareMetalHost) []error {
-	log.Info("validate update", "name", host.Name)
 	var errs []error
 
 	if err := host.validateHost(); err != nil {
 		errs = append(errs, err...)
 	}
 
-	if old.Spec.BMC.Address != "" && host.Spec.BMC.Address != old.Spec.BMC.Address {
-		errs = append(errs, fmt.Errorf("BMC address can not be changed once it is set"))
+	if old.Spec.BMC.Address != "" &&
+		host.Spec.BMC.Address != old.Spec.BMC.Address &&
+		host.Status.OperationalStatus != OperationalStatusDetached &&
+		host.Status.Provisioning.State != StateRegistering {
+		errs = append(errs, errors.New("BMC address can not be changed if the BMH is not in the Registering state, or if the BMH is not detached"))
 	}
 
 	if old.Spec.BootMACAddress != "" && host.Spec.BootMACAddress != old.Spec.BootMACAddress {
-		errs = append(errs, fmt.Errorf("bootMACAddress can not be changed once it is set"))
+		errs = append(errs, errors.New("bootMACAddress can not be changed once it is set"))
 	}
 
 	return errs
@@ -123,7 +131,7 @@ func validateBMCAccess(s BareMetalHostSpec, bmcAccess bmc.AccessDetails) []error
 }
 
 func validateRAID(r *RAIDConfig) []error {
-	var errors []error
+	var errs []error
 
 	if r == nil {
 		return nil
@@ -131,54 +139,48 @@ func validateRAID(r *RAIDConfig) []error {
 
 	// check if both hardware and software RAID are specified
 	if len(r.HardwareRAIDVolumes) > 0 && len(r.SoftwareRAIDVolumes) > 0 {
-		errors = append(errors, fmt.Errorf("hardwareRAIDVolumes and softwareRAIDVolumes can not be set at the same time"))
+		errs = append(errs, errors.New("hardwareRAIDVolumes and softwareRAIDVolumes can not be set at the same time"))
 	}
 
 	for index, volume := range r.HardwareRAIDVolumes {
 		// check if physicalDisks are specified without a controller
 		if len(volume.PhysicalDisks) != 0 {
 			if volume.Controller == "" {
-				errors = append(errors, fmt.Errorf("'physicalDisks' specified without 'controller' in hardware RAID volume %d", index))
+				errs = append(errs, fmt.Errorf("'physicalDisks' specified without 'controller' in hardware RAID volume %d", index))
 			}
 		}
 		// check if numberOfPhysicalDisks is not same as len(physicalDisks)
 		if volume.NumberOfPhysicalDisks != nil && len(volume.PhysicalDisks) != 0 {
 			if *volume.NumberOfPhysicalDisks != len(volume.PhysicalDisks) {
-				errors = append(errors, fmt.Errorf("the 'numberOfPhysicalDisks'[%d] and number of 'physicalDisks'[%d] is not same for volume %d", *volume.NumberOfPhysicalDisks, len(volume.PhysicalDisks), index))
+				errs = append(errs, fmt.Errorf("the 'numberOfPhysicalDisks'[%d] and number of 'physicalDisks'[%d] is not same for volume %d", *volume.NumberOfPhysicalDisks, len(volume.PhysicalDisks), index))
 			}
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func validateBMHName(bmhname string) error {
-
 	invalidname, _ := regexp.MatchString(`[^A-Za-z0-9\.\-\_]`, bmhname)
 	if invalidname {
-		return fmt.Errorf("BareMetalHost resource name cannot contain characters other than [A-Za-z0-9._-]")
+		return errors.New("BareMetalHost resource name cannot contain characters other than [A-Za-z0-9._-]")
 	}
 
 	_, err := uuid.Parse(bmhname)
 	if err == nil {
-		return fmt.Errorf("BareMetalHost resource name cannot be a UUID")
+		return errors.New("BareMetalHost resource name cannot be a UUID")
 	}
 
 	return nil
 }
 
 func validateDNSName(hostaddress string) error {
-
 	if hostaddress == "" {
 		return nil
 	}
 
 	_, err := bmc.GetParsedURL(hostaddress)
-	if err != nil {
-		return errors.Wrap(err, "BMO validation")
-	}
-
-	return nil
+	return err // the error has enough context already
 }
 
 func validateAnnotations(host *BareMetalHost) []error {
@@ -186,7 +188,6 @@ func validateAnnotations(host *BareMetalHost) []error {
 	var err error
 
 	for annotation, value := range host.Annotations {
-
 		switch {
 		case annotation == StatusAnnotation:
 			err = validateStatusAnnotation(value)
@@ -210,13 +211,12 @@ func validateAnnotations(host *BareMetalHost) []error {
 
 func validateStatusAnnotation(statusAnnotation string) error {
 	if statusAnnotation != "" {
-
 		objBMHStatus := &BareMetalHostStatus{}
 
 		deco := json.NewDecoder(strings.NewReader(statusAnnotation))
 		deco.DisallowUnknownFields()
 		if err := deco.Decode(objBMHStatus); err != nil {
-			return fmt.Errorf("error decoding status annotation, error=%w", err)
+			return fmt.Errorf("error decoding status annotation: %w", err)
 		}
 
 		if err := checkStatusAnnotation(objBMHStatus); err != nil {
@@ -228,10 +228,9 @@ func validateStatusAnnotation(statusAnnotation string) error {
 }
 
 func validateImageURL(imageURL string) error {
-
 	_, err := url.ParseRequestURI(imageURL)
 	if err != nil {
-		return fmt.Errorf("Image URL %s is an invalid URL", imageURL)
+		return fmt.Errorf("image URL %s is invalid: %w", imageURL, err)
 	}
 
 	return nil
@@ -244,12 +243,12 @@ func validateRootDeviceHints(rdh *RootDeviceHints) error {
 
 	subpath := strings.TrimPrefix(rdh.DeviceName, "/dev/")
 	if rdh.DeviceName == subpath {
-		return fmt.Errorf("Device Name of root device hint must be a /dev/ path, not \"%s\"", rdh.DeviceName)
+		return fmt.Errorf("device name of root device hint must be a /dev/ path, not \"%s\"", rdh.DeviceName)
 	}
 
 	subpath = strings.TrimPrefix(subpath, "disk/by-path/")
 	if strings.Contains(subpath, "/") {
-		return fmt.Errorf("Device Name of root device hint must be path in /dev/ or /dev/disk/by-path/, not \"%s\"", rdh.DeviceName)
+		return fmt.Errorf("device name of root device hint must be path in /dev/ or /dev/disk/by-path/, not \"%s\"", rdh.DeviceName)
 	}
 	return nil
 }
@@ -257,15 +256,14 @@ func validateRootDeviceHints(rdh *RootDeviceHints) error {
 // When making changes to this function for operationalstatus and errortype,
 // also make the corresponding changes in the OperationalStatus and
 // ErrorType fields in the struct definition of BareMetalHostStatus in
-// the file baremetalhost_types.go
+// the file baremetalhost_types.go.
 func checkStatusAnnotation(bmhStatus *BareMetalHostStatus) error {
-
 	if !slices.Contains(OperationalStatusAllowed, string(bmhStatus.OperationalStatus)) {
-		return fmt.Errorf("invalid OperationalStatus='%s' in StatusAnnotation", string(bmhStatus.OperationalStatus))
+		return fmt.Errorf("invalid operationalStatus '%s' in the %s annotation", string(bmhStatus.OperationalStatus), StatusAnnotation)
 	}
 
 	if !slices.Contains(ErrorTypeAllowed, string(bmhStatus.ErrorType)) {
-		return fmt.Errorf("invalid ErrorType='%s' in StatusAnnotation", string(bmhStatus.ErrorType))
+		return fmt.Errorf("invalid errorType '%s' in the %s annotation", string(bmhStatus.ErrorType), StatusAnnotation)
 	}
 
 	return nil
@@ -277,7 +275,7 @@ func validateHwdDetailsAnnotation(hwdDetAnnotation string, inspect string) error
 	}
 
 	if inspect != "disabled" {
-		return fmt.Errorf("inspection has to be disabled for HardwareDetailsAnnotation, check if {'inspect.metal3.io' : 'disabled'}")
+		return errors.New("when hardware details are provided, the inspect.metal3.io annotation must be set to disabled")
 	}
 
 	objHwdDet := &HardwareDetails{}
@@ -285,18 +283,15 @@ func validateHwdDetailsAnnotation(hwdDetAnnotation string, inspect string) error
 	deco := json.NewDecoder(strings.NewReader(hwdDetAnnotation))
 	deco.DisallowUnknownFields()
 	if err := deco.Decode(objHwdDet); err != nil {
-		return fmt.Errorf("error decoding hardware details annotation, error=%w", err)
+		return fmt.Errorf("error decoding the %s annotation: %w", HardwareDetailsAnnotation, err)
 	}
 
 	return nil
 }
 
 func validateInspectAnnotation(inspectAnnotation string) error {
-
-	inspectAnnotationAllowed := []string{"disabled", ""}
-
 	if !slices.Contains(inspectAnnotationAllowed, inspectAnnotation) {
-		return fmt.Errorf("invalid value for Inspect Annotation")
+		return fmt.Errorf("invalid value for the %s annotation, allowed are %v", InspectAnnotationPrefix, inspectAnnotationAllowedString)
 	}
 
 	return nil
@@ -310,14 +305,48 @@ func validateRebootAnnotation(rebootAnnotation string) error {
 	objStatus := &RebootAnnotationArguments{}
 	err := json.Unmarshal([]byte(rebootAnnotation), objStatus)
 	if err != nil {
-		return fmt.Errorf("failed to fetch Reboot from annotation, %w", err)
+		return fmt.Errorf("failed to unmarshal the data from the %s annotation: %w", RebootAnnotationPrefix, err)
 	}
 
-	supportedRebootModes := []string{"hard", "soft", ""}
-
 	if !slices.Contains(supportedRebootModes, string(objStatus.Mode)) {
-		return fmt.Errorf("invalid RebootMode in RebootAnnotation")
+		return fmt.Errorf("invalid mode in the %s annotation, allowed are %v", RebootAnnotationPrefix, supportedRebootModesString)
 	}
 
 	return nil
+}
+
+// validateCrossNamespaceSecretReferences validates that a SecretReference does not refer to a Secret
+// in a different namespace than the host resource.
+func validateCrossNamespaceSecretReferences(hostNamespace, hostName, fieldName string, ref *corev1.SecretReference) error {
+	if ref != nil &&
+		ref.Namespace != "" &&
+		ref.Namespace != hostNamespace {
+		return k8serrors.NewForbidden(
+			schema.GroupResource{
+				Group:    "metal3.io",
+				Resource: "baremetalhosts",
+			},
+			hostName,
+			fmt.Errorf("%s: cross-namespace Secret references are not allowed", fieldName),
+		)
+	}
+	return nil
+}
+
+// validateCrossNamespaceSecretReferences checks all Secret references in the BareMetalHost spec
+// to ensure they do not reference Secrets from other namespaces. This includes userData,
+// networkData, and metaData Secret references.
+func (host *BareMetalHost) validateCrossNamespaceSecretReferences() []error {
+	secretRefs := map[*corev1.SecretReference]string{
+		host.Spec.UserData:    "userData",
+		host.Spec.NetworkData: "networkData",
+		host.Spec.MetaData:    "metaData",
+	}
+	errs := []error{}
+	for ref, fieldName := range secretRefs {
+		if err := validateCrossNamespaceSecretReferences(host.Namespace, host.Name, fieldName, ref); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errs
 }
