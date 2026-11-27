@@ -3,12 +3,18 @@ package isoeditor
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/cavaliercoder/go-cpio"
+	"github.com/diskfs/go-diskfs/backend"
+	"github.com/diskfs/go-diskfs/backend/file"
+	"github.com/diskfs/go-diskfs/filesystem/erofs"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -33,67 +39,24 @@ func NewNmstateHandler(workDir string, executer Executer, nmstatectlExtractorFac
 }
 
 func (n *nmstateHandler) BuildNmstateCpioArchive(rootfsPath string) ([]byte, error) {
-	// Extract nmstatectl binary
-	var err error
-	nmstateDir := filepath.Join(n.workDir, "nmstate")
-	err = os.MkdirAll(nmstateDir, os.ModePerm)
+	nmstatectlExtractor, err := n.nmstatectlExtractorFactory.CreateNmstatectlExtractor(rootfsPath)
 	if err != nil {
-		return nil, err
-	}
-	// Remove temp dir
-	defer func() {
-		removeErr := os.RemoveAll(nmstateDir)
-		if removeErr != nil {
-			log.WithError(removeErr).Error("failed to remove nmstate temp dir")
-		}
-	}()
-
-	binaryPath, err := n.extractNmstatectl(rootfsPath, nmstateDir)
-	if err != nil {
-		return nil, err
-	}
-	nmstatectlPath := filepath.Join(nmstateDir, binaryPath)
-
-	// Check if nmstatectl binary file exists
-	if _, err = os.Stat(nmstatectlPath); os.IsNotExist(err) {
+		log.Errorf("failed to create nmstate extractor: %v", err.Error())
 		return nil, err
 	}
 
-	// Read binary
-	nmstateBinContent, err := os.ReadFile(nmstatectlPath)
+	content, err := nmstatectlExtractor.ExtractNmstatectl(rootfsPath, n.workDir)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create a compressed RAM disk image with the nmstatectl binary
-	compressedCpio, err := generateCompressedCPIO([]fileEntry{
+	return generateCompressedCPIO([]fileEntry{
 		{
-			Content: nmstateBinContent,
+			Content: content,
 			Path:    NmstatectlPathInRamdisk,
 			Mode:    0o100_755,
 		},
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return compressedCpio, err
-}
-
-func (n *nmstateHandler) extractNmstatectl(rootfsPath, nmstateDir string) (string, error) {
-	_, err := n.executer.Execute(fmt.Sprintf("cat %s | cpio -i", rootfsPath), nmstateDir)
-	if err != nil {
-		log.Errorf("failed to extract rootfs.img using cpio command: %v", err.Error())
-		return "", err
-	}
-
-	nmstatectlExtractor, err := n.nmstatectlExtractorFactory.CreateNmstatectlExtractor(nmstateDir)
-	if err != nil {
-		log.Errorf("failed to create nmstate extractor: %v", err.Error())
-		return "", err
-	}
-
-	return nmstatectlExtractor.ExtractNmstatectl(nmstateDir)
 }
 
 //go:generate mockgen -package=isoeditor -destination=mock_executer.go . Executer
@@ -120,12 +83,12 @@ func (e *CommonExecuter) Execute(command, workDir string) (string, error) {
 
 //go:generate mockgen -package=isoeditor -destination=mock_nmstatectl_extractor.go . NmstatectlExtractor
 type NmstatectlExtractor interface {
-	ExtractNmstatectl(nmstateDir string) (string, error)
+	ExtractNmstatectl(rootfsPath, workDir string) ([]byte, error)
 }
 
 //go:generate mockgen -package=isoeditor -destination=mock_nmstatectl_extractor_factory.go . NmstatectlExtractorFactory
 type NmstatectlExtractorFactory interface {
-	CreateNmstatectlExtractor(nmstateDir string) (NmstatectlExtractor, error)
+	CreateNmstatectlExtractor(rootfsPath string) (NmstatectlExtractor, error)
 }
 
 type nmstatectlExtractorFactory struct {
@@ -138,36 +101,66 @@ func NewNmstatectlExtractorFactory(executer Executer) NmstatectlExtractorFactory
 	}
 }
 
-func (f *nmstatectlExtractorFactory) CreateNmstatectlExtractor(nmstateDir string) (NmstatectlExtractor, error) {
-	r, err := regexp.Compile(`root\.([^.]+)$`)
+func (f *nmstatectlExtractorFactory) CreateNmstatectlExtractor(rootfsPath string) (NmstatectlExtractor, error) {
+	extension, rootfsOffset, rootfsSize, err := inspectRootfs(rootfsPath)
 	if err != nil {
-		log.Errorf("failed to compile regexp: %v", err.Error())
 		return nil, err
-	}
-
-	entries, err := os.ReadDir(nmstateDir)
-	if err != nil {
-		log.Errorf("failed to list files in nmstateDir: %v", err.Error())
-		return nil, err
-	}
-
-	extension := ""
-	for _, entry := range entries {
-		matches := r.FindStringSubmatch(entry.Name())
-		if len(matches) > 1 {
-			extension = matches[1]
-		}
 	}
 
 	switch extension {
 	case "squashfs":
 		return &squashfsExtractor{executer: f.executer}, nil
 	case "erofs":
-		return &erofsExtractor{executer: f.executer}, nil
-	case "":
-		return nil, errors.New("failed to find root file extension")
+		return &erofsExtractor{offset: rootfsOffset, size: rootfsSize}, nil
 	default:
 		return nil, fmt.Errorf("unknown extension for root file: %s", extension)
+	}
+}
+
+func inspectRootfs(rootfsPath string) (extension string, rootfsOffset, rootfsSize int64, err error) {
+	rootfsFile, err := os.Open(rootfsPath)
+	if err != nil {
+		return "", 0, 0, errors.Wrap(err, "failed to open rootfs.img")
+	}
+	defer rootfsFile.Close()
+
+	rootfsInfo, err := rootfsFile.Stat()
+	if err != nil {
+		return "", 0, 0, errors.Wrap(err, "failed to stat rootfs.img")
+	}
+
+	reader := io.NewSectionReader(rootfsFile, 0, rootfsInfo.Size())
+	archive := cpio.NewReader(reader)
+	rootFileRegex := regexp.MustCompile(`^root\.([^.]+)$`)
+
+	for {
+		header, headerErr := archive.Next()
+		if errors.Is(headerErr, io.EOF) {
+			return "", 0, 0, errors.New("failed to find root file in rootfs.img")
+		}
+		if headerErr != nil {
+			return "", 0, 0, errors.Wrap(headerErr, "failed to read rootfs.img CPIO header")
+		}
+
+		matches := rootFileRegex.FindStringSubmatch(strings.TrimPrefix(header.Name, "./"))
+		if len(matches) != 2 {
+			continue
+		}
+		if !header.Mode.IsRegular() {
+			return "", 0, 0, errors.Errorf("root file %s in rootfs.img is not a regular file", header.Name)
+		}
+
+		rootfsOffset, headerErr = reader.Seek(0, io.SeekCurrent)
+		if headerErr != nil {
+			return "", 0, 0, errors.Wrap(headerErr, "failed to locate root filesystem data in rootfs.img")
+		}
+		if header.Size <= 0 {
+			return "", 0, 0, errors.Errorf("root file %s in rootfs.img has invalid size %d", header.Name, header.Size)
+		}
+		if rootfsOffset > rootfsInfo.Size() || header.Size > rootfsInfo.Size()-rootfsOffset {
+			return "", 0, 0, errors.Errorf("root file %s extends beyond rootfs.img", header.Name)
+		}
+		return matches[1], rootfsOffset, header.Size, nil
 	}
 }
 
@@ -176,7 +169,28 @@ type squashfsExtractor struct {
 }
 
 // TODO: Update the code to utilize go-diskfs's squashfs instead of unsquashfs once go-diskfs supports the zstd compression format used by CoreOS - MGMT-19227
-func (e *squashfsExtractor) ExtractNmstatectl(nmstateDir string) (string, error) {
+func (e *squashfsExtractor) ExtractNmstatectl(rootfsPath, workDir string) ([]byte, error) {
+	if workDir != "" {
+		if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
+			return nil, errors.Wrap(err, "failed to create nmstate work dir")
+		}
+	}
+	nmstateDir, err := os.MkdirTemp(workDir, "nmstate-")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create nmstate temp dir")
+	}
+	defer func() {
+		if removeErr := os.RemoveAll(nmstateDir); removeErr != nil {
+			log.WithError(removeErr).Error("failed to remove nmstate temp dir")
+		}
+	}()
+
+	_, err = e.executer.Execute(fmt.Sprintf("cat %s | cpio -i", rootfsPath), nmstateDir)
+	if err != nil {
+		log.Errorf("failed to extract rootfs.img using cpio command: %v", err.Error())
+		return nil, err
+	}
+
 	// limiting files is needed on el<=9 due to https://github.com/plougher/squashfs-tools/issues/125
 	ulimit := "ulimit -n 1024"
 
@@ -186,95 +200,94 @@ func (e *squashfsExtractor) ExtractNmstatectl(nmstateDir string) (string, error)
 	list, err := e.executer.Execute(fmt.Sprintf("%s ; unsquashfs -dest '' -lc %s", ulimit, "root.squashfs"), nmstateDir)
 	if err != nil {
 		log.Errorf("failed to unsquashfs root.squashfs: %v", err.Error())
-		return "", err
+		return nil, err
 	}
 
 	r, err := regexp.Compile(".*nmstatectl")
 	if err != nil {
 		log.Errorf("failed to compile regexp: %v", err.Error())
-		return "", err
+		return nil, err
 	}
 	binaryPath := r.FindString(list)
+	if binaryPath == "" {
+		return nil, errors.New("nmstatectl not found in root.squashfs")
+	}
 
 	_, err = e.executer.Execute(fmt.Sprintf("%s ; unsquashfs -no-xattrs %s -extract-file %s", ulimit, "root.squashfs", binaryPath), nmstateDir)
 	if err != nil {
 		log.Errorf("failed to unsquashfs root.squashfs: %v", err.Error())
-		return "", err
+		return nil, err
 	}
-	return filepath.Join("squashfs-root", binaryPath), nil
+	nmstatectlPath := filepath.Join(nmstateDir, "squashfs-root", binaryPath)
+	return os.ReadFile(nmstatectlPath)
 }
 
 type erofsExtractor struct {
-	executer Executer
+	offset int64
+	size   int64
 }
 
-func (e *erofsExtractor) ExtractNmstatectl(nmstateDir string) (string, error) {
-	nmstatectlPath, err := e.findFileInErofs(nmstateDir, "/", "nmstatectl")
+func (e *erofsExtractor) ExtractNmstatectl(rootfsPath, _ string) ([]byte, error) {
+	rootfsFile, err := os.Open(rootfsPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open rootfs.img")
+	}
+	defer rootfsFile.Close()
+
+	rootfsStorage := file.New(rootfsFile, true)
+	rootErofsStorage := backend.Sub(rootfsStorage, e.offset, e.size)
+	rootErofs, err := erofs.Read(rootErofsStorage, e.size, 0, 0)
+	if err != nil {
+		log.Errorf("failed to read root.erofs: %v", err.Error())
+		return nil, err
+	}
+	defer rootErofs.Close()
+
+	nmstatectlPath, err := findFileInErofs(rootErofs, "nmstatectl")
 	if err != nil {
 		log.Errorf("failed to search for nmstatectl in root.erofs: %v", err.Error())
-		return "", err
+		return nil, err
 	}
 
-	if nmstatectlPath == "" {
-		return "", errors.New("nmstatectl not found in root.erofs")
-	}
-
-	_, err = e.executer.Execute(fmt.Sprintf("dump.erofs --cat --path=%s root.erofs > nmstatectl", nmstatectlPath), nmstateDir)
+	nmstatectlInfo, err := rootErofs.Stat(nmstatectlPath)
 	if err != nil {
-		log.Errorf("failed to copy nmstatectl from root.erofs: %v", err.Error())
-		return "", err
+		return nil, errors.Wrapf(err, "failed to stat %s in root.erofs", nmstatectlPath)
+	}
+	if !nmstatectlInfo.Mode().IsRegular() {
+		return nil, errors.Errorf("%s in root.erofs is not a regular file", nmstatectlPath)
 	}
 
-	return "nmstatectl", nil
+	nmstatectlContent, err := rootErofs.ReadFile(nmstatectlPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to read %s from root.erofs", nmstatectlPath)
+	}
+	if int64(len(nmstatectlContent)) != nmstatectlInfo.Size() {
+		return nil, errors.Errorf("incomplete read of %s from root.erofs: got %d bytes, expected %d", nmstatectlPath, len(nmstatectlContent), nmstatectlInfo.Size())
+	}
+
+	return nmstatectlContent, nil
 }
 
-// findFileInErofs recursively searches for a file in an EROFS image using dump.erofs
-func (e *erofsExtractor) findFileInErofs(nmstateDir, dirPath, filename string) (string, error) {
-	output, err := e.executer.Execute(fmt.Sprintf("dump.erofs --path=%s --ls root.erofs", dirPath), nmstateDir)
+func findFileInErofs(rootErofs *erofs.FileSystem, filename string) (string, error) {
+	var found string
+	err := fs.WalkDir(rootErofs, ".", func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if found != "" {
+			return nil
+		}
+		if entry.Name() == filename && entry.Type().IsRegular() {
+			found = path
+			return fs.SkipAll
+		}
+		return nil
+	})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list directory %s", dirPath)
+		return "", err
 	}
-
-	// Parse the output to find entries
-	// Format: "       NID TYPE  FILENAME"
-	// Example: "        44    1  .aleph-version.json"
-	// Type 1 = regular file, Type 2 = directory
-	entryRegex := regexp.MustCompile(`^\s*(\d+)\s+(\d+)\s+(.+)$`)
-
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		matches := entryRegex.FindStringSubmatch(line)
-		if len(matches) != 4 {
-			continue
-		}
-
-		entryType := matches[2]
-		entryName := strings.TrimSpace(matches[3])
-
-		if entryName == "." || entryName == ".." {
-			continue
-		}
-
-		fullPath := filepath.Join(dirPath, entryName)
-
-		// Return if a regular file (entry type 1) matches
-		if entryName == filename && entryType == "1" {
-			return fullPath, nil
-		}
-
-		// Recurse into directories (type 2)
-		if entryType == "2" {
-			found, err := e.findFileInErofs(nmstateDir, fullPath, filename)
-			if err != nil {
-				// Log but continue searching other directories
-				log.Warnf("failed to search in %s: %v", fullPath, err)
-				continue
-			}
-			if found != "" {
-				return found, nil
-			}
-		}
+	if found == "" {
+		return "", errors.Errorf("%s not found in root.erofs", filename)
 	}
-
-	return "", nil
+	return found, nil
 }

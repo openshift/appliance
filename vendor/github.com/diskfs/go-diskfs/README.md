@@ -67,7 +67,13 @@ Once you have a valid disk, and optionally partition, you can access filesystems
 * `CreateFilesystem()` - create a filesystem in an individual partition or the entire disk
 * `GetFilesystem()` - access an existing filesystem in a partition or the entire disk
 
-As of this writing, supported filesystems include `FAT32` and `ISO9660` (a.k.a. `.iso`).
+As of this writing, supported filesystems include `FAT32`, `ISO9660` (a.k.a. `.iso`), `SquashFS`, `ext4`, and read-only `EROFS`.
+
+EROFS support targets a read-only subset of the EROFS on-disk format: basic and
+LZMA-compressed files, compact and full compression indexes, fragment tails,
+and large logical clusters. Extended attributes are not exposed. See the
+[filesystem/erofs](./filesystem/erofs) package documentation for details,
+including how to read an image nested inside another backend.
 
 With a filesystem in hand, you can create, access and modify directories and files.
 
@@ -84,12 +90,41 @@ With a `File` in hand, you then can:
 * `Seek(offset int64, whence int)` to set the next read or write to an offset in the file
 
 ### Read-Only Filesystems
-Some filesystem types are intended to be created once, after which they are read-only, for example `ISO9660`/`.iso` and `squashfs`.
+Some filesystem types are intended to be created once, after which they are read-only, for example `ISO9660`/`.iso` and `squashfs`. EROFS is currently read-only with no creation support.
 
 `godiskfs` recognizes read-only filesystems and limits working with them to the following:
 
 * You can `GetFilesystem()` a read-only filesystem and do all read activities, but cannot write to them. Any attempt to `Mkdir()` or `OpenFile()` in write/append/create modes or `Write()` to the file will result in an error.
 * You can `CreateFilesystem()` a read-only filesystem and write anything to it that you want. It will do all of its work in a "scratch" area, or temporary "workspace" directory on your local filesystem. When you are ready to complete it, you call `Finalize()`, after which it becomes read-only. If you forget to `Finalize()` it, you get... nothing. The `Finalize()` function exists only on read-only filesystems.
+
+### FAT: Loading the Table or Reading It on Demand
+`fat12.Read`, `fat16.Read` and `fat32.Read` load the whole file allocation table (FAT) into memory when they read the filesystem. `ReadWithOptions` with `WithLazyFAT()` reads each FAT entry from the backend when it is needed instead:
+
+```go
+fs, err := fat32.ReadWithOptions(b, size, start, blocksize, fat32.WithLazyFAT())
+```
+
+Both tables read and write the same files, and the same changes made through either leave byte-identical images. They differ in what they cost and in what they see:
+
+* The in-memory table costs a full read of the FAT when the filesystem is read, and then every cluster lookup is a slice index. It suits a filesystem that stays open for a lot of work: walking many files, reading large files in small pieces, writing many files.
+* The lazy table costs a few small reads when the filesystem is read, and then one small read per cluster lookup. It suits opening a filesystem to read or write a file or two, and reading a volume that something else writes: every lookup sees the FAT as it is on the backend at that moment. Nothing coordinates two writers, so do not write a filesystem that something else writes at the same time.
+
+`File.Read` rebuilds the file's cluster chain on every call, so with the lazy table read a large file in as few calls as you can.
+
+Measured on a Raspberry Pi Zero W, with a 5 GiB FAT32 volume with 4 KiB clusters in an image file on its SD card:
+
+| | in-memory table | lazy table |
+|---|---|---|
+| read the filesystem | 309 ms | 0.5 ms |
+| read the filesystem, then write a 100 kB file | 339 ms | 49 ms |
+| already read: read a 50 MiB file in one `Read` | 1.1 s | 2.3 s |
+| already read: read 4 MiB of it in 32 KiB `Read`s | 0.7 s | 45.5 s |
+| already read: walk 2000 files in 20 directories | 346 ms | 373 ms |
+| already read: write 50 files of 100 kB, FAT 90% allocated | 1.8 s | 4.4 s |
+
+FAT12 and FAT16 tables are small, at most about 6 KiB and 128 KiB, so for them the lazy table matters for what it sees rather than for speed.
+
+Eager reads (`fat12.Read`, `fat16.Read` and `fat32.Read`) compare the two copies of the FAT and refuse a filesystem where they differ. Lazy reads skip that full comparison to keep opening fast. `CheckFAT()` compares the two copies on the backend at any time without loading them.
 
 ### Example
 

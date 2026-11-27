@@ -40,16 +40,16 @@ func (m *MockNmstatectlExtractor) EXPECT() *MockNmstatectlExtractorMockRecorder 
 }
 
 // ExtractNmstatectl mocks base method.
-func (m *MockNmstatectlExtractor) ExtractNmstatectl(nmstateDir string) (string, error) {
+func (m *MockNmstatectlExtractor) ExtractNmstatectl(rootfsPath, workDir string) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExtractNmstatectl", nmstateDir)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "ExtractNmstatectl", rootfsPath, workDir)
+	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExtractNmstatectl indicates an expected call of ExtractNmstatectl.
-func (mr *MockNmstatectlExtractorMockRecorder) ExtractNmstatectl(nmstateDir any) *gomock.Call {
+func (mr *MockNmstatectlExtractorMockRecorder) ExtractNmstatectl(rootfsPath, workDir any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractNmstatectl", reflect.TypeOf((*MockNmstatectlExtractor)(nil).ExtractNmstatectl), nmstateDir)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractNmstatectl", reflect.TypeOf((*MockNmstatectlExtractor)(nil).ExtractNmstatectl), rootfsPath, workDir)
 }

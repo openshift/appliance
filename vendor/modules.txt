@@ -687,13 +687,14 @@ github.com/digitalocean/go-libvirt/internal/event
 github.com/digitalocean/go-libvirt/internal/go-xdr/xdr2
 github.com/digitalocean/go-libvirt/socket
 github.com/digitalocean/go-libvirt/socket/dialers
-# github.com/diskfs/go-diskfs v1.9.4
+# github.com/diskfs/go-diskfs v1.9.5-0.20261103130516-f6fbf0b9b4f2
 ## explicit; go 1.25.0
 github.com/diskfs/go-diskfs
 github.com/diskfs/go-diskfs/backend
 github.com/diskfs/go-diskfs/backend/file
 github.com/diskfs/go-diskfs/disk
 github.com/diskfs/go-diskfs/filesystem
+github.com/diskfs/go-diskfs/filesystem/erofs
 github.com/diskfs/go-diskfs/filesystem/ext4
 github.com/diskfs/go-diskfs/filesystem/ext4/crc
 github.com/diskfs/go-diskfs/filesystem/ext4/md4
@@ -1372,7 +1373,7 @@ github.com/openshift/api/route/v1
 # github.com/openshift/appliance/pkg/iso-builder/config v0.0.0-00010101000000-000000000000 => ./pkg/iso-builder/config
 ## explicit; go 1.25.0
 github.com/openshift/appliance/pkg/iso-builder/config
-# github.com/openshift/assisted-image-service v0.0.0-20261023174245-ee8d45b337bd
+# github.com/openshift/assisted-image-service v0.0.0-20261114040828-0ac60ebed27d
 ## explicit; go 1.26.0
 github.com/openshift/assisted-image-service/internal/common
 github.com/openshift/assisted-image-service/pkg/isoeditor

@@ -55,13 +55,20 @@ func (fl *File) Read(b []byte) (int, error) {
 	readStartBlock := uint64(fl.offset) / blocksize
 	for _, e := range fl.extents {
 		// if the last block of the extent is before the first block we want to read, skip it
-		if uint64(e.fileBlock)+uint64(e.count) < readStartBlock {
+		// notice: need equal sign
+		if uint64(e.fileBlock)+uint64(e.count) <= readStartBlock {
 			continue
 		}
 		// extentSize is the number of bytes on the disk for the extent
 		extentSize := int64(e.count) * int64(blocksize)
 		// where do we start and end in the extent?
 		startPositionInExtent := fl.offset - int64(e.fileBlock)*int64(blocksize)
+
+		// Protect
+		if startPositionInExtent < 0 || startPositionInExtent > extentSize {
+			return int(readBytes), fmt.Errorf("read offset %d falls outside extent (fileBlock %d, count %d) of file %s", fl.offset, e.fileBlock, e.count, fl.filename)
+		}
+
 		leftInExtent := extentSize - startPositionInExtent
 		// how many bytes are left to read
 		toReadInOffset := bytesToRead - readBytes
@@ -180,13 +187,20 @@ func (fl *File) Write(b []byte) (int, error) {
 
 	for _, e := range fl.extents {
 		// if the last block of the extent is before the first block we want to write, skip it
-		if uint64(e.fileBlock)+uint64(e.count) < writeStartBlock {
+		// notice: need equal sign
+		if uint64(e.fileBlock)+uint64(e.count) <= writeStartBlock {
 			continue
 		}
 		// extentSize is the number of bytes on the disk for the extent
 		extentSize := int64(e.count) * int64(blocksize)
 		// where do we start and end in the extent?
 		startPositionInExtent := fl.offset - int64(e.fileBlock)*int64(blocksize)
+
+		// Protect
+		if startPositionInExtent < 0 || startPositionInExtent > extentSize {
+			return int(writtenBytes), fmt.Errorf("write offset %d falls outside extent (fileBlock %d, count %d) of file %s", fl.offset, e.fileBlock, e.count, fl.filename)
+		}
+
 		leftInExtent := extentSize - startPositionInExtent
 		// how many bytes are left in the extent?
 		toWriteInOffset := bytesToWrite - writtenBytes
