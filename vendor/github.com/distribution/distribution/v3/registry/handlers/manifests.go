@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"mime"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 
@@ -49,6 +51,11 @@ func manifestDispatcher(ctx *Context, r *http.Request) http.Handler {
 	ref := getReference(ctx)
 	dgst, err := digest.Parse(ref)
 	if err != nil {
+		if strings.ContainsRune(ref, ':') {
+			// Looks like a digest but failed to parse; reject rather than treating the malformed digest as a tag name.
+			ctx.Errors = append(ctx.Errors, errcode.ErrorCodeDigestInvalid.WithDetail(err))
+			return http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+		}
 		// We just have a tag
 		manifestHandler.Tag = ref
 	} else {
@@ -95,7 +102,7 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 
 		// we need to split each header value on "," to get the full list of "Accept" values (per RFC 2616)
 		// https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.1
-		for _, mediaType := range strings.Split(acceptHeader, ",") {
+		for mediaType := range strings.SplitSeq(acceptHeader, ",") {
 			if mediaType, _, err = mime.ParseMediaType(mediaType); err != nil {
 				continue
 			}
@@ -122,7 +129,7 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 			if _, ok := err.(distribution.ErrTagUnknown); ok {
 				imh.Errors = append(imh.Errors, errcode.ErrorCodeManifestUnknown.WithDetail(err))
 			} else {
-				imh.Errors = append(imh.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
+				imh.Errors = append(imh.Errors, toErrcodeErrors(err)...)
 			}
 			return
 		}
@@ -143,7 +150,7 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 		if _, ok := err.(distribution.ErrManifestUnknownRevision); ok {
 			imh.Errors = append(imh.Errors, errcode.ErrorCodeManifestUnknown.WithDetail(err))
 		} else {
-			imh.Errors = append(imh.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
+			imh.Errors = append(imh.Errors, toErrcodeErrors(err)...)
 		}
 		return
 	}
@@ -153,9 +160,10 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 	if _, isOCImanifest := manifest.(*ocischema.DeserializedManifest); isOCImanifest {
 		manifestType = ociSchema
 	} else if isManifestList {
-		if manifestList.MediaType == manifestlist.MediaTypeManifestList {
+		switch manifestList.MediaType {
+		case manifestlist.MediaTypeManifestList:
 			manifestType = manifestlistSchema
-		} else if manifestList.MediaType == v1.MediaTypeImageIndex {
+		case v1.MediaTypeImageIndex:
 			manifestType = ociImageIndexSchema
 		}
 	}
@@ -217,6 +225,7 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Etag", fmt.Sprintf(`"%s"`, imh.Digest))
 
 	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -393,11 +402,8 @@ func (imh *manifestHandler) applyResourcePolicy(manifest distribution.Manifest) 
 
 	// Check to see if class is allowed in registry
 	var allowedClass bool
-	for _, c := range allowedClasses {
-		if class == c {
-			allowedClass = true
-			break
-		}
+	if slices.Contains(allowedClasses, class) {
+		allowedClass = true
 	}
 	if !allowedClass {
 		return errcode.ErrorCodeDenied.WithMessage(fmt.Sprintf("registry does not allow %s manifest", class))
@@ -436,10 +442,19 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if !imh.App.deleteEnabled {
+		imh.Errors = append(imh.Errors, errcode.ErrorCodeUnsupported)
+		return
+	}
+
 	if imh.Tag != "" {
 		dcontext.GetLogger(imh).Debug("DeleteImageTag")
 		tagService := imh.Repository.Tags(imh.Context)
 		if err := tagService.Untag(imh.Context, imh.Tag); err != nil {
+			if errors.Is(err, distribution.ErrUnsupported) {
+				imh.Errors = append(imh.Errors, errcode.ErrorCodeUnsupported.WithDetail(err))
+				return
+			}
 			switch err.(type) {
 			case distribution.ErrTagUnknown, driver.PathNotFoundError:
 				imh.Errors = append(imh.Errors, errcode.ErrorCodeManifestUnknown.WithDetail(err))
@@ -461,8 +476,7 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 	err = manifests.Delete(imh, imh.Digest)
 	if err != nil {
 		switch err {
-		case digest.ErrDigestUnsupported:
-		case digest.ErrDigestInvalidFormat:
+		case digest.ErrDigestUnsupported, digest.ErrDigestInvalidFormat:
 			imh.Errors = append(imh.Errors, errcode.ErrorCodeDigestInvalid)
 			return
 		case distribution.ErrBlobUnknown:
@@ -491,7 +505,6 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 	g := errgroup.Group{}
 	g.SetLimit(storage.DefaultConcurrencyLimit)
 	for _, tag := range referencedTags {
-		tag := tag
 
 		g.Go(func() error {
 			if err := tagService.Untag(imh, tag); err != nil {

@@ -86,15 +86,24 @@ type App struct {
 
 	// readOnly is true if the registry is in a read-only maintenance mode
 	readOnly bool
+
+	// deleteEnabled is true if the registry is configured to enable deletions.
+	deleteEnabled bool
+
+	cancel context.CancelFunc
+
+	purgerDone <-chan struct{}
 }
 
 // NewApp takes a configuration and returns a configured app, ready to serve
 // requests. The app only implements ServeHTTP and can be wrapped in other
 // handlers accordingly.
 func NewApp(ctx context.Context, config *configuration.Configuration) *App {
+	ctx, cancel := context.WithCancel(ctx)
 	app := &App{
 		Config:  config,
 		Context: ctx,
+		cancel:  cancel,
 		router:  v2.RouterWithPrefix(config.HTTP.Prefix),
 		isCache: config.Proxy.RemoteURL != "",
 	}
@@ -131,13 +140,13 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	purgeConfig := uploadPurgeDefaultConfig()
 	if mc, ok := config.Storage["maintenance"]; ok {
 		if v, ok := mc["uploadpurging"]; ok {
-			purgeConfig, ok = v.(map[interface{}]interface{})
+			purgeConfig, ok = v.(map[any]any)
 			if !ok {
 				panic("uploadpurging config key must contain additional keys")
 			}
 		}
 		if v, ok := mc["readonly"]; ok {
-			readOnly, ok := v.(map[interface{}]interface{})
+			readOnly, ok := v.(map[any]any)
 			if !ok {
 				panic("readonly config key must contain additional keys")
 			}
@@ -150,7 +159,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		}
 	}
 
-	startUploadPurger(app, app.driver, dcontext.GetLogger(app), purgeConfig)
+	app.purgerDone = startUploadPurger(app, app.driver, dcontext.GetLogger(app), purgeConfig)
 
 	app.driver, err = applyStorageMiddleware(app, app.driver, config.Middleware["storage"])
 	if err != nil {
@@ -185,6 +194,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		e, ok := d["enabled"]
 		if ok {
 			if deleteEnabled, ok := e.(bool); ok && deleteEnabled {
+				app.deleteEnabled = deleteEnabled
 				options = append(options, storage.EnableDelete)
 			}
 		}
@@ -449,6 +459,9 @@ func (app *App) RegisterHealthChecks(healthRegistries ...*health.Registry) {
 
 // Shutdown close the underlying registry
 func (app *App) Shutdown() error {
+	if app.cancel != nil {
+		defer app.cancel()
+	}
 	if r, ok := app.registry.(proxy.Closer); ok {
 		return r.Close()
 	}
@@ -464,7 +477,7 @@ func (app *App) register(routeName string, dispatch dispatchFunc) {
 	// Chain the handler with prometheus instrumented handler
 	if app.Config.HTTP.Debug.Prometheus.Enabled {
 		namespace := metrics.NewNamespace(prometheus.NamespacePrefix, "http", nil)
-		httpMetrics := namespace.NewDefaultHttpMetrics(strings.Replace(routeName, "-", "_", -1))
+		httpMetrics := namespace.NewDefaultHttpMetrics(strings.ReplaceAll(routeName, "-", "_"))
 		metrics.Register(namespace)
 		handler = metrics.InstrumentHandler(httpMetrics, handler)
 	}
@@ -536,18 +549,58 @@ func (app *App) configureRedis(cfg *configuration.Configuration) {
 		return
 	}
 
+	opts := redis.UniversalOptions{
+		Addrs:                 cfg.Redis.Options.Addrs,
+		ClientName:            cfg.Redis.Options.ClientName,
+		DB:                    cfg.Redis.Options.DB,
+		Protocol:              cfg.Redis.Options.Protocol,
+		Username:              cfg.Redis.Options.Username,
+		Password:              cfg.Redis.Options.Password,
+		SentinelUsername:      cfg.Redis.Options.SentinelUsername,
+		SentinelPassword:      cfg.Redis.Options.SentinelPassword,
+		MaxRetries:            cfg.Redis.Options.MaxRetries,
+		MinRetryBackoff:       cfg.Redis.Options.MinRetryBackoff,
+		MaxRetryBackoff:       cfg.Redis.Options.MaxRetryBackoff,
+		DialTimeout:           cfg.Redis.Options.DialTimeout,
+		ReadTimeout:           cfg.Redis.Options.ReadTimeout,
+		WriteTimeout:          cfg.Redis.Options.WriteTimeout,
+		ContextTimeoutEnabled: cfg.Redis.Options.ContextTimeoutEnabled,
+		PoolFIFO:              cfg.Redis.Options.PoolFIFO,
+		PoolSize:              cfg.Redis.Options.PoolSize,
+		PoolTimeout:           cfg.Redis.Options.PoolTimeout,
+		MinIdleConns:          cfg.Redis.Options.MinIdleConns,
+		MaxIdleConns:          cfg.Redis.Options.MaxIdleConns,
+		MaxActiveConns:        cfg.Redis.Options.MaxActiveConns,
+		ConnMaxIdleTime:       cfg.Redis.Options.ConnMaxIdleTime,
+		ConnMaxLifetime:       cfg.Redis.Options.ConnMaxLifetime,
+		MaxRedirects:          cfg.Redis.Options.MaxRedirects,
+		ReadOnly:              cfg.Redis.Options.ReadOnly,
+		RouteByLatency:        cfg.Redis.Options.RouteByLatency,
+		RouteRandomly:         cfg.Redis.Options.RouteRandomly,
+		MasterName:            cfg.Redis.Options.MasterName,
+		DisableIdentity:       cfg.Redis.Options.DisableIdentity,
+		IdentitySuffix:        cfg.Redis.Options.IdentitySuffix,
+		UnstableResp3:         cfg.Redis.Options.UnstableResp3,
+	}
+
 	// redis TLS config
-	if cfg.Redis.TLS.Certificate != "" || cfg.Redis.TLS.Key != "" {
+	if cfg.Redis.TLS.Certificate != "" || cfg.Redis.TLS.Key != "" || len(cfg.Redis.TLS.RootCAs) != 0 {
+		if (cfg.Redis.TLS.Certificate == "") != (cfg.Redis.TLS.Key == "") {
+			dcontext.GetLogger(app).Warn("redis TLS client certificate configuration is incomplete; both redis.tls.certificate and redis.tls.key must be set to enable mTLS, continuing without client certificates")
+		}
+
 		var err error
 		tlsConf := &tls.Config{}
-		tlsConf.Certificates = make([]tls.Certificate, 1)
-		tlsConf.Certificates[0], err = tls.LoadX509KeyPair(cfg.Redis.TLS.Certificate, cfg.Redis.TLS.Key)
-		if err != nil {
-			panic(err)
+		if cfg.Redis.TLS.Certificate != "" && cfg.Redis.TLS.Key != "" {
+			tlsConf.Certificates = make([]tls.Certificate, 1)
+			tlsConf.Certificates[0], err = tls.LoadX509KeyPair(cfg.Redis.TLS.Certificate, cfg.Redis.TLS.Key)
+			if err != nil {
+				panic(err)
+			}
 		}
-		if len(cfg.Redis.TLS.ClientCAs) != 0 {
+		if len(cfg.Redis.TLS.RootCAs) != 0 {
 			pool := x509.NewCertPool()
-			for _, ca := range cfg.Redis.TLS.ClientCAs {
+			for _, ca := range cfg.Redis.TLS.RootCAs {
 				caPem, err := os.ReadFile(ca)
 				if err != nil {
 					dcontext.GetLogger(app).Errorf("failed reading redis client CA: %v", err)
@@ -559,13 +612,12 @@ func (app *App) configureRedis(cfg *configuration.Configuration) {
 					return
 				}
 			}
-			tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
-			tlsConf.ClientCAs = pool
+			tlsConf.RootCAs = pool
 		}
-		cfg.Redis.Options.TLSConfig = tlsConf
+		opts.TLSConfig = tlsConf
 	}
 
-	app.redis = app.createPool(cfg.Redis.Options)
+	app.redis = app.createPool(opts)
 
 	// Enable metrics instrumentation.
 	if err := redisotel.InstrumentMetrics(app.redis); err != nil {
@@ -578,9 +630,9 @@ func (app *App) configureRedis(cfg *configuration.Configuration) {
 		registry = expvar.NewMap("registry")
 	}
 
-	registry.(*expvar.Map).Set("redis", expvar.Func(func() interface{} {
+	registry.(*expvar.Map).Set("redis", expvar.Func(func() any {
 		stats := app.redis.PoolStats()
-		return map[string]interface{}{
+		return map[string]any{
 			"Config": cfg,
 			"Active": stats.TotalConns - stats.IdleConns,
 		}
@@ -1014,8 +1066,8 @@ func applyStorageMiddleware(ctx context.Context, driver storagedriver.StorageDri
 // uploadPurgeDefaultConfig provides a default configuration for upload
 // purging to be used in the absence of configuration in the
 // configuration file
-func uploadPurgeDefaultConfig() map[interface{}]interface{} {
-	config := map[interface{}]interface{}{}
+func uploadPurgeDefaultConfig() map[any]any {
+	config := map[any]any{}
 	config["enabled"] = true
 	config["age"] = "168h"
 	config["interval"] = "24h"
@@ -1029,9 +1081,11 @@ func badPurgeUploadConfig(reason string) {
 
 // startUploadPurger schedules a goroutine which will periodically
 // check upload directories for old files and delete them
-func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageDriver, log dcontext.Logger, config map[interface{}]interface{}) {
+func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageDriver, log dcontext.Logger, config map[any]any) <-chan struct{} {
+	done := make(chan struct{})
 	if config["enabled"] == false {
-		return
+		close(done)
+		return done
 	}
 
 	var purgeAgeDuration time.Duration
@@ -1078,6 +1132,8 @@ func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageD
 	}
 
 	go func() {
+		defer close(done)
+
 		randInt, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
 		if err != nil {
 			log.Infof("Failed to generate random jitter: %v", err)
@@ -1086,12 +1142,27 @@ func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageD
 		}
 		jitter := time.Duration(randInt.Int64()%60) * time.Minute
 		log.Infof("Starting upload purge in %s", jitter)
-		time.Sleep(jitter)
+
+		select {
+		case <-time.After(jitter):
+		case <-ctx.Done():
+			return
+		}
+
+		ticker := time.NewTicker(intervalDuration)
+		defer ticker.Stop()
 
 		for {
 			storage.PurgeUploads(ctx, storageDriver, time.Now().Add(-purgeAgeDuration), !dryRunBool)
 			log.Infof("Starting upload purge in %s", intervalDuration)
-			time.Sleep(intervalDuration)
+
+			select {
+			case <-ticker.C:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
+
+	return done
 }
